@@ -24,7 +24,7 @@ export const EFE_CONFIG: TemplateConfig = {
 
   // Field Names
   idFieldName: 'VisualID',
-  templateIdFieldName: 'VisualTemplateID',
+  templateIdFieldName: 'TemplateID',
   serviceIdFieldName: 'ServiceID',
 
   // Features
@@ -67,6 +67,15 @@ export const EFE_CONFIG: TemplateConfig = {
   // IndexedDB Cache Keys
   templatesCacheKey: 'visual',
   visualsCacheKey: 'visual',
+
+  // Category Hub Features (unique to EFE)
+  categoryHubFeatures: {
+    hasVisualLocationDropdown: true,
+    visualLocationFieldName: 'StructStat',
+    completedHereValue: 'Completed Here',
+    providedElsewhereValue: 'Provided in Property Inspection Report',
+    navigationPattern: 'nested',  // /structural -> /structural/category/:cat
+  },
 
   // Category Detail Features
   categoryDetailFeatures: {
