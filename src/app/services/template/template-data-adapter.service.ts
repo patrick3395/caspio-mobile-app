@@ -3,6 +3,7 @@ import { firstValueFrom } from 'rxjs';
 import { CaspioService } from '../caspio.service';
 import { IndexedDbService, CacheDataType } from '../indexed-db.service';
 import { TempIdService } from '../temp-id.service';
+import { LocalImageService } from '../local-image.service';
 import { TemplateConfig, TemplateType } from './template-config.interface';
 import { TemplateConfigService } from './template-config.service';
 import { environment } from '../../../environments/environment';
@@ -51,7 +52,8 @@ export class TemplateDataAdapter {
     private caspioService: CaspioService,
     private indexedDb: IndexedDbService,
     private tempIdService: TempIdService,
-    private templateConfigService: TemplateConfigService
+    private templateConfigService: TemplateConfigService,
+    private localImageService: LocalImageService
   ) {}
 
   /**
@@ -418,10 +420,25 @@ export class TemplateDataAdapter {
       return { success: true, AttachID: attachId, ...attachmentData };
     } else {
       const isTempId = String(attachId).startsWith('temp_');
+      const isLocalImageId = String(attachId).startsWith('img_');
 
-      if (isTempId) {
+      if (isLocalImageId) {
+        // CRITICAL FIX: Handle local images (img_* prefix) that haven't synced yet
+        // Update the LocalImage's drawings/caption directly in IndexedDB
+        // The drawings will be uploaded with the image when background sync runs
+        console.log('[TemplateDataAdapter] Updating local image annotations:', attachId);
+        await this.localImageService.updateCaptionAndDrawings(
+          attachId,
+          attachmentData.Annotation, // caption
+          attachmentData.Drawings    // compressed drawings data
+        );
+
+        // Also cache the annotated image if we have blob data
+        // (This is handled by the photo handler when it creates the annotated blob)
+      } else if (isTempId) {
         await this.indexedDb.updatePendingRequestData(attachId, attachmentData);
       } else {
+        // Real server ID - queue update for sync
         await this.indexedDb.addPendingRequest({
           type: 'UPDATE',
           endpoint: `/api/caspio-proxy${endpoint}`,

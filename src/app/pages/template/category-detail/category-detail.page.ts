@@ -683,12 +683,24 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
               const freshDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
               if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.svg') {
                 const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10);
+
+                // ANNOTATION THUMBNAIL FIX: Use cached annotated image for thumbnail display
+                // Check BOTH attachId AND imageId for cached annotated image
+                // (cache may be stored under either depending on sync state)
+                let cachedAnnotatedUrl = localImage.attachId
+                  ? this.bulkAnnotatedImagesMap.get(localImage.attachId)
+                  : null;
+                if (!cachedAnnotatedUrl) {
+                  cachedAnnotatedUrl = this.bulkAnnotatedImagesMap.get(localImage.imageId);
+                }
+                const thumbnailUrl = (cachedAnnotatedUrl && hasAnnotations) ? cachedAnnotatedUrl : freshDisplayUrl;
+
                 this.visualPhotos[key][existingPhotoIndex] = {
                   ...this.visualPhotos[key][existingPhotoIndex],
-                  displayUrl: freshDisplayUrl,
-                  url: freshDisplayUrl,
-                  thumbnailUrl: freshDisplayUrl,
-                  originalUrl: freshDisplayUrl,
+                  displayUrl: thumbnailUrl,         // Use annotated version for display
+                  url: freshDisplayUrl,             // Original for upload
+                  thumbnailUrl: thumbnailUrl,       // Use annotated version for thumbnail
+                  originalUrl: freshDisplayUrl,     // Original for re-editing in annotator
                   localBlobId: localImage.localBlobId,
                   caption: localImage.caption || '',
                   Annotation: localImage.caption || '',
@@ -720,6 +732,27 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
           const hasAnnotations = !!localImage.drawings && localImage.drawings.length > 10;
 
+          // ANNOTATION THUMBNAIL FIX: Use cached annotated image for thumbnail display
+          // The original image URL is preserved in originalUrl for the annotator
+          // But thumbnailUrl and displayUrl should show the annotated version if available
+          let thumbnailUrl = displayUrl;
+
+          // Check for cached annotated image (stored when annotations are saved)
+          // NOTE: Must check BOTH attachId AND imageId because:
+          // - Before sync: cached with imageId ("img_xxx")
+          // - After sync: LocalImage has attachId ("12345") but cache still uses imageId
+          let cachedAnnotatedUrl = localImage.attachId
+            ? this.bulkAnnotatedImagesMap.get(localImage.attachId)
+            : null;
+          if (!cachedAnnotatedUrl) {
+            cachedAnnotatedUrl = this.bulkAnnotatedImagesMap.get(localImage.imageId);
+          }
+
+          if (cachedAnnotatedUrl && hasAnnotations) {
+            thumbnailUrl = cachedAnnotatedUrl;
+            this.logDebug('ANNOTATED', `Using cached annotated thumbnail for ${localImage.imageId}`);
+          }
+
           // Add photo to array
           this.visualPhotos[key].unshift({
             AttachID: localImage.attachId || localImage.imageId,
@@ -728,10 +761,10 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
             imageId: localImage.imageId,
             localImageId: localImage.imageId,
             localBlobId: localImage.localBlobId,
-            displayUrl: displayUrl,
-            url: displayUrl,
-            thumbnailUrl: displayUrl,
-            originalUrl: displayUrl,
+            displayUrl: thumbnailUrl,           // Use annotated version for display
+            url: displayUrl,                     // Original for upload
+            thumbnailUrl: thumbnailUrl,          // Use annotated version for thumbnail
+            originalUrl: displayUrl,             // Original for re-editing in annotator
             name: localImage.fileName,
             caption: localImage.caption || '',
             annotation: localImage.caption || '',
@@ -1975,6 +2008,79 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     if (!this.config) return;
 
     const key = `${category}_${itemId}`;
+
+    // DEXIE-FIRST FIX: For LocalImage photos, refresh drawings and URL from Dexie BEFORE opening annotator
+    // This is critical because:
+    // 1. The photo object in visualPhotos may have stale/empty drawings
+    // 2. After saving annotations, drawings are updated in Dexie but not in the in-memory photo object
+    // 3. We need the FULL RESOLUTION image for the annotator, not a thumbnail
+    const isLocalFirstPhoto = photo.isLocalFirst || photo.isLocalImage || photo.localImageId ||
+      (photo.imageId && String(photo.imageId).startsWith('img_'));
+
+    if (isLocalFirstPhoto && !environment.isWeb) {
+      const localImageId = photo.localImageId || photo.imageId;
+      this.logDebug('PHOTO', `LocalImage detected, refreshing from Dexie: ${localImageId}`);
+
+      try {
+        // Get fresh LocalImage from Dexie
+        const localImage = await this.indexedDb.getLocalImage(localImageId);
+
+        if (localImage) {
+          // CRITICAL: Update photo.Drawings with fresh data from Dexie
+          // This ensures annotations are shown in the editor even after page navigation
+          if (localImage.drawings && localImage.drawings.length > 10) {
+            photo.Drawings = localImage.drawings;
+            photo.hasAnnotations = true;
+            this.logDebug('PHOTO', `Loaded fresh drawings from Dexie: ${localImage.drawings.length} chars`);
+          }
+
+          // Get FULL RESOLUTION blob URL for the annotator
+          // Do NOT use getDisplayUrl() as it may return a thumbnail when full-res is purged
+          let fullResUrl: string | null = null;
+
+          if (localImage.localBlobId) {
+            fullResUrl = await this.localImageService.getOriginalBlobUrl(localImage.localBlobId);
+            if (fullResUrl) {
+              this.logDebug('PHOTO', `Got FULL RESOLUTION blob URL for annotator`);
+            }
+          }
+
+          // Fallback to S3 if local blob not available
+          if (!fullResUrl && localImage.remoteS3Key) {
+            try {
+              fullResUrl = await this.caspioService.getS3FileUrl(localImage.remoteS3Key);
+              if (fullResUrl) {
+                this.logDebug('PHOTO', `Got FULL RESOLUTION from S3`);
+              }
+            } catch (s3Err) {
+              this.logDebug('WARN', `S3 fetch failed: ${s3Err}`);
+            }
+          }
+
+          // Last resort: use getDisplayUrl (may be thumbnail)
+          if (!fullResUrl) {
+            fullResUrl = await this.localImageService.getDisplayUrl(localImage);
+          }
+
+          // Update photo URLs for the annotator
+          if (fullResUrl && fullResUrl !== 'assets/img/photo-placeholder.svg') {
+            photo.originalUrl = fullResUrl;  // CRITICAL: For re-editing without flattening
+            photo.url = fullResUrl;
+            this.logDebug('PHOTO', `Updated photo URLs from Dexie`);
+          }
+
+          // Update caption if changed
+          if (localImage.caption) {
+            photo.caption = localImage.caption;
+            photo.Annotation = localImage.caption;
+          }
+        } else {
+          this.logDebug('WARN', `LocalImage not found in Dexie: ${localImageId}`);
+        }
+      } catch (err) {
+        this.logDebug('ERROR', `Failed to refresh LocalImage from Dexie: ${err}`);
+      }
+    }
 
     // Configure view photo
     const viewConfig: ViewPhotoConfig = {
