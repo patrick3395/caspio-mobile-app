@@ -609,16 +609,67 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     const attachments = await this.dataAdapter.getAttachmentsWithConfig(this.config, this.visualId);
     console.log('[GenericVisualDetail] WEBAPP: Loaded', attachments.length, 'attachments');
 
-    this.photos = attachments.map((att: any) => ({
-      id: att.AttachID || att.PK_ID,
-      displayUrl: att.Photo || 'assets/img/photo-placeholder.svg',
-      originalUrl: att.Photo || 'assets/img/photo-placeholder.svg',
-      caption: att.Caption || '',
-      uploading: false,
-      isLocal: false,
-      hasAnnotations: !!(att.Drawings && att.Drawings.length > 10),
-      drawings: att.Drawings || ''
-    }));
+    this.photos = [];
+    for (const att of attachments || []) {
+      // Check Attachment first (S3 key), then Photo (legacy Caspio Files API)
+      let displayUrl = att.Attachment || att.Photo || att.url || att.displayUrl || 'assets/img/photo-placeholder.svg';
+
+      console.log('[GenericVisualDetail] WEBAPP: Processing attachment:', att.AttachID);
+
+      // If it's an S3 key, get signed URL
+      if (displayUrl && this.caspioService.isS3Key && this.caspioService.isS3Key(displayUrl)) {
+        try {
+          displayUrl = await this.caspioService.getS3FileUrl(displayUrl);
+          console.log('[GenericVisualDetail] WEBAPP: Got S3 signed URL for:', att.AttachID);
+        } catch (e) {
+          console.warn('[GenericVisualDetail] WEBAPP: Could not get S3 URL:', e);
+        }
+      }
+
+      const attachId = String(att.AttachID || att.attachId || att.PK_ID);
+      const hasServerAnnotations = !!(att.Drawings && att.Drawings.length > 10);
+      let thumbnailUrl = displayUrl;
+      let hasAnnotations = hasServerAnnotations;
+
+      // Check for cached annotated image
+      try {
+        const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(attachId);
+        if (cachedAnnotated && hasServerAnnotations) {
+          thumbnailUrl = cachedAnnotated;
+          hasAnnotations = true;
+          console.log(`[GenericVisualDetail] WEBAPP: Using cached annotated image for ${attachId}`);
+        } else if (cachedAnnotated && !hasServerAnnotations) {
+          console.log(`[GenericVisualDetail] WEBAPP: Clearing stale cached annotated image for ${attachId}`);
+          await this.indexedDb.deleteCachedAnnotatedImage(attachId);
+        } else if (hasServerAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
+          console.log(`[GenericVisualDetail] WEBAPP: Rendering annotations for ${attachId}...`);
+          const renderedUrl = await renderAnnotationsOnPhoto(displayUrl, att.Drawings);
+          if (renderedUrl && renderedUrl !== displayUrl) {
+            thumbnailUrl = renderedUrl;
+            try {
+              const response = await fetch(renderedUrl);
+              const blob = await response.blob();
+              await this.indexedDb.cacheAnnotatedImage(attachId, blob);
+            } catch (cacheErr) {
+              console.warn('[GenericVisualDetail] WEBAPP: Failed to cache annotated image:', cacheErr);
+            }
+          }
+        }
+      } catch (annotErr) {
+        console.warn(`[GenericVisualDetail] WEBAPP: Failed to process annotations for ${attachId}:`, annotErr);
+      }
+
+      this.photos.push({
+        id: attachId,
+        displayUrl: thumbnailUrl,
+        originalUrl: displayUrl,
+        caption: att.Caption || att.Annotation || '',
+        uploading: false,
+        isLocal: false,
+        hasAnnotations,
+        drawings: att.Drawings || ''
+      });
+    }
   }
 
   /**
