@@ -929,10 +929,10 @@ export class PhotoHandlerService {
     }
 
     // Cache annotated image for thumbnail display
-    const photoId = photo.id || photo.AttachID || photo.attachId;
+    const photoId = photo.id || photo.AttachID || photo.attachId || '';
     if (annotatedBlob && annotatedBlob.size > 0 && photoId) {
       try {
-        await this.indexedDb.cacheAnnotatedImage(String(photoId), annotatedBlob);
+        await this.indexedDb.cacheAnnotatedImage(photoId, annotatedBlob);
         console.log('[PhotoHandler] Cached annotated image for:', photoId);
       } catch (cacheErr) {
         console.warn('[PhotoHandler] Failed to cache annotated image:', cacheErr);
@@ -940,7 +940,7 @@ export class PhotoHandlerService {
     }
 
     // Call the save callback if provided
-    if (onSaveAnnotation) {
+    if (onSaveAnnotation && photoId) {
       try {
         await onSaveAnnotation(photoId, compressedDrawings, newCaption);
         console.log('[PhotoHandler] Annotation saved via callback');

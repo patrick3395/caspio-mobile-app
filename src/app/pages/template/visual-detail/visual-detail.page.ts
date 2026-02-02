@@ -671,7 +671,7 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
   }
 
   /**
-   * Load photos in mobile mode (Dexie)
+   * Load photos in mobile mode (Dexie + API for synced photos)
    */
   private async loadPhotosMobile() {
     if (!this.config) return;
@@ -695,47 +695,37 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
     console.log('[GenericVisualDetail] MOBILE: Loading photos for visualId:', this.visualId);
 
-    // Tiered lookup for photos
+    // Track loaded photo IDs to avoid duplicates
+    const loadedPhotoIds = new Set<string>();
+    this.photos = [];
+
+    // ===== STEP 1: Load local images from Dexie (unsynced photos) =====
     let localImages: any[] = [];
-    let foundAtTier = 0;
 
     // Tier 1: By visualId as entityId
     localImages = await db.localImages.where('entityId').equals(this.visualId).toArray();
     if (localImages.length > 0) {
-      foundAtTier = 1;
-      console.log('[GenericVisualDetail] MOBILE: TIER 1 - Found', localImages.length, 'photos');
+      console.log('[GenericVisualDetail] MOBILE: Found', localImages.length, 'local images');
     }
 
-    // Tier 2: By tempVisualId
-    if (localImages.length === 0 && field?.tempVisualId) {
-      localImages = await db.localImages.where('entityId').equals(field.tempVisualId).toArray();
-      if (localImages.length > 0) {
-        foundAtTier = 2;
-        console.log('[GenericVisualDetail] MOBILE: TIER 2 (tempVisualId) - Found', localImages.length, 'photos');
+    // Tier 2: By tempVisualId (if different)
+    if (field?.tempVisualId && field.tempVisualId !== this.visualId) {
+      const tempImages = await db.localImages.where('entityId').equals(field.tempVisualId).toArray();
+      if (tempImages.length > 0) {
+        console.log('[GenericVisualDetail] MOBILE: Found', tempImages.length, 'local images via tempVisualId');
+        localImages = [...localImages, ...tempImages];
       }
     }
 
-    // Tier 3: By visualId (if different from tempVisualId)
-    if (localImages.length === 0 && field?.visualId && field.visualId !== field?.tempVisualId) {
-      localImages = await db.localImages.where('entityId').equals(String(field.visualId)).toArray();
-      if (localImages.length > 0) {
-        foundAtTier = 3;
-        console.log('[GenericVisualDetail] MOBILE: TIER 3 (realId) - Found', localImages.length, 'photos');
-      }
-    }
-
-    if (foundAtTier > 0) {
-      console.log('[GenericVisualDetail] MOBILE: Photos found at TIER', foundAtTier);
-    } else {
-      console.log('[GenericVisualDetail] MOBILE: No photos found for visualId:', this.visualId);
-    }
-
-    // Convert to PhotoItem format
-    this.photos = [];
-
+    // Process local images
     for (const img of localImages) {
-      const hasAnnotations = !!(img.drawings && img.drawings.length > 10);
+      // Skip if already synced and will be loaded from server
+      if (img.isSynced && img.attachId) {
+        loadedPhotoIds.add(img.attachId);
+        continue;
+      }
 
+      const hasAnnotations = !!(img.drawings && img.drawings.length > 10);
       let displayUrl = 'assets/img/photo-placeholder.svg';
       let originalUrl = displayUrl;
 
@@ -747,7 +737,7 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         }
       }
 
-      // Get blob URL
+      // Get blob URL from local storage
       if (img.localBlobId) {
         const blob = await db.localBlobs.get(img.localBlobId);
         if (blob) {
@@ -762,18 +752,105 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         if (displayUrl === 'assets/img/photo-placeholder.svg') {
           displayUrl = img.remoteUrl;
         }
+      } else if (img.remoteS3Key) {
+        // Try to get S3 URL
+        try {
+          originalUrl = await this.caspioService.getS3FileUrl(img.remoteS3Key);
+          if (displayUrl === 'assets/img/photo-placeholder.svg') {
+            displayUrl = originalUrl;
+          }
+        } catch (e) {
+          console.warn('[GenericVisualDetail] MOBILE: Could not get S3 URL for local image:', e);
+        }
       }
 
+      loadedPhotoIds.add(img.imageId);
       this.photos.push({
         id: img.imageId,
         displayUrl,
         originalUrl,
         caption: img.caption || '',
         uploading: img.status === 'queued' || img.status === 'uploading',
-        isLocal: !img.isSynced,
+        isLocal: true,
         hasAnnotations,
         drawings: img.drawings || ''
       });
+    }
+
+    console.log('[GenericVisualDetail] MOBILE: Added', this.photos.length, 'local photos');
+
+    // ===== STEP 2: Load synced attachments from API =====
+    // Only fetch if we have a real visualId (not temp_)
+    if (this.visualId && !this.visualId.startsWith('temp_')) {
+      try {
+        const attachments = await this.dataAdapter.getAttachmentsWithConfig(this.config, this.visualId);
+        console.log('[GenericVisualDetail] MOBILE: Fetched', attachments.length, 'synced attachments from API');
+
+        for (const att of attachments || []) {
+          const attachId = String(att.AttachID || att.attachId || att.PK_ID || '');
+
+          // Skip if already loaded from local images
+          if (loadedPhotoIds.has(attachId)) {
+            continue;
+          }
+
+          // Get display URL - convert S3 key if needed
+          let displayUrl = att.Attachment || att.Photo || att.url || 'assets/img/photo-placeholder.svg';
+          if (displayUrl && this.caspioService.isS3Key && this.caspioService.isS3Key(displayUrl)) {
+            try {
+              displayUrl = await this.caspioService.getS3FileUrl(displayUrl);
+            } catch (e) {
+              console.warn('[GenericVisualDetail] MOBILE: Could not get S3 URL:', e);
+            }
+          }
+
+          const hasServerAnnotations = !!(att.Drawings && att.Drawings.length > 10);
+          let thumbnailUrl = displayUrl;
+          let hasAnnotations = hasServerAnnotations;
+
+          // Check for cached annotated image
+          try {
+            const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(attachId);
+            if (cachedAnnotated && hasServerAnnotations) {
+              thumbnailUrl = cachedAnnotated;
+              hasAnnotations = true;
+            } else if (hasServerAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
+              // Render annotations on the fly
+              const renderedUrl = await renderAnnotationsOnPhoto(displayUrl, att.Drawings);
+              if (renderedUrl && renderedUrl !== displayUrl) {
+                thumbnailUrl = renderedUrl;
+                // Cache for next time
+                try {
+                  const response = await fetch(renderedUrl);
+                  const blob = await response.blob();
+                  await this.indexedDb.cacheAnnotatedImage(attachId, blob);
+                } catch (cacheErr) {
+                  console.warn('[GenericVisualDetail] MOBILE: Failed to cache annotated image:', cacheErr);
+                }
+              }
+            }
+          } catch (annotErr) {
+            console.warn('[GenericVisualDetail] MOBILE: Failed to process annotations:', annotErr);
+          }
+
+          loadedPhotoIds.add(attachId);
+          this.photos.push({
+            id: attachId,
+            displayUrl: thumbnailUrl,
+            originalUrl: displayUrl,
+            caption: att.Caption || att.Annotation || '',
+            uploading: false,
+            isLocal: false,
+            hasAnnotations,
+            drawings: att.Drawings || ''
+          });
+        }
+
+        console.log('[GenericVisualDetail] MOBILE: Total photos after API fetch:', this.photos.length);
+      } catch (apiErr) {
+        console.warn('[GenericVisualDetail] MOBILE: Could not fetch attachments from API:', apiErr);
+        // Continue with local photos only
+      }
     }
   }
 
