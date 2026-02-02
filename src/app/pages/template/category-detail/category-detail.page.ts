@@ -720,6 +720,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
                 }
                 const thumbnailUrl = (cachedAnnotatedUrl && hasAnnotations) ? cachedAnnotatedUrl : freshDisplayUrl;
 
+                // DEXIE-FIRST FIX: Always set uploading/loading to false when updating from LocalImages
+                // The image data is already available locally in Dexie - no loading spinner needed
                 this.visualPhotos[key][existingPhotoIndex] = {
                   ...this.visualPhotos[key][existingPhotoIndex],
                   displayUrl: thumbnailUrl,         // Use annotated version for display
@@ -732,7 +734,11 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
                   Drawings: localImage.drawings || null,
                   hasAnnotations: hasAnnotations,
                   isLocalImage: true,
-                  isLocalFirst: true
+                  isLocalFirst: true,
+                  // Clear loading states - data is available from Dexie
+                  uploading: false,
+                  loading: false,
+                  displayState: 'local'
                 };
               }
             } catch (e) {
@@ -798,6 +804,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
             hasAnnotations: hasAnnotations,
             loading: false,
             uploading: false,
+            displayState: 'local',  // Dexie-first: data is always local
             queued: false,
             isSkeleton: false,
             isLocalImage: true,
@@ -944,6 +951,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
                 }
                 const thumbnailUrl = (cachedAnnotatedUrl && hasAnnotations) ? cachedAnnotatedUrl : freshDisplayUrl;
 
+                // DEXIE-FIRST FIX: Always set uploading/loading to false when updating from LocalImages
+                // The image data is already available locally in Dexie - no loading spinner needed
                 this.visualPhotos[key][existingPhotoIndex] = {
                   ...this.visualPhotos[key][existingPhotoIndex],
                   displayUrl: thumbnailUrl,
@@ -956,7 +965,11 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
                   Drawings: localImage.drawings || null,
                   hasAnnotations: hasAnnotations,
                   isLocalImage: true,
-                  isLocalFirst: true
+                  isLocalFirst: true,
+                  // Clear loading states - data is available from Dexie
+                  uploading: false,
+                  loading: false,
+                  displayState: 'local'
                 };
               }
             } catch (e) {
@@ -995,7 +1008,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
             this.logDebug('ANNOTATED', `Using cached annotated thumbnail for ${localImage.imageId}`);
           }
 
-          // Add photo to array
+          // Add photo to array - Dexie-first means data is always local, no loading needed
           this.visualPhotos[key].unshift({
             AttachID: localImage.attachId || localImage.imageId,
             attachId: localImage.attachId || localImage.imageId,
@@ -1015,6 +1028,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
             hasAnnotations: hasAnnotations,
             loading: false,
             uploading: false,
+            displayState: 'local',  // Dexie-first: data is always local
             queued: false,
             isSkeleton: false,
             isLocalImage: true,
