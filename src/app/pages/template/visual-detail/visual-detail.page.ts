@@ -209,12 +209,13 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     }
 
     // Get visual ID from query params (template-specific param name)
+    // Works for BOTH webapp and mobile
     const queryParams = this.route.snapshot.queryParams;
     const visualIdParamName = this.getVisualIdParamName();
 
-    if (environment.isWeb && queryParams[visualIdParamName]) {
+    if (queryParams[visualIdParamName]) {
       this.visualId = queryParams[visualIdParamName];
-      console.log(`[GenericVisualDetail] WEBAPP: ${visualIdParamName} from query params:`, this.visualId);
+      console.log(`[GenericVisualDetail] ${visualIdParamName} from query params:`, this.visualId);
     }
 
     // Get actualServiceId from query params
@@ -327,7 +328,7 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
   }
 
   /**
-   * Load visual data in mobile mode (Dexie-first)
+   * Load visual data in mobile mode (Dexie-first with API fallback)
    */
   private async loadVisualDataMobile() {
     if (!this.config) return;
@@ -344,13 +345,34 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       // Load templates for fallback
       // Cast to expected type - templatesCacheKey is configured to match these values
       const cacheKey = this.config.templatesCacheKey as 'visual' | 'hud' | 'lbw' | 'dte' | 'efe';
-      const cachedTemplates = await this.indexedDb.getCachedTemplates(cacheKey) || [];
-      const template = cachedTemplates.find((t: any) =>
+      let cachedTemplates = await this.indexedDb.getCachedTemplates(cacheKey) || [];
+      let template = cachedTemplates.find((t: any) =>
         Number(t.TemplateID || t.PK_ID) === this.templateId
       );
 
       console.log('[GenericVisualDetail] MOBILE: Field found:', !!field);
       console.log('[GenericVisualDetail] MOBILE: Template found:', !!template);
+      console.log('[GenericVisualDetail] MOBILE: Cached templates count:', cachedTemplates.length);
+
+      // Get visualId from field if available
+      if (field) {
+        this.visualId = String(field.tempVisualId || field.visualId || '');
+      }
+
+      // If no visualId from field, try to find from API visuals
+      if (!this.visualId) {
+        try {
+          const queryServiceId = this.actualServiceId || this.serviceId;
+          const visuals = await this.dataAdapter.getVisualsWithConfig(this.config, queryServiceId);
+          const visual = this.findMatchingVisual(visuals);
+          if (visual) {
+            this.visualId = String(visual[this.config.idFieldName] || visual.PK_ID);
+            console.log('[GenericVisualDetail] MOBILE: Got visualId from API:', this.visualId);
+          }
+        } catch (apiErr) {
+          console.warn('[GenericVisualDetail] MOBILE: Could not fetch visuals from API:', apiErr);
+        }
+      }
 
       if (field && field.templateName) {
         // Use Dexie field directly
@@ -358,7 +380,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         this.editableTitle = this.item.name;
         this.editableText = this.item.text;
         this.categoryName = field.category || this.categoryName;
-        this.visualId = String(field.tempVisualId || field.visualId || '');
         console.log('[GenericVisualDetail] MOBILE: Loaded from Dexie field:', this.item.name);
       } else if (field && template) {
         // Merge field with template
@@ -366,7 +387,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         this.editableTitle = this.item.name;
         this.editableText = this.item.text;
         this.categoryName = field.category || template.Category || this.categoryName;
-        this.visualId = String(field.tempVisualId || field.visualId || '');
         console.log('[GenericVisualDetail] MOBILE: Merged field+template');
       } else if (template) {
         // Use template only
@@ -376,10 +396,34 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         this.categoryName = template.Category || this.categoryName;
         console.log('[GenericVisualDetail] MOBILE: Loaded from template');
       } else {
-        console.error('[GenericVisualDetail] MOBILE: Neither field nor template found');
-        this.loading = false;
-        this.changeDetectorRef.detectChanges();
-        return;
+        // FALLBACK: Try API if cache is empty
+        console.log('[GenericVisualDetail] MOBILE: Cache empty, trying API fallback...');
+        try {
+          const templates = await this.dataAdapter.getTemplatesWithConfig(this.config);
+          template = templates.find((t: any) =>
+            (t.TemplateID || t.PK_ID) == this.templateId
+          );
+
+          if (template) {
+            this.item = this.convertTemplateToItem(template);
+            this.editableTitle = this.item.name;
+            this.editableText = this.item.text;
+            this.categoryName = template.Category || this.categoryName;
+            console.log('[GenericVisualDetail] MOBILE: Loaded from API template:', this.item.name);
+          } else {
+            // Last resort: create minimal item
+            console.warn('[GenericVisualDetail] MOBILE: Creating minimal item');
+            this.item = this.createMinimalItem();
+            this.editableTitle = this.item.name;
+            this.editableText = '';
+          }
+        } catch (apiErr) {
+          console.error('[GenericVisualDetail] MOBILE: API fallback failed:', apiErr);
+          // Create minimal item anyway so page doesn't show "not found"
+          this.item = this.createMinimalItem();
+          this.editableTitle = this.item.name;
+          this.editableText = '';
+        }
       }
 
       // Set up Dexie subscription for real-time updates
@@ -391,6 +435,10 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
     } catch (error) {
       console.error('[GenericVisualDetail] MOBILE: Error loading visual:', error);
+      // Even on error, create minimal item to avoid "not found" screen
+      this.item = this.createMinimalItem();
+      this.editableTitle = this.item.name;
+      this.editableText = '';
       this.loading = false;
       this.changeDetectorRef.detectChanges();
     }
