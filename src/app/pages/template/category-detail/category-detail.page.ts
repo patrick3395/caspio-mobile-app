@@ -542,10 +542,32 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           break;
 
         case 'dte':
-          // DTE templates - check cache first, then fallback
-          const dteTemplates = await this.indexedDb.getCachedTemplates('dte');
+          // DTE templates - check cache first, fetch from API if not cached
+          let dteTemplates = await this.indexedDb.getCachedTemplates('dte');
           if (!dteTemplates || dteTemplates.length === 0) {
-            this.logDebug('WARN', 'DTE templates not cached - may need service download');
+            this.logDebug('DEXIE', 'DTE templates not cached, fetching from API...');
+            try {
+              dteTemplates = await firstValueFrom(this.caspioService.getServicesDTETemplates());
+              if (dteTemplates && dteTemplates.length > 0) {
+                await this.indexedDb.cacheTemplates('dte', dteTemplates);
+                this.logDebug('DEXIE', `DTE templates fetched and cached: ${dteTemplates.length}`);
+              }
+            } catch (err) {
+              this.logDebug('WARN', `Failed to fetch DTE templates: ${err}`);
+            }
+          }
+          // Also fetch DTE dropdown if not cached
+          let dteDropdown = await this.indexedDb.getCachedTemplates('dte_dropdown' as any);
+          if (!dteDropdown || dteDropdown.length === 0) {
+            try {
+              dteDropdown = await firstValueFrom(this.caspioService.getServicesDTEDrop());
+              if (dteDropdown && dteDropdown.length > 0) {
+                await this.indexedDb.cacheTemplates('dte_dropdown' as any, dteDropdown);
+                this.logDebug('DEXIE', `DTE dropdown fetched and cached: ${dteDropdown.length}`);
+              }
+            } catch (err) {
+              this.logDebug('WARN', `Failed to fetch DTE dropdown: ${err}`);
+            }
           }
           break;
 

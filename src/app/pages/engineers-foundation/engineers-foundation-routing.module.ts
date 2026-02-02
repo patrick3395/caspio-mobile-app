@@ -6,7 +6,8 @@ import { EngineersFoundationContainerPage } from './engineers-foundation-contain
 import { EngineersFoundationMainPage } from './engineers-foundation-main/engineers-foundation-main.page';
 import { ProjectDetailsPage } from './project-details/project-details.page';
 import { StructuralSystemsHubPage } from './structural-systems/structural-systems-hub/structural-systems-hub.page';
-import { CategoryDetailPage } from './structural-systems/category-detail/category-detail.page';
+// Use generic category-detail page (Dexie-first consolidation)
+import { GenericCategoryDetailPage } from '../template/category-detail/category-detail.page';
 // Use generic visual-detail page (consolidation)
 import { GenericVisualDetailPage } from '../template/visual-detail/visual-detail.page';
 import { ElevationPlotHubPage } from './elevation-plot-hub/elevation-plot-hub.page';
@@ -35,7 +36,7 @@ const routes: Routes = [
           {
             path: 'category/:category',
             children: [
-              { path: '', component: CategoryDetailPage },
+              { path: '', component: GenericCategoryDetailPage },
               { path: 'visual/:templateId', component: GenericVisualDetailPage }
             ]
           }

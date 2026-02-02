@@ -6,7 +6,8 @@ import { LbwContainerPage } from './lbw-container/lbw-container.page';
 import { LbwMainPage } from './lbw-main/lbw-main.page';
 import { LbwProjectDetailsPage } from './lbw-project-details/lbw-project-details.page';
 import { LbwCategoriesPage } from './lbw-categories/lbw-categories.page';
-import { LbwCategoryDetailPage } from './lbw-category-detail/lbw-category-detail.page';
+// Use generic category-detail page (Dexie-first consolidation)
+import { GenericCategoryDetailPage } from '../template/category-detail/category-detail.page';
 // Use generic visual-detail page (consolidation)
 import { GenericVisualDetailPage } from '../template/visual-detail/visual-detail.page';
 
@@ -30,7 +31,7 @@ const routes: Routes = [
       {
         path: 'category/:category',
         children: [
-          { path: '', component: LbwCategoryDetailPage },
+          { path: '', component: GenericCategoryDetailPage },
           { path: 'visual/:templateId', component: GenericVisualDetailPage }
         ]
       }

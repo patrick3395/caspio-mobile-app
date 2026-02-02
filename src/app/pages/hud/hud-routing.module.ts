@@ -5,7 +5,8 @@ import { RouterModule, Routes } from '@angular/router';
 import { HudContainerPage } from './hud-container/hud-container.page';
 import { HudMainPage } from './hud-main/hud-main.page';
 import { HudProjectDetailsPage } from './hud-project-details/hud-project-details.page';
-import { HudCategoryDetailPage } from './hud-category-detail/hud-category-detail.page';
+// Use generic category-detail page (Dexie-first consolidation)
+import { GenericCategoryDetailPage } from '../template/category-detail/category-detail.page';
 // Use generic visual-detail page (consolidation)
 import { GenericVisualDetailPage } from '../template/visual-detail/visual-detail.page';
 
@@ -25,7 +26,7 @@ const routes: Routes = [
       {
         path: 'category/:category',
         children: [
-          { path: '', component: HudCategoryDetailPage },
+          { path: '', component: GenericCategoryDetailPage },
           { path: 'visual/:templateId', component: GenericVisualDetailPage }
         ]
       }

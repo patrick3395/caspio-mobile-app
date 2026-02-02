@@ -6,7 +6,8 @@ import { DteContainerPage } from './dte-container/dte-container.page';
 import { DteMainPage } from './dte-main/dte-main.page';
 import { DteProjectDetailsPage } from './dte-project-details/dte-project-details.page';
 import { DteCategoriesPage } from './dte-categories/dte-categories.page';
-import { DteCategoryDetailPage } from './dte-category-detail/dte-category-detail.page';
+// Use generic category-detail page (Dexie-first consolidation)
+import { GenericCategoryDetailPage } from '../template/category-detail/category-detail.page';
 // Use generic visual-detail page (consolidation)
 import { GenericVisualDetailPage } from '../template/visual-detail/visual-detail.page';
 
@@ -30,7 +31,7 @@ const routes: Routes = [
       {
         path: 'category/:category',
         children: [
-          { path: '', component: DteCategoryDetailPage },
+          { path: '', component: GenericCategoryDetailPage },
           { path: 'visual/:templateId', component: GenericVisualDetailPage }
         ]
       }
