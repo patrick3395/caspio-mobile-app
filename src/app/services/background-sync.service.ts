@@ -1272,28 +1272,42 @@ export class BackgroundSyncService {
           const serviceId = request.data?.ServiceID;
           // Extract visual ID from result
           let visualId = result?.VisualID || result?.Result?.[0]?.VisualID || result?.PK_ID || result?.Result?.[0]?.PK_ID;
-          
-          if (serviceId && visualId) {
-            console.log(`[BackgroundSync] Visual created - emitting visualSyncComplete for serviceId=${serviceId}, visualId=${visualId}`);
 
-            // US-002 FIX: Store temp-to-real ID mapping for visuals
-            // This allows populatePhotosFromDexie to find photos on page reload
-            // when VisualField still has tempId but LocalImages.entityId was updated to realId
-            if (request.tempId) {
-              await this.indexedDb.mapTempId(request.tempId, String(visualId), 'visual');
-              console.log(`[BackgroundSync] ✅ Stored visual ID mapping: ${request.tempId} -> ${visualId}`);
-            }
+          // CRITICAL FIX: Always store temp ID mapping if visualId is found
+          // Previously required both serviceId AND visualId, but if serviceId is NaN (from empty string),
+          // the mapping wouldn't be stored and photos would be stuck with "Waiting for parent entity sync"
+          if (visualId && request.tempId) {
+            await this.indexedDb.mapTempId(request.tempId, String(visualId), 'visual');
+            console.log(`[BackgroundSync] ✅ Stored visual ID mapping: ${request.tempId} -> ${visualId}`);
+          } else if (!visualId) {
+            console.error(`[BackgroundSync] ❌ Visual CREATE succeeded but no VisualID in response:`, JSON.stringify(result)?.substring(0, 200));
+          }
+
+          // Emit sync complete and refresh cache only if we have a valid serviceId
+          const validServiceId = serviceId && !isNaN(Number(serviceId)) ? String(serviceId) : null;
+          if (validServiceId && visualId) {
+            console.log(`[BackgroundSync] Visual created - emitting visualSyncComplete for serviceId=${validServiceId}, visualId=${visualId}`);
 
             this.ngZone.run(() => {
               this.visualSyncComplete$.next({
-                serviceId: String(serviceId),
+                serviceId: validServiceId,
                 visualId: String(visualId),
                 tempId: request.tempId
               });
             });
-            
+
             // Also refresh the visuals cache from server
-            await this.refreshVisualsCache(String(serviceId));
+            await this.refreshVisualsCache(validServiceId);
+          } else if (visualId) {
+            // Visual created but serviceId invalid - still emit event with what we have
+            console.warn(`[BackgroundSync] Visual created but serviceId invalid (${serviceId}), visualId=${visualId}`);
+            this.ngZone.run(() => {
+              this.visualSyncComplete$.next({
+                serviceId: String(serviceId || ''),
+                visualId: String(visualId),
+                tempId: request.tempId
+              });
+            });
           }
         }
 
@@ -3607,6 +3621,20 @@ export class BackgroundSyncService {
             `lbw upload for ${item.imageId}`
           );
           console.log('[BackgroundSync] LBW photo upload completed:', item.imageId, 'result:', result);
+          break;
+        case 'dte':
+          // DTE photos are stored in LPS_Services_DTE_Attach table
+          console.log('[BackgroundSync] DTE photo upload starting:', item.imageId, 'dteId:', entityId);
+          result = await uploadWithTimeout(
+            this.caspioService.createServicesDTEAttachWithFile(
+              parseInt(entityId),
+              image.caption || '',
+              file,
+              image.drawings || ''
+            ).toPromise(),
+            `dte upload for ${item.imageId}`
+          );
+          console.log('[BackgroundSync] DTE photo upload completed:', item.imageId, 'result:', result);
           break;
         default:
           throw new Error(`Unsupported entity type: ${image.entityType}`);

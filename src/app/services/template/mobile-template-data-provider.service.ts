@@ -482,7 +482,16 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
 
   private mapFromVisualRecord(config: TemplateConfig, record: Partial<VisualRecord>): any {
     const dbRecord: any = {};
-    if (record.serviceId !== undefined) dbRecord.ServiceID = parseInt(String(record.serviceId), 10);
+    // CRITICAL FIX: Validate ServiceID is not NaN before setting
+    // parseInt of empty string returns NaN, which causes temp ID mapping to fail
+    if (record.serviceId !== undefined && record.serviceId !== '') {
+      const parsedId = parseInt(String(record.serviceId), 10);
+      if (!isNaN(parsedId)) {
+        dbRecord.ServiceID = parsedId;
+      } else {
+        console.error('[MobileDataProvider] Invalid serviceId (NaN):', record.serviceId);
+      }
+    }
     if (record.templateId !== undefined) dbRecord[config.templateIdFieldName] = record.templateId;
     if (record.category !== undefined) dbRecord.Category = record.category;
     if (record.name !== undefined) dbRecord.Name = record.name;
