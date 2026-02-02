@@ -1461,17 +1461,21 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     try {
       photo.caption = caption;
 
-      // WEBAPP MODE: Update directly via API
+      // WEBAPP MODE: Update directly via Caspio API
       if (environment.isWeb && !photo.isLocal) {
         const attachId = photo.id;
         if (attachId && !String(attachId).startsWith('temp_') && !String(attachId).startsWith('img_')) {
-          // Use dataAdapter to update caption, preserve existing drawings
-          await this.dataAdapter.updateAttachment(attachId, {
-            Caption: caption,
+          // Use CaspioService directly with the correct attach table from config
+          const attachTable = this.config?.attachTableName || 'LPS_Services_Visuals_Attach';
+          const updateData = {
             Annotation: caption,
             Drawings: photo.drawings || ''
-          });
-          console.log('[GenericVisualDetail] WEBAPP: Updated caption via API (preserved drawings):', attachId);
+          };
+
+          await firstValueFrom(
+            this.caspioService.put(`/tables/${attachTable}/records?q.where=AttachID=${attachId}`, updateData)
+          );
+          console.log('[GenericVisualDetail] WEBAPP: Updated caption via API:', attachId, 'table:', attachTable);
         }
         this.changeDetectorRef.detectChanges();
         return;
