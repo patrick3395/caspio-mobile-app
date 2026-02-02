@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone } from '@angula
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
-import { IonicModule, ToastController, LoadingController, AlertController, ModalController } from '@ionic/angular';
+import { IonicModule, ToastController, LoadingController, AlertController, ModalController, ViewWillEnter } from '@ionic/angular';
 import { Subject, Subscription } from 'rxjs';
 import { takeUntil, debounceTime, filter } from 'rxjs/operators';
 
@@ -10,7 +10,7 @@ import { environment } from '../../../../environments/environment';
 import { TemplateConfig } from '../../../services/template/template-config.interface';
 import { TemplateConfigService } from '../../../services/template/template-config.service';
 import { TemplateDataAdapter } from '../../../services/template/template-data-adapter.service';
-import { IndexedDbService } from '../../../services/indexed-db.service';
+import { IndexedDbService, LocalImage } from '../../../services/indexed-db.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
 import { PhotoHandlerService, PhotoCaptureConfig, ViewPhotoConfig, ViewPhotoResult, StandardPhotoEntry } from '../../../services/photo-handler.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
@@ -20,7 +20,11 @@ import { LbwDataService } from '../../lbw/lbw-data.service';
 import { DteDataService } from '../../dte/dte-data.service';
 import { EngineersFoundationDataService } from '../../engineers-foundation/engineers-foundation-data.service';
 import { HasUnsavedChanges } from '../../../services/unsaved-changes.service';
+import { LocalImageService } from '../../../services/local-image.service';
+import { AddCustomVisualModalComponent } from '../../../modals/add-custom-visual-modal/add-custom-visual-modal.component';
 import { firstValueFrom } from 'rxjs';
+import { db, VisualField } from '../../../services/caspio-db';
+import { VisualFieldRepoService } from '../../../services/visual-field-repo.service';
 
 /**
  * Visual item interface for category detail pages
@@ -77,7 +81,7 @@ interface DebugLogEntry {
   standalone: true,
   imports: [CommonModule, IonicModule, FormsModule]
 })
-export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
+export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, HasUnsavedChanges {
   // ==================== Template Config ====================
   config: TemplateConfig | null = null;
 
@@ -108,6 +112,21 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedC
   expandedPhotos: { [key: string]: boolean } = {};
   bulkAnnotatedImagesMap: Map<string, string> = new Map();
 
+  // ==================== DEXIE-FIRST: Bulk Caching Maps (MOBILE ONLY) ====================
+  private bulkLocalImagesMap: Map<string, LocalImage[]> = new Map();
+  private tempIdToRealIdCache: Map<string, string> = new Map();
+  private lastConvertedFields: VisualField[] = [];
+
+  // ==================== DEXIE-FIRST: Guard Flags (MOBILE ONLY) ====================
+  private isPopulatingPhotos = false;
+  private localOperationCooldown = false;
+  private isCameraCaptureInProgress = false;
+  private isMultiImageUploadInProgress = false;
+  private liveQueryDebounceTimer: any = null;
+  private initialLoadComplete: boolean = false;
+  private lastLoadedServiceId: string = '';
+  private lastLoadedCategoryName: string = '';
+
   // ==================== Accordion State ====================
   expandedSections: Set<string> = new Set(['information', 'limitations', 'deficiencies']);
 
@@ -119,6 +138,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedC
   private destroy$ = new Subject<void>();
   private configSubscription?: Subscription;
   private syncSubscription?: Subscription;
+  private localImagesSubscription?: Subscription;
+  private visualFieldsSubscription?: Subscription;
 
   constructor(
     private router: Router,
@@ -136,10 +157,12 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedC
     private photoHandler: PhotoHandlerService,
     private offlineTemplate: OfflineTemplateService,
     private caspioService: CaspioService,
+    private localImageService: LocalImageService,
     private hudData: HudDataService,
     private lbwData: LbwDataService,
     private dteData: DteDataService,
-    private efeData: EngineersFoundationDataService
+    private efeData: EngineersFoundationDataService,
+    private visualFieldRepo: VisualFieldRepoService
   ) {}
 
   // ==================== Lifecycle ====================
@@ -159,8 +182,32 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedC
 
   ionViewWillEnter(): void {
     this.logDebug('VIEW', 'ionViewWillEnter called');
+
+    // DEXIE-FIRST (MOBILE): Use smart reload with reactive subscriptions
+    if (!environment.isWeb && this.config?.features.offlineFirst) {
+      // If initial load not complete, subscriptions will be set up in loadRouteParams
+      if (!this.initialLoadComplete) {
+        this.logDebug('VIEW', 'Initial load not complete, skipping ionViewWillEnter');
+        return;
+      }
+
+      // Check if we need to reload (different service/category)
+      const needsReload = this.serviceId !== this.lastLoadedServiceId ||
+                          this.categoryName !== this.lastLoadedCategoryName;
+
+      if (needsReload) {
+        this.logDebug('VIEW', 'Service/category changed, reinitializing');
+        this.initializeVisualFields();
+      } else {
+        // Same page, just refresh photos from Dexie
+        this.logDebug('VIEW', 'Same page, refreshing local state');
+        this.refreshLocalState();
+      }
+      return;
+    }
+
+    // WEBAPP: Use existing API-based refresh
     if (this.config && !this.loading) {
-      // Refresh data on page re-entry
       this.loadData();
     }
   }
@@ -171,6 +218,16 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedC
     this.destroy$.complete();
     this.configSubscription?.unsubscribe();
     this.syncSubscription?.unsubscribe();
+
+    // DEXIE-FIRST: Clean up Dexie subscriptions
+    this.localImagesSubscription?.unsubscribe();
+    this.visualFieldsSubscription?.unsubscribe();
+
+    // Clear debounce timers
+    if (this.liveQueryDebounceTimer) {
+      clearTimeout(this.liveQueryDebounceTimer);
+      this.liveQueryDebounceTimer = null;
+    }
   }
 
   // ==================== HasUnsavedChanges ====================
@@ -182,7 +239,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedC
 
   // ==================== Route Loading ====================
 
-  private loadRouteParams(): void {
+  private async loadRouteParams(): Promise<void> {
     // Get route params - need to traverse up the route tree
     // Route structure: template/:projectId/:serviceId/category/:category
     // or: template/:projectId/:serviceId/structural/category/:category (for EFE)
@@ -205,7 +262,18 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedC
     this.logDebug('ROUTE', `Loaded params: projectId=${this.projectId}, serviceId=${this.serviceId}, category=${this.categoryName}`);
 
     if (this.serviceId && this.categoryName) {
-      this.loadData();
+      // DEXIE-FIRST: Use different loading strategies based on platform
+      if (environment.isWeb) {
+        // WEBAPP: Use existing API-based loading
+        await this.loadData();
+      } else {
+        // MOBILE: Use Dexie-first for templates that support it
+        if (this.config?.features.offlineFirst) {
+          await this.initializeVisualFields();
+        } else {
+          await this.loadData();
+        }
+      }
     } else {
       this.logDebug('ERROR', `Missing required params - serviceId: ${this.serviceId}, category: ${this.categoryName}`);
       this.loading = false;
@@ -267,6 +335,537 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedC
       this.logDebug('ERROR', `Data loading failed: ${error}`);
       this.loading = false;
       await this.showToast('Failed to load data. Please try again.', 'danger');
+    }
+  }
+
+  // ==================== DEXIE-FIRST: Mobile Data Loading ====================
+
+  /**
+   * Initialize visual fields for this category using Dexie-first architecture (MOBILE ONLY)
+   * 1. Resolve actualServiceId if needed
+   * 2. Seed templates into visualFields (if not already seeded)
+   * 3. Merge existing visuals (user selections)
+   * 4. Subscribe to reactive updates (liveQuery)
+   */
+  private async initializeVisualFields(): Promise<void> {
+    if (!this.config) {
+      this.logDebug('ERROR', 'initializeVisualFields called without config');
+      return;
+    }
+
+    console.time('[GenericCategoryDetail] initializeVisualFields');
+    this.logDebug('DEXIE', `Initializing visual fields (Dexie-first) for ${this.config.id}...`);
+
+    // Resolve actualServiceId if needed (same as loadData)
+    if (this.config.categoryDetailFeatures.hasActualServiceId) {
+      await this.resolveActualServiceId();
+    } else {
+      this.actualServiceId = this.serviceId;
+    }
+
+    // Unsubscribe from previous subscription if category changed
+    if (this.visualFieldsSubscription) {
+      this.visualFieldsSubscription.unsubscribe();
+      this.visualFieldsSubscription = undefined;
+    }
+
+    // Check if fields exist for this category (only for EFE with VisualField table)
+    // Other templates (HUD, LBW, DTE) use their own tables and existing data patterns
+    const isVisualFieldTemplate = this.config.id === 'efe';
+
+    if (isVisualFieldTemplate) {
+      const hasFields = await this.visualFieldRepo.hasFieldsForCategory(
+        this.serviceId,
+        this.categoryName
+      );
+
+      if (!hasFields) {
+        this.logDebug('DEXIE', 'No fields found, seeding from templates...');
+
+        // Get templates from cache
+        const templates = await this.indexedDb.getCachedTemplates('visual') || [];
+
+        if (templates.length === 0) {
+          this.logDebug('WARN', 'No templates in cache, falling back to loadData()');
+          await this.loadData();
+          console.timeEnd('[GenericCategoryDetail] initializeVisualFields');
+          return;
+        }
+
+        // Get cached dropdown data
+        const cachedDropdownData = await this.indexedDb.getCachedTemplates('visual_dropdown') || [];
+
+        // Seed templates into visualFields
+        await this.visualFieldRepo.seedFromTemplates(
+          this.serviceId,
+          this.categoryName,
+          templates,
+          cachedDropdownData
+        );
+
+        // Get existing visuals and merge selections
+        const visuals = await this.indexedDb.getCachedServiceData(this.serviceId, 'visuals') || [];
+        await this.visualFieldRepo.mergeExistingVisuals(
+          this.serviceId,
+          this.categoryName,
+          visuals as any[]
+        );
+
+        this.logDebug('DEXIE', 'Seeding complete');
+      } else {
+        this.logDebug('DEXIE', 'Fields already exist, using cached data');
+      }
+
+      // Set up LocalImages subscription FIRST (before fields subscription)
+      if (!this.localImagesSubscription && this.serviceId) {
+        this.subscribeToLocalImagesChanges();
+      }
+
+      // Subscribe to reactive updates - this will trigger UI render
+      this.visualFieldsSubscription = this.visualFieldRepo
+        .getFieldsForCategory$(this.serviceId, this.categoryName)
+        .subscribe({
+          next: async (fields) => {
+            this.logDebug('DEXIE', `Received ${fields.length} fields from liveQuery`);
+            this.convertFieldsToOrganizedData(fields);
+
+            // Show UI immediately - no loading screen
+            this.loading = false;
+            this.changeDetectorRef.detectChanges();
+
+            // Populate photos in background (non-blocking)
+            this.populatePhotosFromDexie(fields).then(() => {
+              this.changeDetectorRef.detectChanges();
+            });
+          },
+          error: (err) => {
+            this.logDebug('ERROR', `Error in visualFields subscription: ${err}`);
+            this.loading = false;
+            this.changeDetectorRef.detectChanges();
+          }
+        });
+    } else {
+      // For non-EFE templates (HUD, LBW, DTE), use existing loadData pattern but with Dexie photos
+      await this.loadData();
+
+      // Set up LocalImages subscription for reactive photo updates
+      if (!this.localImagesSubscription && this.serviceId) {
+        this.subscribeToLocalImagesChanges();
+      }
+    }
+
+    // Update tracking variables
+    this.lastLoadedServiceId = this.serviceId;
+    this.lastLoadedCategoryName = this.categoryName;
+    this.initialLoadComplete = true;
+
+    console.timeEnd('[GenericCategoryDetail] initializeVisualFields');
+  }
+
+  /**
+   * Subscribe to Dexie liveQuery for LocalImages changes (MOBILE ONLY)
+   * Enables reactive updates when IndexedDB changes (photos added, synced, deleted)
+   */
+  private subscribeToLocalImagesChanges(): void {
+    if (this.localImagesSubscription) {
+      this.localImagesSubscription.unsubscribe();
+    }
+
+    if (!this.serviceId || !this.config) {
+      this.logDebug('DEXIE', 'No serviceId or config, skipping LocalImages subscription');
+      return;
+    }
+
+    this.logDebug('DEXIE', `Subscribing to LocalImages changes for service: ${this.serviceId}`);
+
+    // Subscribe to all LocalImages for this service with the appropriate entity type
+    const entityType = this.config.entityType as any;
+    this.localImagesSubscription = db.liveLocalImages$(this.serviceId, entityType).subscribe(
+      async (localImages) => {
+        this.logDebug('DEXIE', `LocalImages updated: ${localImages.length} images`);
+
+        // Suppress during camera capture to prevent duplicate photos
+        if (this.isCameraCaptureInProgress || this.isMultiImageUploadInProgress) {
+          this.logDebug('DEXIE', 'Suppressing - capture in progress');
+          return;
+        }
+
+        // Update bulkLocalImagesMap reactively
+        this.updateBulkLocalImagesMap(localImages);
+
+        // Refresh photos from updated Dexie data
+        if (this.lastConvertedFields && this.lastConvertedFields.length > 0) {
+          await this.populatePhotosFromDexie(this.lastConvertedFields);
+        }
+
+        // Debounce change detection
+        if (this.liveQueryDebounceTimer) {
+          clearTimeout(this.liveQueryDebounceTimer);
+        }
+        this.liveQueryDebounceTimer = setTimeout(() => {
+          this.changeDetectorRef.detectChanges();
+          this.liveQueryDebounceTimer = null;
+        }, 100);
+      },
+      (error) => {
+        this.logDebug('ERROR', `Error in LocalImages subscription: ${error}`);
+      }
+    );
+  }
+
+  /**
+   * Update bulkLocalImagesMap from liveQuery results (MOBILE ONLY)
+   * Groups LocalImages by entityId for efficient lookup
+   */
+  private updateBulkLocalImagesMap(localImages: LocalImage[]): void {
+    this.bulkLocalImagesMap.clear();
+
+    // Group LocalImages by entityId
+    for (const img of localImages) {
+      if (!img.entityId) continue;
+
+      const entityId = String(img.entityId);
+      if (!this.bulkLocalImagesMap.has(entityId)) {
+        this.bulkLocalImagesMap.set(entityId, []);
+      }
+      this.bulkLocalImagesMap.get(entityId)!.push(img);
+    }
+
+    // Bidirectional ID mapping using cached temp->real mappings
+    for (const [key, tempOrRealId] of Object.entries(this.visualRecordIds)) {
+      if (!tempOrRealId || !String(tempOrRealId).startsWith('temp_')) continue;
+
+      const tempId = String(tempOrRealId);
+      const realId = this.tempIdToRealIdCache.get(tempId);
+
+      if (realId && this.bulkLocalImagesMap.has(realId)) {
+        const imagesUnderRealId = this.bulkLocalImagesMap.get(realId)!;
+        if (!this.bulkLocalImagesMap.has(tempId)) {
+          this.bulkLocalImagesMap.set(tempId, []);
+        }
+        const existing = this.bulkLocalImagesMap.get(tempId)!;
+        for (const img of imagesUnderRealId) {
+          if (!existing.some(e => e.imageId === img.imageId)) {
+            existing.push(img);
+          }
+        }
+      }
+    }
+
+    // Reverse mapping
+    for (const [tempId, realId] of this.tempIdToRealIdCache.entries()) {
+      if (this.bulkLocalImagesMap.has(tempId) && !this.bulkLocalImagesMap.has(realId)) {
+        const imagesUnderTempId = this.bulkLocalImagesMap.get(tempId)!;
+        this.bulkLocalImagesMap.set(realId, [...imagesUnderTempId]);
+      }
+    }
+
+    this.logDebug('DEXIE', `Updated bulkLocalImagesMap with ${this.bulkLocalImagesMap.size} entity groups`);
+  }
+
+  /**
+   * Populate visualPhotos by querying Dexie LocalImages directly (MOBILE ONLY)
+   * Uses 4-tier fallback: realId → tempId → mapped realId → reverse lookup
+   */
+  private async populatePhotosFromDexie(fields: VisualField[]): Promise<void> {
+    // Mutex: Prevent concurrent calls that cause duplicate photos
+    if (this.isPopulatingPhotos) {
+      this.logDebug('DEXIE', 'Skipping - already populating photos (mutex)');
+      return;
+    }
+    this.isPopulatingPhotos = true;
+
+    try {
+      this.logDebug('DEXIE', `Populating photos from Dexie for ${fields.length} fields...`);
+
+      // Load annotated images in background if not loaded
+      if (this.bulkAnnotatedImagesMap.size === 0) {
+        this.indexedDb.getAllCachedAnnotatedImagesForService().then(annotatedImages => {
+          this.bulkAnnotatedImagesMap = annotatedImages;
+          this.changeDetectorRef.detectChanges();
+        });
+      }
+
+      // Get ALL LocalImages for this service in one query
+      const allLocalImages = await this.localImageService.getImagesForService(this.serviceId);
+
+      // Group by entityId for efficient lookup
+      const localImagesMap = new Map<string, LocalImage[]>();
+      for (const img of allLocalImages) {
+        if (!img.entityId) continue;
+        const entityId = String(img.entityId);
+        if (!localImagesMap.has(entityId)) {
+          localImagesMap.set(entityId, []);
+        }
+        localImagesMap.get(entityId)!.push(img);
+      }
+
+      this.logDebug('DEXIE', `Found ${allLocalImages.length} LocalImages for ${localImagesMap.size} entities`);
+
+      let photosAddedCount = 0;
+
+      for (const field of fields) {
+        const realId = field.visualId;
+        const tempId = field.tempVisualId;
+        const visualId = realId || tempId;
+        if (!visualId) continue;
+
+        const key = `${field.category}_${field.templateId}`;
+        this.visualRecordIds[key] = visualId;
+
+        // 4-tier fallback lookup
+        let localImages = realId ? (localImagesMap.get(realId) || []) : [];
+
+        // Try tempId lookup
+        if (localImages.length === 0 && tempId && tempId !== realId) {
+          localImages = localImagesMap.get(tempId) || [];
+        }
+
+        // Check IndexedDB for temp-to-real mapping
+        if (localImages.length === 0 && tempId) {
+          const mappedRealId = await this.indexedDb.getRealId(tempId);
+          if (mappedRealId) {
+            localImages = localImagesMap.get(mappedRealId) || [];
+            // Update VisualField with the real ID
+            if (localImages.length > 0 && field.templateId) {
+              this.visualFieldRepo.setField(this.serviceId, this.categoryName, field.templateId, {
+                visualId: mappedRealId,
+                tempVisualId: null
+              }).catch(err => {
+                this.logDebug('ERROR', `Failed to update VisualField with mapped realId: ${err}`);
+              });
+            }
+          }
+        }
+
+        if (localImages.length === 0) continue;
+
+        // Initialize photos array if not exists
+        if (!this.visualPhotos[key]) {
+          this.visualPhotos[key] = [];
+        }
+
+        // Track already loaded photos to avoid duplicates
+        const loadedPhotoIds = new Set<string>();
+        for (const p of this.visualPhotos[key]) {
+          if (p.imageId) loadedPhotoIds.add(p.imageId);
+          if (p.AttachID) loadedPhotoIds.add(String(p.AttachID));
+          if (p.localImageId) loadedPhotoIds.add(p.localImageId);
+        }
+
+        // Add LocalImages to visualPhotos
+        for (const localImage of localImages) {
+          const imageId = localImage.imageId;
+
+          // Check if photo already exists - refresh its displayUrl
+          const existingPhotoIndex = this.visualPhotos[key].findIndex(p =>
+            p.imageId === imageId ||
+            p.localImageId === imageId ||
+            (localImage.attachId && (String(p.AttachID) === localImage.attachId || p.attachId === localImage.attachId))
+          );
+
+          if (existingPhotoIndex !== -1) {
+            // Photo exists - refresh displayUrl from LocalImages
+            try {
+              const freshDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
+              if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.svg') {
+                const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10);
+                this.visualPhotos[key][existingPhotoIndex] = {
+                  ...this.visualPhotos[key][existingPhotoIndex],
+                  displayUrl: freshDisplayUrl,
+                  url: freshDisplayUrl,
+                  thumbnailUrl: freshDisplayUrl,
+                  originalUrl: freshDisplayUrl,
+                  localBlobId: localImage.localBlobId,
+                  caption: localImage.caption || '',
+                  Annotation: localImage.caption || '',
+                  Drawings: localImage.drawings || null,
+                  hasAnnotations: hasAnnotations,
+                  isLocalImage: true,
+                  isLocalFirst: true
+                };
+              }
+            } catch (e) {
+              this.logDebug('WARN', `Failed to refresh displayUrl for existing photo: ${e}`);
+            }
+            loadedPhotoIds.add(imageId);
+            if (localImage.attachId) loadedPhotoIds.add(localImage.attachId);
+            continue;
+          }
+
+          // Skip if already loaded by other ID
+          if (loadedPhotoIds.has(imageId)) continue;
+          if (localImage.attachId && loadedPhotoIds.has(localImage.attachId)) continue;
+
+          // Get display URL
+          let displayUrl = 'assets/img/photo-placeholder.svg';
+          try {
+            displayUrl = await this.localImageService.getDisplayUrl(localImage);
+          } catch (e) {
+            this.logDebug('WARN', `Failed to get displayUrl: ${e}`);
+          }
+
+          const hasAnnotations = !!localImage.drawings && localImage.drawings.length > 10;
+
+          // Add photo to array
+          this.visualPhotos[key].unshift({
+            AttachID: localImage.attachId || localImage.imageId,
+            attachId: localImage.attachId || localImage.imageId,
+            id: localImage.attachId || localImage.imageId,
+            imageId: localImage.imageId,
+            localImageId: localImage.imageId,
+            localBlobId: localImage.localBlobId,
+            displayUrl: displayUrl,
+            url: displayUrl,
+            thumbnailUrl: displayUrl,
+            originalUrl: displayUrl,
+            name: localImage.fileName,
+            caption: localImage.caption || '',
+            annotation: localImage.caption || '',
+            Annotation: localImage.caption || '',
+            Drawings: localImage.drawings || null,
+            hasAnnotations: hasAnnotations,
+            loading: false,
+            uploading: false,
+            queued: false,
+            isSkeleton: false,
+            isLocalImage: true,
+            isLocalFirst: true
+          });
+
+          loadedPhotoIds.add(imageId);
+          if (localImage.attachId) loadedPhotoIds.add(localImage.attachId);
+          photosAddedCount++;
+        }
+
+        // Update photo count
+        this.photoCountsByKey[key] = this.visualPhotos[key].length;
+
+        // Persist photo count to Dexie
+        if (field.templateId) {
+          this.visualFieldRepo.setField(this.serviceId, field.category, field.templateId, {
+            photoCount: this.visualPhotos[key].length
+          }).catch(err => {
+            this.logDebug('WARN', `Failed to save photoCount: ${err}`);
+          });
+        }
+      }
+
+      this.logDebug('DEXIE', `Photos populated: ${photosAddedCount} new photos added`);
+    } finally {
+      this.isPopulatingPhotos = false;
+    }
+  }
+
+  /**
+   * Convert VisualFields to organized data structure for template (MOBILE ONLY)
+   */
+  private convertFieldsToOrganizedData(fields: VisualField[]): void {
+    // Store reference for reactive photo updates
+    this.lastConvertedFields = fields;
+
+    const comments: VisualItem[] = [];
+    const limitations: VisualItem[] = [];
+    const deficiencies: VisualItem[] = [];
+
+    for (const field of fields) {
+      const item: VisualItem = {
+        id: field.visualId || field.tempVisualId || field.templateId,
+        templateId: field.templateId,
+        name: field.templateName,
+        text: field.answer || field.templateText,
+        originalText: field.templateText,
+        type: field.kind,
+        category: field.category,
+        answerType: field.answerType,
+        required: false,
+        answer: field.answer,
+        isSelected: field.isSelected,
+        otherValue: field.otherValue,
+        key: `${field.category}_${field.templateId}`
+      };
+
+      // Store selection state and visual record ID
+      const selectionKey = `${field.category}_${field.templateId}`;
+      if (field.visualId || field.tempVisualId) {
+        this.visualRecordIds[selectionKey] = field.visualId || field.tempVisualId || '';
+      }
+      this.selectedItems[selectionKey] = field.isSelected;
+      this.photoCountsByKey[selectionKey] = field.photoCount;
+
+      // Populate dropdown options if available
+      if (field.answerType === 2 && field.dropdownOptions) {
+        this.visualDropdownOptions[field.templateId] = field.dropdownOptions;
+      }
+
+      switch (field.kind) {
+        case 'Limitation':
+          limitations.push(item);
+          break;
+        case 'Deficiency':
+          deficiencies.push(item);
+          break;
+        default:
+          comments.push(item);
+      }
+    }
+
+    this.organizedData = { comments, limitations, deficiencies };
+    this.logDebug('DEXIE', `Organized: ${comments.length} comments, ${limitations.length} limitations, ${deficiencies.length} deficiencies`);
+  }
+
+  /**
+   * Refresh local state when returning to the page (MOBILE ONLY)
+   * Regenerates blob URLs and restores pending captions
+   */
+  private async refreshLocalState(): Promise<void> {
+    this.logDebug('DEXIE', 'Refreshing local state...');
+
+    // Reload photos from Dexie to refresh blob URLs
+    if (this.lastConvertedFields && this.lastConvertedFields.length > 0) {
+      await this.populatePhotosFromDexie(this.lastConvertedFields);
+      this.changeDetectorRef.detectChanges();
+    }
+
+    // Merge any pending captions from IndexedDB
+    await this.mergePendingCaptions();
+
+    this.logDebug('DEXIE', 'Local state refreshed');
+  }
+
+  /**
+   * Merge pending captions from IndexedDB (MOBILE ONLY)
+   * Restores unsaved captions after navigation
+   */
+  private async mergePendingCaptions(): Promise<void> {
+    try {
+      const allPendingCaptions = await this.indexedDb.getAllPendingCaptions();
+      // Filter to only this service's captions
+      const pendingCaptions = allPendingCaptions.filter(c => c.serviceId === this.serviceId);
+
+      if (!pendingCaptions || pendingCaptions.length === 0) return;
+
+      this.logDebug('DEXIE', `Merging ${pendingCaptions.length} pending captions`);
+
+      for (const pending of pendingCaptions) {
+        const attachId = pending.attachId;
+        // Find photo by attachId and update caption
+        for (const key of Object.keys(this.visualPhotos)) {
+          const photos = this.visualPhotos[key];
+          const photoIndex = photos.findIndex((p: any) =>
+            String(p.AttachID) === attachId || p.attachId === attachId || p.imageId === attachId
+          );
+          if (photoIndex >= 0) {
+            photos[photoIndex].caption = pending.caption || '';
+            photos[photoIndex].Annotation = pending.caption || '';
+            break;
+          }
+        }
+      }
+
+      this.changeDetectorRef.detectChanges();
+    } catch (error) {
+      this.logDebug('WARN', `Failed to merge pending captions: ${error}`);
     }
   }
 
@@ -408,6 +1007,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedC
   private async loadDropdownOptions(): Promise<void> {
     if (!this.config) return;
 
+    this.logDebug('DROPDOWN', `Loading dropdown options for category: ${this.categoryName}`);
+
     const optionsMap = await this.dataAdapter.getDropdownOptionsForCategoryWithConfig(
       this.config,
       this.categoryName
@@ -416,12 +1017,15 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedC
     optionsMap.forEach((options, templateId) => {
       this.visualDropdownOptions[templateId] = options;
     });
+
+    this.logDebug('DROPDOWN', `Loaded options for ${optionsMap.size} templates`);
   }
 
   private organizeItems(templates: any[], visuals: any[]): void {
     const comments: VisualItem[] = [];
     const limitations: VisualItem[] = [];
     const deficiencies: VisualItem[] = [];
+    const matchedVisualIds = new Set<string>();
 
     // Create visual items from templates
     for (const template of templates) {
@@ -433,6 +1037,12 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedC
         const vTemplateId = v[this.config!.templateIdFieldName] || v.TemplateID;
         return String(vTemplateId) === String(templateId);
       });
+
+      // Track matched visuals
+      if (visual) {
+        const visualId = String(visual[this.config!.idFieldName] || visual.PK_ID);
+        matchedVisualIds.add(visualId);
+      }
 
       const item: VisualItem = {
         id: visual ? (visual[this.config!.idFieldName] || visual.PK_ID) : templateId,
@@ -460,6 +1070,58 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedC
           break;
         default:
           comments.push(item);
+      }
+    }
+
+    // Process custom visuals (those with TemplateID = 0 or unmatched)
+    for (const visual of visuals) {
+      const visualId = String(visual[this.config!.idFieldName] || visual.PK_ID);
+      const visualCategory = visual.Category || '';
+      const visualTemplateId = visual[this.config!.templateIdFieldName] || visual.TemplateID;
+
+      // Skip if already matched to a template
+      if (matchedVisualIds.has(visualId)) continue;
+
+      // Skip if not in current category
+      if (visualCategory !== this.categoryName) continue;
+
+      // This is a custom visual (TemplateID = 0 or unmatched)
+      const customItemId = `custom_${visualId}`;
+      const key = `${this.categoryName}_${customItemId}`;
+      const kind = visual.Kind || 'Comment';
+
+      this.logDebug('CUSTOM', `Loading custom visual: ${visual.Name} (ID: ${visualId})`);
+
+      const customItem: VisualItem = {
+        id: customItemId,
+        templateId: 0,  // Custom visuals use templateId 0
+        name: visual.Name || 'Custom Item',
+        text: visual.Text || visual.VisualText || '',
+        originalText: visual.Text || visual.VisualText || '',
+        type: kind,
+        category: this.categoryName,
+        answerType: 0,
+        required: false,
+        answer: visual.Answer || '',
+        isSelected: true,  // Custom visuals are always selected
+        otherValue: visual.Notes || '',
+        key: key
+      };
+
+      // Store visual record ID
+      this.visualRecordIds[key] = visualId;
+      this.selectedItems[key] = true;
+
+      // Organize by type
+      switch (kind) {
+        case 'Limitation':
+          limitations.push(customItem);
+          break;
+        case 'Deficiency':
+          deficiencies.push(customItem);
+          break;
+        default:
+          comments.push(customItem);
       }
     }
 
@@ -552,6 +1214,15 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedC
 
   // ==================== Item Selection ====================
 
+  /**
+   * Get the lookup ID for an item (handles both template and custom items)
+   * Custom items (templateId 0) use their id (custom_${visualId})
+   * Template items use their templateId
+   */
+  getItemLookupId(item: VisualItem): string | number {
+    return item.templateId === 0 ? item.id : item.templateId;
+  }
+
   isItemSelected(category: string, itemId: string | number): boolean {
     const key = `${category}_${itemId}`;
     return this.selectedItems[key] || false;
@@ -613,53 +1284,146 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedC
 
   async onOptionToggle(category: string, item: VisualItem, option: string, event: any): Promise<void> {
     const isChecked = event.detail.checked;
+    const itemId = this.getItemLookupId(item);
+    const key = `${category}_${itemId}`;
     let selectedOptions = item.answer ? item.answer.split(',').map(o => o.trim()).filter(o => o) : [];
+
+    console.log('[OPTION] Toggled:', option, 'Checked:', isChecked, 'for', key);
 
     if (isChecked) {
       // Handle "None" being mutually exclusive
       if (option === 'None') {
         selectedOptions = ['None'];
+        item.otherValue = '';
       } else {
         selectedOptions = selectedOptions.filter(o => o !== 'None');
         if (!selectedOptions.includes(option)) {
           selectedOptions.push(option);
         }
       }
+      // Auto-select the item when any option is checked
+      this.selectedItems[key] = true;
     } else {
       selectedOptions = selectedOptions.filter(o => o !== option);
       if (option === 'Other') {
         item.otherValue = '';
       }
+      // If no options remain selected and no "Other" value, deselect the item
+      if (selectedOptions.length === 0 && (!item.otherValue || item.otherValue === '')) {
+        this.selectedItems[key] = false;
+      }
     }
 
     item.answer = selectedOptions.join(', ');
-
-    // Auto-select item when any option is checked
-    const key = `${category}_${item.templateId}`;
-    this.selectedItems[key] = selectedOptions.length > 0;
-
     this.logDebug('OPTION', `Options for ${key}: ${item.answer}`);
 
-    // TODO: Implement save logic
+    // Save to backend
+    await this.saveMultiSelectAnswer(item, selectedOptions.length > 0);
     this.changeDetectorRef.detectChanges();
   }
 
   async addMultiSelectOther(category: string, item: VisualItem): Promise<void> {
-    if (!item.otherValue?.trim()) return;
+    const customValue = item.otherValue?.trim();
+    if (!customValue) return;
 
-    const customValue = item.otherValue.trim();
-    let selectedOptions = item.answer ? item.answer.split(',').map(o => o.trim()).filter(o => o) : [];
+    const itemId = this.getItemLookupId(item);
+    const key = `${category}_${itemId}`;
+    console.log('[OTHER] Adding custom option:', customValue, 'for', key);
 
-    if (!selectedOptions.includes(customValue)) {
-      selectedOptions.push(customValue);
-      item.answer = selectedOptions.join(', ');
+    // Get current options for this template
+    let options = this.visualDropdownOptions[item.templateId];
+    if (!options) {
+      options = [];
+      this.visualDropdownOptions[item.templateId] = options;
     }
 
-    item.otherValue = '';
-    this.logDebug('OTHER', `Added custom value: ${customValue}`);
+    // Parse current selections
+    let selectedOptions = item.answer ? item.answer.split(',').map(o => o.trim()).filter(o => o) : [];
 
-    // TODO: Implement save logic
+    // Remove "None" if adding a custom value (mutually exclusive)
+    selectedOptions = selectedOptions.filter(o => o !== 'None');
+
+    // Check if this value already exists in options
+    if (options.includes(customValue)) {
+      console.log(`[OTHER] Option "${customValue}" already exists`);
+      // Just select it if not already selected
+      if (!selectedOptions.includes(customValue)) {
+        selectedOptions.push(customValue);
+      }
+    } else {
+      // Add the custom value to options (before None and Other)
+      const noneIndex = options.indexOf('None');
+      if (noneIndex > -1) {
+        options.splice(noneIndex, 0, customValue);
+      } else {
+        const otherIndex = options.indexOf('Other');
+        if (otherIndex > -1) {
+          options.splice(otherIndex, 0, customValue);
+        } else {
+          options.push(customValue);
+        }
+      }
+      console.log(`[OTHER] Added custom option: "${customValue}"`);
+
+      // Select the new custom value
+      selectedOptions.push(customValue);
+    }
+
+    // Update the answer
+    item.answer = selectedOptions.join(', ');
+
+    // Clear the input field
+    item.otherValue = '';
+
+    // Auto-select the item
+    this.selectedItems[key] = true;
+
+    this.logDebug('OTHER', `Added custom value: ${customValue}, answer: ${item.answer}`);
+
+    // Save to backend
+    await this.saveMultiSelectAnswer(item, true);
     this.changeDetectorRef.detectChanges();
+  }
+
+  /**
+   * Save multi-select answer to backend (standardized for all templates)
+   * Field names vary by template:
+   * - HUD uses 'Answers' (plural)
+   * - EFE/LBW/DTE use 'Answer' (singular)
+   */
+  private async saveMultiSelectAnswer(item: VisualItem, isSelected: boolean): Promise<void> {
+    if (!this.config) return;
+
+    // Get the visual record ID for this item
+    const itemId = this.getItemLookupId(item);
+    const key = `${this.categoryName}_${itemId}`;
+    const visualId = this.visualRecordIds[key];
+
+    if (!visualId) {
+      this.logDebug('SAVE', `No visual record for ${key}, cannot save answer`);
+      return;
+    }
+
+    // Skip temp IDs - they haven't been synced to server yet
+    if (String(visualId).startsWith('temp_')) {
+      this.logDebug('SAVE', `Skipping temp ID ${visualId}, will sync later`);
+      return;
+    }
+
+    try {
+      // Determine the correct field name for this template
+      // HUD uses 'Answers' (plural), others use 'Answer'
+      const answerFieldName = this.config.id === 'hud' ? 'Answers' : 'Answer';
+
+      // Update the answer field in the database
+      await this.dataAdapter.updateVisualWithConfig(this.config, String(visualId), {
+        [answerFieldName]: item.answer || ''
+      });
+      this.logDebug('SAVE', `Saved ${answerFieldName} for ${key}: ${item.answer}`);
+    } catch (error) {
+      console.error('[SAVE] Failed to save answer:', error);
+      await this.showToast('Failed to save selection', 'warning');
+    }
   }
 
   // ==================== Photo Handling ====================
@@ -1182,17 +1946,22 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedC
   // ==================== Navigation ====================
 
   async openVisualDetail(category: string, item: VisualItem): Promise<void> {
-    const visualId = this.visualRecordIds[`${category}_${item.templateId}`];
+    // Use getItemLookupId for consistent key lookup (handles both template and custom items)
+    const lookupId = this.getItemLookupId(item);
+    const visualId = this.visualRecordIds[`${category}_${lookupId}`];
 
     if (!visualId || !this.config) {
-      this.logDebug('NAV', 'Cannot navigate - no visual record');
+      this.logDebug('NAV', `Cannot navigate - no visual record for key: ${category}_${lookupId}`);
       return;
     }
 
     const queryParams: any = { actualServiceId: this.actualServiceId };
     queryParams[this.config.visualIdParamName] = visualId;
 
-    this.router.navigate(['visual', item.templateId], {
+    // For navigation, use templateId for template items, or the visualId for custom items
+    const routeParam = item.templateId !== 0 ? item.templateId : visualId;
+
+    this.router.navigate(['visual', routeParam], {
       relativeTo: this.route,
       queryParams
     });
@@ -1202,8 +1971,255 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedC
 
   async addCustomVisual(category: string, type: string): Promise<void> {
     this.logDebug('CUSTOM', `Add custom ${type} for ${category}`);
-    // TODO: Implement custom visual modal
-    await this.showToast('Custom visual not yet implemented', 'warning');
+
+    if (!this.config) {
+      await this.showToast('Configuration not loaded', 'danger');
+      return;
+    }
+
+    // Open the Add Custom Visual modal
+    const modal = await this.modalController.create({
+      component: AddCustomVisualModalComponent,
+      componentProps: {
+        kind: type,
+        category: category
+      }
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onDidDismiss();
+
+    if (data && data.name) {
+      // Get processed photos with annotation data and captions
+      const processedPhotos = data.processedPhotos || [];
+      const files = data.files && data.files.length > 0 ? data.files : null;
+
+      // Create the visual with photos
+      await this.createCustomVisualWithPhotos(category, type, data.name, data.description || '', files, processedPhotos);
+    }
+  }
+
+  /**
+   * Create a custom visual record with optional photos
+   */
+  private async createCustomVisualWithPhotos(
+    category: string,
+    kind: string,
+    name: string,
+    text: string,
+    files: FileList | File[] | null,
+    processedPhotos: any[] = []
+  ): Promise<void> {
+    if (!this.config) return;
+
+    try {
+      const serviceIdNum = parseInt(this.actualServiceId || this.serviceId, 10);
+      if (isNaN(serviceIdNum)) {
+        this.logDebug('ERROR', 'Invalid Service ID for custom visual');
+        return;
+      }
+
+      // Build visual data based on template type
+      const visualData: any = {
+        ServiceID: serviceIdNum,
+        Category: category,
+        Kind: kind,
+        Name: name,
+        Text: text,
+        Notes: '',
+        TemplateID: 0  // Custom visual - no template
+      };
+
+      this.logDebug('CUSTOM', `Creating visual: ${JSON.stringify(visualData)}`);
+
+      // Create the visual record using the appropriate data service
+      let response: any;
+      switch (this.config.id) {
+        case 'hud':
+          response = await this.hudData.createVisual(visualData);
+          break;
+        case 'efe':
+          response = await this.efeData.createVisual(visualData);
+          break;
+        case 'lbw':
+          response = await this.lbwData.createVisual(visualData);
+          break;
+        case 'dte':
+          response = await this.dteData.createVisual(visualData);
+          break;
+        default:
+          throw new Error(`Unknown template type: ${this.config.id}`);
+      }
+
+      // Extract visual ID from response
+      let visualId: string | null = null;
+      if (Array.isArray(response) && response.length > 0) {
+        visualId = String(response[0][this.config.idFieldName] || response[0].PK_ID || response[0].id || '');
+      } else if (response && typeof response === 'object') {
+        if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
+          visualId = String(response.Result[0][this.config.idFieldName] || response.Result[0].PK_ID || response.Result[0].id || '');
+        } else {
+          visualId = String(response[this.config.idFieldName] || response.PK_ID || response.id || '');
+        }
+      } else if (response) {
+        visualId = String(response);
+      }
+
+      if (!visualId || visualId === 'undefined' || visualId === 'null' || visualId === '') {
+        throw new Error('No visual ID returned from server');
+      }
+
+      this.logDebug('CUSTOM', `Created visual with ID: ${visualId}`);
+
+      // Custom visuals use id format: custom_${visualId}, templateId: 0
+      // This matches the format used when loading custom visuals from the database
+      const customItemId = `custom_${visualId}`;
+      const customItem: VisualItem = {
+        id: customItemId,
+        templateId: 0,  // Custom visuals always use templateId 0
+        name: name,
+        text: text,
+        originalText: text,
+        answerType: 0,
+        required: false,
+        type: kind,
+        category: category,
+        isSelected: true,
+        photos: []
+      };
+
+      // Key uses custom_${visualId} to match loading pattern
+      const key = `${category}_${customItemId}`;
+      this.visualRecordIds[key] = String(visualId);
+      this.selectedItems[key] = true;
+
+      this.logDebug('CUSTOM', `Stored visualId in visualRecordIds: ${key} = ${visualId}`);
+
+      // Add to the appropriate section in organized data
+      const sectionMap: { [key: string]: keyof OrganizedData } = {
+        'Comment': 'comments',
+        'Limitation': 'limitations',
+        'Deficiency': 'deficiencies'
+      };
+      const sectionKey = sectionMap[kind] || 'comments';
+      this.organizedData[sectionKey].push(customItem);  // Add to bottom of section
+
+      // Upload photos if provided
+      if (files && files.length > 0) {
+        await this.uploadCustomVisualPhotos(key, visualId, files, processedPhotos);
+      }
+
+      this.changeDetectorRef.detectChanges();
+      this.logDebug('CUSTOM', 'Custom visual created successfully');
+
+    } catch (error) {
+      this.logDebug('ERROR', `Failed to create custom visual: ${error}`);
+      await this.showToast('Failed to create custom item', 'danger');
+    }
+  }
+
+  /**
+   * Upload photos for a custom visual
+   * IMPORTANT: Uses originalFile (not annotated file) for upload to prevent flattening.
+   * Annotations are stored separately in the Drawings field as JSON.
+   */
+  private async uploadCustomVisualPhotos(
+    key: string,
+    visualId: string,
+    files: FileList | File[],
+    processedPhotos: any[]
+  ): Promise<void> {
+    if (!this.config) return;
+
+    // Initialize photos array
+    if (!this.visualPhotos[key]) {
+      this.visualPhotos[key] = [];
+    }
+
+    this.logDebug('CUSTOM', `Uploading ${files.length} photos for custom visual`);
+
+    for (let index = 0; index < files.length; index++) {
+      const photoData = processedPhotos[index] || {};
+      const annotationData = photoData.annotationData || null;
+      const caption = photoData.caption || '';
+
+      // CRITICAL: Use originalFile (before annotations) for upload
+      // This prevents flattening annotations onto the image
+      // Annotations are stored in Drawings field as JSON, not baked into the image
+      const fileToUpload = photoData.originalFile || photoData.file || files[index];
+      const drawings = annotationData ? JSON.stringify(annotationData) : '';
+
+      this.logDebug('CUSTOM', `Photo ${index + 1}: hasAnnotations=${!!annotationData}, usingOriginal=${!!photoData.originalFile}`);
+
+      try {
+        // Upload the ORIGINAL photo to S3 (not the annotated version)
+        const uploadResult = await this.localImageService.uploadImageDirectToS3(
+          fileToUpload,
+          this.config.entityType,
+          visualId,
+          this.serviceId,
+          caption,
+          drawings
+        );
+
+        this.logDebug('CUSTOM', `Photo ${index + 1} uploaded, AttachID: ${uploadResult.attachId}`);
+
+        // Get signed URL for the original image (for re-editing annotations)
+        let originalUrl = uploadResult.s3Url;
+        if (this.isWeb && uploadResult.s3Url) {
+          originalUrl = await this.getSignedUrlIfNeeded(uploadResult.s3Url);
+        }
+
+        // For display: use annotated preview if available, otherwise original
+        // The previewUrl from modal contains the rendered annotations for display
+        let displayUrl = originalUrl;
+        const hasAnnotations = !!annotationData;
+
+        if (hasAnnotations && photoData.previewUrl) {
+          // Use the annotated preview for thumbnail display
+          displayUrl = photoData.previewUrl;
+
+          // Cache the annotated image for persistence
+          try {
+            const response = await fetch(photoData.previewUrl);
+            const blob = await response.blob();
+            await this.indexedDb.cacheAnnotatedImage(String(uploadResult.attachId), blob);
+            this.bulkAnnotatedImagesMap.set(String(uploadResult.attachId), photoData.previewUrl);
+            this.logDebug('CUSTOM', `Cached annotated thumbnail for ${uploadResult.attachId}`);
+          } catch (cacheErr) {
+            this.logDebug('ERROR', `Failed to cache annotated image: ${cacheErr}`);
+          }
+        }
+
+        // Add to local photos array
+        this.visualPhotos[key].push({
+          AttachID: uploadResult.attachId,
+          id: uploadResult.attachId,
+          imageId: uploadResult.attachId,
+          name: `photo_${index}.jpg`,
+          url: uploadResult.s3Url,
+          originalUrl: originalUrl,      // Original for re-editing
+          thumbnailUrl: displayUrl,      // Annotated for display
+          displayUrl: displayUrl,        // Annotated for display
+          caption: caption,
+          Annotation: caption,
+          Drawings: drawings,
+          hasAnnotations: hasAnnotations,
+          uploading: false,
+          loading: false
+        });
+
+        this.photoCountsByKey[key] = this.visualPhotos[key].length;
+
+      } catch (uploadError) {
+        this.logDebug('ERROR', `Failed to upload photo ${index + 1}: ${uploadError}`);
+      }
+    }
+
+    // Expand photos section after upload
+    this.expandedPhotos[key] = true;
+    this.changeDetectorRef.detectChanges();
   }
 
   // ==================== Debug ====================
