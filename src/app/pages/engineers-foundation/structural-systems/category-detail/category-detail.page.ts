@@ -3242,7 +3242,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         text: template.Text || '',
         originalText: template.Text || '',
         type: template.Kind || 'Comment',
-        category: template.Category,
+        category: template.Category || this.categoryName,
         answerType: template.AnswerType || 0,
         required: template.Required === 'Yes',
         answer: '',

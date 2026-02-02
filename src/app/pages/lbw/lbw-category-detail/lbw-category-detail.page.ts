@@ -777,7 +777,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           text: template.Text || '',
           originalText: template.Text || '',
           type: template.Kind || template.Type || 'Comment',  // Try Kind first, then Type
-          category: template.Category,
+          category: template.Category || this.categoryName,
           answerType: template.AnswerType || 0,
           required: template.Required === 'Yes',
           answer: '',
