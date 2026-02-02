@@ -402,7 +402,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         this.logDebug('DEXIE', `No fields found for ${this.config.id}, seeding from templates...`);
 
         // STEP 3: Get templates from cache (using config-driven cache key)
-        const templates = await this.indexedDb.getCachedTemplates(this.config.templatesCacheKey) || [];
+        // Cast to any to satisfy TypeScript - config.templatesCacheKey is always a valid cache key
+        const templates = await this.indexedDb.getCachedTemplates(this.config.templatesCacheKey as any) || [];
 
         if (templates.length === 0) {
           this.logDebug('WARN', 'No templates in cache, falling back to loadData()');
@@ -412,7 +413,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         }
 
         // Get cached dropdown data (using config-driven dropdown cache key)
-        const dropdownCacheKey = `${this.config.templatesCacheKey}_dropdown`;
+        const dropdownCacheKey = `${this.config.templatesCacheKey}_dropdown` as any;
         const cachedDropdownData = await this.indexedDb.getCachedTemplates(dropdownCacheKey) || [];
 
         // STEP 4: Seed templates into fields table
