@@ -440,6 +440,12 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
             this.loading = false;
             this.changeDetectorRef.detectChanges();
 
+            // Suppress photo population during capture to prevent duplicates
+            if (this.isCameraCaptureInProgress || this.isMultiImageUploadInProgress) {
+              this.logDebug('DEXIE', 'Suppressing photo population - capture in progress');
+              return;
+            }
+
             // Populate photos in background (non-blocking)
             this.populatePhotosFromDexie(fields).then(() => {
               this.changeDetectorRef.detectChanges();
