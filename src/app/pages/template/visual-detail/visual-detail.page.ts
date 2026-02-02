@@ -695,81 +695,117 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
    * Load photos in mobile mode (Dexie ONLY - no API calls)
    *
    * IMPORTANT: Mobile app uses strict Dexie-first approach.
-   * Photos are loaded from localImages table in Dexie.
-   * Background sync populates Dexie with synced photos.
+   * Uses 4-tier fallback system matching EFE pattern:
+   * - TIER 1: Query by visualId as entityId
+   * - TIER 2: Query by alternate ID (tempVisualId or visualId)
+   * - TIER 3: Query by mapped realId from tempIdMappings
+   * - TIER 4: Reverse lookup via tempIdMappings
    */
   private async loadPhotosMobile() {
     if (!this.config) return;
 
-    // Get visualId from Dexie field
-    const field = await db.visualFields
-      .where(['serviceId', 'templateId'])
-      .equals([this.serviceId, this.templateId])
-      .first();
+    // Re-query visualFields to get fresh data (EFE pattern)
+    const allFields = await db.visualFields
+      .where('serviceId')
+      .equals(this.serviceId)
+      .toArray();
 
-    const effectiveVisualId = field?.tempVisualId || field?.visualId || this.visualId;
-    if (effectiveVisualId) {
-      this.visualId = String(effectiveVisualId);
-    }
+    const field = allFields.find(f => f.templateId === this.templateId);
+
+    // CRITICAL: Use tempVisualId FIRST because localImages are stored with the original temp ID
+    // After sync, visualId contains the real ID but photos still have entityId = tempVisualId
+    this.visualId = field?.tempVisualId || field?.visualId || this.visualId || '';
+    this.lastKnownVisualId = this.visualId;
 
     if (!this.visualId) {
-      console.log('[GenericVisualDetail] MOBILE: No visualId, skipping photo load');
+      console.log('[GenericVisualDetail] MOBILE: No visualId found, cannot load photos');
       this.photos = [];
       return;
     }
 
-    console.log('[GenericVisualDetail] MOBILE: Loading photos from Dexie for visualId:', this.visualId);
+    console.log('[GenericVisualDetail] MOBILE: Loading photos - visualId:', this.visualId,
+      'tempVisualId:', field?.tempVisualId, 'field.visualId:', field?.visualId);
 
-    // Track loaded photo IDs to avoid duplicates
-    const loadedPhotoIds = new Set<string>();
-    this.photos = [];
-
-    // Load local images from Dexie
+    // 4-TIER FALLBACK for photo lookup (matching EFE pattern)
     let localImages: any[] = [];
+    let foundAtTier = 0;
 
-    // Tier 1: By visualId as entityId
+    // TIER 1: Query by this.visualId as entityId
     localImages = await db.localImages.where('entityId').equals(this.visualId).toArray();
     if (localImages.length > 0) {
-      console.log('[GenericVisualDetail] MOBILE: Found', localImages.length, 'local images by visualId');
+      foundAtTier = 1;
+      console.log('[GenericVisualDetail] MOBILE: TIER 1 - Found', localImages.length, 'photos');
     }
 
-    // Tier 2: By tempVisualId (if different)
-    if (field?.tempVisualId && field.tempVisualId !== this.visualId) {
-      const tempImages = await db.localImages.where('entityId').equals(field.tempVisualId).toArray();
-      if (tempImages.length > 0) {
-        console.log('[GenericVisualDetail] MOBILE: Found', tempImages.length, 'local images via tempVisualId');
-        localImages = [...localImages, ...tempImages];
+    // TIER 2: Try alternate ID (if field has both tempVisualId and visualId)
+    if (localImages.length === 0 && field?.tempVisualId && field?.visualId) {
+      const alternateId = (this.visualId === field.tempVisualId) ? field.visualId : field.tempVisualId;
+      if (alternateId && alternateId !== this.visualId) {
+        console.log('[GenericVisualDetail] MOBILE: TIER 2 - Trying alternate ID:', alternateId);
+        localImages = await db.localImages.where('entityId').equals(String(alternateId)).toArray();
+        if (localImages.length > 0) {
+          foundAtTier = 2;
+          console.log('[GenericVisualDetail] MOBILE: TIER 2 - Found', localImages.length, 'photos');
+        }
       }
     }
 
-    // Tier 3: Also check by field.visualId if different
-    if (field?.visualId && field.visualId !== this.visualId && field.visualId !== field?.tempVisualId) {
-      const realIdImages = await db.localImages.where('entityId').equals(String(field.visualId)).toArray();
-      if (realIdImages.length > 0) {
-        console.log('[GenericVisualDetail] MOBILE: Found', realIdImages.length, 'local images via realId');
-        localImages = [...localImages, ...realIdImages];
+    // TIER 3: Query by mapped realId from tempIdMappings
+    if (localImages.length === 0 && field?.tempVisualId) {
+      const mappedRealId = await this.indexedDb.getRealId(field.tempVisualId);
+      if (mappedRealId) {
+        console.log('[GenericVisualDetail] MOBILE: TIER 3 - Trying mapped realId:', mappedRealId);
+        localImages = await db.localImages.where('entityId').equals(mappedRealId).toArray();
+        if (localImages.length > 0) {
+          foundAtTier = 3;
+          console.log('[GenericVisualDetail] MOBILE: TIER 3 - Found', localImages.length, 'photos');
+        }
       }
     }
 
-    // Process local images from Dexie
+    // TIER 4: Reverse lookup - query tempIdMappings by realId to find tempId
+    if (localImages.length === 0 && field?.visualId && !field?.tempVisualId) {
+      const reverseLookupTempId = await this.indexedDb.getTempId(field.visualId);
+      if (reverseLookupTempId) {
+        console.log('[GenericVisualDetail] MOBILE: TIER 4 - Reverse lookup tempId:', reverseLookupTempId);
+        localImages = await db.localImages.where('entityId').equals(reverseLookupTempId).toArray();
+        if (localImages.length > 0) {
+          foundAtTier = 4;
+          console.log('[GenericVisualDetail] MOBILE: TIER 4 - Found', localImages.length, 'photos');
+        }
+      }
+    }
+
+    // Log final result
+    if (foundAtTier > 0) {
+      console.log('[GenericVisualDetail] MOBILE: Photos found at TIER', foundAtTier, '- Total:', localImages.length);
+    } else {
+      console.log('[GenericVisualDetail] MOBILE: No photos found after all 4 tiers');
+    }
+
+    // Convert to PhotoItem format
+    this.photos = [];
+    const loadedPhotoIds = new Set<string>();
+
     for (const img of localImages) {
       // Skip duplicates
-      if (loadedPhotoIds.has(img.imageId)) {
-        continue;
-      }
-      if (img.attachId && loadedPhotoIds.has(img.attachId)) {
-        continue;
-      }
+      if (loadedPhotoIds.has(img.imageId)) continue;
+      if (img.attachId && loadedPhotoIds.has(img.attachId)) continue;
 
       const hasAnnotations = !!(img.drawings && img.drawings.length > 10);
       let displayUrl = 'assets/img/photo-placeholder.svg';
       let originalUrl = displayUrl;
 
-      // Check for cached annotated image
-      if (hasAnnotations) {
-        const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(img.imageId);
-        if (cachedAnnotated) {
-          displayUrl = cachedAnnotated;
+      // Check for cached annotated image (check multiple IDs)
+      const possibleIds = [img.imageId, img.attachId].filter(id => id);
+      for (const checkId of possibleIds) {
+        if (hasAnnotations) {
+          const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(String(checkId));
+          if (cachedAnnotated) {
+            displayUrl = cachedAnnotated;
+            console.log('[GenericVisualDetail] MOBILE: Using cached annotated image for:', checkId);
+            break;
+          }
         }
       }
 
@@ -791,17 +827,14 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         displayUrl = img.remoteUrl;
       }
 
-      // If synced and has S3 key stored in Dexie, use that
+      // If synced and has S3 key stored in Dexie
       if (originalUrl === 'assets/img/photo-placeholder.svg' && img.remoteS3Key) {
-        // Store S3 key - the lazy image directive can handle fetching signed URL
         originalUrl = img.remoteS3Key;
         displayUrl = img.remoteS3Key;
       }
 
       loadedPhotoIds.add(img.imageId);
-      if (img.attachId) {
-        loadedPhotoIds.add(img.attachId);
-      }
+      if (img.attachId) loadedPhotoIds.add(img.attachId);
 
       this.photos.push({
         id: img.imageId,
@@ -887,11 +920,14 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       const actualCategory = this.item?.category || this.categoryName;
 
       if (environment.isWeb) {
+        // WEBAPP: Update via API
         if (this.isValidVisualId(this.visualId)) {
           await this.dataAdapter.updateVisual(this.visualId, { Name: this.editableTitle }, this.actualServiceId || this.serviceId);
           console.log('[GenericVisualDetail] WEBAPP: Updated title via API');
         }
       } else {
+        // MOBILE: Dexie ONLY - no API calls
+        // Background sync will push changes to server
         const dexieUpdate: any = {
           templateName: this.editableTitle,
           isSelected: true,
@@ -901,10 +937,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
         await this.visualFieldRepo.setField(this.serviceId, actualCategory, this.templateId, dexieUpdate);
         console.log('[GenericVisualDetail] MOBILE: Updated title in Dexie');
-
-        if (this.isValidVisualId(this.visualId)) {
-          await this.dataAdapter.updateVisual(this.visualId, { Name: this.editableTitle }, this.actualServiceId || this.serviceId);
-        }
       }
 
       if (this.item) this.item.name = this.editableTitle;
@@ -925,11 +957,14 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       const actualCategory = this.item?.category || this.categoryName;
 
       if (environment.isWeb) {
+        // WEBAPP: Update via API
         if (this.isValidVisualId(this.visualId)) {
           await this.dataAdapter.updateVisual(this.visualId, { Text: this.editableText }, this.actualServiceId || this.serviceId);
           console.log('[GenericVisualDetail] WEBAPP: Updated text via API');
         }
       } else {
+        // MOBILE: Dexie ONLY - no API calls
+        // Background sync will push changes to server
         const dexieUpdate: any = {
           templateText: this.editableText,
           isSelected: true,
@@ -939,10 +974,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
         await this.visualFieldRepo.setField(this.serviceId, actualCategory, this.templateId, dexieUpdate);
         console.log('[GenericVisualDetail] MOBILE: Updated text in Dexie');
-
-        if (this.isValidVisualId(this.visualId)) {
-          await this.dataAdapter.updateVisual(this.visualId, { Text: this.editableText }, this.actualServiceId || this.serviceId);
-        }
       }
 
       if (this.item) this.item.text = this.editableText;
