@@ -8407,9 +8407,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       const processedPhotos = data.processedPhotos || [];
       const files = data.files && data.files.length > 0 ? data.files : null;
 
-      // DEBUG ALERT: Trace what data was returned from modal
-      alert(`[HUD addCustomVisual] Modal returned data!\n\nName: ${data.name}\nDescription: ${data.description || '(none)'}\nFiles: ${files ? files.length : 0}\nProcessedPhotos: ${processedPhotos.length}\nCategory: ${category}\nKind: ${kind}`);
-
       // Create the visual with photos
       await this.createCustomVisualWithPhotos(category, kind, data.name, data.description || '', files, processedPhotos);
     }
@@ -8727,14 +8724,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       // Clear PDF cache so new PDFs show updated data
       this.clearPdfCache();
 
-      // DEBUG ALERT: Confirm visual was created and state was set
-      alert(`[HUD createCustomVisualWithPhotos] COMPLETE!\n\nVisual ID: ${visualId}\nKey: ${key}\nPhotos uploaded: ${photoCount}\nselectedItems[key]: ${this.selectedItems[key]}\nvisualRecordIds[key]: ${this.visualRecordIds[key]}\nexpandedPhotos[key]: ${this.expandedPhotos[key]}`);
-
       console.log('[CREATE CUSTOM] ✅ Custom visual created');
 
     } catch (error) {
       console.error('[CREATE CUSTOM] Error creating custom visual:', error);
-      alert(`[HUD createCustomVisualWithPhotos] ERROR!\n\n${error}`);
     }
   }
 
