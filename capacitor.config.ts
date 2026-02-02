@@ -35,8 +35,8 @@ const config: CapacitorConfig = {
   },
   plugins: {
     Keyboard: {
-      resize: 'native',
-      style: 'dark',
+      resize: 'none',
+      style: 'light',
       resizeOnFullScreen: false
     },
     LiveUpdates: {
