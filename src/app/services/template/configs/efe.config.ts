@@ -67,4 +67,22 @@ export const EFE_CONFIG: TemplateConfig = {
   // IndexedDB Cache Keys
   templatesCacheKey: 'visual',
   visualsCacheKey: 'visual',
+
+  // Category Detail Features
+  categoryDetailFeatures: {
+    hasDexieFirstWithMutex: true,
+    hasActualServiceId: true,
+    supportsAddCustomVisual: true,
+    hasLazyPhotoLoading: true,
+    hasDebugPanel: true,
+  },
+
+  // Sync Events
+  syncEvents: {
+    photoUploadEvent: 'photoUploadComplete$',
+    syncCompleteEvent: 'visualSyncComplete$',
+  },
+
+  // Route Parameters
+  visualIdParamName: 'visualId',
 };

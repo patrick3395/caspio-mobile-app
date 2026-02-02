@@ -58,7 +58,7 @@ export class TemplateDataAdapter {
    * Convert config cache key to IndexedDB CacheDataType
    */
   private getCacheType(config: TemplateConfig): CacheDataType {
-    return this.getCacheType(config) as CacheDataType;
+    return config.visualsCacheKey as CacheDataType;
   }
 
   /**
@@ -556,6 +556,197 @@ export class TemplateDataAdapter {
       );
       return response.Result || [];
     }
+  }
+
+  // ============================================
+  // CATEGORY DETAIL OPERATIONS
+  // ============================================
+
+  /**
+   * Get visuals for a service filtered by category with explicit config
+   */
+  async getVisualsForCategoryWithConfig(
+    config: TemplateConfig,
+    serviceId: string,
+    category: string
+  ): Promise<any[]> {
+    // Get all visuals for service first
+    const allVisuals = await this.getVisualsWithConfig(config, serviceId);
+    // Filter by category
+    return allVisuals.filter(v => v.Category === category);
+  }
+
+  /**
+   * Get all attachments for a service (bulk load for category detail pages)
+   */
+  async getAllAttachmentsForServiceWithConfig(
+    config: TemplateConfig,
+    serviceId: string
+  ): Promise<any[]> {
+    // First get all visual IDs for this service
+    const visuals = await this.getVisualsWithConfig(config, serviceId);
+    const visualIds = visuals.map(v => v[config.idFieldName] || v.PK_ID).filter(Boolean);
+
+    if (visualIds.length === 0) {
+      return [];
+    }
+
+    // Build OR query for all visual IDs
+    const idConditions = visualIds.map(id => `${config.idFieldName}=${id}`).join(' OR ');
+    const endpoint = `/tables/${config.attachTableName}/records?q.where=${encodeURIComponent(idConditions)}`;
+
+    if (environment.isWeb) {
+      const response = await this.fetchApi<CaspioResponse>(endpoint);
+      return response.Result || [];
+    } else {
+      // Check cache first
+      const cached = await this.indexedDb.getCachedServiceData(serviceId, this.getAttachmentCacheType(config));
+      if (cached && cached.length > 0) {
+        return cached;
+      }
+
+      const response = await firstValueFrom(
+        this.caspioService.get<CaspioResponse>(endpoint)
+      );
+      const attachments = response.Result || [];
+
+      // Cache for offline use
+      await this.indexedDb.cacheServiceData(serviceId, this.getAttachmentCacheType(config), attachments);
+      return attachments;
+    }
+  }
+
+  /**
+   * Batch load attachments for multiple visual IDs
+   * Returns a Map of visualId -> attachments[]
+   */
+  async getAttachmentsBatchWithConfig(
+    config: TemplateConfig,
+    visualIds: string[]
+  ): Promise<Map<string, any[]>> {
+    const result = new Map<string, any[]>();
+
+    if (visualIds.length === 0) {
+      return result;
+    }
+
+    // Build OR query for all visual IDs
+    const idConditions = visualIds.map(id => `${config.idFieldName}=${id}`).join(' OR ');
+    const endpoint = `/tables/${config.attachTableName}/records?q.where=${encodeURIComponent(idConditions)}`;
+
+    let attachments: any[];
+    if (environment.isWeb) {
+      const response = await this.fetchApi<CaspioResponse>(endpoint);
+      attachments = response.Result || [];
+    } else {
+      const response = await firstValueFrom(
+        this.caspioService.get<CaspioResponse>(endpoint)
+      );
+      attachments = response.Result || [];
+    }
+
+    // Group attachments by visual ID
+    for (const attachment of attachments) {
+      const visualId = String(attachment[config.idFieldName]);
+      if (!result.has(visualId)) {
+        result.set(visualId, []);
+      }
+      result.get(visualId)!.push(attachment);
+    }
+
+    // Initialize empty arrays for IDs with no attachments
+    for (const id of visualIds) {
+      if (!result.has(String(id))) {
+        result.set(String(id), []);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Get dropdown options grouped by template ID for a specific category
+   * Returns a Map of templateId -> options[]
+   */
+  async getDropdownOptionsForCategoryWithConfig(
+    config: TemplateConfig,
+    category: string
+  ): Promise<Map<number, string[]>> {
+    const result = new Map<number, string[]>();
+
+    // Get templates for this category to know which template IDs we need
+    const templates = await this.getTemplatesWithConfig(config);
+    const categoryTemplates = templates.filter(t => t.Category === category);
+    const templateIds = categoryTemplates.map(t => t.TemplateID || t.PK_ID);
+
+    if (!config.features.dynamicDropdowns || templateIds.length === 0) {
+      return result;
+    }
+
+    // Get all dropdown options
+    const allOptions = await this.getDropdownOptionsWithConfig(config);
+
+    // Group by template ID
+    for (const option of allOptions) {
+      const templateId = option.TemplateID;
+      if (templateIds.includes(templateId)) {
+        if (!result.has(templateId)) {
+          result.set(templateId, []);
+        }
+        if (option.DropdownValue) {
+          result.get(templateId)!.push(option.DropdownValue);
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Create a visual with category detail field mapping
+   */
+  async createCategoryVisualWithConfig(
+    config: TemplateConfig,
+    visualData: {
+      serviceId: string;
+      templateId: number;
+      category: string;
+      name: string;
+      text: string;
+      type: string;
+      isSelected: boolean;
+      answer?: string;
+      notes?: string;
+    }
+  ): Promise<any> {
+    // Map to database field names based on config
+    const dbData: any = {
+      ServiceID: visualData.serviceId,
+      [config.templateIdFieldName]: visualData.templateId,
+      Category: visualData.category,
+      Name: visualData.name,
+      Text: visualData.text,
+      Kind: visualData.type, // "Comment", "Limitation", "Deficiency"
+      IsSelected: visualData.isSelected ? 1 : 0,
+    };
+
+    if (visualData.answer !== undefined) {
+      dbData.Answer = visualData.answer;
+    }
+
+    if (visualData.notes !== undefined) {
+      dbData.Notes = visualData.notes;
+    }
+
+    return this.createVisualWithConfig(config, dbData);
+  }
+
+  /**
+   * Get templates by category with explicit config
+   */
+  async getTemplatesByCategoryWithConfig(config: TemplateConfig, category: string): Promise<any[]> {
+    const templates = await this.getTemplatesWithConfig(config);
+    return templates.filter(t => t.Category === category);
   }
 
   // ============================================

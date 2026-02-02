@@ -60,4 +60,22 @@ export const DTE_CONFIG: TemplateConfig = {
   // IndexedDB Cache Keys
   templatesCacheKey: 'dte',
   visualsCacheKey: 'dte',
+
+  // Category Detail Features
+  categoryDetailFeatures: {
+    hasDexieFirstWithMutex: false,
+    hasActualServiceId: false,
+    supportsAddCustomVisual: true,
+    hasLazyPhotoLoading: false,
+    hasDebugPanel: false,
+  },
+
+  // Sync Events
+  syncEvents: {
+    photoUploadEvent: 'photoUploadComplete$',
+    syncCompleteEvent: null,
+  },
+
+  // Route Parameters
+  visualIdParamName: 'dteId',
 };

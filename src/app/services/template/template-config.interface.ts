@@ -94,6 +94,39 @@ export interface TemplateConfig {
 
   /** Cache key prefix for visuals */
   visualsCacheKey: string;
+
+  // ==================== Category Detail Features ====================
+  /** Category detail page-specific feature flags */
+  categoryDetailFeatures: {
+    /** Uses Dexie-first pattern with MUTEX guards (HUD/EFE) vs simpler pattern (LBW/DTE) */
+    hasDexieFirstWithMutex: boolean;
+
+    /** Has actualServiceId separate from route serviceId (HUD/EFE require lookup) */
+    hasActualServiceId: boolean;
+
+    /** Supports custom visual modal for adding new items */
+    supportsAddCustomVisual: boolean;
+
+    /** Has lazy photo loading with expandedPhotos pattern (HUD/EFE) */
+    hasLazyPhotoLoading: boolean;
+
+    /** Has debug panel with error tracking (HUD/EFE) */
+    hasDebugPanel: boolean;
+  };
+
+  // ==================== Sync Event Configuration ====================
+  /** Template-specific sync event names for background sync subscriptions */
+  syncEvents: {
+    /** Photo upload complete event name (e.g., 'hudPhotoUploadComplete$') */
+    photoUploadEvent: string;
+
+    /** Visual/entity sync complete event name (e.g., 'hudSyncComplete$'), null if none */
+    syncCompleteEvent: string | null;
+  };
+
+  // ==================== Route Parameters ====================
+  /** Visual ID query param name for navigation (e.g., 'hudId', 'visualId', 'lbwId', 'dteId') */
+  visualIdParamName: string;
 }
 
 /**

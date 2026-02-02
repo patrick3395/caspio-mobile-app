@@ -61,4 +61,22 @@ export const HUD_CONFIG: TemplateConfig = {
   // IndexedDB Cache Keys
   templatesCacheKey: 'hud',
   visualsCacheKey: 'hud',
+
+  // Category Detail Features
+  categoryDetailFeatures: {
+    hasDexieFirstWithMutex: true,
+    hasActualServiceId: true,
+    supportsAddCustomVisual: true,
+    hasLazyPhotoLoading: true,
+    hasDebugPanel: true,
+  },
+
+  // Sync Events
+  syncEvents: {
+    photoUploadEvent: 'hudPhotoUploadComplete$',
+    syncCompleteEvent: 'hudSyncComplete$',
+  },
+
+  // Route Parameters
+  visualIdParamName: 'hudId',
 };

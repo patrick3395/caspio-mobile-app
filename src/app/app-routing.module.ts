@@ -41,6 +41,9 @@ import { DteCategoryDetailPage } from './pages/dte/dte-category-detail/dte-categ
 // Generic visual-detail page (consolidation - replaces template-specific pages)
 import { GenericVisualDetailPage } from './pages/template/visual-detail/visual-detail.page';
 
+// Generic category-detail page (consolidation - replaces template-specific pages)
+import { GenericCategoryDetailPage } from './pages/template/category-detail/category-detail.page';
+
 const routes: Routes = [
   {
     path: 'login',
@@ -92,7 +95,7 @@ const routes: Routes = [
           {
             path: 'category/:category',
             children: [
-              { path: '', component: CategoryDetailPage, canDeactivate: [UnsavedChangesGuard] },
+              { path: '', component: GenericCategoryDetailPage, canDeactivate: [UnsavedChangesGuard] },
               { path: 'visual/:templateId', component: GenericVisualDetailPage, canDeactivate: [UnsavedChangesGuard] }
             ]
           }
@@ -119,7 +122,7 @@ const routes: Routes = [
       {
         path: 'category/:category',
         children: [
-          { path: '', component: HudCategoryDetailPage, canDeactivate: [UnsavedChangesGuard] },
+          { path: '', component: GenericCategoryDetailPage, canDeactivate: [UnsavedChangesGuard] },
           { path: 'visual/:templateId', component: GenericVisualDetailPage, canDeactivate: [UnsavedChangesGuard] }
         ]
       }
@@ -137,7 +140,7 @@ const routes: Routes = [
       {
         path: 'category/:category',
         children: [
-          { path: '', component: LbwCategoryDetailPage, canDeactivate: [UnsavedChangesGuard] },
+          { path: '', component: GenericCategoryDetailPage, canDeactivate: [UnsavedChangesGuard] },
           { path: 'visual/:templateId', component: GenericVisualDetailPage, canDeactivate: [UnsavedChangesGuard] }
         ]
       }
@@ -155,7 +158,7 @@ const routes: Routes = [
       {
         path: 'category/:category',
         children: [
-          { path: '', component: DteCategoryDetailPage, canDeactivate: [UnsavedChangesGuard] },
+          { path: '', component: GenericCategoryDetailPage, canDeactivate: [UnsavedChangesGuard] },
           { path: 'visual/:templateId', component: GenericVisualDetailPage, canDeactivate: [UnsavedChangesGuard] }
         ]
       }

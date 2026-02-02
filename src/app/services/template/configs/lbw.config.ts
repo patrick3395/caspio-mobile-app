@@ -60,4 +60,22 @@ export const LBW_CONFIG: TemplateConfig = {
   // IndexedDB Cache Keys
   templatesCacheKey: 'lbw',
   visualsCacheKey: 'lbw',
+
+  // Category Detail Features
+  categoryDetailFeatures: {
+    hasDexieFirstWithMutex: false,
+    hasActualServiceId: false,
+    supportsAddCustomVisual: true,
+    hasLazyPhotoLoading: false,
+    hasDebugPanel: false,
+  },
+
+  // Sync Events
+  syncEvents: {
+    photoUploadEvent: 'lbwPhotoUploadComplete$',
+    syncCompleteEvent: 'lbwSyncComplete$',
+  },
+
+  // Route Parameters
+  visualIdParamName: 'lbwId',
 };
