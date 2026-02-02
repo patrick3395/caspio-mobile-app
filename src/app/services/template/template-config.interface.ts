@@ -95,6 +95,21 @@ export interface TemplateConfig {
   /** Cache key prefix for visuals */
   visualsCacheKey: string;
 
+  // ==================== Category Hub Features ====================
+  /** Category hub page-specific configuration (EFE, LBW, DTE) */
+  categoryHubFeatures?: {
+    /** Show "Where will you provide visuals" dropdown (EFE only) */
+    hasVisualLocationDropdown: boolean;
+    /** Service field name for visual location setting (e.g., 'StructStat') */
+    visualLocationFieldName?: string;
+    /** Default value when visuals are completed here */
+    completedHereValue?: string;
+    /** Default value when visuals provided elsewhere */
+    providedElsewhereValue?: string;
+    /** Navigation pattern: 'nested' for /structural/category/:cat, 'sibling' for /categories -> /category/:cat */
+    navigationPattern?: 'nested' | 'sibling';
+  };
+
   // ==================== Category Detail Features ====================
   /** Category detail page-specific feature flags */
   categoryDetailFeatures: {

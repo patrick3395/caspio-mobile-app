@@ -2116,8 +2116,10 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       this.logDebug('VISUAL', `Creating visual record for ${category}_${itemId}`);
 
       // Create visual record using template-specific data service
+      // IMPORTANT: Use actualServiceId (the ServiceID field) for HUD/EFE, not route serviceId (which is PK_ID)
+      const effectiveServiceId = this.actualServiceId || this.serviceId;
       const visualData = {
-        ServiceID: parseInt(this.serviceId, 10),
+        ServiceID: parseInt(effectiveServiceId, 10),
         Category: category,
         Kind: item.type,
         Name: item.name,
@@ -2130,7 +2132,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
       // Use unified dataProvider - handles webapp/mobile differences internally
       const visualRecord = {
-        serviceId: this.serviceId,
+        serviceId: effectiveServiceId,
         templateId: item.templateId,
         category: category,
         name: item.name,

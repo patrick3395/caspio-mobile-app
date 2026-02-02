@@ -34,7 +34,7 @@ export const DTE_CONFIG: TemplateConfig = {
     hasComplexSync: false,
     hasCountIndicators: false,
     hasCategoriesHub: true,
-    dynamicDropdowns: false,
+    dynamicDropdowns: true,  // DTE uses LPS_Services_DTE_Drop table
     offlineFirst: false,
   },
 
@@ -60,6 +60,12 @@ export const DTE_CONFIG: TemplateConfig = {
   // IndexedDB Cache Keys
   templatesCacheKey: 'dte',
   visualsCacheKey: 'dte',
+
+  // Category Hub Features
+  categoryHubFeatures: {
+    hasVisualLocationDropdown: false,
+    navigationPattern: 'sibling',  // /categories -> /category/:cat
+  },
 
   // Category Detail Features
   categoryDetailFeatures: {

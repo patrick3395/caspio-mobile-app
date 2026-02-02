@@ -34,7 +34,7 @@ export const LBW_CONFIG: TemplateConfig = {
     hasComplexSync: false,
     hasCountIndicators: false,
     hasCategoriesHub: true,
-    dynamicDropdowns: false,
+    dynamicDropdowns: true,  // LBW uses LPS_Services_LBW_Drop table
     offlineFirst: false,
   },
 
@@ -60,6 +60,12 @@ export const LBW_CONFIG: TemplateConfig = {
   // IndexedDB Cache Keys
   templatesCacheKey: 'lbw',
   visualsCacheKey: 'lbw',
+
+  // Category Hub Features
+  categoryHubFeatures: {
+    hasVisualLocationDropdown: false,
+    navigationPattern: 'sibling',  // /categories -> /category/:cat
+  },
 
   // Category Detail Features
   categoryDetailFeatures: {

@@ -11,29 +11,18 @@ import { HudTemplatePage } from './pages/hud-template/hud-template.page';
 
 // Eager load Engineers Foundation components for offline support
 import { EngineersFoundationContainerPage } from './pages/engineers-foundation/engineers-foundation-container/engineers-foundation-container.page';
-import { EngineersFoundationMainPage } from './pages/engineers-foundation/engineers-foundation-main/engineers-foundation-main.page';
-import { StructuralSystemsHubPage } from './pages/engineers-foundation/structural-systems/structural-systems-hub/structural-systems-hub.page';
-import { CategoryDetailPage } from './pages/engineers-foundation/structural-systems/category-detail/category-detail.page';
 // EFE-specific elevation pages (not generalized - only used by EFE template)
 import { ElevationPlotHubPage } from './pages/template/efe-elevation/elevation-plot-hub/elevation-plot-hub.page';
 import { RoomElevationPage } from './pages/template/efe-elevation/room-elevation/room-elevation.page';
 
 // Eager load HUD components for offline support
 import { HudContainerPage } from './pages/hud/hud-container/hud-container.page';
-import { HudMainPage } from './pages/hud/hud-main/hud-main.page';
-import { HudCategoryDetailPage } from './pages/hud/hud-category-detail/hud-category-detail.page';
 
 // Eager load LBW components for offline support
 import { LbwContainerPage } from './pages/lbw/lbw-container/lbw-container.page';
-import { LbwMainPage } from './pages/lbw/lbw-main/lbw-main.page';
-import { LbwCategoriesPage } from './pages/lbw/lbw-categories/lbw-categories.page';
-import { LbwCategoryDetailPage } from './pages/lbw/lbw-category-detail/lbw-category-detail.page';
 
 // Eager load DTE components for offline support
 import { DteContainerPage } from './pages/dte/dte-container/dte-container.page';
-import { DteMainPage } from './pages/dte/dte-main/dte-main.page';
-import { DteCategoriesPage } from './pages/dte/dte-categories/dte-categories.page';
-import { DteCategoryDetailPage } from './pages/dte/dte-category-detail/dte-category-detail.page';
 
 // Generic visual-detail page (consolidation - replaces template-specific pages)
 import { GenericVisualDetailPage } from './pages/template/visual-detail/visual-detail.page';
@@ -43,6 +32,12 @@ import { GenericCategoryDetailPage } from './pages/template/category-detail/cate
 
 // Generic project-detail page (consolidation - replaces template-specific pages)
 import { GenericProjectDetailPage } from './pages/template/project-detail/project-detail.page';
+
+// Generic main page (consolidation - replaces template-specific main pages)
+import { GenericMainPage } from './pages/template/main/main.page';
+
+// Generic category-hub page (consolidation - replaces template-specific category hub pages)
+import { GenericCategoryHubPage } from './pages/template/category-hub/category-hub.page';
 
 const routes: Routes = [
   {
@@ -86,12 +81,12 @@ const routes: Routes = [
     component: EngineersFoundationContainerPage,
     canActivate: [AuthGuard],
     children: [
-      { path: '', component: EngineersFoundationMainPage },
+      { path: '', component: GenericMainPage },
       { path: 'project-details', component: GenericProjectDetailPage, canDeactivate: [UnsavedChangesGuard] },
       {
         path: 'structural',
         children: [
-          { path: '', component: StructuralSystemsHubPage },
+          { path: '', component: GenericCategoryHubPage },
           {
             path: 'category/:category',
             children: [
@@ -117,7 +112,7 @@ const routes: Routes = [
     component: HudContainerPage,
     canActivate: [AuthGuard],
     children: [
-      { path: '', component: HudMainPage },
+      { path: '', component: GenericMainPage },
       { path: 'project-details', component: GenericProjectDetailPage, canDeactivate: [UnsavedChangesGuard] },
       {
         path: 'category/:category',
@@ -134,9 +129,9 @@ const routes: Routes = [
     component: LbwContainerPage,
     canActivate: [AuthGuard],
     children: [
-      { path: '', component: LbwMainPage },
+      { path: '', component: GenericMainPage },
       { path: 'project-details', component: GenericProjectDetailPage, canDeactivate: [UnsavedChangesGuard] },
-      { path: 'categories', component: LbwCategoriesPage },
+      { path: 'categories', component: GenericCategoryHubPage },
       {
         path: 'category/:category',
         children: [
@@ -152,9 +147,9 @@ const routes: Routes = [
     component: DteContainerPage,
     canActivate: [AuthGuard],
     children: [
-      { path: '', component: DteMainPage },
+      { path: '', component: GenericMainPage },
       { path: 'project-details', component: GenericProjectDetailPage, canDeactivate: [UnsavedChangesGuard] },
-      { path: 'categories', component: DteCategoriesPage },
+      { path: 'categories', component: GenericCategoryHubPage },
       {
         path: 'category/:category',
         children: [

@@ -369,10 +369,8 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
 
     const optionsMap = new Map<number, string[]>();
     for (const option of cached) {
-      const templateId = option.TemplateID ||
-                         option[`${config.id.toUpperCase()}TemplateID`] ||
-                         option.HUDTemplateID ||
-                         option.VisualTemplateID;
+      // All dropdown tables use TemplateID consistently
+      const templateId = option.TemplateID;
 
       if (templateId) {
         if (!optionsMap.has(templateId)) {

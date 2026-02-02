@@ -193,11 +193,8 @@ export class WebappTemplateDataProvider extends ITemplateDataProvider {
 
     const optionsMap = new Map<number, string[]>();
     for (const option of (result.Result || [])) {
-      // Handle different template ID field names
-      const templateId = option.TemplateID ||
-                         option[`${config.id.toUpperCase()}TemplateID`] ||
-                         option.HUDTemplateID ||
-                         option.VisualTemplateID;
+      // All dropdown tables use TemplateID consistently
+      const templateId = option.TemplateID;
 
       if (templateId) {
         if (!optionsMap.has(templateId)) {
@@ -277,7 +274,7 @@ export class WebappTemplateDataProvider extends ITemplateDataProvider {
   private mapToVisualRecord(config: TemplateConfig, record: any): VisualRecord {
     return {
       id: String(record[config.idFieldName] || record.PK_ID),
-      templateId: record[config.templateIdFieldName] || record.TemplateID || 0,
+      templateId: record[config.templateIdFieldName] || 0,
       serviceId: String(record.ServiceID),
       category: record.Category || '',
       name: record.Name || '',

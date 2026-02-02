@@ -541,20 +541,26 @@ export class TemplateDataAdapter {
   async getDropdownOptionsWithConfig(config: TemplateConfig): Promise<any[]> {
     // Some templates use hardcoded dropdowns
     if (!config.features.dynamicDropdowns) {
-      console.log(`[DataAdapter] Template ${config.id} uses hardcoded dropdowns`);
       return [];
     }
 
     const endpoint = `/tables/${config.dropdownTableName}/records?response=rows`;
 
-    if (environment.isWeb) {
-      const response = await this.fetchApi<CaspioResponse>(endpoint);
-      return response.Result || [];
-    } else {
-      const response = await firstValueFrom(
-        this.caspioService.get<CaspioResponse>(endpoint)
-      );
-      return response.Result || [];
+    try {
+      let result: any[];
+      if (environment.isWeb) {
+        const response = await this.fetchApi<CaspioResponse>(endpoint);
+        result = response.Result || [];
+      } else {
+        const response = await firstValueFrom(
+          this.caspioService.get<CaspioResponse>(endpoint)
+        );
+        result = response.Result || [];
+      }
+      return result;
+    } catch (error) {
+      console.error(`[DataAdapter] Error loading dropdown options:`, error);
+      return [];
     }
   }
 
@@ -676,8 +682,20 @@ export class TemplateDataAdapter {
 
     // Get templates for this category to know which template IDs we need
     const templates = await this.getTemplatesWithConfig(config);
-    const categoryTemplates = templates.filter(t => t.Category === category);
-    const templateIds = categoryTemplates.map(t => t.TemplateID || t.PK_ID);
+
+    // Filter by category - try exact match first, then check if templates don't have Category field
+    let categoryTemplates = templates.filter(t => t.Category === category);
+
+    // If no matches and this is a single-category template (like HUD), use all templates
+    // HUD uses route 'category/hud' but templates might not have a Category field
+    if (categoryTemplates.length === 0 && !config.features.hasCategoriesHub) {
+      categoryTemplates = templates;
+    }
+
+    // Extract template IDs - check multiple possible field names
+    const templateIds = categoryTemplates.map(t => {
+      return t.TemplateID || t.PK_ID || t[`${config.id.toUpperCase()}TemplateID`];
+    }).filter(id => id !== undefined);
 
     if (!config.features.dynamicDropdowns || templateIds.length === 0) {
       return result;
@@ -686,18 +704,36 @@ export class TemplateDataAdapter {
     // Get all dropdown options
     const allOptions = await this.getDropdownOptionsWithConfig(config);
 
+    // All dropdown tables use TemplateID consistently
     // Group by template ID
     for (const option of allOptions) {
       const templateId = option.TemplateID;
-      if (templateIds.includes(templateId)) {
+
+      if (templateId && templateIds.includes(templateId)) {
         if (!result.has(templateId)) {
           result.set(templateId, []);
         }
-        if (option.DropdownValue) {
-          result.get(templateId)!.push(option.DropdownValue);
+        // Use 'Dropdown' field (EFE/HUD pattern) or 'DropdownValue' as fallback
+        const dropdownValue = option.Dropdown || option.DropdownValue;
+        if (dropdownValue && dropdownValue !== 'None' && dropdownValue !== 'Other') {
+          const currentOptions = result.get(templateId)!;
+          if (!currentOptions.includes(dropdownValue)) {
+            currentOptions.push(dropdownValue);
+          }
         }
       }
     }
+
+    // Sort options alphabetically and add "None" and "Other" at the end
+    result.forEach((options, templateId) => {
+      options.sort((a, b) => a.localeCompare(b));
+      if (!options.includes('None')) {
+        options.push('None');
+      }
+      if (!options.includes('Other')) {
+        options.push('Other');
+      }
+    });
 
     return result;
   }
