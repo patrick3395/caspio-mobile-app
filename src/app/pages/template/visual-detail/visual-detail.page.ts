@@ -704,13 +704,19 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
   private async loadPhotosMobile() {
     if (!this.config) return;
 
+    alert(`[DEBUG] loadPhotosMobile START\nserviceId: ${this.serviceId}\ntemplateId: ${this.templateId}`);
+
     // Re-query visualFields to get fresh data (EFE pattern)
     const allFields = await db.visualFields
       .where('serviceId')
       .equals(this.serviceId)
       .toArray();
 
+    alert(`[DEBUG] Found ${allFields.length} visualFields for serviceId: ${this.serviceId}`);
+
     const field = allFields.find(f => f.templateId === this.templateId);
+
+    alert(`[DEBUG] Field for templateId ${this.templateId}: ${field ? 'FOUND' : 'NOT FOUND'}\ntempVisualId: ${field?.tempVisualId || 'none'}\nvisualId: ${field?.visualId || 'none'}`);
 
     // CRITICAL: Use tempVisualId FIRST because localImages are stored with the original temp ID
     // After sync, visualId contains the real ID but photos still have entityId = tempVisualId
@@ -718,11 +724,13 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     this.lastKnownVisualId = this.visualId;
 
     if (!this.visualId) {
+      alert('[DEBUG] NO visualId - cannot load photos');
       console.log('[GenericVisualDetail] MOBILE: No visualId found, cannot load photos');
       this.photos = [];
       return;
     }
 
+    alert(`[DEBUG] Using visualId: ${this.visualId}`);
     console.log('[GenericVisualDetail] MOBILE: Loading photos - visualId:', this.visualId,
       'tempVisualId:', field?.tempVisualId, 'field.visualId:', field?.visualId);
 
@@ -734,17 +742,22 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     localImages = await db.localImages.where('entityId').equals(this.visualId).toArray();
     if (localImages.length > 0) {
       foundAtTier = 1;
+      alert(`[DEBUG] TIER 1 - Found ${localImages.length} photos with entityId: ${this.visualId}`);
       console.log('[GenericVisualDetail] MOBILE: TIER 1 - Found', localImages.length, 'photos');
+    } else {
+      alert(`[DEBUG] TIER 1 - No photos found with entityId: ${this.visualId}`);
     }
 
     // TIER 2: Try alternate ID (if field has both tempVisualId and visualId)
     if (localImages.length === 0 && field?.tempVisualId && field?.visualId) {
       const alternateId = (this.visualId === field.tempVisualId) ? field.visualId : field.tempVisualId;
       if (alternateId && alternateId !== this.visualId) {
+        alert(`[DEBUG] TIER 2 - Trying alternate ID: ${alternateId}`);
         console.log('[GenericVisualDetail] MOBILE: TIER 2 - Trying alternate ID:', alternateId);
         localImages = await db.localImages.where('entityId').equals(String(alternateId)).toArray();
         if (localImages.length > 0) {
           foundAtTier = 2;
+          alert(`[DEBUG] TIER 2 - Found ${localImages.length} photos`);
           console.log('[GenericVisualDetail] MOBILE: TIER 2 - Found', localImages.length, 'photos');
         }
       }
@@ -753,11 +766,13 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     // TIER 3: Query by mapped realId from tempIdMappings
     if (localImages.length === 0 && field?.tempVisualId) {
       const mappedRealId = await this.indexedDb.getRealId(field.tempVisualId);
+      alert(`[DEBUG] TIER 3 - mappedRealId for ${field.tempVisualId}: ${mappedRealId || 'none'}`);
       if (mappedRealId) {
         console.log('[GenericVisualDetail] MOBILE: TIER 3 - Trying mapped realId:', mappedRealId);
         localImages = await db.localImages.where('entityId').equals(mappedRealId).toArray();
         if (localImages.length > 0) {
           foundAtTier = 3;
+          alert(`[DEBUG] TIER 3 - Found ${localImages.length} photos`);
           console.log('[GenericVisualDetail] MOBILE: TIER 3 - Found', localImages.length, 'photos');
         }
       }
@@ -766,11 +781,13 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     // TIER 4: Reverse lookup - query tempIdMappings by realId to find tempId
     if (localImages.length === 0 && field?.visualId && !field?.tempVisualId) {
       const reverseLookupTempId = await this.indexedDb.getTempId(field.visualId);
+      alert(`[DEBUG] TIER 4 - reverseLookupTempId for ${field.visualId}: ${reverseLookupTempId || 'none'}`);
       if (reverseLookupTempId) {
         console.log('[GenericVisualDetail] MOBILE: TIER 4 - Reverse lookup tempId:', reverseLookupTempId);
         localImages = await db.localImages.where('entityId').equals(reverseLookupTempId).toArray();
         if (localImages.length > 0) {
           foundAtTier = 4;
+          alert(`[DEBUG] TIER 4 - Found ${localImages.length} photos`);
           console.log('[GenericVisualDetail] MOBILE: TIER 4 - Found', localImages.length, 'photos');
         }
       }
@@ -778,8 +795,10 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
     // Log final result
     if (foundAtTier > 0) {
+      alert(`[DEBUG] FINAL: Photos found at TIER ${foundAtTier} - Total: ${localImages.length}`);
       console.log('[GenericVisualDetail] MOBILE: Photos found at TIER', foundAtTier, '- Total:', localImages.length);
     } else {
+      alert(`[DEBUG] FINAL: No photos found after all 4 tiers`);
       console.log('[GenericVisualDetail] MOBILE: No photos found after all 4 tiers');
     }
 
@@ -791,6 +810,8 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       // Skip duplicates
       if (loadedPhotoIds.has(img.imageId)) continue;
       if (img.attachId && loadedPhotoIds.has(img.attachId)) continue;
+
+      alert(`[DEBUG] Processing image:\nimageId: ${img.imageId}\nlocalBlobId: ${img.localBlobId || 'none'}\nremoteUrl: ${img.remoteUrl || 'none'}\nremoteS3Key: ${img.remoteS3Key || 'none'}`);
 
       const hasAnnotations = !!(img.drawings && img.drawings.length > 10);
       let displayUrl = 'assets/img/photo-placeholder.svg';
@@ -813,25 +834,32 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       if (img.localBlobId) {
         const blob = await db.localBlobs.get(img.localBlobId);
         if (blob) {
+          alert(`[DEBUG] Found blob in localBlobs - size: ${blob.data?.byteLength || 0} bytes`);
           const blobObj = new Blob([blob.data], { type: blob.contentType });
           originalUrl = URL.createObjectURL(blobObj);
           if (displayUrl === 'assets/img/photo-placeholder.svg') {
             displayUrl = originalUrl;
           }
+        } else {
+          alert(`[DEBUG] localBlobId ${img.localBlobId} NOT FOUND in localBlobs table`);
         }
       }
 
       // If no local blob but has remote URL cached in Dexie
       if (originalUrl === 'assets/img/photo-placeholder.svg' && img.remoteUrl) {
+        alert(`[DEBUG] Using remoteUrl: ${img.remoteUrl.substring(0, 50)}...`);
         originalUrl = img.remoteUrl;
         displayUrl = img.remoteUrl;
       }
 
       // If synced and has S3 key stored in Dexie
       if (originalUrl === 'assets/img/photo-placeholder.svg' && img.remoteS3Key) {
+        alert(`[DEBUG] Using remoteS3Key: ${img.remoteS3Key}`);
         originalUrl = img.remoteS3Key;
         displayUrl = img.remoteS3Key;
       }
+
+      alert(`[DEBUG] Final URLs:\ndisplayUrl: ${displayUrl.substring(0, 50)}...\noriginalUrl: ${originalUrl.substring(0, 50)}...`);
 
       loadedPhotoIds.add(img.imageId);
       if (img.attachId) loadedPhotoIds.add(img.attachId);
@@ -848,6 +876,7 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       });
     }
 
+    alert(`[DEBUG] COMPLETE: Loaded ${this.photos.length} photos from Dexie`);
     console.log('[GenericVisualDetail] MOBILE: Loaded', this.photos.length, 'photos from Dexie');
   }
 
