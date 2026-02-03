@@ -1038,6 +1038,10 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       console.log('[GenericVisualDetail] DEXIE-FIRST: No photos found. Searched IDs:', Array.from(idsToSearch));
     }
 
+    // DEBUG: Get ALL photos for this service to see what entityIds exist
+    const allPhotosForService = await db.localImages.where('serviceId').equals(this.serviceId).toArray();
+    const uniqueEntityIds = [...new Set(allPhotosForService.map(p => p.entityId))];
+
     // DEBUG ALERT: Show photo search results
     const photoDebugInfo = [
       `=== DEBUG: PHOTO LOOKUP RESULTS ===`,
@@ -1055,15 +1059,15 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       `Photos found: ${localImages.length}`,
       `Found with ID: "${foundWithId || '(none)'}"`,
       ``,
-      `--- PHOTO DETAILS ---`,
-      localImages.length > 0
-        ? localImages.slice(0, 3).map((img, i) =>
-            `Photo ${i+1}: entityId="${img.entityId}", imageId="${img.imageId || '(null)'}"`
-          ).join('\n')
-        : '(no photos found in db.localImages)',
+      `--- ALL PHOTOS IN SERVICE ${this.serviceId} ---`,
+      `Total photos: ${allPhotosForService.length}`,
+      `Unique entityIds: ${uniqueEntityIds.length}`,
+      uniqueEntityIds.slice(0, 10).map(id => `• "${id}"`).join('\n') || '(no photos)',
+      uniqueEntityIds.length > 10 ? `... and ${uniqueEntityIds.length - 10} more` : '',
       ``,
-      `--- EXPECTED ---`,
-      `Photos should have entityId matching one of the IDs above`
+      `--- MATCH CHECK ---`,
+      `Does any photo entityId match our tempId? ${uniqueEntityIds.includes(tempId) ? 'YES' : 'NO'}`,
+      `Does any photo entityId match our realId? ${uniqueEntityIds.includes(realId) ? 'YES' : 'NO'}`
     ].join('\n');
     alert(photoDebugInfo);
 
