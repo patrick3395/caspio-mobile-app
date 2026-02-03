@@ -406,6 +406,35 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           'field.tempHudId:', field.tempHudId, 'field.hudId:', field.hudId,
           'field.tempVisualId:', field.tempVisualId, 'field.visualId:', field.visualId);
 
+        // DEBUG ALERT: Show where Name/Text come from and photo lookup keys
+        const debugInfo = [
+          `=== DEBUG: ${this.config?.id?.toUpperCase()} VISUAL-DETAIL ===`,
+          ``,
+          `--- DATA SOURCE (Dexie ${this.config?.id}Fields table) ---`,
+          `Table: db.${this.config?.id}Fields`,
+          `ServiceId: ${this.serviceId}`,
+          `TemplateId: ${this.templateId}`,
+          ``,
+          `--- FIELD VALUES ---`,
+          `templateName: "${field.templateName || '(empty)'}"`,
+          `templateText: "${(field.templateText || '(empty)').substring(0, 50)}..."`,
+          `category: "${field.category || '(empty)'}"`,
+          ``,
+          `--- ID FIELDS (for photo lookup) ---`,
+          `tempHudId: ${field.tempHudId || '(null)'}`,
+          `hudId: ${field.hudId || '(null)'}`,
+          `tempVisualId: ${field.tempVisualId || '(null)'}`,
+          `visualId: ${field.visualId || '(null)'}`,
+          `tempLbwId: ${field.tempLbwId || '(null)'}`,
+          `lbwId: ${field.lbwId || '(null)'}`,
+          ``,
+          `--- EXTRACTED IDs ---`,
+          `getTempIdFromField(): "${tempId || '(empty)'}"`,
+          `getRealIdFromField(): "${realId || '(empty)'}"`,
+          `Final visualId for photos: "${this.visualId || '(empty)'}"`
+        ].join('\n');
+        alert(debugInfo);
+
         // Create item from Dexie field data (NOT from template - that's stale!)
         this.item = this.convertGenericFieldToItem(field);
         this.editableTitle = this.item.name;
@@ -992,6 +1021,35 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     } else {
       console.log('[GenericVisualDetail] DEXIE-FIRST: No photos found. Searched IDs:', Array.from(idsToSearch));
     }
+
+    // DEBUG ALERT: Show photo search results
+    const photoDebugInfo = [
+      `=== DEBUG: PHOTO LOOKUP RESULTS ===`,
+      ``,
+      `--- SEARCH PARAMETERS ---`,
+      `Template: ${this.config?.id?.toUpperCase()}`,
+      `tempId: "${tempId || '(empty)'}"`,
+      `realId: "${realId || '(empty)'}"`,
+      `visualId: "${this.visualId || '(empty)'}"`,
+      ``,
+      `--- IDs SEARCHED ---`,
+      `${Array.from(idsToSearch).map(id => `• "${id}"`).join('\n') || '(no IDs to search)'}`,
+      ``,
+      `--- RESULTS ---`,
+      `Photos found: ${localImages.length}`,
+      `Found with ID: "${foundWithId || '(none)'}"`,
+      ``,
+      `--- PHOTO DETAILS ---`,
+      localImages.length > 0
+        ? localImages.slice(0, 3).map((img, i) =>
+            `Photo ${i+1}: entityId="${img.entityId}", imageId="${img.imageId || '(null)'}"`
+          ).join('\n')
+        : '(no photos found in db.localImages)',
+      ``,
+      `--- EXPECTED ---`,
+      `Photos should have entityId matching one of the IDs above`
+    ].join('\n');
+    alert(photoDebugInfo);
 
     // Guard after async operations
     if (this.isDestroyed) return;

@@ -343,6 +343,21 @@ ion-toast {
     --background: #dc3545;
     --color: white;
   }
+
+  // Image diagnostics toast - monospace font for aligned display
+  &.image-diagnostics-toast {
+    --background: rgba(0, 0, 0, 0.9);
+    --color: white;
+    --min-width: 300px;
+    --max-width: 400px;
+
+    .toast-message {
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      white-space: pre-line;
+    }
+  }
 }
 
 // Action Sheet

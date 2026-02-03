@@ -1,7 +1,7 @@
 import { Component, Input, ViewChild, ElementRef, OnInit, AfterViewInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ModalController, AlertController } from '@ionic/angular';
+import { IonicModule, ModalController, AlertController, ToastController } from '@ionic/angular';
 import { compressAnnotationData, decompressAnnotationData } from '../../utils/annotation-utils';
 import { FabricService } from '../../services/fabric.service';
 import { environment } from '../../../environments/environment';
@@ -391,9 +391,14 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     return await this.fabricService.getFabric();
   }
 
+  // Diagnostic info for image quality debugging
+  private imageFileSizeBytes: number = 0;
+  private imageDataUrl: string = '';
+
   constructor(
     private modalController: ModalController,
     private alertController: AlertController,
+    private toastController: ToastController,
     private fabricService: FabricService,
     private cdr: ChangeDetectorRef
   ) {}
@@ -499,7 +504,10 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       const loadOptions = (isLocalUrl || isS3Fallback) ? {} : { crossOrigin: 'anonymous' };
       console.log('[FabricAnnotator] Loading image, isLocalUrl:', isLocalUrl, 'isS3Fallback:', isS3Fallback, 'url prefix:', imageUrl.substring(0, 50));
 
-      fabric.Image.fromURL(imageUrl, loadOptions).then((img: any) => {
+      // Store data URL for size calculation
+      this.imageDataUrl = imageUrl;
+
+      fabric.Image.fromURL(imageUrl, loadOptions).then(async (img: any) => {
         console.log('[FabricAnnotator] Image loaded successfully, dimensions:', img.width, 'x', img.height);
 
         // Set canvas size to image size (scaled to fit container)
@@ -525,6 +533,9 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
 
         // Update caption container width to match canvas
         this.updateCaptionWidth(img.width! * scale);
+
+        // Show image quality diagnostic popup
+        await this.showImageDiagnostics(img.width, img.height, imageUrl);
 
         // Load existing annotations if any
         if (this.existingAnnotations) {
@@ -1395,6 +1406,108 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     this.modalController.dismiss();
   }
   
+  /**
+   * Show diagnostic popup with image size and quality info
+   * Helps debug image quality issues
+   */
+  private async showImageDiagnostics(width: number, height: number, imageUrl: string): Promise<void> {
+    try {
+      let fileSizeKB = 0;
+      let fileSizeDisplay = 'Unknown';
+      let sourceType = 'Unknown';
+
+      // Determine source type
+      if (imageUrl.startsWith('data:')) {
+        sourceType = 'Data URL';
+        // Calculate size from data URL (base64 is ~33% larger than binary)
+        const base64Data = imageUrl.split(',')[1];
+        if (base64Data) {
+          const binarySize = (base64Data.length * 3) / 4;
+          fileSizeKB = binarySize / 1024;
+        }
+      } else if (imageUrl.startsWith('blob:')) {
+        sourceType = 'Blob URL';
+        // Try to fetch blob to get size
+        try {
+          const response = await fetch(imageUrl);
+          const blob = await response.blob();
+          fileSizeKB = blob.size / 1024;
+        } catch (e) {
+          console.warn('[Diagnostics] Could not fetch blob size');
+        }
+      } else if (imageUrl.includes('.s3.') && imageUrl.includes('amazonaws.com')) {
+        sourceType = 'S3 Remote';
+      } else if (imageUrl.startsWith('https://') || imageUrl.startsWith('http://')) {
+        sourceType = 'Remote URL';
+      }
+
+      // If we have an input file, use its size
+      if (this.imageFile) {
+        fileSizeKB = this.imageFile.size / 1024;
+        sourceType = 'Camera/Gallery File';
+      }
+
+      // Format size display
+      if (fileSizeKB > 0) {
+        if (fileSizeKB >= 1024) {
+          fileSizeDisplay = `${(fileSizeKB / 1024).toFixed(2)} MB`;
+        } else {
+          fileSizeDisplay = `${fileSizeKB.toFixed(0)} KB`;
+        }
+      }
+
+      // Calculate megapixels
+      const megapixels = ((width * height) / 1000000).toFixed(2);
+
+      // Determine quality assessment
+      let qualityAssessment = '';
+      if (width >= 1280 || height >= 1280) {
+        qualityAssessment = '✅ Good';
+      } else if (width >= 1024 || height >= 1024) {
+        qualityAssessment = '⚠️ Medium';
+      } else {
+        qualityAssessment = '❌ Low';
+      }
+
+      // Size assessment
+      let sizeAssessment = '';
+      if (fileSizeKB >= 500) {
+        sizeAssessment = '✅ Good';
+      } else if (fileSizeKB >= 200) {
+        sizeAssessment = '⚠️ Medium';
+      } else if (fileSizeKB > 0) {
+        sizeAssessment = '❌ Small';
+      }
+
+      const message = `📊 IMAGE DIAGNOSTICS\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Dimensions: ${width} × ${height}px\n` +
+        `Megapixels: ${megapixels} MP\n` +
+        `File Size: ${fileSizeDisplay} ${sizeAssessment}\n` +
+        `Resolution: ${qualityAssessment}\n` +
+        `Source: ${sourceType}`;
+
+      console.log('[FabricAnnotator] Image Diagnostics:', { width, height, fileSizeKB, sourceType });
+
+      const toast = await this.toastController.create({
+        message: message,
+        duration: 6000,
+        position: 'top',
+        cssClass: 'image-diagnostics-toast',
+        buttons: [
+          {
+            text: 'OK',
+            role: 'cancel'
+          }
+        ]
+      });
+
+      await toast.present();
+    } catch (e) {
+      console.warn('[FabricAnnotator] Failed to show diagnostics:', e);
+    }
+  }
+
   /**
    * Update caption container width to match the canvas/image width
    */
