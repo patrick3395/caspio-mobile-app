@@ -34,6 +34,7 @@ export class DteCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
   private dteFieldsSubscription?: Subscription;  // DEXIE-FIRST: liveQuery subscription
   private initialLoadComplete: boolean = false;
   private cachedTemplates: any[] = [];
+  private isDestroyed: boolean = false;  // Guard for async operations
 
   constructor(
     private router: Router,
@@ -70,6 +71,7 @@ export class DteCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   ngOnDestroy() {
+    this.isDestroyed = true;
     if (this.dteFieldsSubscription) {
       this.dteFieldsSubscription.unsubscribe();
     }
@@ -88,19 +90,25 @@ export class DteCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
     // DEXIE-FIRST: Instant loading pattern
     // ========================================
 
-    // Load templates from cache
+    // CRITICAL: Set loading=false IMMEDIATELY to prevent loading screen flash
+    this.loading = false;
+    this.changeDetectorRef.detectChanges();
+    console.log('[DTE Categories] ✅ Loading set to false immediately');
+
+    // Load templates from cache (fast IndexedDB read)
     this.cachedTemplates = await this.indexedDb.getCachedTemplates('dte') || [];
+
+    // Guard after async
+    if (this.isDestroyed) return;
 
     // Extract categories from templates (instant - CPU only)
     if (this.cachedTemplates.length > 0) {
       this.extractCategoriesFromTemplates();
     }
 
-    // INSTANT: Set loading=false immediately
-    this.loading = false;
     this.initialLoadComplete = true;
     this.changeDetectorRef.detectChanges();
-    console.log('[DTE Categories] ✅ UI rendered instantly');
+    console.log('[DTE Categories] ✅ Data loaded');
 
     // Subscribe to liveQuery for reactive count updates
     this.subscribeToDteFieldsChanges();
@@ -157,6 +165,9 @@ export class DteCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
 
     this.dteFieldsSubscription = dteFields$.subscribe({
       next: (fields: any[]) => {
+        // Guard against processing after destruction
+        if (this.isDestroyed) return;
+
         console.log('[DTE Categories] DEXIE-FIRST: liveQuery update -', fields.length, 'fields');
 
         // Calculate counts per category
@@ -189,7 +200,12 @@ export class DteCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
           cat.deficiencyCount = counts[cat.title]?.deficiencies || 0;
         });
 
-        this.changeDetectorRef.detectChanges();
+        // Safe change detection
+        try {
+          this.changeDetectorRef.detectChanges();
+        } catch (err) {
+          console.warn('[DTE Categories] detectChanges failed:', err);
+        }
       },
       error: (err: any) => {
         console.error('[DTE Categories] DEXIE-FIRST: liveQuery error:', err);

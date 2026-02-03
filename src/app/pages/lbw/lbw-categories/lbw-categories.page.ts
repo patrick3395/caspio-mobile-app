@@ -35,6 +35,7 @@ export class LbwCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
   private lbwFieldsSubscription?: Subscription;  // DEXIE-FIRST: liveQuery subscription
   private initialLoadComplete: boolean = false;
   private cachedTemplates: any[] = [];
+  private isDestroyed: boolean = false;  // Guard for async operations
 
   constructor(
     private router: Router,
@@ -72,6 +73,7 @@ export class LbwCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   ngOnDestroy() {
+    this.isDestroyed = true;
     if (this.lbwFieldsSubscription) {
       this.lbwFieldsSubscription.unsubscribe();
     }
@@ -90,19 +92,25 @@ export class LbwCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
     // DEXIE-FIRST: Instant loading pattern
     // ========================================
 
-    // Load templates from cache
+    // CRITICAL: Set loading=false IMMEDIATELY to prevent loading screen flash
+    this.loading = false;
+    this.changeDetectorRef.detectChanges();
+    console.log('[LBW Categories] ✅ Loading set to false immediately');
+
+    // Load templates from cache (fast IndexedDB read)
     this.cachedTemplates = await this.indexedDb.getCachedTemplates('lbw') || [];
+
+    // Guard after async
+    if (this.isDestroyed) return;
 
     // Extract categories from templates (instant - CPU only)
     if (this.cachedTemplates.length > 0) {
       this.extractCategoriesFromTemplates();
     }
 
-    // INSTANT: Set loading=false immediately
-    this.loading = false;
     this.initialLoadComplete = true;
     this.changeDetectorRef.detectChanges();
-    console.log('[LBW Categories] ✅ UI rendered instantly');
+    console.log('[LBW Categories] ✅ Data loaded');
 
     // Subscribe to liveQuery for reactive count updates
     this.subscribeToLbwFieldsChanges();
@@ -159,6 +167,9 @@ export class LbwCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
 
     this.lbwFieldsSubscription = lbwFields$.subscribe({
       next: (fields: any[]) => {
+        // Guard against processing after destruction
+        if (this.isDestroyed) return;
+
         console.log('[LBW Categories] DEXIE-FIRST: liveQuery update -', fields.length, 'fields');
 
         // Calculate counts per category
@@ -191,7 +202,12 @@ export class LbwCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
           cat.deficiencyCount = counts[cat.title]?.deficiencies || 0;
         });
 
-        this.changeDetectorRef.detectChanges();
+        // Safe change detection
+        try {
+          this.changeDetectorRef.detectChanges();
+        } catch (err) {
+          console.warn('[LBW Categories] detectChanges failed:', err);
+        }
       },
       error: (err: any) => {
         console.error('[LBW Categories] DEXIE-FIRST: liveQuery error:', err);

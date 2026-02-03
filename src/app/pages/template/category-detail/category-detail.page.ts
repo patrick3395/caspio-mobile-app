@@ -134,6 +134,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   private lastLoadedServiceId: string = '';
   private lastLoadedCategoryName: string = '';
 
+  // ==================== Destruction Guard ====================
+  private isDestroyed = false;
+
   // ==================== Caption Popup State ====================
   private isCaptionPopupOpen = false;
 
@@ -227,6 +230,10 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
   ngOnDestroy(): void {
     this.logDebug('DESTROY', 'GenericCategoryDetailPage destroying');
+
+    // CRITICAL: Set destruction flag FIRST to prevent async operations from crashing
+    this.isDestroyed = true;
+
     this.destroy$.next();
     this.destroy$.complete();
     this.configSubscription?.unsubscribe();
@@ -240,6 +247,21 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     if (this.liveQueryDebounceTimer) {
       clearTimeout(this.liveQueryDebounceTimer);
       this.liveQueryDebounceTimer = null;
+    }
+  }
+
+  /**
+   * Safe wrapper for changeDetectorRef.detectChanges()
+   * Prevents crashes when async operations complete after component destruction
+   */
+  private safeDetectChanges(): void {
+    if (!this.isDestroyed) {
+      try {
+        this.changeDetectorRef.detectChanges();
+      } catch (err) {
+        // Component may have been destroyed between check and call
+        console.warn('[GenericCategoryDetail] detectChanges failed (component destroyed):', err);
+      }
     }
   }
 
@@ -402,11 +424,16 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
       this.visualFieldsSubscription = fields$.subscribe({
         next: async (fields: any[]) => {
+          // CRITICAL: Guard against processing after destruction
+          if (this.isDestroyed) {
+            return;
+          }
+
           this.logDebug('DEXIE', `Received ${fields.length} fields from liveQuery for ${this.config!.id}`);
 
           // Convert to organized data using unified method
           this.convertGenericFieldsToOrganizedData(fields);
-          this.changeDetectorRef.detectChanges();
+          this.safeDetectChanges();
 
           // Suppress photo population during capture to prevent duplicates
           if (this.isCameraCaptureInProgress || this.isMultiImageUploadInProgress) {
@@ -416,7 +443,10 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
           // Populate photos in background (non-blocking)
           this.populateGenericPhotosFromDexie(fields).then(() => {
-            this.changeDetectorRef.detectChanges();
+            // Guard again after async operation
+            if (!this.isDestroyed) {
+              this.safeDetectChanges();
+            }
           });
         },
         error: (err: any) => {
@@ -533,11 +563,14 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
    * This ensures templates are loaded and fields are seeded without blocking the UI
    */
   private async ensureFieldsSeeded(): Promise<void> {
-    if (!this.config) return;
+    if (!this.config || this.isDestroyed) return;
 
     try {
       // STEP 1: Ensure templates are loaded (may fetch from API if not cached)
       await this.ensureTemplatesReady();
+
+      // Guard after async operation
+      if (this.isDestroyed) return;
 
       // STEP 2: Ensure service data is cached (required for merging)
       await this.dataAdapter.ensureServiceDataCached(this.config, this.serviceId);
@@ -618,6 +651,11 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     const entityType = this.config.entityType as any;
     this.localImagesSubscription = db.liveLocalImages$(this.serviceId, entityType).subscribe(
       async (localImages) => {
+        // CRITICAL: Guard against processing after destruction
+        if (this.isDestroyed) {
+          return;
+        }
+
         this.logDebug('DEXIE', `LocalImages updated: ${localImages.length} images`);
 
         // Suppress during camera capture to prevent duplicate photos
@@ -637,12 +675,19 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           await this.populatePhotosFromDexie(this.lastConvertedFields);
         }
 
+        // Guard again after async operations
+        if (this.isDestroyed) {
+          return;
+        }
+
         // Debounce change detection
         if (this.liveQueryDebounceTimer) {
           clearTimeout(this.liveQueryDebounceTimer);
         }
         this.liveQueryDebounceTimer = setTimeout(() => {
-          this.changeDetectorRef.detectChanges();
+          if (!this.isDestroyed) {
+            this.safeDetectChanges();
+          }
           this.liveQueryDebounceTimer = null;
         }, 100);
       },

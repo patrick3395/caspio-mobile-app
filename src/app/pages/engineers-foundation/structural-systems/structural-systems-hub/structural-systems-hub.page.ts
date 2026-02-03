@@ -38,6 +38,7 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
   private visualFieldsSubscription?: Subscription;  // DEXIE-FIRST: liveQuery subscription
   private initialLoadComplete: boolean = false;
   private cachedTemplates: any[] = [];  // Cache templates for instant category extraction
+  private isDestroyed: boolean = false;  // Guard for async operations
 
   constructor(
     private router: Router,
@@ -100,6 +101,9 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
   }
 
   ngOnDestroy() {
+    // Set flag FIRST to prevent async operations from crashing
+    this.isDestroyed = true;
+
     // DEXIE-FIRST: Clean up liveQuery subscription
     if (this.visualFieldsSubscription) {
       this.visualFieldsSubscription.unsubscribe();
@@ -121,30 +125,37 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
     // Show UI immediately, subscribe to liveQuery for reactive updates
     // ========================================
 
-    // Update online status
+    // CRITICAL: Set loading=false IMMEDIATELY to prevent loading screen flash
+    // Data will populate via liveQuery as it becomes available
+    this.loading = false;
     this.isOnline = this.offlineService.isOnline();
+    this.changeDetectorRef.detectChanges();
+    console.log('[StructuralHub] ✅ Loading set to false immediately');
 
-    // Read templates ONCE and cache for category extraction
-    this.cachedTemplates = await this.indexedDb.getCachedTemplates('visual') || [];
-    const hasCachedTemplates = this.cachedTemplates.length > 0;
+    // Read templates and service data (these are fast IndexedDB reads)
+    const [templates, cachedService] = await Promise.all([
+      this.indexedDb.getCachedTemplates('visual'),
+      this.offlineTemplate.getService(this.serviceId)
+    ]);
 
-    // Read service data (for StructStat field)
-    const cachedService = await this.offlineTemplate.getService(this.serviceId);
+    // Guard after async
+    if (this.isDestroyed) return;
+
+    this.cachedTemplates = templates || [];
+
     if (cachedService) {
       this.serviceData = cachedService;
-      console.log('[StructuralHub] ✅ Service loaded from cache (instant)');
+      console.log('[StructuralHub] ✅ Service loaded from cache');
     }
 
-    // INSTANT: Extract categories from templates (pure CPU operation)
-    if (hasCachedTemplates) {
+    // Extract categories from templates (pure CPU operation)
+    if (this.cachedTemplates.length > 0) {
       this.extractCategoriesFromTemplates();
     }
 
-    // INSTANT: Set loading=false immediately - we have cached data!
-    this.loading = false;
     this.initialLoadComplete = true;
     this.changeDetectorRef.detectChanges();
-    console.log('[StructuralHub] ✅ UI rendered instantly with cached data');
+    console.log('[StructuralHub] ✅ Data loaded');
 
     // DEXIE-FIRST: Subscribe to liveQuery for reactive count updates
     // This automatically updates counts when visualFields change
@@ -226,6 +237,9 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
     // Subscribe to reactive updates
     this.visualFieldsSubscription = visualFields$.subscribe({
       next: (visualFields: any[]) => {
+        // Guard against processing after destruction
+        if (this.isDestroyed) return;
+
         console.log('[StructuralHub] DEXIE-FIRST: liveQuery update -', visualFields.length, 'fields');
 
         // Calculate counts per category from visualFields
@@ -259,7 +273,12 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
           cat.deficiencyCount = counts[cat.name]?.deficiencies || 0;
         });
 
-        this.changeDetectorRef.detectChanges();
+        // Safe change detection
+        try {
+          this.changeDetectorRef.detectChanges();
+        } catch (err) {
+          console.warn('[StructuralHub] detectChanges failed:', err);
+        }
       },
       error: (err: any) => {
         console.error('[StructuralHub] DEXIE-FIRST: liveQuery error:', err);
