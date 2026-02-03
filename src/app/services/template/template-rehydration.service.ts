@@ -1,0 +1,448 @@
+/**
+ * TemplateRehydrationService - Unified rehydration for all template types
+ *
+ * When clearAllSyncedData() clears IndexedDB storage, affected services are
+ * marked as PURGED. When the user reopens any template (EFE, HUD, LBW, DTE),
+ * this service restores all data from the server.
+ *
+ * Flow:
+ * 1. clearAllSyncedData() deletes verified blobs and marks services as PURGED
+ * 2. User opens a template page
+ * 3. Page calls needsRehydration(serviceId) - returns true if PURGED
+ * 4. Page calls rehydrateServiceForTemplate(config, serviceId)
+ * 5. Service fetches templates, records, and attachments from API
+ * 6. Service seeds Dexie field tables and creates LocalImage records
+ * 7. Service sets purgeState to ACTIVE
+ */
+
+import { Injectable } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
+import { db } from '../caspio-db';
+import { CaspioService } from '../caspio.service';
+import { GenericFieldRepoService } from './generic-field-repo.service';
+import { OfflineTemplateService } from '../offline-template.service';
+import { ServiceMetadataService } from '../service-metadata.service';
+import { IndexedDbService, ImageEntityType } from '../indexed-db.service';
+import { TemplateConfig } from './template-config.interface';
+import { environment } from '../../../environments/environment';
+
+export interface RehydrationResult {
+  success: boolean;
+  recordsRestored: number;
+  imagesRestored: number;
+  error?: string;
+}
+
+@Injectable({
+  providedIn: 'root'
+})
+export class TemplateRehydrationService {
+  // Track in-flight rehydrations to prevent duplicate operations
+  private rehydrationInProgress = new Map<string, Promise<RehydrationResult>>();
+
+  constructor(
+    private genericFieldRepo: GenericFieldRepoService,
+    private offlineTemplate: OfflineTemplateService,
+    private serviceMetadata: ServiceMetadataService,
+    private indexedDb: IndexedDbService,
+    private caspioService: CaspioService
+  ) {
+    console.log('[TemplateRehydration] Service initialized');
+  }
+
+  /**
+   * Check if a service needs rehydration
+   * Returns true if purgeState is PURGED or ARCHIVED
+   */
+  async needsRehydration(serviceId: string): Promise<boolean> {
+    // Webapp doesn't use local storage, so never needs rehydration
+    if (environment.isWeb) {
+      return false;
+    }
+
+    const metadata = await this.serviceMetadata.getServiceMetadata(serviceId);
+    if (!metadata) {
+      // No metadata means service was never initialized - doesn't need rehydration
+      return false;
+    }
+
+    const needsIt = metadata.purgeState === 'PURGED' || metadata.purgeState === 'ARCHIVED';
+    if (needsIt) {
+      const reason = metadata.purgeState === 'PURGED'
+        ? 'manual storage clear'
+        : 'auto-purge timer (inactive service)';
+      console.log(`[TemplateRehydration] Service ${serviceId} needs rehydration (state: ${metadata.purgeState}, reason: ${reason})`);
+    }
+    return needsIt;
+  }
+
+  /**
+   * Rehydrate a service for a specific template type
+   * Restores all data from the server after storage was cleared
+   *
+   * @param config - Template configuration (determines which APIs to call)
+   * @param serviceId - The service ID to rehydrate
+   * @returns RehydrationResult with success status and counts
+   */
+  async rehydrateServiceForTemplate(
+    config: TemplateConfig,
+    serviceId: string
+  ): Promise<RehydrationResult> {
+    const rehydrationKey = `${config.id}:${serviceId}`;
+
+    // Check if rehydration is already in progress
+    const existingRehydration = this.rehydrationInProgress.get(rehydrationKey);
+    if (existingRehydration) {
+      console.log(`[TemplateRehydration] Rehydration already in progress for ${rehydrationKey}`);
+      return existingRehydration;
+    }
+
+    // Start rehydration
+    console.log(`[TemplateRehydration] Starting rehydration for ${config.id}/${serviceId}...`);
+
+    const rehydrationPromise = this.performRehydration(config, serviceId);
+    this.rehydrationInProgress.set(rehydrationKey, rehydrationPromise);
+
+    try {
+      const result = await rehydrationPromise;
+      console.log(`[TemplateRehydration] Rehydration complete for ${rehydrationKey}:`, result);
+      return result;
+    } finally {
+      this.rehydrationInProgress.delete(rehydrationKey);
+    }
+  }
+
+  /**
+   * Perform the actual rehydration
+   */
+  private async performRehydration(
+    config: TemplateConfig,
+    serviceId: string
+  ): Promise<RehydrationResult> {
+    let recordsRestored = 0;
+    let imagesRestored = 0;
+
+    try {
+      // Step 1: Check purgeState - skip if already ACTIVE
+      const metadata = await this.serviceMetadata.getServiceMetadata(serviceId);
+      if (metadata?.purgeState === 'ACTIVE') {
+        console.log(`[TemplateRehydration] Service ${serviceId} is already ACTIVE, skipping rehydration`);
+        return { success: true, recordsRestored: 0, imagesRestored: 0 };
+      }
+
+      // Step 2: Invalidate any in-memory caches by clearing cached service data
+      console.log(`[TemplateRehydration] Step 1: Invalidating caches for ${serviceId}...`);
+      await this.indexedDb.clearCachedServiceData(serviceId, 'visuals');
+
+      // Step 3: Get templates from offline cache (or fetch if needed)
+      console.log(`[TemplateRehydration] Step 2: Getting templates for ${config.id}...`);
+      const templates = await this.getTemplatesForConfig(config);
+      const dropdownData = await this.getDropdownDataForConfig(config);
+
+      // Step 4: Fetch server records
+      console.log(`[TemplateRehydration] Step 3: Fetching server records for ${serviceId}...`);
+      const serverRecords = await this.fetchServerRecords(config, serviceId);
+      console.log(`[TemplateRehydration] Fetched ${serverRecords.length} records from server`);
+
+      // Step 5: Seed templates into Dexie field tables for each category
+      console.log(`[TemplateRehydration] Step 4: Seeding templates and merging records...`);
+
+      // Get unique categories from both templates and records
+      const categoriesFromTemplates = new Set(templates.map((t: any) => t.Category).filter(Boolean));
+      const categoriesFromRecords = new Set(serverRecords.map((r: any) => r.Category).filter(Boolean));
+      const allCategories = new Set([...categoriesFromTemplates, ...categoriesFromRecords]);
+
+      // For HUD (no categories hub), use a single category
+      if (config.id === 'hud' && !config.features.hasCategoriesHub) {
+        allCategories.clear();
+        allCategories.add('HUD'); // HUD uses a single category
+      }
+
+      for (const category of allCategories) {
+        // Seed templates
+        await this.genericFieldRepo.seedFromTemplates(
+          config,
+          serviceId,
+          category,
+          templates,
+          dropdownData
+        );
+
+        // Merge existing records
+        await this.genericFieldRepo.mergeExistingRecords(
+          config,
+          serviceId,
+          category,
+          serverRecords
+        );
+      }
+
+      recordsRestored = serverRecords.length;
+
+      // Step 6: Create LocalImage records for attachments
+      console.log(`[TemplateRehydration] Step 5: Restoring image references...`);
+      imagesRestored = await this.restoreImageReferences(config, serviceId, serverRecords);
+
+      // Step 7: Set purgeState to ACTIVE
+      console.log(`[TemplateRehydration] Step 6: Setting purgeState to ACTIVE...`);
+      await this.serviceMetadata.setPurgeState(serviceId, 'ACTIVE');
+
+      console.log(`[TemplateRehydration] ✅ Rehydration complete: ${recordsRestored} records, ${imagesRestored} images`);
+
+      return {
+        success: true,
+        recordsRestored,
+        imagesRestored
+      };
+
+    } catch (error: any) {
+      console.error(`[TemplateRehydration] ❌ Rehydration failed:`, error);
+      return {
+        success: false,
+        recordsRestored,
+        imagesRestored,
+        error: error?.message || 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Get templates from offline cache based on template config
+   * Uses existing OfflineTemplateService methods with their actual names
+   */
+  private async getTemplatesForConfig(config: TemplateConfig): Promise<any[]> {
+    switch (config.id) {
+      case 'efe':
+        return this.offlineTemplate.ensureVisualTemplatesReady();
+      case 'hud':
+        return this.offlineTemplate.ensureHudTemplatesReady();
+      case 'lbw':
+        // LBW uses getLbwTemplates() - returns cached or fetches
+        return this.offlineTemplate.getLbwTemplates();
+      case 'dte':
+        // DTE uses getDteTemplates() - returns cached or fetches
+        return this.offlineTemplate.getDteTemplates();
+      default:
+        console.warn(`[TemplateRehydration] Unknown template type: ${config.id}`);
+        return [];
+    }
+  }
+
+  /**
+   * Get dropdown data from offline cache based on template config
+   * Uses existing OfflineTemplateService methods with their actual names
+   */
+  private async getDropdownDataForConfig(config: TemplateConfig): Promise<any[]> {
+    switch (config.id) {
+      case 'efe':
+        // EFE uses visual dropdown options from indexedDb directly
+        return (await this.indexedDb.getCachedTemplates('visual_dropdown')) || [];
+      case 'hud':
+        return this.offlineTemplate.ensureHudDropdownReady();
+      case 'lbw':
+        // LBW uses getLbwDropdownOptions()
+        return this.offlineTemplate.getLbwDropdownOptions();
+      case 'dte':
+        // DTE uses getDteDropdownOptions()
+        return this.offlineTemplate.getDteDropdownOptions();
+      default:
+        return [];
+    }
+  }
+
+  /**
+   * Fetch server records using config-driven API routing
+   */
+  private async fetchServerRecords(config: TemplateConfig, serviceId: string): Promise<any[]> {
+    try {
+      switch (config.id) {
+        case 'efe':
+          return await firstValueFrom(this.caspioService.getServicesVisualsByServiceId(serviceId));
+        case 'hud':
+          return await firstValueFrom(this.caspioService.getServicesHUDByServiceId(serviceId, true));
+        case 'lbw':
+          return await firstValueFrom(this.caspioService.getServicesLBWByServiceId(serviceId, true));
+        case 'dte':
+          return await firstValueFrom(this.caspioService.getServicesDTEByServiceId(serviceId, true));
+        default:
+          console.warn(`[TemplateRehydration] Unknown template type: ${config.id}`);
+          return [];
+      }
+    } catch (error) {
+      console.error(`[TemplateRehydration] Failed to fetch server records:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Restore LocalImage records for attachments
+   * Creates LocalImage records with localBlobId: null and remoteS3Key: <key>
+   * This allows getDisplayUrl() to fall back to S3 URLs
+   */
+  private async restoreImageReferences(
+    config: TemplateConfig,
+    serviceId: string,
+    serverRecords: any[]
+  ): Promise<number> {
+    let imagesRestored = 0;
+
+    // Get all record IDs that might have attachments
+    const recordIds = serverRecords
+      .map(r => r[config.idFieldName] || r.PK_ID)
+      .filter(Boolean)
+      .map(String);
+
+    if (recordIds.length === 0) {
+      return 0;
+    }
+
+    // Fetch attachments from server
+    const attachments = await this.fetchAttachments(config, recordIds);
+    console.log(`[TemplateRehydration] Fetched ${attachments.length} attachments from server`);
+
+    // Create LocalImage records for each attachment
+    for (const attachment of attachments) {
+      try {
+        const s3Key = attachment.Attachment;
+        if (!s3Key) continue;
+
+        // Get the entity ID (VisualID, HUDID, LBWID, DTEID)
+        const entityId = attachment[config.idFieldName] ||
+                        attachment.VisualID ||
+                        attachment.HUDID ||
+                        attachment.LBWID ||
+                        attachment.DTEID;
+
+        if (!entityId) continue;
+
+        // Check if LocalImage already exists for this attachment
+        const attachId = attachment.PK_ID || attachment[`${config.idFieldName}AttachID`];
+        const existingImage = await db.localImages
+          .filter(img => img.remoteAttachId === String(attachId))
+          .first();
+
+        if (existingImage) {
+          // Already exists, just ensure blob references are cleared
+          await db.localImages.update(existingImage.imageId, {
+            localBlobId: null,
+            thumbBlobId: null
+          });
+          imagesRestored++;
+          continue;
+        }
+
+        // Create new LocalImage record with S3 key (no local blob)
+        const imageId = crypto.randomUUID();
+        const now = Date.now();
+
+        await db.localImages.add({
+          imageId,
+          entityType: config.entityType,
+          entityId: String(entityId),
+          serviceId,
+          localBlobId: null,    // No local blob - will use S3
+          thumbBlobId: null,    // No thumbnail - will use S3
+          remoteS3Key: s3Key,
+          remoteAttachId: String(attachId),
+          status: 'verified',   // Already synced to server
+          caption: attachment.Annotation || '',
+          drawings: attachment.Drawings || null,
+          originalS3Key: attachment.OriginalAttachment || null,
+          createdAt: now,
+          updatedAt: now
+        });
+
+        imagesRestored++;
+      } catch (err) {
+        console.warn(`[TemplateRehydration] Failed to restore image:`, err);
+      }
+    }
+
+    return imagesRestored;
+  }
+
+  /**
+   * Fetch attachments from server using config-driven API routing
+   */
+  private async fetchAttachments(config: TemplateConfig, recordIds: string[]): Promise<any[]> {
+    if (recordIds.length === 0) return [];
+
+    const allAttachments: any[] = [];
+
+    try {
+      // Fetch attachments for each record ID
+      // Note: Some APIs support batch fetching, others require individual calls
+      for (const recordId of recordIds) {
+        let attachments: any[] = [];
+
+        switch (config.id) {
+          case 'efe':
+            attachments = await firstValueFrom(
+              this.caspioService.getServiceVisualsAttachByVisualId(recordId)
+            );
+            break;
+          case 'hud':
+            attachments = await firstValueFrom(
+              this.caspioService.getServiceHUDAttachByHUDId(recordId)
+            );
+            break;
+          case 'lbw':
+            attachments = await firstValueFrom(
+              this.caspioService.getServiceLBWAttachByLBWId(recordId)
+            );
+            break;
+          case 'dte':
+            attachments = await firstValueFrom(
+              this.caspioService.getServiceDTEAttachByDTEId(recordId)
+            );
+            break;
+        }
+
+        if (attachments && attachments.length > 0) {
+          allAttachments.push(...attachments);
+        }
+      }
+    } catch (error) {
+      console.error(`[TemplateRehydration] Failed to fetch attachments:`, error);
+    }
+
+    return allAttachments;
+  }
+
+  /**
+   * Force rehydration for a service (clears data and re-fetches)
+   * Use this when user explicitly wants to sync from server
+   */
+  async forceRehydrate(config: TemplateConfig, serviceId: string): Promise<RehydrationResult> {
+    console.log(`[TemplateRehydration] Force rehydrating ${config.id}/${serviceId}...`);
+
+    // Mark as PURGED to force rehydration
+    await this.serviceMetadata.setPurgeState(serviceId, 'PURGED');
+
+    // Clear existing field data for this service
+    await this.clearFieldDataForService(config, serviceId);
+
+    // Perform rehydration
+    return this.rehydrateServiceForTemplate(config, serviceId);
+  }
+
+  /**
+   * Clear field data for a service from the appropriate Dexie table
+   */
+  private async clearFieldDataForService(config: TemplateConfig, serviceId: string): Promise<void> {
+    switch (config.id) {
+      case 'efe':
+        await db.visualFields.where('serviceId').equals(serviceId).delete();
+        break;
+      case 'hud':
+        await db.hudFields.where('serviceId').equals(serviceId).delete();
+        break;
+      case 'lbw':
+        await db.lbwFields.where('serviceId').equals(serviceId).delete();
+        break;
+      case 'dte':
+        await db.dteFields.where('serviceId').equals(serviceId).delete();
+        break;
+    }
+  }
+}

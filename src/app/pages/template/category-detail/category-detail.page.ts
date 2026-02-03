@@ -29,6 +29,7 @@ import { db, VisualField, HudField, LbwField, DteField } from '../../../services
 import { VisualFieldRepoService } from '../../../services/visual-field-repo.service';
 import { HudFieldRepoService } from '../../../services/hud-field-repo.service';
 import { GenericFieldRepoService } from '../../../services/template/generic-field-repo.service';
+import { TemplateRehydrationService } from '../../../services/template/template-rehydration.service';
 import { renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
 
 /**
@@ -99,6 +100,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   // ==================== UI State ====================
   loading: boolean = true;
   isRefreshing: boolean = false;
+  isRehydrating: boolean = false;  // True when restoring data from server after storage clear
   searchTerm: string = '';
   isWeb = environment.isWeb;
 
@@ -178,6 +180,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     private visualFieldRepo: VisualFieldRepoService,
     private hudFieldRepo: HudFieldRepoService,
     private genericFieldRepo: GenericFieldRepoService,
+    private templateRehydration: TemplateRehydrationService,
     @Inject(TEMPLATE_DATA_PROVIDER) private dataProvider: ITemplateDataProvider
   ) {}
 
@@ -297,6 +300,10 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     this.logDebug('ROUTE', `Loaded params: projectId=${this.projectId}, serviceId=${this.serviceId}, category=${this.categoryName}`);
 
     if (this.serviceId && this.categoryName) {
+      // Check if service needs rehydration (after storage clear)
+      // This restores data from the server when local storage was cleared
+      await this.checkAndPerformRehydration();
+
       // DEXIE-FIRST: Use different loading strategies based on platform
       if (environment.isWeb) {
         // WEBAPP: Use existing API-based loading
@@ -312,6 +319,46 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     } else {
       this.logDebug('ERROR', `Missing required params - serviceId: ${this.serviceId}, category: ${this.categoryName}`);
       this.loading = false;
+    }
+  }
+
+  /**
+   * Check if this service needs rehydration and perform it if necessary
+   * Rehydration restores data from the server after local storage was cleared
+   */
+  private async checkAndPerformRehydration(): Promise<void> {
+    if (!this.config || environment.isWeb) {
+      return;  // Only needed on mobile
+    }
+
+    try {
+      const needsRehydration = await this.templateRehydration.needsRehydration(this.serviceId);
+
+      if (needsRehydration) {
+        this.logDebug('REHYDRATE', `Service ${this.serviceId} needs rehydration, starting...`);
+        this.isRehydrating = true;
+        this.safeDetectChanges();
+
+        const result = await this.templateRehydration.rehydrateServiceForTemplate(
+          this.config,
+          this.serviceId
+        );
+
+        this.isRehydrating = false;
+        this.safeDetectChanges();
+
+        if (result.success) {
+          this.logDebug('REHYDRATE', `Rehydration complete: ${result.recordsRestored} records, ${result.imagesRestored} images`);
+          await this.showToast(`Data restored from server`, 'success');
+        } else {
+          this.logDebug('ERROR', `Rehydration failed: ${result.error}`);
+          await this.showToast('Failed to restore data. Please try again.', 'warning');
+        }
+      }
+    } catch (err: any) {
+      this.logDebug('ERROR', `Rehydration check failed: ${err?.message}`);
+      this.isRehydrating = false;
+      this.safeDetectChanges();
     }
   }
 
@@ -3626,6 +3673,10 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
    * Upload photos for a custom visual
    * IMPORTANT: Uses originalFile (not annotated file) for upload to prevent flattening.
    * Annotations are stored separately in the Drawings field as JSON.
+   *
+   * MOBILE vs WEBAPP:
+   * - WEBAPP: Uses uploadImageDirectToS3 for immediate upload (visualId is already real)
+   * - MOBILE: Uses captureImage for local-first queue (visualId may be temp ID)
    */
   private async uploadCustomVisualPhotos(
     key: string,
@@ -3640,7 +3691,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       this.visualPhotos[key] = [];
     }
 
-    this.logDebug('CUSTOM', `Uploading ${files.length} photos for custom visual`);
+    this.logDebug('CUSTOM', `Uploading ${files.length} photos for custom visual (isWeb=${this.isWeb})`);
 
     for (let index = 0; index < files.length; index++) {
       const photoData = processedPhotos[index] || {};
@@ -3656,62 +3707,120 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       this.logDebug('CUSTOM', `Photo ${index + 1}: hasAnnotations=${!!annotationData}, usingOriginal=${!!photoData.originalFile}`);
 
       try {
-        // Upload the ORIGINAL photo to S3 (not the annotated version)
-        const uploadResult = await this.localImageService.uploadImageDirectToS3(
-          fileToUpload,
-          this.config.entityType,
-          visualId,
-          this.serviceId,
-          caption,
-          drawings
-        );
+        // MOBILE: Use local-first captureImage (handles temp ID resolution in background sync)
+        // WEBAPP: Use direct S3 upload (visualId is already a real numeric ID)
+        if (!this.isWeb) {
+          // MOBILE: Local-first flow - queues for background sync with proper temp ID handling
+          this.logDebug('CUSTOM', `MOBILE: Using captureImage for entityId=${visualId}`);
 
-        this.logDebug('CUSTOM', `Photo ${index + 1} uploaded, AttachID: ${uploadResult.attachId}`);
+          const localImage = await this.localImageService.captureImage(
+            fileToUpload,
+            this.config.entityType,
+            visualId,  // May be temp ID - background sync will resolve it
+            this.serviceId,
+            caption,
+            drawings
+          );
 
-        // Get signed URL for the original image (for re-editing annotations)
-        let originalUrl = uploadResult.s3Url;
-        if (this.isWeb && uploadResult.s3Url) {
-          originalUrl = await this.getSignedUrlIfNeeded(uploadResult.s3Url);
-        }
+          this.logDebug('CUSTOM', `Photo ${index + 1} queued, imageId: ${localImage.imageId}`);
 
-        // For display: use annotated preview if available, otherwise original
-        // The previewUrl from modal contains the rendered annotations for display
-        let displayUrl = originalUrl;
-        const hasAnnotations = !!annotationData;
+          // Get display URL for the local image
+          let displayUrl = await this.localImageService.getDisplayUrl(localImage);
+          const hasAnnotations = !!annotationData;
 
-        if (hasAnnotations && photoData.previewUrl) {
-          // Use the annotated preview for thumbnail display
-          displayUrl = photoData.previewUrl;
+          // If we have annotations, cache the annotated preview for display
+          if (hasAnnotations && photoData.previewUrl) {
+            displayUrl = photoData.previewUrl;
 
-          // Cache the annotated image for persistence
-          try {
-            const response = await fetch(photoData.previewUrl);
-            const blob = await response.blob();
-            await this.indexedDb.cacheAnnotatedImage(String(uploadResult.attachId), blob);
-            this.bulkAnnotatedImagesMap.set(String(uploadResult.attachId), photoData.previewUrl);
-            this.logDebug('CUSTOM', `Cached annotated thumbnail for ${uploadResult.attachId}`);
-          } catch (cacheErr) {
-            this.logDebug('ERROR', `Failed to cache annotated image: ${cacheErr}`);
+            // Cache the annotated image by imageId (will be transferred to attachId on sync)
+            try {
+              const response = await fetch(photoData.previewUrl);
+              const blob = await response.blob();
+              await this.indexedDb.cacheAnnotatedImage(localImage.imageId, blob);
+              this.bulkAnnotatedImagesMap.set(localImage.imageId, photoData.previewUrl);
+              this.logDebug('CUSTOM', `Cached annotated thumbnail for ${localImage.imageId}`);
+            } catch (cacheErr) {
+              this.logDebug('ERROR', `Failed to cache annotated image: ${cacheErr}`);
+            }
           }
-        }
 
-        // Add to local photos array
-        this.visualPhotos[key].push({
-          AttachID: uploadResult.attachId,
-          id: uploadResult.attachId,
-          imageId: uploadResult.attachId,
-          name: `photo_${index}.jpg`,
-          url: uploadResult.s3Url,
-          originalUrl: originalUrl,      // Original for re-editing
-          thumbnailUrl: displayUrl,      // Annotated for display
-          displayUrl: displayUrl,        // Annotated for display
-          caption: caption,
-          Annotation: caption,
-          Drawings: drawings,
-          hasAnnotations: hasAnnotations,
-          uploading: false,
-          loading: false
-        });
+          // Add to local photos array using imageId (local-first pattern)
+          this.visualPhotos[key].push({
+            AttachID: localImage.imageId,  // Will be updated when sync completes
+            id: localImage.imageId,
+            imageId: localImage.imageId,
+            name: `photo_${index}.jpg`,
+            url: displayUrl,
+            originalUrl: displayUrl,
+            thumbnailUrl: displayUrl,
+            displayUrl: displayUrl,
+            caption: caption,
+            Annotation: caption,
+            Drawings: drawings,
+            hasAnnotations: hasAnnotations,
+            uploading: true,  // Mark as uploading (will be updated by sync)
+            loading: false,
+            status: localImage.status
+          });
+
+        } else {
+          // WEBAPP: Direct S3 upload (visualId is already a real numeric ID from server)
+          const uploadResult = await this.localImageService.uploadImageDirectToS3(
+            fileToUpload,
+            this.config.entityType,
+            visualId,
+            this.serviceId,
+            caption,
+            drawings
+          );
+
+          this.logDebug('CUSTOM', `Photo ${index + 1} uploaded, AttachID: ${uploadResult.attachId}`);
+
+          // Get signed URL for the original image (for re-editing annotations)
+          let originalUrl = uploadResult.s3Url;
+          if (uploadResult.s3Url) {
+            originalUrl = await this.getSignedUrlIfNeeded(uploadResult.s3Url);
+          }
+
+          // For display: use annotated preview if available, otherwise original
+          // The previewUrl from modal contains the rendered annotations for display
+          let displayUrl = originalUrl;
+          const hasAnnotations = !!annotationData;
+
+          if (hasAnnotations && photoData.previewUrl) {
+            // Use the annotated preview for thumbnail display
+            displayUrl = photoData.previewUrl;
+
+            // Cache the annotated image for persistence
+            try {
+              const response = await fetch(photoData.previewUrl);
+              const blob = await response.blob();
+              await this.indexedDb.cacheAnnotatedImage(String(uploadResult.attachId), blob);
+              this.bulkAnnotatedImagesMap.set(String(uploadResult.attachId), photoData.previewUrl);
+              this.logDebug('CUSTOM', `Cached annotated thumbnail for ${uploadResult.attachId}`);
+            } catch (cacheErr) {
+              this.logDebug('ERROR', `Failed to cache annotated image: ${cacheErr}`);
+            }
+          }
+
+          // Add to local photos array
+          this.visualPhotos[key].push({
+            AttachID: uploadResult.attachId,
+            id: uploadResult.attachId,
+            imageId: uploadResult.attachId,
+            name: `photo_${index}.jpg`,
+            url: uploadResult.s3Url,
+            originalUrl: originalUrl,      // Original for re-editing
+            thumbnailUrl: displayUrl,      // Annotated for display
+            displayUrl: displayUrl,        // Annotated for display
+            caption: caption,
+            Annotation: caption,
+            Drawings: drawings,
+            hasAnnotations: hasAnnotations,
+            uploading: false,
+            loading: false
+          });
+        }
 
         this.photoCountsByKey[key] = this.visualPhotos[key].length;
 

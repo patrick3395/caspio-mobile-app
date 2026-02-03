@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { AlertController } from '@ionic/angular';
 import { db } from './caspio-db';
 import { environment } from '../../environments/environment';
+import { ServiceMetadataService } from './service-metadata.service';
 
 interface MemorySnapshot {
   timestamp: number;
@@ -42,7 +43,10 @@ export class MemoryDiagnosticsService {
   private enabled = true; // Toggle to enable/disable alerts
   private operationCounter = 0; // Track operation count when memory API unavailable
 
-  constructor(private alertController: AlertController) {
+  constructor(
+    private alertController: AlertController,
+    private serviceMetadata: ServiceMetadataService
+  ) {
     console.log('[MemoryDiagnostics] Service initialized');
   }
 
@@ -446,17 +450,24 @@ export class MemoryDiagnosticsService {
   /**
    * Clear all synced/verified data to free up storage
    * Only clears data that has been successfully synced to the server
+   *
+   * IMPORTANT: Marks affected services as PURGED so they will rehydrate
+   * when the user reopens them. This ensures data is restored from the server.
    */
-  async clearAllSyncedData(): Promise<{ clearedMB: number; clearedCount: number }> {
+  async clearAllSyncedData(): Promise<{ clearedMB: number; clearedCount: number; servicesMarked: number }> {
     console.log('[MemoryDiagnostics] Starting clearAllSyncedData...');
 
     const beforeStats = await this.getStorageStats();
     let clearedCount = 0;
+    let servicesMarked = 0;
 
     try {
       // 1. Delete all verified local blobs (full-res images that are synced)
       const allImages = await db.localImages.toArray();
       const verifiedImages = allImages.filter(img => img.status === 'verified');
+
+      // Collect unique serviceIds from cleared images for marking as PURGED
+      const affectedServiceIds = new Set<string>();
 
       for (const image of verifiedImages) {
         try {
@@ -474,6 +485,11 @@ export class MemoryDiagnosticsService {
             thumbBlobId: null
           });
           clearedCount++;
+
+          // Track affected service
+          if (image.serviceId) {
+            affectedServiceIds.add(image.serviceId);
+          }
         } catch (err) {
           console.warn('[MemoryDiagnostics] Failed to clear image:', image.imageId, err);
         }
@@ -492,10 +508,23 @@ export class MemoryDiagnosticsService {
         await db.pendingRequests.delete(req.requestId);
       }
 
+      // 4. CRITICAL: Mark affected services as PURGED so they will rehydrate
+      // This ensures data is restored from the server when the user reopens the service
+      console.log(`[MemoryDiagnostics] Marking ${affectedServiceIds.size} services for rehydration...`);
+      for (const serviceId of affectedServiceIds) {
+        try {
+          await this.serviceMetadata.setPurgeState(serviceId, 'PURGED');
+          servicesMarked++;
+          console.log(`[MemoryDiagnostics] Marked service ${serviceId} as PURGED`);
+        } catch (err) {
+          console.warn(`[MemoryDiagnostics] Failed to mark service ${serviceId} as PURGED:`, err);
+        }
+      }
+
       const afterStats = await this.getStorageStats();
       const clearedMB = beforeStats.totalMB - afterStats.totalMB;
 
-      console.log(`[MemoryDiagnostics] ✅ Cleared ${clearedCount} items, freed ${clearedMB.toFixed(1)} MB`);
+      console.log(`[MemoryDiagnostics] ✅ Cleared ${clearedCount} items, freed ${clearedMB.toFixed(1)} MB, marked ${servicesMarked} services for rehydration`);
 
       // Show confirmation
       const confirmAlert = await this.alertController.create({
@@ -504,13 +533,14 @@ export class MemoryDiagnosticsService {
           <div style="text-align: left; font-size: 14px;">
             <p>Freed <strong>${clearedMB.toFixed(1)} MB</strong> of storage.</p>
             <p style="margin-top: 8px;">Current usage: <strong>${afterStats.totalMB.toFixed(1)} MB</strong></p>
+            ${servicesMarked > 0 ? `<p style="margin-top: 8px; color: #666;">${servicesMarked} service(s) will restore data from server when opened.</p>` : ''}
           </div>
         `,
         buttons: ['OK']
       });
       await confirmAlert.present();
 
-      return { clearedMB, clearedCount };
+      return { clearedMB, clearedCount, servicesMarked };
     } catch (err) {
       console.error('[MemoryDiagnostics] clearAllSyncedData failed:', err);
 
@@ -521,7 +551,7 @@ export class MemoryDiagnosticsService {
       });
       await errorAlert.present();
 
-      return { clearedMB: 0, clearedCount: 0 };
+      return { clearedMB: 0, clearedCount: 0, servicesMarked: 0 };
     }
   }
 }

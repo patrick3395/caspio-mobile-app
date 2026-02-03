@@ -101,12 +101,17 @@ export class BackgroundSyncService {
   private syncIntervalMs = 60000; // Check every 60 seconds (batched sync - was 30s)
 
   // ==========================================================================
-  // ROLLING SYNC WINDOW
-  // Changes are batched and synced after 60 seconds of no new changes
-  // Timer resets each time a new change is queued (rolling window)
+  // ROLLING SYNC WINDOW WITH MAXIMUM WAIT TIME
+  // Changes are batched with two timers:
+  // 1. Short debounce (10s) - resets with each change for batching
+  // 2. Maximum wait (60s) - from FIRST change, never resets
+  // Sync triggers when EITHER timer expires
   // ==========================================================================
   private rollingSyncTimer: any = null;
-  private rollingWindowMs = 60000; // 60-second rolling window
+  private maxWaitTimer: any = null;
+  private rollingWindowMs = 10000; // 10-second debounce for batching rapid changes
+  private maxWaitMs = 60000; // 60-second maximum wait from first change
+  private firstChangeTimestamp: number | null = null; // Track when first change was queued
   private pendingChangesCount = 0;
   private syncQueueSubscription: Subscription | null = null;
 
@@ -211,42 +216,84 @@ export class BackgroundSyncService {
   // ==========================================================================
 
   /**
-   * Queue a change and reset the rolling sync window
+   * Queue a change and manage sync timers
    * Called whenever a new change is made (photo added, annotation updated, etc.)
-   * This batches changes and syncs after 60 seconds of no new changes
+   *
+   * Uses two-timer approach:
+   * 1. Short debounce timer (10s) - resets with each change to batch rapid changes
+   * 2. Maximum wait timer (60s) - starts on FIRST change, never resets
+   * Sync happens when EITHER timer expires, preventing indefinite delays
    */
   queueChange(reason: string = 'change'): void {
     this.pendingChangesCount++;
     this.pendingChanges$.next(this.pendingChangesCount);
-    console.log(`[BackgroundSync] Change queued (${reason}), pending: ${this.pendingChangesCount}, resetting 60s timer`);
-    this.resetRollingSyncWindow();
+
+    const isFirstChange = this.firstChangeTimestamp === null;
+
+    // Track when first change was queued (for max wait calculation)
+    if (isFirstChange) {
+      this.firstChangeTimestamp = Date.now();
+    }
+
+    const timeSinceFirst = this.firstChangeTimestamp ? Math.round((Date.now() - this.firstChangeTimestamp) / 1000) : 0;
+    console.log(`[BackgroundSync] Change queued (${reason}), pending: ${this.pendingChangesCount}, time since first: ${timeSinceFirst}s`);
+
+    this.resetRollingSyncWindow(isFirstChange);
   }
 
   /**
    * Reset the rolling sync window timer
-   * Called whenever a new change is queued - creates a 60-second debounce effect
+   * Called whenever a new change is queued
+   *
+   * @param isFirstChange - If true, also starts the maximum wait timer
    */
-  private resetRollingSyncWindow(): void {
-    // Clear existing timer
+  private resetRollingSyncWindow(isFirstChange: boolean = false): void {
+    // Clear existing debounce timer (this one resets with each change)
     if (this.rollingSyncTimer) {
       clearTimeout(this.rollingSyncTimer);
       this.rollingSyncTimer = null;
     }
 
-    // Don't set timer if offline
+    // Don't set timers if offline
     if (!navigator.onLine) {
-      console.log('[BackgroundSync] Offline - rolling sync timer not started');
+      console.log('[BackgroundSync] Offline - sync timers not started');
       return;
     }
 
-    // Set new timer - sync after 60 seconds of no new changes
+    // Start maximum wait timer on FIRST change only (never resets)
+    if (isFirstChange && !this.maxWaitTimer) {
+      this.maxWaitTimer = setTimeout(() => {
+        console.log(`[BackgroundSync] ⏰ MAX WAIT (${this.maxWaitMs / 1000}s) reached - syncing ${this.pendingChangesCount} pending changes`);
+        this.clearSyncTimers();
+        this.triggerSync();
+      }, this.maxWaitMs);
+      console.log(`[BackgroundSync] Max wait timer started - will force sync in ${this.maxWaitMs / 1000}s regardless of new changes`);
+    }
+
+    // Set debounce timer - sync after short period of no new changes
     this.rollingSyncTimer = setTimeout(() => {
-      console.log(`[BackgroundSync] Rolling window expired - syncing ${this.pendingChangesCount} pending changes`);
-      this.rollingSyncTimer = null;
+      console.log(`[BackgroundSync] Debounce (${this.rollingWindowMs / 1000}s) expired - syncing ${this.pendingChangesCount} pending changes`);
+      this.clearSyncTimers();
       this.triggerSync();
     }, this.rollingWindowMs);
 
-    console.log(`[BackgroundSync] Rolling sync timer reset - will sync in ${this.rollingWindowMs / 1000}s if no new changes`);
+    console.log(`[BackgroundSync] Debounce timer reset - will sync in ${this.rollingWindowMs / 1000}s if no new changes`);
+  }
+
+  /**
+   * Clear all sync timers and reset first change timestamp
+   * Called after sync triggers or completes
+   */
+  private clearSyncTimers(): void {
+    if (this.rollingSyncTimer) {
+      clearTimeout(this.rollingSyncTimer);
+      this.rollingSyncTimer = null;
+    }
+    if (this.maxWaitTimer) {
+      clearTimeout(this.maxWaitTimer);
+      this.maxWaitTimer = null;
+    }
+    this.firstChangeTimestamp = null;
   }
 
   /**
@@ -436,11 +483,11 @@ export class BackgroundSyncService {
       // This catches any changes that might not have triggered queueChange()
       // The rolling window handles user-initiated changes with proper debouncing
       this.syncInterval = interval(this.syncIntervalMs).subscribe(() => {
-        // Only trigger if we're not already waiting on rolling window
-        if (!this.rollingSyncTimer) {
+        // Only trigger if we're not already waiting on sync timers
+        if (!this.rollingSyncTimer && !this.maxWaitTimer) {
           this.triggerSync();
         } else {
-          console.log('[BackgroundSync] Skipping fixed interval - rolling window active');
+          console.log('[BackgroundSync] Skipping fixed interval - sync timers active');
         }
       });
     });
@@ -2354,11 +2401,8 @@ export class BackgroundSyncService {
       this.connectionSubscription.unsubscribe();
       this.connectionSubscription = null;
     }
-    // Clear rolling sync timer
-    if (this.rollingSyncTimer) {
-      clearTimeout(this.rollingSyncTimer);
-      this.rollingSyncTimer = null;
-    }
+    // Clear sync timers (debounce and max wait)
+    this.clearSyncTimers();
     // Cleanup sync queue subscription
     if (this.syncQueueSubscription) {
       this.syncQueueSubscription.unsubscribe();
@@ -4370,6 +4414,8 @@ export class BackgroundSyncService {
       const visualFieldCount = await db.visualFields.where('serviceId').equals(serviceId).count();
       const efeFieldCount = await db.efeFields.where('serviceId').equals(serviceId).count();
       const hudFieldCount = await db.hudFields.where('serviceId').equals(serviceId).count();
+      const lbwFieldCount = await db.lbwFields.where('serviceId').equals(serviceId).count();
+      const dteFieldCount = await db.dteFields.where('serviceId').equals(serviceId).count();
       const cachedPhotoCount = await db.cachedPhotos.where('serviceId').equals(serviceId).count();
       const pendingCaptionCount = await db.pendingCaptions.where('serviceId').equals(serviceId).count();
 
@@ -4408,6 +4454,12 @@ export class BackgroundSyncService {
       // Delete HUD fields for this service (HUD-019)
       await db.hudFields.where('serviceId').equals(serviceId).delete();
 
+      // Delete LBW fields for this service
+      await db.lbwFields.where('serviceId').equals(serviceId).delete();
+
+      // Delete DTE fields for this service
+      await db.dteFields.where('serviceId').equals(serviceId).delete();
+
       // Delete cached photos for this service
       await db.cachedPhotos.where('serviceId').equals(serviceId).delete();
 
@@ -4425,6 +4477,8 @@ export class BackgroundSyncService {
       console.log(`[BackgroundSync] 📝 Visual fields cleared: ${visualFieldCount}`);
       console.log(`[BackgroundSync] 🏠 EFE fields cleared: ${efeFieldCount}`);
       console.log(`[BackgroundSync] 🔧 HUD fields cleared: ${hudFieldCount}`);
+      console.log(`[BackgroundSync] 📋 LBW fields cleared: ${lbwFieldCount}`);
+      console.log(`[BackgroundSync] 📄 DTE fields cleared: ${dteFieldCount}`);
       console.log(`[BackgroundSync] 🖼️ Cached photos cleared: ${cachedPhotoCount}`);
       console.log(`[BackgroundSync] ✏️ Pending captions cleared: ${pendingCaptionCount}`);
       console.log(`[BackgroundSync] ═══════════════════════════════════════════════════`);

@@ -6,8 +6,10 @@ import { Subscription } from 'rxjs';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { TemplateConfigService } from '../../../services/template/template-config.service';
 import { TemplateConfig, NavigationCard } from '../../../services/template/template-config.interface';
+import { TemplateRehydrationService } from '../../../services/template/template-rehydration.service';
 import { TEMPLATE_DATA_PROVIDER } from '../../../services/template/template-data-provider.factory';
 import { ITemplateDataProvider } from '../../../services/template/template-data-provider.interface';
+import { environment } from '../../../../environments/environment';
 
 interface DisplayCard extends NavigationCard {
   completed: boolean;
@@ -34,6 +36,7 @@ export class GenericMainPage implements OnInit, OnDestroy {
   statusOptions: any[] = [];
   isReportFinalized: boolean = false;
   hasChangesAfterFinalization: boolean = false;
+  isRehydrating: boolean = false;  // True when restoring data from server after storage clear
 
   private isFinalizationInProgress = false;
   private readonly SYNC_TIMEOUT_MS = 45000;
@@ -46,6 +49,7 @@ export class GenericMainPage implements OnInit, OnDestroy {
     private navController: NavController,
     private offlineTemplate: OfflineTemplateService,
     private templateConfigService: TemplateConfigService,
+    private templateRehydration: TemplateRehydrationService,
     private changeDetectorRef: ChangeDetectorRef,
     @Inject(TEMPLATE_DATA_PROVIDER) private dataProvider: ITemplateDataProvider
   ) {}
@@ -122,6 +126,12 @@ export class GenericMainPage implements OnInit, OnDestroy {
   }
 
   async ionViewWillEnter() {
+    // Check if service needs rehydration (after storage clear)
+    // This restores data from the server when local storage was cleared
+    if (this.serviceId && this.config && !environment.isWeb) {
+      await this.checkAndPerformRehydration();
+    }
+
     // Refresh finalization status when returning to this page
     if (this.projectId && this.serviceId) {
       // Mark that changes may have been made
@@ -136,6 +146,44 @@ export class GenericMainPage implements OnInit, OnDestroy {
       if (this.config?.features.hasCountIndicators) {
         this.loadCounts();
       }
+    }
+  }
+
+  /**
+   * Check if this service needs rehydration and perform it if necessary
+   * Rehydration restores data from the server after local storage was cleared
+   */
+  private async checkAndPerformRehydration(): Promise<void> {
+    if (!this.config || environment.isWeb) {
+      return;  // Only needed on mobile
+    }
+
+    try {
+      const needsRehydration = await this.templateRehydration.needsRehydration(this.serviceId);
+
+      if (needsRehydration) {
+        console.log(`[GenericMain] Service ${this.serviceId} needs rehydration, starting...`);
+        this.isRehydrating = true;
+        this.changeDetectorRef.detectChanges();
+
+        const result = await this.templateRehydration.rehydrateServiceForTemplate(
+          this.config,
+          this.serviceId
+        );
+
+        this.isRehydrating = false;
+        this.changeDetectorRef.detectChanges();
+
+        if (result.success) {
+          console.log(`[GenericMain] Rehydration complete: ${result.recordsRestored} records, ${result.imagesRestored} images`);
+        } else {
+          console.error(`[GenericMain] Rehydration failed: ${result.error}`);
+        }
+      }
+    } catch (err: any) {
+      console.error(`[GenericMain] Rehydration check failed:`, err);
+      this.isRehydrating = false;
+      this.changeDetectorRef.detectChanges();
     }
   }
 

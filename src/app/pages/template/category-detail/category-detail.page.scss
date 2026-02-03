@@ -175,6 +175,27 @@ ion-content {
     margin: 0;
     font-size: 14px;
   }
+
+  // Rehydrating state - when restoring data from server
+  &.rehydrating-container {
+    background: #f0f8ff;  // Light blue background
+
+    ion-spinner {
+      --color: #4a90d9;  // Blue spinner
+    }
+
+    p {
+      color: #4a90d9;
+      font-weight: 500;
+    }
+
+    .rehydrating-subtitle {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #666;
+      font-weight: 400;
+    }
+  }
 }
 
 .category-content {

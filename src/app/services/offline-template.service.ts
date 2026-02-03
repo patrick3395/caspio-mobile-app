@@ -2141,6 +2141,127 @@ export class OfflineTemplateService {
     return [];
   }
 
+  // ============================================
+  // DTE SERVICE METHODS (DEXIE-FIRST PATTERN)
+  // ============================================
+
+  // DTE template version for cache invalidation
+  private static readonly DTE_TEMPLATE_VERSION = 1;
+
+  /**
+   * Get DTE templates - CACHE-FIRST for instant loading
+   * Mirrors getLbwTemplates() pattern
+   */
+  async getDteTemplates(): Promise<any[]> {
+    // WEBAPP: Network-first with no local caching
+    if (environment.isWeb) {
+      console.log('[OfflineTemplate] WEBAPP MODE: Fetching DTE templates directly from API');
+      try {
+        const templates = await firstValueFrom(this.caspioService.getServicesDTETemplates());
+        console.log(`[OfflineTemplate] WEBAPP: Loaded ${templates?.length || 0} DTE templates from server`);
+        return templates || [];
+      } catch (error) {
+        console.error('[OfflineTemplate] WEBAPP: API fetch failed for DTE templates:', error);
+        return [];
+      }
+    }
+
+    // MOBILE: Dexie-first pattern
+    const cached = await this.indexedDb.getCachedTemplates('dte');
+
+    // Return immediately if we have data
+    if (cached && cached.length > 0) {
+      console.log(`[OfflineTemplate] DTE Templates: ${cached.length} (instant from cache)`);
+
+      // Background refresh when online
+      if (this.offlineService.isOnline()) {
+        this.refreshDteTemplatesInBackground();
+      }
+      return cached;
+    }
+
+    // No cache - fetch from API if online (blocking)
+    if (this.offlineService.isOnline()) {
+      try {
+        console.log('[OfflineTemplate] No cached DTE templates, fetching from API...');
+        const templates = await firstValueFrom(this.caspioService.getServicesDTETemplates());
+        await this.indexedDb.cacheTemplates('dte', templates || [], OfflineTemplateService.DTE_TEMPLATE_VERSION);
+        console.log(`[OfflineTemplate] DTE Templates cached: ${templates?.length || 0}`);
+        return templates || [];
+      } catch (error) {
+        console.error('[OfflineTemplate] DTE Templates API fetch failed:', error);
+      }
+    }
+
+    console.log('[OfflineTemplate] No DTE templates available (offline, no cache)');
+    return [];
+  }
+
+  /**
+   * Background refresh for DTE templates
+   */
+  private refreshDteTemplatesInBackground(): void {
+    const refreshJob = async () => {
+      try {
+        console.log('[OfflineTemplate] [BG] Starting DTE template background refresh...');
+        const templates = await firstValueFrom(this.caspioService.getServicesDTETemplates());
+        await this.indexedDb.cacheTemplates('dte', templates || [], OfflineTemplateService.DTE_TEMPLATE_VERSION);
+        console.log(`[OfflineTemplate] [BG] ✅ DTE templates refreshed: ${templates?.length || 0} templates`);
+
+        // Also refresh dropdown options
+        const dropdown = await firstValueFrom(this.caspioService.getServicesDTEDrop());
+        await this.indexedDb.cacheTemplates('dte_dropdown', dropdown || [], OfflineTemplateService.DTE_TEMPLATE_VERSION);
+        console.log(`[OfflineTemplate] [BG] ✅ DTE dropdown refreshed: ${dropdown?.length || 0} options`);
+      } catch (error) {
+        console.warn('[OfflineTemplate] [BG] DTE template background refresh failed:', error);
+      }
+    };
+
+    refreshJob();
+  }
+
+  /**
+   * Get DTE dropdown options - CACHE-FIRST for instant loading
+   */
+  async getDteDropdownOptions(): Promise<any[]> {
+    // WEBAPP: Network-first with no local caching
+    if (environment.isWeb) {
+      console.log('[OfflineTemplate] WEBAPP MODE: Fetching DTE dropdown directly from API');
+      try {
+        const dropdown = await firstValueFrom(this.caspioService.getServicesDTEDrop());
+        console.log(`[OfflineTemplate] WEBAPP: Loaded ${dropdown?.length || 0} DTE dropdown options from server`);
+        return dropdown || [];
+      } catch (error) {
+        console.error('[OfflineTemplate] WEBAPP: API fetch failed for DTE dropdown:', error);
+        return [];
+      }
+    }
+
+    // MOBILE: Dexie-first pattern
+    const cached = await this.indexedDb.getCachedTemplates('dte_dropdown');
+
+    if (cached && cached.length > 0) {
+      console.log(`[OfflineTemplate] DTE Dropdown: ${cached.length} (instant from cache)`);
+      return cached;
+    }
+
+    // No cache - fetch from API if online
+    if (this.offlineService.isOnline()) {
+      try {
+        console.log('[OfflineTemplate] No cached DTE dropdown, fetching from API...');
+        const dropdown = await firstValueFrom(this.caspioService.getServicesDTEDrop());
+        await this.indexedDb.cacheTemplates('dte_dropdown', dropdown || [], OfflineTemplateService.DTE_TEMPLATE_VERSION);
+        console.log(`[OfflineTemplate] DTE Dropdown cached: ${dropdown?.length || 0}`);
+        return dropdown || [];
+      } catch (error) {
+        console.error('[OfflineTemplate] DTE Dropdown API fetch failed:', error);
+      }
+    }
+
+    console.log('[OfflineTemplate] No DTE dropdown available (offline, no cache)');
+    return [];
+  }
+
   /**
    * Get visual attachments - CACHE-FIRST for instant loading
    * Returns cached data immediately, refreshes in background when online

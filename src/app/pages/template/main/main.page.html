@@ -1,4 +1,13 @@
 <div class="main-container">
+  <!-- Rehydrating Overlay - When restoring data from server after storage clear -->
+  <div *ngIf="isRehydrating" class="rehydrating-overlay">
+    <div class="rehydrating-content">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Restoring data from server...</p>
+      <p class="rehydrating-subtitle">This may take a moment</p>
+    </div>
+  </div>
+
   <div class="white-container">
     <div class="cards-container">
       <ion-card

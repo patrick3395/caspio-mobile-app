@@ -216,7 +216,21 @@ export class ServiceMetadataService {
       .filter(f => f.dirty)
       .count();
 
-    const total = pendingImages + pendingCaptions + dirtyVisuals + dirtyEfe + dirtyHud;
+    // Count dirty LBW fields
+    const dirtyLbw = await db.lbwFields
+      .where('serviceId')
+      .equals(serviceId)
+      .filter(f => f.dirty)
+      .count();
+
+    // Count dirty DTE fields
+    const dirtyDte = await db.dteFields
+      .where('serviceId')
+      .equals(serviceId)
+      .filter(f => f.dirty)
+      .count();
+
+    const total = pendingImages + pendingCaptions + dirtyVisuals + dirtyEfe + dirtyHud + dirtyLbw + dirtyDte;
     return total;
   }
 
