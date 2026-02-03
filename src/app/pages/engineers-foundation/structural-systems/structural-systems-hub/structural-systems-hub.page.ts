@@ -4,9 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule, ViewWillEnter } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subscription } from 'rxjs';
+import { liveQuery } from 'dexie';
 import { CaspioService } from '../../../../services/caspio.service';
 import { EngineersFoundationDataService } from '../../engineers-foundation-data.service';
-import { OfflineDataCacheService } from '../../../../services/offline-data-cache.service';
 import { OfflineTemplateService } from '../../../../services/offline-template.service';
 import { IndexedDbService } from '../../../../services/indexed-db.service';
 import { OfflineService } from '../../../../services/offline.service';
@@ -35,11 +35,9 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
   // WEBAPP: Expose isWeb for template skeleton loader conditionals
   isWeb = environment.isWeb;
   
-  private cacheInvalidationSubscription?: Subscription;
-  private backgroundRefreshSubscription?: Subscription;
-  private cacheInvalidationDebounceTimer: any = null;
-  private isLoadingCategories: boolean = false;  // Prevent concurrent loads
-  private initialLoadComplete: boolean = false;  // Skip cache invalidation during initial load
+  private visualFieldsSubscription?: Subscription;  // DEXIE-FIRST: liveQuery subscription
+  private initialLoadComplete: boolean = false;
+  private cachedTemplates: any[] = [];  // Cache templates for instant category extraction
 
   constructor(
     private router: Router,
@@ -47,7 +45,6 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
     private caspioService: CaspioService,
     private changeDetectorRef: ChangeDetectorRef,
     private foundationData: EngineersFoundationDataService,
-    private offlineCache: OfflineDataCacheService,
     private offlineTemplate: OfflineTemplateService,
     private indexedDb: IndexedDbService,
     private offlineService: OfflineService
@@ -86,73 +83,26 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
       }
     });
 
-    // Subscribe to cache invalidation events - reload data when sync completes
-    // CRITICAL: Debounce to prevent multiple rapid reloads
-    this.cacheInvalidationSubscription = this.foundationData.cacheInvalidated$.subscribe(event => {
-      // Skip during initial load to prevent race conditions
-      if (!this.initialLoadComplete) {
-        console.log('[StructuralHub] Skipping cache invalidation - initial load not complete');
-        return;
-      }
-      
-      // Skip if already loading categories
-      if (this.isLoadingCategories) {
-        console.log('[StructuralHub] Skipping cache invalidation - already loading categories');
-        return;
-      }
-      
-      if (!event.serviceId || event.serviceId === this.serviceId) {
-        // Clear any existing debounce timer
-        if (this.cacheInvalidationDebounceTimer) {
-          clearTimeout(this.cacheInvalidationDebounceTimer);
-        }
-        
-        // Debounce: wait 500ms before reloading to batch multiple rapid events
-        this.cacheInvalidationDebounceTimer = setTimeout(() => {
-          console.log('[StructuralHub] Cache invalidated (debounced), reloading deficiency counts...');
-          this.loadCategories();
-        }, 500);
-      }
-    });
-
-    // STANDARDIZED: Subscribe to background refresh completion
-    // This ensures UI updates when data is refreshed in the background
-    this.backgroundRefreshSubscription = this.offlineTemplate.backgroundRefreshComplete$.subscribe(event => {
-      if (event.serviceId === this.serviceId && event.dataType === 'visuals') {
-        console.log('[StructuralHub] Background refresh complete for visuals, reloading...');
-        // Debounce with same timer to prevent duplicate reloads
-        if (this.cacheInvalidationDebounceTimer) {
-          clearTimeout(this.cacheInvalidationDebounceTimer);
-        }
-        this.cacheInvalidationDebounceTimer = setTimeout(() => {
-          this.loadCategories();
-        }, 500);
-      }
-    });
+    // NOTE: Cache invalidation subscriptions removed - liveQuery handles reactive updates automatically
   }
 
   /**
    * Ionic lifecycle hook - called when navigating back to this page
-   * Ensures deficiency counts are refreshed when returning from category details
+   * DEXIE-FIRST: liveQuery handles reactive updates, no manual reload needed
    */
   async ionViewWillEnter() {
-    console.log('[StructuralHub] ionViewWillEnter - Reloading categories from cache');
-    
-    // Only reload if initial load is complete and we have IDs
-    if (this.initialLoadComplete && this.serviceId) {
-      await this.loadCategories();
+    console.log('[StructuralHub] ionViewWillEnter - liveQuery handles counts automatically');
+
+    // Ensure liveQuery subscription is active (may have been cleaned up)
+    if (this.initialLoadComplete && this.serviceId && !this.visualFieldsSubscription) {
+      this.subscribeToVisualFieldsChanges();
     }
   }
 
   ngOnDestroy() {
-    if (this.cacheInvalidationSubscription) {
-      this.cacheInvalidationSubscription.unsubscribe();
-    }
-    if (this.backgroundRefreshSubscription) {
-      this.backgroundRefreshSubscription.unsubscribe();
-    }
-    if (this.cacheInvalidationDebounceTimer) {
-      clearTimeout(this.cacheInvalidationDebounceTimer);
+    // DEXIE-FIRST: Clean up liveQuery subscription
+    if (this.visualFieldsSubscription) {
+      this.visualFieldsSubscription.unsubscribe();
     }
   }
 
@@ -166,61 +116,155 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
       return;
     }
 
-    // MOBILE MODE: Use cache-first pattern
+    // ========================================
+    // DEXIE-FIRST: Instant loading pattern
+    // Show UI immediately, subscribe to liveQuery for reactive updates
+    // ========================================
+
     // Update online status
     this.isOnline = this.offlineService.isOnline();
 
-    // Read templates ONCE and reuse
-    const cachedTemplates = await this.indexedDb.getCachedTemplates('visual');
-    const hasCachedTemplates = !!(cachedTemplates && cachedTemplates.length > 0);
+    // Read templates ONCE and cache for category extraction
+    this.cachedTemplates = await this.indexedDb.getCachedTemplates('visual') || [];
+    const hasCachedTemplates = this.cachedTemplates.length > 0;
 
-    // Read service ONCE and reuse
+    // Read service data (for StructStat field)
     const cachedService = await this.offlineTemplate.getService(this.serviceId);
-
-    // Only show loading spinner if we TRULY need to fetch from network
-    if (!hasCachedTemplates || !cachedService) {
-      this.loading = true;
-      this.changeDetectorRef.detectChanges();
+    if (cachedService) {
+      this.serviceData = cachedService;
+      console.log('[StructuralHub] ✅ Service loaded from cache (instant)');
     }
 
-    try {
-      // Use cached service data directly
-      if (cachedService) {
-        this.serviceData = cachedService;
-        console.log('[StructuralHub] ✅ Service loaded from cache (instant)');
-      } else {
-        // Fallback to API only if not cached
-        this.caspioService.getService(this.serviceId).subscribe({
-          next: (service) => {
-            this.serviceData = service || {};
-            this.changeDetectorRef.detectChanges();
-          },
-          error: (error) => {
-            console.error('[StructuralHub] Error loading service:', error);
-          }
-        });
-      }
+    // INSTANT: Extract categories from templates (pure CPU operation)
+    if (hasCachedTemplates) {
+      this.extractCategoriesFromTemplates();
+    }
 
-      // Load categories - pass templates to avoid re-reading
-      await this.loadCategoriesFromTemplates(cachedTemplates || []);
+    // INSTANT: Set loading=false immediately - we have cached data!
+    this.loading = false;
+    this.initialLoadComplete = true;
+    this.changeDetectorRef.detectChanges();
+    console.log('[StructuralHub] ✅ UI rendered instantly with cached data');
 
-      // Check for pending sync items
-      const pendingRequests = await this.indexedDb.getPendingRequests();
+    // DEXIE-FIRST: Subscribe to liveQuery for reactive count updates
+    // This automatically updates counts when visualFields change
+    this.subscribeToVisualFieldsChanges();
+
+    // Check for pending sync items (non-blocking)
+    this.indexedDb.getPendingRequests().then(pendingRequests => {
       this.hasPendingSync = pendingRequests.some(r =>
         r.endpoint.includes('Services_Visuals') && r.status === 'pending'
       );
-
-      // Update isEmpty status
-      this.isEmpty = this.categories.length === 0 && hasCachedTemplates;
-
-      console.log('[StructuralHub] ✅ loadData() completed');
-    } catch (error) {
-      console.error('[StructuralHub] Error in loadData:', error);
-    } finally {
-      this.loading = false;
-      this.initialLoadComplete = true;
       this.changeDetectorRef.detectChanges();
+    });
+
+    // Load service from API if not cached (non-blocking)
+    if (!cachedService) {
+      this.caspioService.getService(this.serviceId).subscribe({
+        next: (service) => {
+          this.serviceData = service || {};
+          this.changeDetectorRef.detectChanges();
+        },
+        error: (error) => {
+          console.error('[StructuralHub] Error loading service:', error);
+        }
+      });
     }
+  }
+
+  /**
+   * DEXIE-FIRST: Extract categories from cached templates (instant - CPU only)
+   */
+  private extractCategoriesFromTemplates() {
+    // Filter for visual templates (TypeID=1)
+    const visualTemplates = this.cachedTemplates.filter((t: any) => t.TypeID === 1);
+    console.log('[StructuralHub] ✅ Visual templates:', visualTemplates.length);
+
+    // Extract unique categories - pure CPU operation, instant
+    const categoriesSet = new Set<string>();
+    const categoriesOrder: string[] = [];
+
+    visualTemplates.forEach((template: any) => {
+      if (template.Category && !categoriesSet.has(template.Category)) {
+        categoriesSet.add(template.Category);
+        categoriesOrder.push(template.Category);
+      }
+    });
+
+    // Initialize categories with zero counts (liveQuery will update counts)
+    this.categories = categoriesOrder.map(cat => ({
+      name: cat,
+      commentCount: 0,
+      limitationCount: 0,
+      deficiencyCount: 0
+    }));
+
+    this.isEmpty = this.categories.length === 0;
+    console.log('[StructuralHub] ✅ Categories extracted:', this.categories.length);
+  }
+
+  /**
+   * DEXIE-FIRST: Subscribe to visualFields liveQuery for reactive count updates
+   * Automatically updates category counts when fields are added/modified/removed
+   */
+  private subscribeToVisualFieldsChanges() {
+    if (!this.serviceId) return;
+
+    // Unsubscribe from existing subscription
+    if (this.visualFieldsSubscription) {
+      this.visualFieldsSubscription.unsubscribe();
+    }
+
+    // Create liveQuery observable for visualFields
+    const visualFields$ = liveQuery(() =>
+      db.visualFields
+        .where('serviceId')
+        .equals(this.serviceId)
+        .toArray()
+    );
+
+    // Subscribe to reactive updates
+    this.visualFieldsSubscription = visualFields$.subscribe({
+      next: (visualFields: any[]) => {
+        console.log('[StructuralHub] DEXIE-FIRST: liveQuery update -', visualFields.length, 'fields');
+
+        // Calculate counts per category from visualFields
+        const counts: { [category: string]: { comments: number; limitations: number; deficiencies: number } } = {};
+
+        visualFields.forEach((field: any) => {
+          // Only count SELECTED items
+          if (!field.isSelected) return;
+
+          const kind = field.kind || '';
+          const category = field.category || '';
+          if (!category) return;
+
+          if (!counts[category]) {
+            counts[category] = { comments: 0, limitations: 0, deficiencies: 0 };
+          }
+
+          if (kind === 'Comment') {
+            counts[category].comments += 1;
+          } else if (kind === 'Limitation') {
+            counts[category].limitations += 1;
+          } else if (kind === 'Deficiency') {
+            counts[category].deficiencies += 1;
+          }
+        });
+
+        // Update category counts (keep existing categories, just update counts)
+        this.categories.forEach(cat => {
+          cat.commentCount = counts[cat.name]?.comments || 0;
+          cat.limitationCount = counts[cat.name]?.limitations || 0;
+          cat.deficiencyCount = counts[cat.name]?.deficiencies || 0;
+        });
+
+        this.changeDetectorRef.detectChanges();
+      },
+      error: (err: any) => {
+        console.error('[StructuralHub] DEXIE-FIRST: liveQuery error:', err);
+      }
+    });
   }
 
   /**
@@ -301,115 +345,8 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
     }
   }
 
-  /**
-   * Load categories directly from provided templates (no extra IndexedDB reads)
-   */
-  private async loadCategoriesFromTemplates(templates: any[]) {
-    if (this.isLoadingCategories) {
-      console.log('[StructuralHub] Already loading, skipping');
-      return;
-    }
-    
-    this.isLoadingCategories = true;
-    
-    try {
-      // Filter for visual templates (TypeID=1)
-      const visualTemplates = templates.filter((t: any) => t.TypeID === 1);
-      console.log('[StructuralHub] ✅ Visual templates:', visualTemplates.length);
-
-      // Extract unique categories - pure CPU operation, instant
-      const categoriesSet = new Set<string>();
-      const categoriesOrder: string[] = [];
-
-      visualTemplates.forEach((template: any) => {
-        if (template.Category && !categoriesSet.has(template.Category)) {
-          categoriesSet.add(template.Category);
-          categoriesOrder.push(template.Category);
-        }
-      });
-
-      console.log('[StructuralHub] ✅ Categories:', categoriesOrder.length);
-
-      // Get all counts - ONE IndexedDB read, no pending requests needed
-      const allCounts = await this.getCategoryCountsFast();
-
-      this.categories = categoriesOrder.map(cat => ({
-        name: cat,
-        commentCount: allCounts[cat]?.comments || 0,
-        limitationCount: allCounts[cat]?.limitations || 0,
-        deficiencyCount: allCounts[cat]?.deficiencies || 0
-      }));
-
-      this.changeDetectorRef.detectChanges();
-
-    } catch (error) {
-      console.error('[StructuralHub] Error loading categories:', error);
-    } finally {
-      this.isLoadingCategories = false;
-    }
-  }
-
-  /**
-   * Fallback for cache invalidation events - reads templates fresh
-   */
-  private async loadCategories() {
-    const templates = await this.indexedDb.getCachedTemplates('visual') || [];
-    await this.loadCategoriesFromTemplates(templates);
-  }
-
-  /**
-   * DEXIE-FIRST: Fast category counts from visualFields table
-   * This includes both synced items AND pending items that haven't synced yet
-   * Returns counts for comments, limitations, and deficiencies per category
-   */
-  private async getCategoryCountsFast(): Promise<{ [category: string]: { comments: number; limitations: number; deficiencies: number } }> {
-    try {
-      const counts: { [category: string]: { comments: number; limitations: number; deficiencies: number } } = {};
-
-      // DEXIE-FIRST: Read from visualFields table which contains all items (synced + pending)
-      // This ensures counts update immediately when items are added, not after sync
-      const visualFields = await db.visualFields
-        .where('serviceId')
-        .equals(this.serviceId)
-        .toArray();
-
-      console.log('[StructuralHub] DEXIE-FIRST: Found', visualFields.length, 'visual fields');
-
-      visualFields.forEach((field: any) => {
-        // Only count SELECTED items (isSelected = true)
-        if (!field.isSelected) {
-          return;
-        }
-
-        const kind = field.kind || '';
-        const category = field.category || '';
-
-        // Skip if no category
-        if (!category) {
-          return;
-        }
-
-        // Initialize category if not exists
-        if (!counts[category]) {
-          counts[category] = { comments: 0, limitations: 0, deficiencies: 0 };
-        }
-
-        // Count by kind
-        if (kind === 'Comment') {
-          counts[category].comments += 1;
-        } else if (kind === 'Limitation') {
-          counts[category].limitations += 1;
-        } else if (kind === 'Deficiency') {
-          counts[category].deficiencies += 1;
-        }
-      });
-
-      return counts;
-    } catch (error) {
-      console.error('[StructuralHub] Error counting categories:', error);
-      return {};
-    }
-  }
+  // NOTE: loadCategoriesFromTemplates, loadCategories, getCategoryCountsFast removed
+  // DEXIE-FIRST: liveQuery subscription in subscribeToVisualFieldsChanges() handles all reactive updates
 
   navigateToCategory(categoryName: string) {
     this.router.navigate(['category', categoryName], { relativeTo: this.route });

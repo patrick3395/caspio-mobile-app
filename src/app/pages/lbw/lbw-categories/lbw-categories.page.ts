@@ -1,9 +1,13 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { IonicModule } from '@ionic/angular';
+import { IonicModule, ViewWillEnter } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs';
+import { liveQuery } from 'dexie';
 import { CaspioService } from '../../../services/caspio.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
+import { IndexedDbService } from '../../../services/indexed-db.service';
+import { db } from '../../../services/caspio-db';
 import { environment } from '../../../../environments/environment';
 
 interface CategoryCard {
@@ -22,17 +26,23 @@ interface CategoryCard {
   standalone: true,
   imports: [CommonModule, IonicModule]
 })
-export class LbwCategoriesPage implements OnInit {
+export class LbwCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
   categories: CategoryCard[] = [];
   projectId: string = '';
   serviceId: string = '';
   loading: boolean = true;
 
+  private lbwFieldsSubscription?: Subscription;  // DEXIE-FIRST: liveQuery subscription
+  private initialLoadComplete: boolean = false;
+  private cachedTemplates: any[] = [];
+
   constructor(
     private router: Router,
     private route: ActivatedRoute,
     private caspioService: CaspioService,
-    private offlineTemplate: OfflineTemplateService
+    private offlineTemplate: OfflineTemplateService,
+    private indexedDb: IndexedDbService,
+    private changeDetectorRef: ChangeDetectorRef
   ) {}
 
   async ngOnInit() {
@@ -48,30 +58,157 @@ export class LbwCategoriesPage implements OnInit {
         return;
       }
 
-      await this.loadCategories();
-      this.loading = false;
+      await this.loadData();
     });
   }
 
-  async ionViewWillEnter() {
-    // WEBAPP: Reload categories to refresh counts when returning to this page
-    if (environment.isWeb && this.serviceId) {
-      this.loading = false;
-      await this.loadCategories();
+  ionViewWillEnter() {
+    console.log('[LBW Categories] ionViewWillEnter - liveQuery handles counts automatically');
+
+    // Ensure liveQuery subscription is active
+    if (this.initialLoadComplete && this.serviceId && !this.lbwFieldsSubscription) {
+      this.subscribeToLbwFieldsChanges();
     }
   }
 
-  async loadCategories() {
-    try {
-      console.log('[LBW Categories] Loading categories (DEXIE-FIRST pattern)...');
+  ngOnDestroy() {
+    if (this.lbwFieldsSubscription) {
+      this.lbwFieldsSubscription.unsubscribe();
+    }
+  }
 
-      // DEXIE-FIRST: Load templates and existing LBW records from cache
+  private async loadData() {
+    console.log('[LBW Categories] loadData() starting...');
+
+    // WEBAPP MODE: Load from API
+    if (environment.isWeb) {
+      await this.loadCategoriesFromAPI();
+      return;
+    }
+
+    // ========================================
+    // DEXIE-FIRST: Instant loading pattern
+    // ========================================
+
+    // Load templates from cache
+    this.cachedTemplates = await this.indexedDb.getCachedTemplates('lbw') || [];
+
+    // Extract categories from templates (instant - CPU only)
+    if (this.cachedTemplates.length > 0) {
+      this.extractCategoriesFromTemplates();
+    }
+
+    // INSTANT: Set loading=false immediately
+    this.loading = false;
+    this.initialLoadComplete = true;
+    this.changeDetectorRef.detectChanges();
+    console.log('[LBW Categories] ✅ UI rendered instantly');
+
+    // Subscribe to liveQuery for reactive count updates
+    this.subscribeToLbwFieldsChanges();
+  }
+
+  /**
+   * DEXIE-FIRST: Extract categories from cached templates
+   */
+  private extractCategoriesFromTemplates() {
+    const categoriesSet = new Set<string>();
+    const categoriesOrder: string[] = [];
+    const categoryCounts = new Map<string, number>();
+
+    this.cachedTemplates.forEach((template: any) => {
+      if (template.Category && !categoriesSet.has(template.Category)) {
+        categoriesSet.add(template.Category);
+        categoriesOrder.push(template.Category);
+      }
+      if (template.Category) {
+        const count = categoryCounts.get(template.Category) || 0;
+        categoryCounts.set(template.Category, count + 1);
+      }
+    });
+
+    // Initialize categories with zero counts (liveQuery will update)
+    this.categories = categoriesOrder.map(title => ({
+      title,
+      icon: 'construct-outline',
+      count: categoryCounts.get(title) || 0,
+      commentCount: 0,
+      limitationCount: 0,
+      deficiencyCount: 0
+    }));
+
+    console.log('[LBW Categories] ✅ Categories extracted:', this.categories.length);
+  }
+
+  /**
+   * DEXIE-FIRST: Subscribe to lbwFields liveQuery for reactive count updates
+   */
+  private subscribeToLbwFieldsChanges() {
+    if (!this.serviceId) return;
+
+    if (this.lbwFieldsSubscription) {
+      this.lbwFieldsSubscription.unsubscribe();
+    }
+
+    const lbwFields$ = liveQuery(() =>
+      db.lbwFields
+        .where('serviceId')
+        .equals(this.serviceId)
+        .toArray()
+    );
+
+    this.lbwFieldsSubscription = lbwFields$.subscribe({
+      next: (fields: any[]) => {
+        console.log('[LBW Categories] DEXIE-FIRST: liveQuery update -', fields.length, 'fields');
+
+        // Calculate counts per category
+        const counts: { [category: string]: { comments: number; limitations: number; deficiencies: number } } = {};
+
+        fields.forEach((field: any) => {
+          if (!field.isSelected) return;
+
+          const kind = field.kind || '';
+          const category = field.category || '';
+          if (!category) return;
+
+          if (!counts[category]) {
+            counts[category] = { comments: 0, limitations: 0, deficiencies: 0 };
+          }
+
+          if (kind === 'Comment') {
+            counts[category].comments += 1;
+          } else if (kind === 'Limitation') {
+            counts[category].limitations += 1;
+          } else if (kind === 'Deficiency') {
+            counts[category].deficiencies += 1;
+          }
+        });
+
+        // Update category counts
+        this.categories.forEach(cat => {
+          cat.commentCount = counts[cat.title]?.comments || 0;
+          cat.limitationCount = counts[cat.title]?.limitations || 0;
+          cat.deficiencyCount = counts[cat.title]?.deficiencies || 0;
+        });
+
+        this.changeDetectorRef.detectChanges();
+      },
+      error: (err: any) => {
+        console.error('[LBW Categories] DEXIE-FIRST: liveQuery error:', err);
+      }
+    });
+  }
+
+  /**
+   * WEBAPP: Load categories from API
+   */
+  private async loadCategoriesFromAPI() {
+    try {
       const [templates, existingRecords] = await Promise.all([
         this.offlineTemplate.getLbwTemplates(),
         this.offlineTemplate.getLbwByService(this.serviceId)
       ]);
 
-      // Extract unique categories in order they appear (preserve database order)
       const categoriesSet = new Set<string>();
       const categoriesOrder: string[] = [];
       const categoryCounts = new Map<string, number>();
@@ -81,25 +218,17 @@ export class LbwCategoriesPage implements OnInit {
           categoriesSet.add(template.Category);
           categoriesOrder.push(template.Category);
         }
-        // Count items per category
         if (template.Category) {
           const count = categoryCounts.get(template.Category) || 0;
           categoryCounts.set(template.Category, count + 1);
         }
       });
 
-      // Count existing records by category and kind (excluding hidden items)
       const kindCounts: { [category: string]: { comments: number; limitations: number; deficiencies: number } } = {};
-
-      console.log('[LBW Categories] Existing records count:', (existingRecords || []).length);
-      if (existingRecords && existingRecords.length > 0) {
-        console.log('[LBW Categories] Sample record:', existingRecords[0]);
-      }
 
       (existingRecords || []).forEach((record: any) => {
         const category = record.Category || '';
         const kind = record.Kind || '';
-        // Use startsWith for hidden check (consistent with category-detail page)
         const isHidden = record.Notes && String(record.Notes).startsWith('HIDDEN');
 
         if (!category || isHidden) return;
@@ -108,18 +237,11 @@ export class LbwCategoriesPage implements OnInit {
           kindCounts[category] = { comments: 0, limitations: 0, deficiencies: 0 };
         }
 
-        if (kind === 'Comment') {
-          kindCounts[category].comments += 1;
-        } else if (kind === 'Limitation') {
-          kindCounts[category].limitations += 1;
-        } else if (kind === 'Deficiency') {
-          kindCounts[category].deficiencies += 1;
-        }
+        if (kind === 'Comment') kindCounts[category].comments += 1;
+        else if (kind === 'Limitation') kindCounts[category].limitations += 1;
+        else if (kind === 'Deficiency') kindCounts[category].deficiencies += 1;
       });
 
-      console.log('[LBW Categories] Kind counts by category:', kindCounts);
-
-      // Create category cards in database order (not alphabetically sorted)
       this.categories = categoriesOrder.map(title => ({
         title,
         icon: 'construct-outline',
@@ -129,9 +251,13 @@ export class LbwCategoriesPage implements OnInit {
         deficiencyCount: kindCounts[title]?.deficiencies || 0
       }));
 
-      console.log('[LBW Categories] Loaded categories with counts:', this.categories);
+      console.log('[LBW Categories] WEBAPP: Loaded categories:', this.categories.length);
     } catch (error) {
       console.error('[LBW Categories] Error loading categories:', error);
+    } finally {
+      this.loading = false;
+      this.initialLoadComplete = true;
+      this.changeDetectorRef.detectChanges();
     }
   }
 

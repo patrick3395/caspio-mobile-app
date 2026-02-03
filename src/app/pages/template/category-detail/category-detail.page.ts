@@ -387,81 +387,13 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     const isDexieFirstEnabled = this.genericFieldRepo.isDexieFirstEnabled(this.config);
 
     if (isDexieFirstEnabled) {
+      // DEXIE-FIRST: Show UI immediately - no loading screen!
+      // Data from Dexie is available instantly via liveQuery
+      this.loading = false;
+      this.changeDetectorRef.detectChanges();
 
-      // STEP 1: Ensure TEMPLATES are loaded (via offlineTemplate service)
-      // This is critical - templates must be cached before we can seed fields
-      this.logDebug('DEXIE', `Ensuring templates are ready for ${this.config.id}...`);
-      await this.ensureTemplatesReady();
-
-      // STEP 2: Ensure service data is cached (required for merging)
-      // This fetches from API if not already cached
-      await this.dataAdapter.ensureServiceDataCached(this.config, this.serviceId);
-
-      // STEP 3: Check if fields already seeded for this category
-      const hasFields = await this.genericFieldRepo.hasFieldsForCategory(
-        this.config,
-        this.serviceId,
-        this.categoryName
-      );
-
-
-      if (!hasFields) {
-        this.logDebug('DEXIE', `No fields found for ${this.config.id}, seeding from templates...`);
-
-        // STEP 4: Get templates from cache (using config-driven cache key)
-        // Templates should now be cached from STEP 1
-        const templateCacheKey = this.config.templatesCacheKey;
-        this.logDebug('DEXIE', `Reading templates from cache key: "${templateCacheKey}"`);
-        const templates = await this.indexedDb.getCachedTemplates(templateCacheKey as any) || [];
-        this.logDebug('DEXIE', `Found ${templates.length} templates in cache for key "${templateCacheKey}"`);
-
-
-        if (templates.length === 0) {
-          this.logDebug('WARN', 'No templates in cache after ensureTemplatesReady, falling back to loadData()');
-          await this.loadData();
-          console.timeEnd('[GenericCategoryDetail] initializeVisualFields');
-          return;
-        }
-
-        // Get cached dropdown data (using config-driven dropdown cache key)
-        const dropdownCacheKey = `${this.config.templatesCacheKey}_dropdown` as any;
-        const cachedDropdownData = await this.indexedDb.getCachedTemplates(dropdownCacheKey) || [];
-        this.logDebug('DEXIE', `Found ${cachedDropdownData.length} dropdown items for key "${dropdownCacheKey}"`);
-
-        // STEP 4: Seed templates into fields table
-        await this.genericFieldRepo.seedFromTemplates(
-          this.config,
-          this.serviceId,
-          this.categoryName,
-          templates,
-          cachedDropdownData
-        );
-
-        // STEP 5: Merge existing records (user's saved selections)
-        const existingData = await this.indexedDb.getCachedServiceData(
-          this.serviceId,
-          this.config.visualsCacheKey as any
-        ) || [];
-
-        await this.genericFieldRepo.mergeExistingRecords(
-          this.config,
-          this.serviceId,
-          this.categoryName,
-          existingData
-        );
-
-        this.logDebug('DEXIE', 'Seeding and merging complete');
-      } else {
-        this.logDebug('DEXIE', 'Fields already exist, using cached data');
-      }
-
-      // STEP 6: Set up LocalImages subscription FIRST (before fields subscription)
-      if (!this.localImagesSubscription && this.serviceId) {
-        this.subscribeToLocalImagesChanges();
-      }
-
-      // STEP 7: Subscribe to reactive updates (liveQuery)
-      // GenericFieldRepoService returns the correct observable for this template's table
+      // STEP 1: Subscribe to liveQuery FIRST for instant UI
+      // This shows existing data immediately while background operations run
       const fields$ = this.genericFieldRepo.getFieldsForCategory$(
         this.config,
         this.serviceId,
@@ -474,9 +406,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
           // Convert to organized data using unified method
           this.convertGenericFieldsToOrganizedData(fields);
-
-          // Show UI immediately - no loading screen
-          this.loading = false;
           this.changeDetectorRef.detectChanges();
 
           // Suppress photo population during capture to prevent duplicates
@@ -492,10 +421,19 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         },
         error: (err: any) => {
           this.logDebug('ERROR', `Error in fields subscription: ${err}`);
-          this.loading = false;
-          this.changeDetectorRef.detectChanges();
         }
       });
+
+      // Set up LocalImages subscription for photo updates
+      if (!this.localImagesSubscription && this.serviceId) {
+        this.subscribeToLocalImagesChanges();
+      }
+
+      // STEP 2: Background seeding (non-blocking) - liveQuery will auto-update when data is added
+      this.ensureFieldsSeeded().catch(err => {
+        this.logDebug('ERROR', `Background seeding failed: ${err}`);
+      });
+
     } else {
       // Fallback for any template without Dexie-first (shouldn't happen with current config)
       this.logDebug('WARN', `Template ${this.config.id} does not have Dexie-first enabled, using loadData()`);
@@ -586,6 +524,77 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     } catch (error) {
       this.logDebug('ERROR', `Failed to ensure templates ready: ${error}`);
       // Don't throw - we'll fall back to loadData() if templates are missing
+    }
+  }
+
+  /**
+   * Background seeding for Dexie-first (MOBILE ONLY)
+   * Runs in background while UI is already showing - liveQuery auto-updates when data is added
+   * This ensures templates are loaded and fields are seeded without blocking the UI
+   */
+  private async ensureFieldsSeeded(): Promise<void> {
+    if (!this.config) return;
+
+    try {
+      // STEP 1: Ensure templates are loaded (may fetch from API if not cached)
+      await this.ensureTemplatesReady();
+
+      // STEP 2: Ensure service data is cached (required for merging)
+      await this.dataAdapter.ensureServiceDataCached(this.config, this.serviceId);
+
+      // STEP 3: Check if fields already seeded for this category
+      const hasFields = await this.genericFieldRepo.hasFieldsForCategory(
+        this.config,
+        this.serviceId,
+        this.categoryName
+      );
+
+      if (!hasFields) {
+        this.logDebug('DEXIE', `No fields found for ${this.config.id}, seeding from templates...`);
+
+        // STEP 4: Get templates from cache
+        const templateCacheKey = this.config.templatesCacheKey;
+        const templates = await this.indexedDb.getCachedTemplates(templateCacheKey as any) || [];
+        this.logDebug('DEXIE', `Found ${templates.length} templates in cache for key "${templateCacheKey}"`);
+
+        if (templates.length === 0) {
+          this.logDebug('WARN', 'No templates in cache - cannot seed fields');
+          return;
+        }
+
+        // Get cached dropdown data
+        const dropdownCacheKey = `${this.config.templatesCacheKey}_dropdown` as any;
+        const cachedDropdownData = await this.indexedDb.getCachedTemplates(dropdownCacheKey) || [];
+
+        // STEP 5: Seed templates into fields table
+        // liveQuery will automatically pick up the new data!
+        await this.genericFieldRepo.seedFromTemplates(
+          this.config,
+          this.serviceId,
+          this.categoryName,
+          templates,
+          cachedDropdownData
+        );
+
+        // STEP 6: Merge existing records (user's saved selections)
+        const existingData = await this.indexedDb.getCachedServiceData(
+          this.serviceId,
+          this.config.visualsCacheKey as any
+        ) || [];
+
+        await this.genericFieldRepo.mergeExistingRecords(
+          this.config,
+          this.serviceId,
+          this.categoryName,
+          existingData
+        );
+
+        this.logDebug('DEXIE', 'Background seeding complete - liveQuery will update UI');
+      } else {
+        this.logDebug('DEXIE', 'Fields already exist, no seeding needed');
+      }
+    } catch (error) {
+      this.logDebug('ERROR', `Background seeding error: ${error}`);
     }
   }
 

@@ -1,14 +1,21 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { IonicModule } from '@ionic/angular';
+import { IonicModule, ViewWillEnter } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs';
+import { liveQuery } from 'dexie';
 import { CaspioService } from '../../../services/caspio.service';
+import { IndexedDbService } from '../../../services/indexed-db.service';
+import { db } from '../../../services/caspio-db';
 import { environment } from '../../../../environments/environment';
 
 interface CategoryCard {
   title: string;
   icon: string;
   count: number;
+  commentCount: number;
+  limitationCount: number;
+  deficiencyCount: number;
 }
 
 @Component({
@@ -18,16 +25,22 @@ interface CategoryCard {
   standalone: true,
   imports: [CommonModule, IonicModule]
 })
-export class DteCategoriesPage implements OnInit {
+export class DteCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
   categories: CategoryCard[] = [];
   projectId: string = '';
   serviceId: string = '';
   loading: boolean = true;
 
+  private dteFieldsSubscription?: Subscription;  // DEXIE-FIRST: liveQuery subscription
+  private initialLoadComplete: boolean = false;
+  private cachedTemplates: any[] = [];
+
   constructor(
     private router: Router,
     private route: ActivatedRoute,
-    private caspioService: CaspioService
+    private caspioService: CaspioService,
+    private indexedDb: IndexedDbService,
+    private changeDetectorRef: ChangeDetectorRef
   ) {}
 
   async ngOnInit() {
@@ -43,50 +56,186 @@ export class DteCategoriesPage implements OnInit {
         return;
       }
 
-      await this.loadCategories();
-      this.loading = false;
+      await this.loadData();
     });
   }
 
   ionViewWillEnter() {
-    // WEBAPP: Clear loading state when returning to this page
-    if (environment.isWeb) {
-      this.loading = false;
+    console.log('[DTE Categories] ionViewWillEnter - liveQuery handles counts automatically');
+
+    // Ensure liveQuery subscription is active
+    if (this.initialLoadComplete && this.serviceId && !this.dteFieldsSubscription) {
+      this.subscribeToDteFieldsChanges();
     }
   }
 
-  async loadCategories() {
+  ngOnDestroy() {
+    if (this.dteFieldsSubscription) {
+      this.dteFieldsSubscription.unsubscribe();
+    }
+  }
+
+  private async loadData() {
+    console.log('[DTE Categories] loadData() starting...');
+
+    // WEBAPP MODE: Load from API
+    if (environment.isWeb) {
+      await this.loadCategoriesFromAPI();
+      return;
+    }
+
+    // ========================================
+    // DEXIE-FIRST: Instant loading pattern
+    // ========================================
+
+    // Load templates from cache
+    this.cachedTemplates = await this.indexedDb.getCachedTemplates('dte') || [];
+
+    // Extract categories from templates (instant - CPU only)
+    if (this.cachedTemplates.length > 0) {
+      this.extractCategoriesFromTemplates();
+    }
+
+    // INSTANT: Set loading=false immediately
+    this.loading = false;
+    this.initialLoadComplete = true;
+    this.changeDetectorRef.detectChanges();
+    console.log('[DTE Categories] ✅ UI rendered instantly');
+
+    // Subscribe to liveQuery for reactive count updates
+    this.subscribeToDteFieldsChanges();
+  }
+
+  /**
+   * DEXIE-FIRST: Extract categories from cached templates
+   */
+  private extractCategoriesFromTemplates() {
+    const categoriesSet = new Set<string>();
+    const categoriesOrder: string[] = [];
+    const categoryCounts = new Map<string, number>();
+
+    this.cachedTemplates.forEach((template: any) => {
+      if (template.Category && !categoriesSet.has(template.Category)) {
+        categoriesSet.add(template.Category);
+        categoriesOrder.push(template.Category);
+      }
+      if (template.Category) {
+        const count = categoryCounts.get(template.Category) || 0;
+        categoryCounts.set(template.Category, count + 1);
+      }
+    });
+
+    // Initialize categories with zero counts (liveQuery will update)
+    this.categories = categoriesOrder.map(title => ({
+      title,
+      icon: 'construct-outline',
+      count: categoryCounts.get(title) || 0,
+      commentCount: 0,
+      limitationCount: 0,
+      deficiencyCount: 0
+    }));
+
+    console.log('[DTE Categories] ✅ Categories extracted:', this.categories.length);
+  }
+
+  /**
+   * DEXIE-FIRST: Subscribe to dteFields liveQuery for reactive count updates
+   */
+  private subscribeToDteFieldsChanges() {
+    if (!this.serviceId) return;
+
+    if (this.dteFieldsSubscription) {
+      this.dteFieldsSubscription.unsubscribe();
+    }
+
+    const dteFields$ = liveQuery(() =>
+      db.dteFields
+        .where('serviceId')
+        .equals(this.serviceId)
+        .toArray()
+    );
+
+    this.dteFieldsSubscription = dteFields$.subscribe({
+      next: (fields: any[]) => {
+        console.log('[DTE Categories] DEXIE-FIRST: liveQuery update -', fields.length, 'fields');
+
+        // Calculate counts per category
+        const counts: { [category: string]: { comments: number; limitations: number; deficiencies: number } } = {};
+
+        fields.forEach((field: any) => {
+          if (!field.isSelected) return;
+
+          const kind = field.kind || '';
+          const category = field.category || '';
+          if (!category) return;
+
+          if (!counts[category]) {
+            counts[category] = { comments: 0, limitations: 0, deficiencies: 0 };
+          }
+
+          if (kind === 'Comment') {
+            counts[category].comments += 1;
+          } else if (kind === 'Limitation') {
+            counts[category].limitations += 1;
+          } else if (kind === 'Deficiency') {
+            counts[category].deficiencies += 1;
+          }
+        });
+
+        // Update category counts
+        this.categories.forEach(cat => {
+          cat.commentCount = counts[cat.title]?.comments || 0;
+          cat.limitationCount = counts[cat.title]?.limitations || 0;
+          cat.deficiencyCount = counts[cat.title]?.deficiencies || 0;
+        });
+
+        this.changeDetectorRef.detectChanges();
+      },
+      error: (err: any) => {
+        console.error('[DTE Categories] DEXIE-FIRST: liveQuery error:', err);
+      }
+    });
+  }
+
+  /**
+   * WEBAPP: Load categories from API
+   */
+  private async loadCategoriesFromAPI() {
     try {
-      console.log('[DTE Categories] Loading categories from LPS_Services_DTE_Templates...');
+      console.log('[DTE Categories] WEBAPP: Loading from API...');
       const templates = await this.caspioService.getServicesDTETemplates().toPromise();
-      
-      // Extract unique categories in order they appear (preserve database order)
+
       const categoriesSet = new Set<string>();
       const categoriesOrder: string[] = [];
       const categoryCounts = new Map<string, number>();
-      
+
       (templates || []).forEach((template: any) => {
         if (template.Category && !categoriesSet.has(template.Category)) {
           categoriesSet.add(template.Category);
           categoriesOrder.push(template.Category);
         }
-        // Count items per category
         if (template.Category) {
           const count = categoryCounts.get(template.Category) || 0;
           categoryCounts.set(template.Category, count + 1);
         }
       });
 
-      // Create category cards in database order (not alphabetically sorted)
       this.categories = categoriesOrder.map(title => ({
         title,
         icon: 'construct-outline',
-        count: categoryCounts.get(title) || 0
+        count: categoryCounts.get(title) || 0,
+        commentCount: 0,
+        limitationCount: 0,
+        deficiencyCount: 0
       }));
 
-      console.log('[DTE Categories] Loaded categories in order:', this.categories);
+      console.log('[DTE Categories] WEBAPP: Loaded categories:', this.categories.length);
     } catch (error) {
       console.error('[DTE Categories] Error loading categories:', error);
+    } finally {
+      this.loading = false;
+      this.initialLoadComplete = true;
+      this.changeDetectorRef.detectChanges();
     }
   }
 
