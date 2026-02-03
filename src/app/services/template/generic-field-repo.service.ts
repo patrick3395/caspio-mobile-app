@@ -79,18 +79,19 @@ export class GenericFieldRepoService {
     const categoryLower = category?.toLowerCase() || '';
 
     const categoryTemplates = templates.filter(t => {
-      // For EFE and HUD, require TypeID === 1 (checklist items)
+      // HUD has no categories hub - show ALL templates on the single page (no filtering)
+      if (config.id === 'hud' && !hasCategoriesHub) {
+        return true; // Include all HUD templates
+      }
+
+      // For EFE, require TypeID === 1 (checklist items) AND category match
       // Handle both number and string TypeID (API may return either)
-      if (config.id === 'efe' || config.id === 'hud') {
+      if (config.id === 'efe') {
         const typeMatch = t.TypeID === 1 || t.TypeID === '1' || Number(t.TypeID) === 1;
-        // HUD has no categories hub - show ALL TypeID=1 templates on the single page
-        if (config.id === 'hud' && !hasCategoriesHub) {
-          return typeMatch;
-        }
-        // EFE has a structural hub - filter by category (case-insensitive)
         const templateCategory = (t.Category || '').toLowerCase();
         return typeMatch && templateCategory === categoryLower;
       }
+
       // LBW, DTE - filter by category only (case-insensitive)
       const templateCategory = (t.Category || '').toLowerCase();
       return templateCategory === categoryLower;
@@ -210,7 +211,13 @@ export class GenericFieldRepoService {
     records: any[]
   ): Promise<void> {
     const idFieldName = config.idFieldName; // 'VisualID', 'HUDID', etc.
-    const categoryRecords = records.filter(r => r.Category === category);
+    const hasCategoriesHub = config.features.hasCategoriesHub;
+
+    // HUD has no categories hub - merge ALL records (templates have different Category than saved records)
+    // Other templates filter by category
+    const categoryRecords = (config.id === 'hud' && !hasCategoriesHub)
+      ? records
+      : records.filter(r => r.Category === category);
 
     if (categoryRecords.length === 0) return;
 
