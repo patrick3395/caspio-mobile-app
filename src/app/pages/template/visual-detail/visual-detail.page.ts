@@ -593,6 +593,29 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
   }
 
   /**
+   * Get the best ID for syncing - prefers realId over tempId
+   * For sync operations, we want to use the real ID if the record has been synced
+   */
+  private async getIdForSync(): Promise<string> {
+    if (!this.config) return this.visualId;
+
+    // Re-query Dexie to get the latest field state
+    const allFields = await this.getFieldsFromDexie();
+    const field = allFields.find((f: any) => f.templateId === this.templateId);
+
+    if (!field) return this.visualId;
+
+    const realId = this.getRealIdFromField(field);
+    const tempId = this.getTempIdFromField(field);
+
+    // For syncing, prefer realId (the record has already been synced to backend)
+    // Only use tempId if realId doesn't exist (record not yet synced)
+    const syncId = realId || tempId || this.visualId;
+    console.log(`[GenericVisualDetail] getIdForSync: realId=${realId}, tempId=${tempId}, using=${syncId}`);
+    return syncId;
+  }
+
+  /**
    * Load template data when no visual exists
    */
   private async loadFromTemplates() {
@@ -1154,6 +1177,10 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           console.log('[GenericVisualDetail] WEBAPP: Updated via API:', this.visualId);
         }
       } else {
+        // MOBILE: Get the best ID for syncing (prefers realId over tempId)
+        const syncId = await this.getIdForSync();
+        const isTempId = String(syncId).startsWith('temp_');
+
         // MOBILE: Update Dexie AND queue for sync
         const dexieUpdate: any = {};
         if (titleChanged) dexieUpdate.templateName = this.editableTitle;
@@ -1161,20 +1188,19 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         dexieUpdate.isSelected = true;
         dexieUpdate.category = actualCategory;
         // Use generic recordId/tempRecordId - genericFieldRepo maps to template-specific fields
-        if (this.visualId) {
-          const isTempId = String(this.visualId).startsWith('temp_');
-          dexieUpdate.recordId = isTempId ? null : String(this.visualId);
-          dexieUpdate.tempRecordId = isTempId ? String(this.visualId) : null;
+        if (syncId) {
+          dexieUpdate.recordId = isTempId ? null : String(syncId);
+          dexieUpdate.tempRecordId = isTempId ? String(syncId) : null;
         }
 
         // Update Dexie for instant local display
         await this.genericFieldRepo.setField(this.config!, this.serviceId, actualCategory, this.templateId, dexieUpdate);
         console.log('[GenericVisualDetail] MOBILE: Updated Dexie:', dexieUpdate);
 
-        // Queue sync to backend (via dataAdapter which adds to pendingRequests)
-        if (this.isValidVisualId(this.visualId)) {
-          await this.dataAdapter.updateVisualWithConfig(this.config!, this.visualId, caspioUpdate, this.serviceId);
-          console.log('[GenericVisualDetail] MOBILE: Queued sync for:', this.visualId);
+        // Queue sync to backend using the best available ID
+        if (this.isValidVisualId(syncId)) {
+          await this.dataAdapter.updateVisualWithConfig(this.config!, syncId, caspioUpdate, this.serviceId);
+          console.log('[GenericVisualDetail] MOBILE: Queued sync for:', syncId);
         }
       }
 
@@ -1208,6 +1234,10 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           console.log('[GenericVisualDetail] WEBAPP: Updated title via API');
         }
       } else {
+        // MOBILE: Get the best ID for syncing (prefers realId over tempId)
+        const syncId = await this.getIdForSync();
+        const isTempId = String(syncId).startsWith('temp_');
+
         // MOBILE: Update Dexie AND queue for sync
         const dexieUpdate: any = {
           templateName: this.editableTitle,
@@ -1215,20 +1245,19 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           category: actualCategory
         };
         // Use generic recordId/tempRecordId - genericFieldRepo maps to template-specific fields
-        if (this.visualId) {
-          const isTempId = String(this.visualId).startsWith('temp_');
-          dexieUpdate.recordId = isTempId ? null : String(this.visualId);
-          dexieUpdate.tempRecordId = isTempId ? String(this.visualId) : null;
+        if (syncId) {
+          dexieUpdate.recordId = isTempId ? null : String(syncId);
+          dexieUpdate.tempRecordId = isTempId ? String(syncId) : null;
         }
 
         // Update Dexie for instant local display
         await this.genericFieldRepo.setField(this.config!, this.serviceId, actualCategory, this.templateId, dexieUpdate);
         console.log('[GenericVisualDetail] MOBILE: Updated title in Dexie');
 
-        // Queue sync to backend
-        if (this.isValidVisualId(this.visualId)) {
-          await this.dataAdapter.updateVisualWithConfig(this.config!, this.visualId, { Name: this.editableTitle }, this.serviceId);
-          console.log('[GenericVisualDetail] MOBILE: Queued title sync for:', this.visualId);
+        // Queue sync to backend using the best available ID
+        if (this.isValidVisualId(syncId)) {
+          await this.dataAdapter.updateVisualWithConfig(this.config!, syncId, { Name: this.editableTitle }, this.serviceId);
+          console.log('[GenericVisualDetail] MOBILE: Queued title sync for:', syncId);
         }
       }
 
@@ -1256,6 +1285,10 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           console.log('[GenericVisualDetail] WEBAPP: Updated text via API');
         }
       } else {
+        // MOBILE: Get the best ID for syncing (prefers realId over tempId)
+        const syncId = await this.getIdForSync();
+        const isTempId = String(syncId).startsWith('temp_');
+
         // MOBILE: Update Dexie AND queue for sync
         const dexieUpdate: any = {
           templateText: this.editableText,
@@ -1263,20 +1296,19 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           category: actualCategory
         };
         // Use generic recordId/tempRecordId - genericFieldRepo maps to template-specific fields
-        if (this.visualId) {
-          const isTempId = String(this.visualId).startsWith('temp_');
-          dexieUpdate.recordId = isTempId ? null : String(this.visualId);
-          dexieUpdate.tempRecordId = isTempId ? String(this.visualId) : null;
+        if (syncId) {
+          dexieUpdate.recordId = isTempId ? null : String(syncId);
+          dexieUpdate.tempRecordId = isTempId ? String(syncId) : null;
         }
 
         // Update Dexie for instant local display
         await this.genericFieldRepo.setField(this.config!, this.serviceId, actualCategory, this.templateId, dexieUpdate);
         console.log('[GenericVisualDetail] MOBILE: Updated text in Dexie');
 
-        // Queue sync to backend
-        if (this.isValidVisualId(this.visualId)) {
-          await this.dataAdapter.updateVisualWithConfig(this.config!, this.visualId, { Text: this.editableText }, this.serviceId);
-          console.log('[GenericVisualDetail] MOBILE: Queued text sync for:', this.visualId);
+        // Queue sync to backend using the best available ID
+        if (this.isValidVisualId(syncId)) {
+          await this.dataAdapter.updateVisualWithConfig(this.config!, syncId, { Text: this.editableText }, this.serviceId);
+          console.log('[GenericVisualDetail] MOBILE: Queued text sync for:', syncId);
         }
       }
 

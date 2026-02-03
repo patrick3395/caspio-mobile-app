@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { AlertController } from '@ionic/angular';
 import { db } from './caspio-db';
+import { environment } from '../../environments/environment';
 
 interface MemorySnapshot {
   timestamp: number;
@@ -19,6 +20,10 @@ interface StorageStats {
   uploadOutboxCount: number;
   totalMB: number;
 }
+
+// Storage thresholds for mobile devices
+const STORAGE_WARNING_MB = 75;   // Show warning at 75MB
+const STORAGE_CRITICAL_MB = 150; // Critical warning at 150MB
 
 /**
  * Memory Diagnostics Service
@@ -345,5 +350,178 @@ export class MemoryDiagnosticsService {
    */
   clearSnapshots(): void {
     this.snapshots = [];
+  }
+
+  // ============================================================================
+  // CRITICAL STORAGE WARNING (App Startup Check)
+  // ============================================================================
+
+  /**
+   * Check storage on app startup and show warning if critical
+   * Called from app.component.ts initializeApp()
+   *
+   * @returns true if storage is OK, false if critical warning was shown
+   */
+  async checkCriticalStorage(): Promise<boolean> {
+    // Only check on mobile - webapp doesn't use local storage heavily
+    if (environment.isWeb) {
+      return true;
+    }
+
+    try {
+      const stats = await this.getStorageStats();
+      console.log(`[MemoryDiagnostics] Startup storage check: ${stats.totalMB.toFixed(1)} MB`);
+
+      if (stats.totalMB >= STORAGE_CRITICAL_MB) {
+        console.warn(`[MemoryDiagnostics] CRITICAL: Storage at ${stats.totalMB.toFixed(1)} MB (threshold: ${STORAGE_CRITICAL_MB} MB)`);
+        await this.showStorageWarningAlert(stats, 'critical');
+        return false;
+      } else if (stats.totalMB >= STORAGE_WARNING_MB) {
+        console.warn(`[MemoryDiagnostics] WARNING: Storage at ${stats.totalMB.toFixed(1)} MB (threshold: ${STORAGE_WARNING_MB} MB)`);
+        await this.showStorageWarningAlert(stats, 'warning');
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      console.error('[MemoryDiagnostics] Failed to check storage on startup:', err);
+      return true; // Don't block app startup on error
+    }
+  }
+
+  /**
+   * Show storage warning alert with option to clear synced data
+   */
+  private async showStorageWarningAlert(
+    stats: StorageStats,
+    level: 'warning' | 'critical'
+  ): Promise<void> {
+    const isCritical = level === 'critical';
+    const threshold = isCritical ? STORAGE_CRITICAL_MB : STORAGE_WARNING_MB;
+
+    const header = isCritical ? '⚠️ Storage Critical' : '📦 Storage Warning';
+    const color = isCritical ? 'danger' : 'warning';
+
+    const message = `
+      <div style="text-align: left; font-size: 14px; line-height: 1.6;">
+        <p style="margin: 0 0 12px 0;">
+          Local storage is at <strong>${stats.totalMB.toFixed(1)} MB</strong>
+          ${isCritical ? '— this may cause app issues.' : '— consider clearing synced photos.'}
+        </p>
+        <div style="background: #f5f5f5; padding: 10px; border-radius: 8px; font-size: 13px;">
+          <p style="margin: 2px 0;">• Local Blobs: ${stats.localBlobsCount} (${stats.localBlobsMB.toFixed(1)} MB)</p>
+          <p style="margin: 2px 0;">• Cached Photos: ${stats.cachedPhotosCount} (${stats.cachedPhotosMB.toFixed(1)} MB)</p>
+          <p style="margin: 2px 0;">• Pending Uploads: ${stats.uploadOutboxCount}</p>
+        </div>
+        <p style="margin: 12px 0 0 0; font-size: 13px; color: #666;">
+          Clearing removes synced photos from local storage. They remain on the server.
+        </p>
+      </div>
+    `;
+
+    const alert = await this.alertController.create({
+      header,
+      message,
+      backdropDismiss: !isCritical, // Critical requires action
+      buttons: [
+        {
+          text: 'Later',
+          role: 'cancel',
+          cssClass: 'secondary'
+        },
+        {
+          text: 'Clear Synced Data',
+          cssClass: color,
+          handler: async () => {
+            await this.clearAllSyncedData();
+            return true;
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  /**
+   * Clear all synced/verified data to free up storage
+   * Only clears data that has been successfully synced to the server
+   */
+  async clearAllSyncedData(): Promise<{ clearedMB: number; clearedCount: number }> {
+    console.log('[MemoryDiagnostics] Starting clearAllSyncedData...');
+
+    const beforeStats = await this.getStorageStats();
+    let clearedCount = 0;
+
+    try {
+      // 1. Delete all verified local blobs (full-res images that are synced)
+      const allImages = await db.localImages.toArray();
+      const verifiedImages = allImages.filter(img => img.status === 'verified');
+
+      for (const image of verifiedImages) {
+        try {
+          // Delete full-res blob
+          if (image.localBlobId) {
+            await db.localBlobs.delete(image.localBlobId);
+          }
+          // Delete thumbnail blob
+          if (image.thumbBlobId) {
+            await db.localBlobs.delete(image.thumbBlobId);
+          }
+          // Update LocalImage record to clear blob references
+          await db.localImages.update(image.imageId, {
+            localBlobId: null,
+            thumbBlobId: null
+          });
+          clearedCount++;
+        } catch (err) {
+          console.warn('[MemoryDiagnostics] Failed to clear image:', image.imageId, err);
+        }
+      }
+
+      // 2. Clear all cached photos (server-side photo cache)
+      const cachedPhotosCount = await db.cachedPhotos.count();
+      await db.cachedPhotos.clear();
+      clearedCount += cachedPhotosCount;
+
+      // 3. Clear old synced requests (already completed)
+      const syncedRequests = await db.pendingRequests
+        .filter(r => r.status === 'synced')
+        .toArray();
+      for (const req of syncedRequests) {
+        await db.pendingRequests.delete(req.requestId);
+      }
+
+      const afterStats = await this.getStorageStats();
+      const clearedMB = beforeStats.totalMB - afterStats.totalMB;
+
+      console.log(`[MemoryDiagnostics] ✅ Cleared ${clearedCount} items, freed ${clearedMB.toFixed(1)} MB`);
+
+      // Show confirmation
+      const confirmAlert = await this.alertController.create({
+        header: '✅ Storage Cleared',
+        message: `
+          <div style="text-align: left; font-size: 14px;">
+            <p>Freed <strong>${clearedMB.toFixed(1)} MB</strong> of storage.</p>
+            <p style="margin-top: 8px;">Current usage: <strong>${afterStats.totalMB.toFixed(1)} MB</strong></p>
+          </div>
+        `,
+        buttons: ['OK']
+      });
+      await confirmAlert.present();
+
+      return { clearedMB, clearedCount };
+    } catch (err) {
+      console.error('[MemoryDiagnostics] clearAllSyncedData failed:', err);
+
+      const errorAlert = await this.alertController.create({
+        header: 'Clear Failed',
+        message: 'Unable to clear storage. Please try again.',
+        buttons: ['OK']
+      });
+      await errorAlert.present();
+
+      return { clearedMB: 0, clearedCount: 0 };
+    }
   }
 }

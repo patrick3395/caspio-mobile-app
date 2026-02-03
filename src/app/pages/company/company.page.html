@@ -1288,19 +1288,44 @@
 
         <div class="collapsible-content" [class.expanded]="paymentSettingsExpanded">
           <div class="payment-settings-content">
-            <!-- Autopay Status -->
+            <!-- Autopay Toggle -->
             <div class="payment-setting-row">
-              <div class="payment-setting-label">Autopay Status</div>
+              <div class="payment-setting-label">
+                <span>Enable Autopay</span>
+                <p class="setting-description">Automatically pay invoices on a schedule</p>
+              </div>
               <div class="payment-setting-value">
-                <span class="status-badge" [class.active]="clientCompany?.AutopayEnabled" [class.inactive]="!clientCompany?.AutopayEnabled">
-                  {{ clientCompany?.AutopayEnabled ? 'Enabled' : 'Disabled' }}
-                </span>
+                <ion-toggle
+                  [checked]="clientCompany?.AutopayEnabled"
+                  (ionChange)="toggleAutopay($event)"
+                  class="autopay-toggle">
+                </ion-toggle>
+              </div>
+            </div>
+
+            <!-- Autopay Day Selector (only show when enabled) -->
+            <div class="payment-setting-row" *ngIf="clientCompany?.AutopayEnabled">
+              <div class="payment-setting-label">
+                <span>Payment Day</span>
+                <p class="setting-description">Day of month to process payments</p>
+              </div>
+              <div class="payment-setting-value">
+                <select class="autopay-day-select"
+                        [ngModel]="clientCompany?.AutopayDay || 1"
+                        (ngModelChange)="updateAutopayDay($event)">
+                  <option *ngFor="let day of getAutopayDayOptions()" [value]="day">
+                    {{ formatAutopayDay(day) }}
+                  </option>
+                </select>
               </div>
             </div>
 
             <!-- Saved Payment Method -->
             <div class="payment-setting-row" *ngIf="clientCompany?.PayPalVaultToken">
-              <div class="payment-setting-label">Saved Payment Method</div>
+              <div class="payment-setting-label">
+                <span>Payment Method</span>
+                <p class="setting-description">Saved payment method for autopay</p>
+              </div>
               <div class="payment-setting-value">
                 <div class="saved-payment-method">
                   <ion-icon name="logo-paypal" class="paypal-icon"></ion-icon>
@@ -1309,25 +1334,27 @@
               </div>
             </div>
 
-            <div class="payment-setting-row" *ngIf="!clientCompany?.PayPalVaultToken">
-              <div class="payment-setting-label">Saved Payment Method</div>
-              <div class="payment-setting-value">
-                <span class="no-payment-method">No payment method saved</span>
-                <p class="payment-hint">Save a payment method during your next invoice payment to enable autopay.</p>
+            <!-- No Payment Method Warning -->
+            <div class="payment-setting-row no-payment-warning" *ngIf="!clientCompany?.PayPalVaultToken">
+              <div class="payment-setting-label">
+                <span>Payment Method</span>
               </div>
-            </div>
-
-            <!-- Autopay Schedule -->
-            <div class="payment-setting-row" *ngIf="clientCompany?.AutopayEnabled && clientCompany?.AutopayDay">
-              <div class="payment-setting-label">Autopay Schedule</div>
               <div class="payment-setting-value">
-                {{ formatAutopayDay(clientCompany?.AutopayDay || 1) }}
+                <div class="no-payment-box">
+                  <ion-icon name="card-outline"></ion-icon>
+                  <div>
+                    <span class="no-payment-method">No payment method saved</span>
+                    <p class="payment-hint">Save a payment method during your next invoice payment to enable autopay.</p>
+                  </div>
+                </div>
               </div>
             </div>
 
             <!-- Last Autopay -->
             <div class="payment-setting-row" *ngIf="clientCompany?.AutopayLastRun">
-              <div class="payment-setting-label">Last Autopay</div>
+              <div class="payment-setting-label">
+                <span>Last Payment</span>
+              </div>
               <div class="payment-setting-value">
                 <span class="autopay-last-status"
                       [class.success]="clientCompany?.AutopayLastStatus === 'Success'"
@@ -1335,12 +1362,6 @@
                   {{ clientCompany?.AutopayLastRun | date:'medium' }} - {{ clientCompany?.AutopayLastStatus }}
                 </span>
               </div>
-            </div>
-
-            <!-- Info Message -->
-            <div class="payment-info-box">
-              <ion-icon name="information-circle-outline"></ion-icon>
-              <p>To enable autopay, save a payment method during your next invoice payment by checking "Save for Autopay", then contact support to activate autopay for your account.</p>
             </div>
           </div>
         </div>

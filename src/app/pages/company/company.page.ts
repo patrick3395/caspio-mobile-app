@@ -2960,8 +2960,81 @@ export class CompanyPage implements OnInit, OnDestroy {
   }
 
   formatAutopayDay(day: number): string {
-    const suffix = day === 1 ? 'st' : day === 2 ? 'nd' : day === 3 ? 'rd' : 'th';
+    const lastDigit = day % 10;
+    const lastTwoDigits = day % 100;
+    let suffix = 'th';
+    if (lastDigit === 1 && lastTwoDigits !== 11) suffix = 'st';
+    else if (lastDigit === 2 && lastTwoDigits !== 12) suffix = 'nd';
+    else if (lastDigit === 3 && lastTwoDigits !== 13) suffix = 'rd';
     return `${day}${suffix} of each month`;
+  }
+
+  async toggleAutopay(event: any): Promise<void> {
+    const enabled = event.detail.checked;
+    const company = this.clientCompany;
+
+    if (!company) {
+      console.error('No company found for autopay toggle');
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: enabled ? 'Enabling autopay...' : 'Disabling autopay...',
+      spinner: 'lines'
+    });
+    await loading.present();
+
+    try {
+      await firstValueFrom(
+        this.caspioService.put(
+          `/tables/LPS_Companies/records?q.where=CompanyID=${company.CompanyID}`,
+          { AutopayEnabled: enabled ? 1 : 0 }
+        )
+      );
+
+      // Update local state
+      if (this.companies.length > 0) {
+        this.companies[0].AutopayEnabled = enabled;
+      }
+
+      let message = enabled ? 'Autopay enabled' : 'Autopay disabled';
+      if (enabled && !company.PayPalVaultToken) {
+        message += '. Remember to save a payment method during your next invoice payment.';
+      }
+
+      await this.showToast(message, 'success');
+    } catch (error: any) {
+      console.error('Error toggling autopay:', error);
+      await this.showToast('Failed to update autopay setting. Make sure AutopayEnabled field exists in database.', 'danger');
+      // Reset toggle on error
+      event.target.checked = !enabled;
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
+  async updateAutopayDay(day: number): Promise<void> {
+    const company = this.clientCompany;
+    if (!company) return;
+
+    try {
+      await firstValueFrom(
+        this.caspioService.put(
+          `/tables/LPS_Companies/records?q.where=CompanyID=${company.CompanyID}`,
+          { AutopayDay: day }
+        )
+      );
+
+      // Update local state
+      if (this.companies.length > 0) {
+        this.companies[0].AutopayDay = day;
+      }
+
+      await this.showToast('Payment day updated', 'success');
+    } catch (error: any) {
+      console.error('Error updating autopay day:', error);
+      await this.showToast('Failed to update payment day', 'danger');
+    }
   }
 
   private formatDateForInput(date: Date): string {

@@ -8,6 +8,7 @@ import { FabricService } from './services/fabric.service';
 import { BackgroundSyncService } from './services/background-sync.service';
 import { NavigationHistoryService } from './services/navigation-history.service';
 import { ScreenReaderAnnouncementService } from './services/screen-reader-announcement.service';
+import { MemoryDiagnosticsService } from './services/memory-diagnostics.service';
 import { environment } from '../environments/environment';
 import { addIcons } from 'ionicons';
 import {
@@ -117,7 +118,9 @@ export class AppComponent {
     // G2-NAV-001: Inject NavigationHistoryService at app startup for web browser history support
     private readonly navigationHistory: NavigationHistoryService,
     // G2-A11Y-003: Inject ScreenReaderAnnouncementService at app startup for web accessibility
-    private readonly screenReaderAnnouncement: ScreenReaderAnnouncementService
+    private readonly screenReaderAnnouncement: ScreenReaderAnnouncementService,
+    // Storage warning: Check if IndexedDB storage is critical on startup
+    private readonly memoryDiagnostics: MemoryDiagnosticsService
   ) {
     // Register icons for offline use
     addIcons({
@@ -240,6 +243,13 @@ export class AppComponent {
 
       // Trigger a sync status refresh to show correct state on app load
       this.backgroundSync.refreshSyncStatus();
+
+      // Check IndexedDB storage on startup - warn if critical (mobile only)
+      this.memoryDiagnostics.checkCriticalStorage().then(isOk => {
+        if (!isOk) {
+          console.log('[App] Storage warning shown to user');
+        }
+      });
 
       // Preload Fabric.js for offline photo annotation support
       // This ensures the Fabric chunk is cached by the service worker

@@ -594,51 +594,63 @@ ion-content {
     border-bottom: none;
   }
 
+  &.no-payment-warning {
+    align-items: flex-start;
+  }
+
   .payment-setting-label {
-    font-weight: 600;
-    color: #333;
-    font-size: 0.95rem;
     flex-shrink: 0;
+    max-width: 50%;
+
+    span {
+      font-weight: 600;
+      color: #333;
+      font-size: 0.95rem;
+      display: block;
+    }
+
+    .setting-description {
+      font-size: 0.8rem;
+      color: #999;
+      margin: 4px 0 0 0;
+      font-weight: 400;
+    }
   }
 
   .payment-setting-value {
     flex: 1;
-    text-align: right;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
     color: #69635d;
 
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 14px;
-      border-radius: 20px;
-      font-size: 0.85rem;
-      font-weight: 600;
+    .autopay-toggle {
+      --background: #e0e0e0;
+      --background-checked: #f15a27;
+      --handle-background: #fff;
+      --handle-background-checked: #fff;
+    }
 
-      &.active {
-        background: rgba(241, 90, 39, 0.1);
-        color: #f15a27;
+    .autopay-day-select {
+      padding: 10px 36px 10px 16px;
+      border: 2px solid #e9ecef;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #333;
+      background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23f15a27' d='M6 8L1 3h10z'/%3E%3C/svg%3E") no-repeat right 12px center;
+      appearance: none;
+      cursor: pointer;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
 
-        &::before {
-          content: '';
-          width: 8px;
-          height: 8px;
-          background: #f15a27;
-          border-radius: 50%;
-        }
+      &:hover {
+        border-color: #f15a27;
       }
 
-      &.inactive {
-        background: #f5f5f5;
-        color: #999;
-
-        &::before {
-          content: '';
-          width: 8px;
-          height: 8px;
-          background: #ccc;
-          border-radius: 50%;
-        }
+      &:focus {
+        outline: none;
+        border-color: #f15a27;
+        box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.15);
       }
     }
 
@@ -646,13 +658,13 @@ ion-content {
       display: inline-flex;
       align-items: center;
       gap: 10px;
-      padding: 8px 16px;
+      padding: 10px 16px;
       background: #f8f9fa;
       border-radius: 10px;
       border: 1px solid #e9ecef;
 
       .paypal-icon {
-        font-size: 22px;
+        font-size: 24px;
         color: #003087;
       }
 
@@ -662,16 +674,33 @@ ion-content {
       }
     }
 
-    .no-payment-method {
-      color: #999;
-      font-weight: 500;
-    }
+    .no-payment-box {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 18px;
+      background: #fafafa;
+      border-radius: 12px;
+      border: 1px dashed #ddd;
+      text-align: left;
 
-    .payment-hint {
-      font-size: 0.8rem;
-      color: #aaa;
-      margin-top: 6px;
-      text-align: right;
+      ion-icon {
+        font-size: 28px;
+        color: #ccc;
+        flex-shrink: 0;
+      }
+
+      .no-payment-method {
+        color: #666;
+        font-weight: 500;
+        display: block;
+      }
+
+      .payment-hint {
+        font-size: 0.8rem;
+        color: #999;
+        margin-top: 4px;
+      }
     }
 
     .autopay-last-status {
