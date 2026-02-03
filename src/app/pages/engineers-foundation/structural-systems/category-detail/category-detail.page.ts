@@ -431,14 +431,26 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
     const serviceOrCategoryChanged = this.lastLoadedServiceId !== this.serviceId ||
                                       this.lastLoadedCategoryName !== this.categoryName;
 
-    console.log(`[CategoryDetail] ionViewWillEnter - hasData: ${hasDataInMemory}, isDirty: ${isDirty}, changed: ${serviceOrCategoryChanged}`);
+    // SYNC FIX: Check if visualFields was cleared by sync - if so, need to reload
+    const hasFieldsInDexie = await this.visualFieldRepo.hasFieldsForCategory(this.serviceId, this.categoryName);
+    if (hasDataInMemory && !hasFieldsInDexie) {
+      console.log('[CategoryDetail] visualFields was cleared (by sync), need to reload');
+      this.visualFieldsSeeded = false;
+      // Unsubscribe from old subscription
+      if (this.visualFieldsSubscription) {
+        this.visualFieldsSubscription.unsubscribe();
+        this.visualFieldsSubscription = undefined;
+      }
+    }
+
+    console.log(`[CategoryDetail] ionViewWillEnter - hasData: ${hasDataInMemory}, isDirty: ${isDirty}, changed: ${serviceOrCategoryChanged}, hasFieldsInDexie: ${hasFieldsInDexie}`);
 
     // ===== US-001 DEBUG: Decision point =====
-    this.logDebug('VIEW_ENTER', `Decision: hasData=${hasDataInMemory}, isDirty=${isDirty}, changed=${serviceOrCategoryChanged}`);
+    this.logDebug('VIEW_ENTER', `Decision: hasData=${hasDataInMemory}, isDirty=${isDirty}, changed=${serviceOrCategoryChanged}, hasFieldsInDexie=${hasFieldsInDexie}`);
     // ===== END US-001 DEBUG =====
 
-    // Early return if data is fresh and context unchanged
-    if (hasDataInMemory && !isDirty && !serviceOrCategoryChanged) {
+    // Early return if data is fresh and context unchanged AND Dexie has data
+    if (hasDataInMemory && !isDirty && !serviceOrCategoryChanged && hasFieldsInDexie) {
       // SKIP FULL RELOAD but refresh local state (blob URLs, pending captions/drawings)
       // This ensures images don't disappear when navigating back to this page
       console.log('[CategoryDetail] Refreshing local images and pending captions');
@@ -479,13 +491,21 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
     // 1. First load (no data in memory)
     // 2. Section is marked dirty (data changed while away)
     // 3. Service or category has changed (navigating from project details)
+    // 4. Dexie was cleared by sync (visualFieldsSeeded was reset)
     console.log('[CategoryDetail] Reloading data - section dirty, no data, or context changed');
 
     // ===== US-001 DEBUG: Full reload path =====
-    this.logDebug('VIEW_ENTER', 'Taking FULL RELOAD path - calling loadData()');
+    this.logDebug('VIEW_ENTER', `Taking FULL RELOAD path - visualFieldsSeeded: ${this.visualFieldsSeeded}`);
     // ===== END US-001 DEBUG =====
 
-    await this.loadData();
+    // SYNC FIX: If fields need to be re-seeded (visualFieldsSeeded is false), use initializeVisualFields
+    // This ensures proper template seeding and fresh data merge after sync clears Dexie
+    if (!this.visualFieldsSeeded) {
+      console.log('[CategoryDetail] Re-initializing visual fields (Dexie was cleared or first load)');
+      await this.initializeVisualFields();
+    } else {
+      await this.loadData();
+    }
     this.backgroundSync.clearSectionDirty(sectionKey);
     console.timeEnd('[CategoryDetail] ionViewWillEnter');
   }

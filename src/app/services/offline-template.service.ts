@@ -6,8 +6,6 @@ import { CaspioService } from './caspio.service';
 import { OfflineService } from './offline.service';
 import { environment } from '../../environments/environment';
 import { db } from './caspio-db';
-import { EfeFieldRepoService } from './efe-field-repo.service';
-import { VisualFieldRepoService } from './visual-field-repo.service';
 
 /**
  * Offline-First Template Service
@@ -38,9 +36,7 @@ export class OfflineTemplateService {
   constructor(
     private indexedDb: IndexedDbService,
     private caspioService: CaspioService,
-    private offlineService: OfflineService,
-    private efeFieldRepo: EfeFieldRepoService,
-    private visualFieldRepo: VisualFieldRepoService
+    private offlineService: OfflineService
   ) {}
 
   // ============================================
@@ -474,6 +470,7 @@ export class OfflineTemplateService {
 
     // CRITICAL: Clear Dexie field tables to ensure fresh cloud data replaces local data
     // This fixes the issue where deleted backend data wasn't being removed locally
+    // The pages will re-initialize from fresh data when the user navigates back
     console.log(`[OfflineTemplate] Clearing Dexie field tables for service ${serviceId}...`);
 
     // Clear EFE fields (rooms and points)
@@ -496,65 +493,17 @@ export class OfflineTemplateService {
       console.log(`[OfflineTemplate] Cleared ${deletedDteCount} dteFields records`);
     }
 
-    // Re-download fresh data from cloud
+    // Re-download fresh data from cloud into cachedServiceData
+    // The pages will seed from templates and merge this fresh data when they re-initialize
     await this.performDownload(serviceId, templateType, cacheKey, projectId);
     this.downloadStatus.set(cacheKey, 'ready');
 
-    // CRITICAL: Re-seed Dexie field tables with fresh data
-    // This ensures the mobile app shows the same data as the webapp
-    console.log(`[OfflineTemplate] Re-seeding Dexie field tables for service ${serviceId}...`);
-
-    if (templateType === 'EFE') {
-      // Re-seed EFE fields from templates
-      const efeTemplates = await this.indexedDb.getCachedTemplates('efe') || [];
-      if (efeTemplates.length > 0) {
-        await this.efeFieldRepo.seedFromTemplates(serviceId, efeTemplates);
-        console.log(`[OfflineTemplate] Seeded ${efeTemplates.length} EFE templates`);
-      }
-
-      // Merge fresh EFE rooms from downloaded data
-      const efeRooms = await this.indexedDb.getCachedServiceData(serviceId, 'efe_rooms') || [];
-      if (efeRooms.length > 0) {
-        await this.efeFieldRepo.mergeExistingRooms(serviceId, efeRooms);
-        console.log(`[OfflineTemplate] Merged ${efeRooms.length} EFE rooms into efeFields`);
-
-        // Also merge points for each room
-        for (const room of efeRooms) {
-          const roomId = room.EFEID || room.PK_ID;
-          const roomName = room.RoomName;
-          if (roomId && roomName) {
-            const points = await this.indexedDb.getCachedServiceData(String(roomId), 'efe_points') || [];
-            if (points.length > 0) {
-              await this.efeFieldRepo.mergeExistingPoints(serviceId, roomName, points);
-            }
-          }
-        }
-        console.log(`[OfflineTemplate] Merged points for ${efeRooms.length} rooms`);
-      } else {
-        console.log(`[OfflineTemplate] No EFE rooms to merge (backend has no data)`);
-      }
-
-      // Re-seed visual fields from templates for all categories
-      const visualTemplates = await this.indexedDb.getCachedTemplates('visual') || [];
-      const categories = [...new Set(visualTemplates.map((t: any) => t.Category))];
-      for (const category of categories) {
-        const categoryTemplates = visualTemplates.filter((t: any) => t.Category === category);
-        if (categoryTemplates.length > 0) {
-          const dropdownData = await this.indexedDb.getCachedTemplates('visual_dropdown') || [];
-          await this.visualFieldRepo.seedFromTemplates(serviceId, category, categoryTemplates, dropdownData);
-        }
-      }
-      console.log(`[OfflineTemplate] Seeded visual templates for ${categories.length} categories`);
-
-      // Merge fresh visuals from downloaded data
-      const visuals = await this.indexedDb.getCachedServiceData(serviceId, 'visuals') || [];
-      if (visuals.length > 0) {
-        for (const category of categories) {
-          await this.visualFieldRepo.mergeExistingVisuals(serviceId, category, visuals);
-        }
-        console.log(`[OfflineTemplate] Merged ${visuals.length} visuals into visualFields`);
-      }
-    }
+    // NOTE: We intentionally do NOT re-seed or merge here.
+    // The Dexie field tables are now empty, so when the user navigates to a page:
+    // 1. ionViewWillEnter checks hasFieldsForService() -> returns false
+    // 2. Page resets efeFieldsSeeded/visualFieldsSeeded flags
+    // 3. Page calls initializeFields() which seeds from templates and merges fresh data
+    // This ensures the pages always show the freshest data from the cloud.
 
     // Emit background refresh complete event so any open pages can update
     this.backgroundRefreshComplete$.next({

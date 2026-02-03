@@ -3434,11 +3434,6 @@ export class BackgroundSyncService {
         console.log(`[BackgroundSync]   NOT READY: ${item.opId}, type: ${image?.entityType || 'unknown'}, nextRetry: ${new Date(item.nextRetryAt).toISOString()}, attempts: ${item.attempts}, error: ${item.lastError || 'none'}`);
       }
 
-      // DEBUG ALERT: Show outbox status
-      if (typeof alert !== 'undefined' && allItems.length > 0) {
-        const notReadyDetails = notReadyItems.slice(0, 3).map(i => `${i.imageId.substring(0,8)}...(${i.attempts} attempts, nextRetry: ${new Date(i.nextRetryAt).toLocaleTimeString()})`).join('\n');
-        alert(`[DEBUG OUTBOX STATUS]\nTotal: ${allItems.length}\nReady: ${readyItems.length}\nNot ready:\n${notReadyDetails || 'none'}`);
-      }
     }
 
     if (readyItems.length === 0) {
@@ -3447,20 +3442,11 @@ export class BackgroundSyncService {
 
     console.log(`[BackgroundSync] Processing ${readyItems.length} upload outbox items`);
 
-    // DEBUG ALERT: Show what we're about to process
-    if (typeof alert !== 'undefined') {
-      alert(`[DEBUG SYNC]\nProcessing ${readyItems.length} upload outbox items\nItem details: ${readyItems.map(i => `${i.imageId.substring(0,8)}...(${i.attempts} attempts)`).join(', ')}`);
-    }
-
     for (const item of readyItems) {
       try {
         await this.processUploadOutboxItem(item);
       } catch (err: any) {
         console.error('[BackgroundSync] Upload outbox item failed:', item.opId, err);
-        // DEBUG ALERT: Show error
-        if (typeof alert !== 'undefined') {
-          alert(`[DEBUG SYNC ERROR]\nUpload failed for ${item.imageId}\nError: ${err?.message || 'Unknown error'}`);
-        }
         await this.localImageService.handleUploadFailure(
           item.opId,
           item.imageId,
@@ -3476,16 +3462,8 @@ export class BackgroundSyncService {
   private async processUploadOutboxItem(item: UploadOutboxItem): Promise<void> {
     const image = await this.indexedDb.getLocalImage(item.imageId);
 
-    // DEBUG ALERT: Show what we're processing
-    if (typeof alert !== 'undefined') {
-      alert(`[DEBUG UPLOAD START]\nimageId: ${item.imageId}\nimage found: ${!!image}\nstatus: ${image?.status}\nentityType: ${image?.entityType}\nentityId: ${image?.entityId}\nlocalBlobId: ${image?.localBlobId ? 'exists' : 'MISSING'}`);
-    }
-
     if (!image) {
       console.warn('[BackgroundSync] Image not found for outbox item:', item.imageId);
-      if (typeof alert !== 'undefined') {
-        alert(`[DEBUG] ORPHANED OUTBOX: Removing orphan outbox item ${item.imageId}`);
-      }
       await this.indexedDb.removeOutboxItem(item.opId);
       return;
     }
@@ -3529,11 +3507,6 @@ export class BackgroundSyncService {
     }
 
     console.log('[BackgroundSync] Uploading image:', item.imageId, 'type:', image.entityType, 'entityId:', image.entityId, 'photoType:', image.photoType, 'blobSize:', blob.data.byteLength);
-
-    // DEBUG ALERT: Show blob details
-    if (typeof alert !== 'undefined') {
-      alert(`[DEBUG BLOB OK]\nblobSize: ${blob.data.byteLength} bytes\nentityType: ${image.entityType}\nentityId: ${image.entityId}`);
-    }
 
     // Resolve temp entityId if needed BEFORE marking as uploading
     // This prevents items from getting stuck in 'uploading' status when deferred
@@ -3676,10 +3649,6 @@ export class BackgroundSyncService {
     } catch (uploadError: any) {
       // US-001 FIX: Explicit logging for mobile upload failures
       console.error('[BackgroundSync] Mobile upload error:', item.imageId, 'entityType:', image.entityType, 'error:', uploadError?.message || uploadError);
-      // DEBUG ALERT: Show upload error
-      if (typeof alert !== 'undefined') {
-        alert(`[DEBUG UPLOAD ERROR]\nimageId: ${item.imageId}\nentityType: ${image.entityType}\nerror: ${uploadError?.message || uploadError}`);
-      }
       throw uploadError; // Re-throw to trigger handleUploadFailure
     }
 
@@ -3698,11 +3667,6 @@ export class BackgroundSyncService {
     }
 
     console.log('[BackgroundSync] ✅ Upload success:', item.imageId, 'attachId:', attachId, 's3Key:', s3Key?.substring(0, 50));
-
-    // DEBUG ALERT: Show success
-    if (typeof alert !== 'undefined') {
-      alert(`[DEBUG UPLOAD SUCCESS]\nimageId: ${item.imageId}\nattachId: ${attachId}\ns3Key: ${s3Key?.substring(0, 30)}...`);
-    }
 
     // Mark as uploaded (NOT verified yet)
     await this.localImageService.handleUploadSuccess(item.opId, item.imageId, s3Key, attachId);

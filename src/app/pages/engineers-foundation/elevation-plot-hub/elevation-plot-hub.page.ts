@@ -543,6 +543,18 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
 
     console.log(`[ElevationPlotHub] ionViewWillEnter - isDirty: ${isDirty}, efeFieldsSeeded: ${this.efeFieldsSeeded}`);
 
+    // SYNC FIX: Check if efeFields was cleared by sync - if so, need to re-initialize
+    const hasFields = await this.efeFieldRepo.hasFieldsForService(this.serviceId);
+    if (this.efeFieldsSeeded && !hasFields) {
+      console.log('[ElevationPlotHub] efeFields was cleared (by sync), need to re-initialize');
+      this.efeFieldsSeeded = false;
+      // Unsubscribe from old subscription
+      if (this.efeFieldsSubscription) {
+        this.efeFieldsSubscription.unsubscribe();
+        this.efeFieldsSubscription = undefined;
+      }
+    }
+
     // DEXIE-FIRST: If we have a reactive subscription, we don't need to reload
     // The liveQuery will automatically update the UI when Dexie data changes
     if (this.efeFieldsSeeded && this.efeFieldsSubscription) {

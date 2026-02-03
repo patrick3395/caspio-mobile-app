@@ -276,11 +276,10 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       return;
     }
 
-    if (environment.isWeb) {
-      this.loading = true;
-    } else {
-      this.loading = false;
-    }
+    // DEXIE-FIRST: Keep loading=true until data is loaded
+    // loadVisualDataMobile() will set loading=false AFTER item is set
+    // This prevents the "Visual item not found" flash
+    this.loading = true;
 
     console.log('[GenericVisualDetail] ========== loadVisualData START ==========');
     console.log('[GenericVisualDetail] Template:', this.config.id);
@@ -372,99 +371,84 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
    */
   private async loadVisualDataMobile() {
     if (!this.config) {
-      alert('[DEBUG] loadVisualDataMobile: config is null!');
+      console.error('[GenericVisualDetail] loadVisualDataMobile: config is null!');
       return;
     }
 
     try {
-      // STEP 1: Load template from cache FIRST (instant) to populate item immediately
+      // ========================================
+      // DEXIE-FIRST: Query Dexie field FIRST, not templates
+      // Templates have stale data. Dexie fields have current user edits.
+      // ========================================
+
+      // STEP 1: Query the correct Dexie table based on template type
+      const allFields = await this.getFieldsFromDexie();
+      const field = allFields.find((f: any) => f.templateId === this.templateId);
+
+      // Guard after async
+      if (this.isDestroyed) return;
+
+      console.log('[GenericVisualDetail] DEXIE-FIRST: Field found:', !!field, 'templateId:', this.templateId);
+
+      // STEP 2: If field exists, use it IMMEDIATELY (this is the Dexie-first pattern)
+      if (field) {
+        // Get visualId from field (use both temp and real for photo lookup)
+        const tempId = this.getTempIdFromField(field);
+        const realId = this.getRealIdFromField(field);
+        this.visualId = tempId || realId || '';
+
+        // Create item from Dexie field data (NOT from template - that's stale!)
+        this.item = this.convertGenericFieldToItem(field);
+        this.editableTitle = this.item.name;
+        this.editableText = this.item.text;
+        this.categoryName = field.category || this.categoryName;
+
+        // CRITICAL: Set loading=false AFTER item is set
+        this.loading = false;
+        this.safeDetectChanges();
+
+        console.log('[GenericVisualDetail] DEXIE-FIRST: Instant load from field:', this.item.name, 'visualId:', this.visualId);
+
+        // Load photos immediately (don't wait)
+        this.loadPhotosMobile().catch(err => {
+          console.error('[GenericVisualDetail] Photo load error:', err);
+        });
+
+        // Set up Dexie subscription for real-time updates
+        this.subscribeToVisualFieldChanges();
+        return;
+      }
+
+      // STEP 3: No field in Dexie - fall back to template cache (for unvisited items)
       const cacheKey = this.config.templatesCacheKey as 'visual' | 'hud' | 'lbw' | 'dte' | 'efe';
       const cachedTemplates = await this.indexedDb.getCachedTemplates(cacheKey) || [];
-
-      // DEBUG: Show what we have
-      alert(`[DEBUG STEP 1]\ncacheKey: ${cacheKey}\ntemplateId: ${this.templateId}\ncachedTemplates count: ${cachedTemplates.length}\nserviceId: ${this.serviceId}`);
-
       const template = cachedTemplates.find((t: any) =>
         Number(t.TemplateID || t.PK_ID) === this.templateId
       );
 
-      // INSTANT: Create item from template immediately so we never show "not found"
+      // Guard after async
+      if (this.isDestroyed) return;
+
       if (template) {
         this.item = this.convertTemplateToItem(template);
         this.editableTitle = this.item.name;
         this.editableText = this.item.text;
         this.categoryName = template.Category || this.categoryName;
-        this.loading = false;
-        this.safeDetectChanges();
-        console.log('[GenericVisualDetail] MOBILE: Instant load from template:', this.item.name);
-        alert(`[DEBUG] Template found! item.name=${this.item.name}`);
+        console.log('[GenericVisualDetail] FALLBACK: Loaded from template:', this.item.name);
       } else {
-        alert(`[DEBUG] NO template found for templateId=${this.templateId}. First 3 templates: ${cachedTemplates.slice(0,3).map((t:any) => `ID:${t.TemplateID||t.PK_ID}`).join(', ')}`);
-      }
-
-      // Guard after async
-      if (this.isDestroyed) return;
-
-      // STEP 2: Query the correct Dexie table based on template type
-      let field: any = null;
-      const allFields = await this.getFieldsFromDexie();
-      field = allFields.find((f: any) => f.templateId === this.templateId);
-
-      // Guard after async
-      if (this.isDestroyed) return;
-
-      console.log('[GenericVisualDetail] MOBILE: Field found:', !!field, 'Template:', this.config.id);
-      console.log('[GenericVisualDetail] MOBILE: Template found:', !!template);
-
-      // DEBUG: Show field info
-      alert(`[DEBUG STEP 2]\nDexie table: ${this.config.id}\nallFields count: ${allFields.length}\nfield found: ${!!field}\nvisualId: ${field ? this.getVisualIdFromField(field) : 'N/A'}`);
-
-      // Get visualId from field if available (using correct ID field name)
-      if (field) {
-        this.visualId = this.getVisualIdFromField(field);
-      }
-
-      // STEP 3: Update item with field data if available (more current than template)
-      if (field && field.templateName) {
-        // Use Dexie field directly
-        this.item = this.convertGenericFieldToItem(field);
-        this.editableTitle = this.item.name;
-        this.editableText = this.item.text;
-        this.categoryName = field.category || this.categoryName;
-        console.log('[GenericVisualDetail] MOBILE: Updated from Dexie field:', this.item.name);
-      } else if (field && template) {
-        // Merge field with template
-        this.item = this.mergeGenericFieldWithTemplate(field, template);
-        this.editableTitle = this.item.name;
-        this.editableText = this.item.text;
-        this.categoryName = field.category || template.Category || this.categoryName;
-        console.log('[GenericVisualDetail] MOBILE: Merged field+template');
-      } else if (!template && field) {
-        // Field exists but no template - use field data
-        this.item = this.convertGenericFieldToItem(field);
-        this.editableTitle = this.item.name || 'Visual ' + this.templateId;
-        this.editableText = this.item.text || '';
-        this.categoryName = field.category || this.categoryName;
-        console.log('[GenericVisualDetail] MOBILE: Loaded from field (no template)');
-      } else if (!template && !field) {
-        // No data - create minimal item
-        console.warn('[GenericVisualDetail] MOBILE: No data found, creating minimal item');
+        // No field AND no template - create minimal item
+        console.warn('[GenericVisualDetail] No Dexie field or template found for templateId:', this.templateId);
         this.item = this.createMinimalItem();
         this.editableTitle = this.item.name;
         this.editableText = '';
       }
 
-      // INSTANT: Make sure loading is false and UI is updated
+      // CRITICAL: Set loading=false AFTER item is set
       this.loading = false;
       this.safeDetectChanges();
 
       // Set up Dexie subscription for real-time updates
       this.subscribeToVisualFieldChanges();
-
-      // Load photos (non-blocking)
-      this.loadPhotos().catch(err => {
-        console.error('[GenericVisualDetail] Photo load error:', err);
-      });
 
     } catch (error) {
       console.error('[GenericVisualDetail] MOBILE: Error loading from Dexie:', error);
@@ -923,19 +907,18 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     const allFields = await this.getFieldsFromDexie();
     const field = allFields.find((f: any) => f.templateId === this.templateId);
 
-    // Get the visual ID from field using correct field names for this template type
-    // CRITICAL: Use tempId FIRST because localImages are stored with the original temp ID
+    // Get BOTH IDs - photos may be stored with either tempId OR realId
     const tempId = this.getTempIdFromField(field);
     const realId = this.getRealIdFromField(field);
+
+    // Store both for multi-tier lookup
     this.visualId = tempId || realId || this.visualId || '';
     this.lastKnownVisualId = this.visualId;
 
-    // DEBUG PHOTO LOAD
-    alert(`[DEBUG PHOTOS]\nfield found: ${!!field}\ntempId: ${tempId}\nrealId: ${realId}\nvisualId used: ${this.visualId}\nconfig.id: ${this.config.id}`);
+    console.log('[GenericVisualDetail] PHOTO LOAD: tempId:', tempId, 'realId:', realId, 'visualId:', this.visualId);
 
-    if (!this.visualId) {
+    if (!this.visualId && !tempId && !realId) {
       console.log('[GenericVisualDetail] MOBILE: No visualId found, cannot load photos');
-      alert('[DEBUG PHOTOS] No visualId found! Cannot load photos.');
       this.photos = [];
       return;
     }
@@ -943,63 +926,62 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     console.log('[GenericVisualDetail] MOBILE: Loading photos - visualId:', this.visualId,
       'tempId:', tempId, 'realId:', realId);
 
-    // 4-TIER FALLBACK for photo lookup (matching EFE pattern)
+    // ========================================
+    // DEXIE-FIRST PHOTO LOOKUP: Try all possible IDs in parallel for speed
+    // Photos may be stored with tempId OR realId depending on when they were added
+    // ========================================
     let localImages: any[] = [];
-    let foundAtTier = 0;
+    let foundWithId = '';
 
-    // TIER 1: Query by this.visualId as entityId
-    localImages = await db.localImages.where('entityId').equals(this.visualId).toArray();
-    if (localImages.length > 0) {
-      foundAtTier = 1;
-      console.log('[GenericVisualDetail] MOBILE: TIER 1 - Found', localImages.length, 'photos');
+    // Collect all IDs to search (de-duplicated)
+    const idsToSearch = new Set<string>();
+    if (realId) idsToSearch.add(String(realId));  // Real ID first - most common
+    if (tempId) idsToSearch.add(String(tempId));
+    if (this.visualId && this.visualId !== realId && this.visualId !== tempId) {
+      idsToSearch.add(String(this.visualId));
     }
 
-    // TIER 2: Try alternate ID (if field has both tempId and realId)
-    if (localImages.length === 0 && tempId && realId) {
-      const alternateId = (this.visualId === tempId) ? realId : tempId;
-      if (alternateId && alternateId !== this.visualId) {
-        console.log('[GenericVisualDetail] MOBILE: TIER 2 - Trying alternate ID:', alternateId);
-        localImages = await db.localImages.where('entityId').equals(String(alternateId)).toArray();
-        if (localImages.length > 0) {
-          foundAtTier = 2;
-          console.log('[GenericVisualDetail] MOBILE: TIER 2 - Found', localImages.length, 'photos');
-        }
+    console.log('[GenericVisualDetail] DEXIE-FIRST: Searching for photos with IDs:', Array.from(idsToSearch));
+
+    // Search all IDs (check realId first since synced photos use realId)
+    for (const searchId of idsToSearch) {
+      if (localImages.length > 0) break;
+      localImages = await db.localImages.where('entityId').equals(searchId).toArray();
+      if (localImages.length > 0) {
+        foundWithId = searchId;
+        console.log('[GenericVisualDetail] DEXIE-FIRST: Found', localImages.length, 'photos with entityId:', searchId);
       }
     }
 
-    // TIER 3: Query by mapped realId from tempIdMappings
+    // TIER 2: Check tempIdMappings if still not found
     if (localImages.length === 0 && tempId) {
       const mappedRealId = await this.indexedDb.getRealId(tempId);
-      if (mappedRealId) {
-        console.log('[GenericVisualDetail] MOBILE: TIER 3 - Trying mapped realId:', mappedRealId);
+      if (mappedRealId && !idsToSearch.has(mappedRealId)) {
         localImages = await db.localImages.where('entityId').equals(mappedRealId).toArray();
         if (localImages.length > 0) {
-          foundAtTier = 3;
-          console.log('[GenericVisualDetail] MOBILE: TIER 3 - Found', localImages.length, 'photos');
+          foundWithId = `mapped:${mappedRealId}`;
+          console.log('[GenericVisualDetail] DEXIE-FIRST: Found', localImages.length, 'photos via tempIdMapping:', mappedRealId);
         }
       }
     }
 
-    // TIER 4: Reverse lookup - query tempIdMappings by realId to find tempId
-    if (localImages.length === 0 && realId && !tempId) {
-      const reverseLookupTempId = await this.indexedDb.getTempId(realId);
-      if (reverseLookupTempId) {
-        console.log('[GenericVisualDetail] MOBILE: TIER 4 - Reverse lookup tempId:', reverseLookupTempId);
-        localImages = await db.localImages.where('entityId').equals(reverseLookupTempId).toArray();
+    // TIER 3: Reverse lookup if we have realId but not tempId
+    if (localImages.length === 0 && realId) {
+      const reverseTempId = await this.indexedDb.getTempId(String(realId));
+      if (reverseTempId && !idsToSearch.has(reverseTempId)) {
+        localImages = await db.localImages.where('entityId').equals(reverseTempId).toArray();
         if (localImages.length > 0) {
-          foundAtTier = 4;
-          console.log('[GenericVisualDetail] MOBILE: TIER 4 - Found', localImages.length, 'photos');
+          foundWithId = `reverse:${reverseTempId}`;
+          console.log('[GenericVisualDetail] DEXIE-FIRST: Found', localImages.length, 'photos via reverse lookup:', reverseTempId);
         }
       }
     }
 
     // Log final result
-    if (foundAtTier > 0) {
-      console.log('[GenericVisualDetail] MOBILE: Photos found at TIER', foundAtTier, '- Total:', localImages.length);
-      alert(`[DEBUG PHOTOS FOUND]\nTIER: ${foundAtTier}\nTotal photos: ${localImages.length}\nFirst photo entityId: ${localImages[0]?.entityId}\nFirst photo status: ${localImages[0]?.status}`);
+    if (localImages.length > 0) {
+      console.log('[GenericVisualDetail] DEXIE-FIRST: Total photos:', localImages.length, 'foundWithId:', foundWithId);
     } else {
-      console.log('[GenericVisualDetail] MOBILE: No photos found after all 4 tiers');
-      alert(`[DEBUG NO PHOTOS]\nNo photos found in localImages table\nSearched with visualId: ${this.visualId}`);
+      console.log('[GenericVisualDetail] DEXIE-FIRST: No photos found. Searched IDs:', Array.from(idsToSearch));
     }
 
     // Guard after async operations
