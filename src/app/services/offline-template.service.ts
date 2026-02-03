@@ -5,6 +5,7 @@ import { IndexedDbService } from './indexed-db.service';
 import { CaspioService } from './caspio.service';
 import { OfflineService } from './offline.service';
 import { environment } from '../../environments/environment';
+import { db } from './caspio-db';
 
 /**
  * Offline-First Template Service
@@ -441,6 +442,9 @@ export class OfflineTemplateService {
    * Force refresh template data from the server.
    * Clears cached data and re-downloads everything.
    * Use this when user wants to sync or when data appears stale.
+   *
+   * CRITICAL: This now also clears Dexie field tables (efeFields, visualFields, etc.)
+   * to ensure local data is completely replaced by fresh cloud data.
    */
   async forceRefreshTemplateData(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE', projectId?: string): Promise<void> {
     if (!this.offlineService.isOnline()) {
@@ -457,17 +461,41 @@ export class OfflineTemplateService {
     // Clear cached service data (but NOT templates as those are shared)
     await this.indexedDb.clearCachedServiceData(serviceId, 'visuals');
     await this.indexedDb.clearCachedServiceData(serviceId, 'efe_rooms');
-    
+
     // Clear cached photos for this service
     await this.indexedDb.clearCachedPhotosForService(serviceId);
-    
+
     // Mark template as not downloaded so it will re-download
     await this.indexedDb.removeTemplateDownloadStatus(serviceId, templateType);
+
+    // CRITICAL: Clear Dexie field tables to ensure fresh cloud data replaces local data
+    // This fixes the issue where deleted backend data wasn't being removed locally
+    console.log(`[OfflineTemplate] Clearing Dexie field tables for service ${serviceId}...`);
+
+    // Clear EFE fields (rooms and points)
+    const deletedEfeCount = await db.efeFields.where('serviceId').equals(serviceId).delete();
+    console.log(`[OfflineTemplate] Cleared ${deletedEfeCount} efeFields records`);
+
+    // Clear visual fields
+    const deletedVisualCount = await db.visualFields.where('serviceId').equals(serviceId).delete();
+    console.log(`[OfflineTemplate] Cleared ${deletedVisualCount} visualFields records`);
+
+    // Clear template-specific field tables based on templateType
+    if (templateType === 'HUD') {
+      const deletedHudCount = await db.hudFields.where('serviceId').equals(serviceId).delete();
+      console.log(`[OfflineTemplate] Cleared ${deletedHudCount} hudFields records`);
+    } else if (templateType === 'LBW') {
+      const deletedLbwCount = await db.lbwFields.where('serviceId').equals(serviceId).delete();
+      console.log(`[OfflineTemplate] Cleared ${deletedLbwCount} lbwFields records`);
+    } else if (templateType === 'DTE') {
+      const deletedDteCount = await db.dteFields.where('serviceId').equals(serviceId).delete();
+      console.log(`[OfflineTemplate] Cleared ${deletedDteCount} dteFields records`);
+    }
 
     // Re-download
     await this.performDownload(serviceId, templateType, cacheKey, projectId);
     this.downloadStatus.set(cacheKey, 'ready');
-    
+
     console.log(`[OfflineTemplate] Force refresh complete for ${cacheKey}`);
   }
 
