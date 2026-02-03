@@ -1075,10 +1075,10 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       }
 
       // Render annotations if needed (and not already cached)
-      if (hasAnnotations && originalUrl !== 'assets/img/photo-placeholder.svg' &&
+      if (hasAnnotations && originalUrl && originalUrl !== 'assets/img/photo-placeholder.svg' &&
           !this.bulkAnnotatedImagesMap.has(String(img.imageId))) {
         try {
-          const renderedUrl = await renderAnnotationsOnPhoto(originalUrl, img.drawings);
+          const renderedUrl = await renderAnnotationsOnPhoto(originalUrl as string, img.drawings);
           if (renderedUrl && renderedUrl !== originalUrl && !this.isDestroyed) {
             displayUrl = renderedUrl;
             this.bulkAnnotatedImagesMap.set(img.imageId, renderedUrl);
