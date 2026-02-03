@@ -824,6 +824,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
         if (localImages.length === 0) continue;
 
+        // Sort by createdAt (oldest first) for consistent ordering
+        localImages.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
         // Initialize photos array if not exists
         if (!this.visualPhotos[key]) {
           this.visualPhotos[key] = [];
@@ -1056,6 +1059,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         }
 
         if (localImages.length === 0) continue;
+
+        // Sort by createdAt (oldest first) for consistent ordering
+        localImages.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 
         // Initialize photos array if not exists
         if (!this.visualPhotos[key]) {
@@ -1474,6 +1480,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         }
 
         if (localImages.length === 0) continue;
+
+        // Sort by createdAt (oldest first) for consistent ordering
+        localImages.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 
         // Initialize photos array if not exists
         if (!this.visualPhotos[key]) {
@@ -2674,6 +2683,36 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     return Array(Math.min(count, 6)).fill(0);
   }
 
+  /**
+   * Get the best entity ID for photos - prefers realId over tempId
+   * This ensures photos are properly associated with synced visual records
+   */
+  private async getEntityIdForPhotos(category: string, templateId: number): Promise<string | null> {
+    if (!this.config || environment.isWeb) {
+      // On webapp or without config, just return what we have
+      const key = `${category}_${templateId}`;
+      return this.visualRecordIds[key] || null;
+    }
+
+    // Get field from Dexie to check for realId
+    const fields = await this.genericFieldRepo.getFieldsForCategory(this.config, this.serviceId, category);
+    const field = fields.find((f: any) => f.templateId === templateId);
+
+    if (!field) {
+      const key = `${category}_${templateId}`;
+      return this.visualRecordIds[key] || null;
+    }
+
+    // Prefer realId over tempId for photo association
+    const realId = this.genericFieldRepo.getRecordId(this.config, field);
+    const tempId = this.genericFieldRepo.getTempRecordId(this.config, field);
+
+    const entityId = realId || tempId;
+    this.logDebug('PHOTO', `getEntityIdForPhotos: realId=${realId}, tempId=${tempId}, using=${entityId}`);
+
+    return entityId;
+  }
+
   async addPhotoFromCamera(category: string, itemId: string | number): Promise<void> {
     this.logDebug('PHOTO', `Camera capture for ${category}_${itemId}`);
 
@@ -2683,6 +2722,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     }
 
     const key = `${category}_${itemId}`;
+    const templateId = typeof itemId === 'number' ? itemId : parseInt(String(itemId), 10);
 
     // Get or create visual record first
     let visualId: string | null | undefined = this.visualRecordIds[key];
@@ -2695,6 +2735,10 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       }
     }
 
+    // Get the best entity ID for photos (prefers realId over tempId)
+    const entityId = await this.getEntityIdForPhotos(category, templateId) || visualId;
+    this.logDebug('PHOTO', `Using entityId: ${entityId} (visualRecordIds had: ${visualId})`);
+
     // Initialize photo array if needed
     if (!this.visualPhotos[key]) {
       this.visualPhotos[key] = [];
@@ -2703,7 +2747,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     // Configure and call PhotoHandlerService
     const captureConfig: PhotoCaptureConfig = {
       entityType: this.config.entityType as any,
-      entityId: String(visualId),
+      entityId: String(entityId),
       serviceId: this.serviceId,
       category,
       itemId,
@@ -2760,6 +2804,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     }
 
     const key = `${category}_${itemId}`;
+    const templateId = typeof itemId === 'number' ? itemId : parseInt(String(itemId), 10);
 
     // Get or create visual record first
     let visualId: string | null | undefined = this.visualRecordIds[key];
@@ -2772,6 +2817,10 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       }
     }
 
+    // Get the best entity ID for photos (prefers realId over tempId)
+    const entityId = await this.getEntityIdForPhotos(category, templateId) || visualId;
+    this.logDebug('PHOTO', `Using entityId: ${entityId} (visualRecordIds had: ${visualId})`);
+
     // Initialize photo array if needed
     if (!this.visualPhotos[key]) {
       this.visualPhotos[key] = [];
@@ -2780,7 +2829,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     // Configure and call PhotoHandlerService
     const captureConfig: PhotoCaptureConfig = {
       entityType: this.config.entityType as any,
-      entityId: String(visualId),
+      entityId: String(entityId),
       serviceId: this.serviceId,
       category,
       itemId,

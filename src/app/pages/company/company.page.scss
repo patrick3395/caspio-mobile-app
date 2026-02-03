@@ -719,6 +719,35 @@ ion-content {
         color: #dc3545;
       }
     }
+
+    .add-payment-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      background: linear-gradient(135deg, #f15a27 0%, #e04d1a 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(241, 90, 39, 0.3);
+
+      ion-icon {
+        font-size: 20px;
+      }
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(241, 90, 39, 0.4);
+      }
+
+      &:active {
+        transform: translateY(0);
+      }
+    }
   }
 }
 

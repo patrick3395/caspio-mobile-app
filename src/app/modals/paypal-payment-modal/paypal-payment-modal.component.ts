@@ -22,6 +22,7 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
   @Input() companyId: number | null = null;
   @Input() companyName: string = '';
   @Input() showAutopayOption: boolean = false;
+  @Input() saveForAutopayOnly: boolean = false; // Mode to only save payment method without charging
   @ViewChild('paypalButtonContainer', { static: false }) paypalButtonContainer!: ElementRef;
 
   isLoading = false;
@@ -37,6 +38,10 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
 
   ngOnInit() {
     console.log('PayPal Payment Modal initialized with invoice:', this.invoice);
+    // If in save-only mode, automatically check the save for autopay checkbox
+    if (this.saveForAutopayOnly) {
+      this.saveForAutopay = true;
+    }
   }
 
   ngAfterViewInit() {
@@ -75,6 +80,116 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
       return;
     }
 
+    // Use different flow for save-only mode vs payment mode
+    if (this.saveForAutopayOnly) {
+      this.renderVaultOnlyButton();
+    } else {
+      this.renderPaymentButton();
+    }
+  }
+
+  /**
+   * Render PayPal button for save-only mode (no payment, just vault)
+   */
+  private renderVaultOnlyButton() {
+    console.log('Rendering vault-only PayPal button');
+
+    paypal.Buttons({
+      style: {
+        layout: 'vertical',
+        color: 'gold',
+        shape: 'rect',
+        label: 'paypal',
+        height: 48
+      },
+
+      // Create vault setup token (no payment)
+      createVaultSetupToken: async () => {
+        console.log('Creating vault setup token...');
+        try {
+          const response = await firstValueFrom(
+            this.caspioService.createVaultSetupToken()
+          );
+          console.log('Vault setup token created:', response.setupTokenId);
+          return response.setupTokenId;
+        } catch (error) {
+          console.error('Failed to create vault setup token:', error);
+          throw error;
+        }
+      },
+
+      // On vault approval
+      onApprove: async (data: any) => {
+        console.log('Vault approval received:', data);
+        this.isLoading = true;
+
+        try {
+          // Create payment token from the approved setup token
+          const vaultSetupToken = data.vaultSetupToken;
+          console.log('Creating payment token from setup token:', vaultSetupToken);
+
+          const tokenResult = await firstValueFrom(
+            this.caspioService.createPaymentToken(vaultSetupToken)
+          );
+
+          console.log('Payment token created:', tokenResult);
+
+          // Save the payment method to the company record
+          if (this.companyId) {
+            await firstValueFrom(
+              this.caspioService.put(
+                `/tables/LPS_Companies/records?q.where=CompanyID=${this.companyId}`,
+                {
+                  PayPalVaultToken: tokenResult.paymentTokenId,
+                  PayPalPayerID: tokenResult.payerId,
+                  PayPalPayerEmail: tokenResult.payerEmail
+                }
+              )
+            );
+            console.log('Payment method saved for company:', this.companyId);
+          }
+
+          this.paymentCompleted = true;
+          this.isLoading = false;
+
+          // Show success message
+          await this.showVaultSuccess(tokenResult.payerEmail);
+
+          // Return vault details to parent
+          this.modalController.dismiss({
+            success: true,
+            savedPaymentMethod: true,
+            paymentData: {
+              vaultToken: tokenResult.paymentTokenId,
+              payerID: tokenResult.payerId,
+              payerEmail: tokenResult.payerEmail
+            }
+          });
+        } catch (error) {
+          console.error('Error creating payment token:', error);
+          this.isLoading = false;
+          this.showError('Failed to save payment method. Please try again.');
+        }
+      },
+
+      // On cancel
+      onCancel: (data: any) => {
+        console.log('Vault setup cancelled:', data);
+        this.showCancelled();
+      },
+
+      // On error
+      onError: (err: any) => {
+        console.error('PayPal vault error:', err);
+        this.showError('An error occurred. Please try again.');
+      }
+    }).render(this.paypalButtonContainer.nativeElement);
+  }
+
+  /**
+   * Render PayPal button for normal payment mode
+   */
+  private renderPaymentButton() {
     const amount = this.invoice?.Amount || '0.00';
 
     paypal.Buttons({
@@ -213,6 +328,15 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
     const alert = await this.alertController.create({
       header: 'Payment Successful',
       message: message,
+      buttons: ['OK']
+    });
+    await alert.present();
+  }
+
+  async showVaultSuccess(payerEmail: string) {
+    const alert = await this.alertController.create({
+      header: 'Payment Method Saved',
+      message: `Your PayPal account (${payerEmail}) has been saved for autopay. Future invoices will be automatically charged to this account.`,
       buttons: ['OK']
     });
     await alert.present();

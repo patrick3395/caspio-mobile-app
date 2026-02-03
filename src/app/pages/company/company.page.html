@@ -1334,19 +1334,17 @@
               </div>
             </div>
 
-            <!-- No Payment Method Warning -->
-            <div class="payment-setting-row no-payment-warning" *ngIf="!clientCompany?.PayPalVaultToken">
+            <!-- No Payment Method - Add Button -->
+            <div class="payment-setting-row" *ngIf="!clientCompany?.PayPalVaultToken">
               <div class="payment-setting-label">
                 <span>Payment Method</span>
+                <p class="setting-description">Required for autopay</p>
               </div>
               <div class="payment-setting-value">
-                <div class="no-payment-box">
-                  <ion-icon name="card-outline"></ion-icon>
-                  <div>
-                    <span class="no-payment-method">No payment method saved</span>
-                    <p class="payment-hint">Save a payment method during your next invoice payment to enable autopay.</p>
-                  </div>
-                </div>
+                <button class="add-payment-btn" (click)="openAddPaymentMethodModal()">
+                  <ion-icon name="add-circle-outline"></ion-icon>
+                  Add Payment Method
+                </button>
               </div>
             </div>
 

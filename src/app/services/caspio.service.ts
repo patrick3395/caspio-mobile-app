@@ -5998,4 +5998,54 @@ export class CaspioService {
       AutopayEnabled: 0
     });
   }
+
+  /**
+   * Create a PayPal vault setup token for saving payment method without charge
+   * @returns Setup token ID and approval URL
+   */
+  createVaultSetupToken(): Observable<{ setupTokenId: string; approvalUrl: string }> {
+    console.log('[PayPal] Creating vault setup token');
+    return this.http.post<{ success: boolean; setupTokenId: string; approvalUrl: string }>(
+      `${environment.apiGatewayUrl}/api/paypal/setup-token`,
+      {}
+    ).pipe(
+      tap(response => {
+        console.log('[PayPal] Vault setup token created:', response.setupTokenId);
+      }),
+      catchError(error => {
+        console.error('[PayPal] Failed to create vault setup token:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * Create a PayPal payment token from an approved setup token
+   * @param setupTokenId The approved setup token ID
+   * @returns Payment token details for saving
+   */
+  createPaymentToken(setupTokenId: string): Observable<{
+    paymentTokenId: string;
+    payerId: string;
+    payerEmail: string;
+  }> {
+    console.log('[PayPal] Creating payment token from setup:', setupTokenId);
+    return this.http.post<{
+      success: boolean;
+      paymentTokenId: string;
+      payerId: string;
+      payerEmail: string;
+    }>(
+      `${environment.apiGatewayUrl}/api/paypal/payment-token`,
+      { setupTokenId }
+    ).pipe(
+      tap(response => {
+        console.log('[PayPal] Payment token created:', response.paymentTokenId);
+      }),
+      catchError(error => {
+        console.error('[PayPal] Failed to create payment token:', error);
+        return throwError(() => error);
+      })
+    );
+  }
 }

@@ -3037,6 +3037,42 @@ export class CompanyPage implements OnInit, OnDestroy {
     }
   }
 
+  async openAddPaymentMethodModal(): Promise<void> {
+    const company = this.clientCompany;
+    if (!company) return;
+
+    // Import the PayPal modal dynamically
+    const { PaypalPaymentModalComponent } = await import('../../modals/paypal-payment-modal/paypal-payment-modal.component');
+
+    const modal = await this.modalController.create({
+      component: PaypalPaymentModalComponent,
+      componentProps: {
+        invoice: {
+          InvoiceID: 'SETUP',
+          ProjectID: null,
+          Amount: '0.00',
+          Description: 'Payment Method Setup',
+          Address: '',
+          City: ''
+        },
+        companyId: company.CompanyID,
+        companyName: company.CompanyName,
+        showAutopayOption: true,
+        saveForAutopayOnly: true
+      }
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onWillDismiss();
+
+    if (data?.success && (data?.savedPaymentMethod || data?.paymentData?.savedForAutopay)) {
+      // Reload company data to get the new payment method
+      await this.loadCurrentUserCompanyName();
+      await this.showToast('Payment method saved successfully!', 'success');
+    }
+  }
+
   private formatDateForInput(date: Date): string {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');

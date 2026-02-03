@@ -994,6 +994,9 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       }
     }
 
+    // Sort by createdAt (oldest first) to maintain consistent order with category-detail
+    localImages.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
     // Log final result
     if (localImages.length > 0) {
       console.log('[GenericVisualDetail] OPTIMIZED: Total photos:', localImages.length, 'foundWithId:', foundWithId);
@@ -1334,9 +1337,14 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     }
 
     try {
+      // Use getIdForSync to get the best entityId (prefers realId over tempId)
+      // This ensures photos are properly associated with the synced visual record
+      const entityId = await this.getIdForSync();
+      console.log('[GenericVisualDetail] addPhotoFromCamera: using entityId:', entityId, '(visualId was:', this.visualId, ')');
+
       const config: PhotoCaptureConfig = {
         entityType: this.config.entityType,
-        entityId: this.visualId,
+        entityId: entityId,
         serviceId: this.serviceId,
         category: this.categoryName,
         itemId: this.templateId,
@@ -1374,9 +1382,14 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     }
 
     try {
+      // Use getIdForSync to get the best entityId (prefers realId over tempId)
+      // This ensures photos are properly associated with the synced visual record
+      const entityId = await this.getIdForSync();
+      console.log('[GenericVisualDetail] addPhotoFromGallery: using entityId:', entityId, '(visualId was:', this.visualId, ')');
+
       const config: PhotoCaptureConfig = {
         entityType: this.config.entityType,
-        entityId: this.visualId,
+        entityId: entityId,
         serviceId: this.serviceId,
         category: this.categoryName,
         itemId: this.templateId,

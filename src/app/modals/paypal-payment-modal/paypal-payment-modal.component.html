@@ -3,7 +3,7 @@
     <ion-buttons slot="start">
       <!-- Empty slot for symmetry -->
     </ion-buttons>
-    <ion-title>Pay Invoice</ion-title>
+    <ion-title>{{ saveForAutopayOnly ? 'Add Payment Method' : 'Pay Invoice' }}</ion-title>
     <ion-buttons slot="end">
       <ion-button (click)="cancel()" [disabled]="isLoading">
         <ion-icon name="close" slot="icon-only"></ion-icon>
@@ -13,8 +13,8 @@
 </ion-header>
 
 <ion-content class="ion-padding">
-  <!-- Invoice Details -->
-  <ion-card>
+  <!-- Invoice Details (hidden in save-only mode) -->
+  <ion-card *ngIf="!saveForAutopayOnly">
     <ion-card-header>
       <ion-card-title>Invoice Details</ion-card-title>
     </ion-card-header>
@@ -59,8 +59,51 @@
     </ion-card-content>
   </ion-card>
 
-  <!-- Payment Section -->
-  <ion-card *ngIf="!paymentCompleted">
+  <!-- Save Payment Method Info (only in save-only mode) -->
+  <ion-card *ngIf="saveForAutopayOnly && !paymentCompleted" class="save-method-card">
+    <ion-card-content>
+      <div class="save-method-info">
+        <div class="save-method-icon">
+          <ion-icon name="card-outline"></ion-icon>
+        </div>
+        <h2>Save Payment Method</h2>
+        <p>To save your PayPal account for autopay, you'll complete a secure verification through PayPal. This authorizes future automatic payments.</p>
+
+        <div class="save-method-steps">
+          <div class="step">
+            <span class="step-number">1</span>
+            <span>Click the PayPal button below</span>
+          </div>
+          <div class="step">
+            <span class="step-number">2</span>
+            <span>Log in to your PayPal account</span>
+          </div>
+          <div class="step">
+            <span class="step-number">3</span>
+            <span>Authorize future payments</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SDK Loading Spinner -->
+      <div *ngIf="sdkLoading" class="loading-overlay-inline">
+        <ion-spinner name="crescent"></ion-spinner>
+        <p>Loading PayPal...</p>
+      </div>
+
+      <!-- PayPal Button Container -->
+      <div #paypalButtonContainer class="paypal-button-container save-mode" [style.display]="sdkLoading ? 'none' : 'block'"></div>
+
+      <!-- Processing Spinner -->
+      <div *ngIf="isLoading" class="loading-overlay-inline">
+        <ion-spinner name="crescent"></ion-spinner>
+        <p>Saving payment method...</p>
+      </div>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- Payment Section (normal payment mode) -->
+  <ion-card *ngIf="!paymentCompleted && !saveForAutopayOnly">
     <ion-card-header>
       <ion-card-title>Payment Method</ion-card-title>
       <ion-card-subtitle>Pay securely with PayPal</ion-card-subtitle>
@@ -98,12 +141,12 @@
     </ion-card-content>
   </ion-card>
 
-  <!-- Payment Success Message -->
+  <!-- Success Message -->
   <ion-card *ngIf="paymentCompleted" color="success">
     <ion-card-content class="success-message">
       <ion-icon name="checkmark-circle" size="large"></ion-icon>
-      <h2>Payment Successful!</h2>
-      <p>Your payment has been processed.</p>
+      <h2>{{ saveForAutopayOnly ? 'Payment Method Saved!' : 'Payment Successful!' }}</h2>
+      <p>{{ saveForAutopayOnly ? 'Your PayPal account has been linked for autopay.' : 'Your payment has been processed.' }}</p>
     </ion-card-content>
   </ion-card>
 </ion-content>

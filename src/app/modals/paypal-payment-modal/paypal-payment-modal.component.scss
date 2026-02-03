@@ -99,6 +99,105 @@ ion-header {
   }
 }
 
+.save-method-card {
+  ion-card-content {
+    padding: 24px;
+  }
+}
+
+.save-method-info {
+  text-align: center;
+  padding-bottom: 20px;
+
+  .save-method-icon {
+    width: 70px;
+    height: 70px;
+    background: linear-gradient(135deg, rgba(241, 90, 39, 0.1) 0%, rgba(241, 90, 39, 0.2) 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+
+    ion-icon {
+      font-size: 36px;
+      color: #f15a27;
+    }
+  }
+
+  h2 {
+    margin: 0 0 12px;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #333;
+  }
+
+  p {
+    margin: 0 0 20px;
+    font-size: 0.95rem;
+    color: #666;
+    line-height: 1.5;
+  }
+
+  .save-method-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    text-align: left;
+    background: #f9f9f9;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+
+      .step-number {
+        width: 28px;
+        height: 28px;
+        background: #f15a27;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85rem;
+        font-weight: 600;
+        flex-shrink: 0;
+      }
+
+      span:last-child {
+        font-size: 0.9rem;
+        color: #555;
+      }
+    }
+  }
+}
+
+.loading-overlay-inline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+
+  ion-spinner {
+    margin-bottom: 10px;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #666;
+  }
+}
+
+.paypal-button-container.save-mode {
+  width: 70%;
+  margin: 0 auto;
+}
+
 .paypal-button-container {
   margin-top: 0;
   min-height: 150px;
