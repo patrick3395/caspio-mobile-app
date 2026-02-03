@@ -31,6 +31,11 @@ export class ThumbnailService {
     format: 'jpeg'
   };
 
+  // Cache management settings
+  private readonly MAX_CACHE_SIZE = 100;
+  private readonly CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+  private cacheTimestamps = new Map<string, number>();
+
   /**
    * Generate thumbnail for an image
    */
@@ -51,10 +56,16 @@ export class ThumbnailService {
     try {
       const thumbnailConfig = { ...this.DEFAULT_CONFIG, ...config };
       const result = await this.createThumbnail(imageUrl, thumbnailConfig);
-      
-      // Cache the result
+
+      // Cache the result with timestamp
       this.thumbnailCache.set(cacheKey, result);
-      
+      this.cacheTimestamps.set(cacheKey, Date.now());
+
+      // Auto-cleanup every 20 entries to prevent unbounded growth
+      if (this.thumbnailCache.size % 20 === 0) {
+        this.performCacheMaintenance();
+      }
+
       return result;
     } catch (error) {
       console.error('❌ Failed to generate thumbnail:', error);
@@ -224,7 +235,57 @@ export class ThumbnailService {
    */
   clearCache(): void {
     this.thumbnailCache.clear();
-    console.log('🧹 Thumbnail cache cleared');
+    this.cacheTimestamps.clear();
+    console.log('[ThumbnailService] Cache cleared');
+  }
+
+  /**
+   * Prune expired cache entries based on TTL
+   * @returns Number of entries pruned
+   */
+  pruneExpiredCache(): number {
+    const now = Date.now();
+    let pruned = 0;
+    for (const [key, timestamp] of this.cacheTimestamps.entries()) {
+      if (now - timestamp > this.CACHE_TTL_MS) {
+        this.thumbnailCache.delete(key);
+        this.cacheTimestamps.delete(key);
+        pruned++;
+      }
+    }
+    return pruned;
+  }
+
+  /**
+   * Enforce maximum cache size by removing oldest entries
+   * @returns Number of entries removed
+   */
+  enforceMaxCacheSize(): number {
+    if (this.thumbnailCache.size <= this.MAX_CACHE_SIZE) return 0;
+
+    // Sort by timestamp (oldest first)
+    const sortedEntries = [...this.cacheTimestamps.entries()]
+      .sort((a, b) => a[1] - b[1]);
+    const toRemove = sortedEntries.slice(0, this.thumbnailCache.size - this.MAX_CACHE_SIZE);
+
+    for (const [key] of toRemove) {
+      this.thumbnailCache.delete(key);
+      this.cacheTimestamps.delete(key);
+    }
+    return toRemove.length;
+  }
+
+  /**
+   * Perform cache maintenance: prune expired and enforce size limits
+   * @returns Object with counts of expired and oversized entries removed
+   */
+  performCacheMaintenance(): { expired: number; oversized: number } {
+    const expired = this.pruneExpiredCache();
+    const oversized = this.enforceMaxCacheSize();
+    if (expired > 0 || oversized > 0) {
+      console.log(`[ThumbnailService] Cache maintenance: ${expired} expired, ${oversized} oversized removed`);
+    }
+    return { expired, oversized };
   }
 
   /**

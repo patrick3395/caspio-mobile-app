@@ -147,8 +147,8 @@ export interface ProgressiveImageData {
       width: 100%;
       height: 100%;
       object-fit: cover;
-      filter: blur(10px);
-      transform: scale(1.1);
+      filter: blur(5px);
+      transform: scale(1.05);
       opacity: 0;
       transition: opacity 0.3s ease-in-out;
     }

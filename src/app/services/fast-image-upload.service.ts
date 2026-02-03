@@ -38,22 +38,22 @@ export class FastImageUploadService {
   private uploads$ = new Subject<UploadProgress>();
   private activeUploads = new Map<string, UploadProgress>();
 
-  // Aggressive compression settings for camera photos
+  // Balanced compression settings for camera photos - improved quality
   private readonly CAMERA_PHOTO_OPTIONS = {
-    maxSizeMB: 0.4,          // Target 400KB (was 1.5MB)
-    maxWidthOrHeight: 1920,  // Full HD max (camera is often 4000+)
+    maxSizeMB: 0.75,         // Target 750KB for better quality
+    maxWidthOrHeight: 1280,  // Consistent with other services
     useWebWorker: true,      // Don't block UI
     fileType: 'image/jpeg',
-    quality: 0.75            // Good balance of quality/size
+    quality: 0.82            // Improved quality setting
   };
 
   // Lighter compression for already-small images
   private readonly SMALL_IMAGE_OPTIONS = {
-    maxSizeMB: 0.6,
-    maxWidthOrHeight: 1920,
+    maxSizeMB: 0.85,         // Slightly higher for small images
+    maxWidthOrHeight: 1280,  // Consistent with other services
     useWebWorker: true,
     fileType: 'image/jpeg',
-    quality: 0.8
+    quality: 0.85            // Higher quality for already-small images
   };
 
   constructor(

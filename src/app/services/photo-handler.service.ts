@@ -118,7 +118,7 @@ export class PhotoHandlerService {
     try {
       // 1. Capture photo with camera
       const image = await Camera.getPhoto({
-        quality: 90,
+        quality: 85,  // Balanced quality - compression handles the rest
         allowEditing: false,
         resultType: CameraResultType.Uri,
         source: CameraSource.Camera
@@ -198,7 +198,7 @@ export class PhotoHandlerService {
     try {
       // 1. Pick images from gallery
       const images = await Camera.pickImages({
-        quality: 70,  // Lower quality since we compress anyway
+        quality: 85,  // Match camera quality for consistency
         limit: 0      // No limit on number of photos
       });
 
@@ -650,9 +650,10 @@ export class PhotoHandlerService {
   private async compressImage(file: File): Promise<File> {
     try {
       const compressed = await this.imageCompression.compressImage(file, {
-        maxSizeMB: 0.8,
+        maxSizeMB: 0.75,           // Match new default compression settings
         maxWidthOrHeight: 1280,
-        useWebWorker: true
+        useWebWorker: true,
+        quality: 0.82              // Match new default quality
       });
       return new File([compressed], file.name, { type: 'image/jpeg' });
     } catch (error) {

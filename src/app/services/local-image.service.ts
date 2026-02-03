@@ -903,6 +903,37 @@ export class LocalImageService {
     this.signedUrlCache.clear();
   }
 
+  /**
+   * Prune expired entries from in-memory caches
+   * This helps prevent memory leaks by cleaning up stale cached data.
+   * Does NOT affect Dexie tables - only JS Map caches.
+   */
+  pruneExpiredCaches(): void {
+    const now = Date.now();
+    let displayPruned = 0;
+    let signedPruned = 0;
+
+    // Prune display URL cache (30 second TTL)
+    for (const [key, entry] of this.displayUrlCache.entries()) {
+      if (now - entry.cachedAt > this.DISPLAY_URL_CACHE_MS) {
+        this.displayUrlCache.delete(key);
+        displayPruned++;
+      }
+    }
+
+    // Prune signed URL cache (check expiresAt)
+    for (const [key, entry] of this.signedUrlCache.entries()) {
+      if (now > entry.expiresAt) {
+        this.signedUrlCache.delete(key);
+        signedPruned++;
+      }
+    }
+
+    if (displayPruned > 0 || signedPruned > 0) {
+      console.log(`[LocalImageService] Cache pruning: ${displayPruned} display URLs, ${signedPruned} signed URLs expired`);
+    }
+  }
+
   // ============================================================================
   // FINALIZATION - FORCE SYNC AND POINTER UPDATE
   // ============================================================================
