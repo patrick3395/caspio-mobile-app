@@ -1152,8 +1152,7 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           console.log('[GenericVisualDetail] WEBAPP: Updated via API:', this.visualId);
         }
       } else {
-        // MOBILE: Dexie ONLY - no API calls
-        // Background sync will push changes to server
+        // MOBILE: Update Dexie AND queue for sync
         const dexieUpdate: any = {};
         if (titleChanged) dexieUpdate.templateName = this.editableTitle;
         if (textChanged) dexieUpdate.templateText = this.editableText;
@@ -1166,8 +1165,15 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           dexieUpdate.tempRecordId = isTempId ? String(this.visualId) : null;
         }
 
+        // Update Dexie for instant local display
         await this.genericFieldRepo.setField(this.config!, this.serviceId, actualCategory, this.templateId, dexieUpdate);
         console.log('[GenericVisualDetail] MOBILE: Updated Dexie:', dexieUpdate);
+
+        // Queue sync to backend (via dataAdapter which adds to pendingRequests)
+        if (this.isValidVisualId(this.visualId)) {
+          await this.dataAdapter.updateVisualWithConfig(this.config!, this.visualId, caspioUpdate, this.serviceId);
+          console.log('[GenericVisualDetail] MOBILE: Queued sync for:', this.visualId);
+        }
       }
 
       if (this.item) {
@@ -1200,8 +1206,7 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           console.log('[GenericVisualDetail] WEBAPP: Updated title via API');
         }
       } else {
-        // MOBILE: Dexie ONLY - no API calls
-        // Background sync will push changes to server
+        // MOBILE: Update Dexie AND queue for sync
         const dexieUpdate: any = {
           templateName: this.editableTitle,
           isSelected: true,
@@ -1214,8 +1219,15 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           dexieUpdate.tempRecordId = isTempId ? String(this.visualId) : null;
         }
 
+        // Update Dexie for instant local display
         await this.genericFieldRepo.setField(this.config!, this.serviceId, actualCategory, this.templateId, dexieUpdate);
         console.log('[GenericVisualDetail] MOBILE: Updated title in Dexie');
+
+        // Queue sync to backend
+        if (this.isValidVisualId(this.visualId)) {
+          await this.dataAdapter.updateVisualWithConfig(this.config!, this.visualId, { Name: this.editableTitle }, this.serviceId);
+          console.log('[GenericVisualDetail] MOBILE: Queued title sync for:', this.visualId);
+        }
       }
 
       if (this.item) this.item.name = this.editableTitle;
@@ -1242,8 +1254,7 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           console.log('[GenericVisualDetail] WEBAPP: Updated text via API');
         }
       } else {
-        // MOBILE: Dexie ONLY - no API calls
-        // Background sync will push changes to server
+        // MOBILE: Update Dexie AND queue for sync
         const dexieUpdate: any = {
           templateText: this.editableText,
           isSelected: true,
@@ -1256,8 +1267,15 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           dexieUpdate.tempRecordId = isTempId ? String(this.visualId) : null;
         }
 
+        // Update Dexie for instant local display
         await this.genericFieldRepo.setField(this.config!, this.serviceId, actualCategory, this.templateId, dexieUpdate);
         console.log('[GenericVisualDetail] MOBILE: Updated text in Dexie');
+
+        // Queue sync to backend
+        if (this.isValidVisualId(this.visualId)) {
+          await this.dataAdapter.updateVisualWithConfig(this.config!, this.visualId, { Text: this.editableText }, this.serviceId);
+          console.log('[GenericVisualDetail] MOBILE: Queued text sync for:', this.visualId);
+        }
       }
 
       if (this.item) this.item.text = this.editableText;
@@ -1420,16 +1438,26 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
   private async confirmDeletePhoto(photo: PhotoItem) {
     try {
+      // Remove from UI immediately
       this.removePhotoFromList(photo.id);
       this.changeDetectorRef.detectChanges();
 
-      if (environment.isWeb) {
-        await this.dataAdapter.deleteAttachment(photo.id);
-        console.log('[GenericVisualDetail] WEBAPP: Deleted attachment:', photo.id);
-      } else {
-        // Mobile: Delete from LocalImageService (handles blob cleanup, outbox removal, etc.)
-        await this.localImageService.deleteLocalImage(photo.id);
-        console.log('[GenericVisualDetail] MOBILE: Deleted via LocalImageService:', photo.id);
+      // Delete via dataAdapter (handles both local Dexie deletion AND backend sync queue)
+      // Works for both webapp and mobile - unified approach
+      const photoId = photo.attachId || photo.imageId || photo.id;
+      await this.dataAdapter.deleteAttachmentWithConfig(this.config!, photoId);
+      console.log('[GenericVisualDetail] Deleted attachment:', photoId);
+
+      // Also try alternate IDs to ensure cleanup (photos may have multiple IDs)
+      if (photo.imageId && photo.imageId !== photoId) {
+        try {
+          await this.dataAdapter.deleteAttachmentWithConfig(this.config!, photo.imageId);
+        } catch (e) { /* ignore if not found */ }
+      }
+      if (photo.id && photo.id !== photoId && photo.id !== photo.imageId) {
+        try {
+          await this.dataAdapter.deleteAttachmentWithConfig(this.config!, photo.id);
+        } catch (e) { /* ignore if not found */ }
       }
 
       await this.showToast('Photo deleted', 'success');

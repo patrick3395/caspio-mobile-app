@@ -72,6 +72,15 @@
         Zelle (Preferred)
       </ion-button>
 
+      <!-- Save for Autopay Option -->
+      <ion-item *ngIf="showAutopayOption && companyId" lines="none" class="autopay-option">
+        <ion-checkbox [(ngModel)]="saveForAutopay" slot="start"></ion-checkbox>
+        <ion-label class="ion-text-wrap">
+          <span class="autopay-label">Save this payment method for future autopay</span>
+          <p class="autopay-hint">Automatically pay invoices on a schedule</p>
+        </ion-label>
+      </ion-item>
+
       <!-- SDK Loading Spinner -->
       <div *ngIf="sdkLoading" class="loading-overlay">
         <ion-spinner name="crescent"></ion-spinner>

@@ -5944,4 +5944,58 @@ export class CaspioService {
     console.log('[CaspioService] Clearing Invoices cache entries');
     this.cache.clearByPattern('LPS_Invoices/records');
   }
+
+  // ============================================
+  // AUTOPAY METHODS
+  // ============================================
+
+  /**
+   * Trigger autopay for a specific company via the backend API
+   * @param companyId The company ID to process autopay for
+   */
+  triggerAutopay(companyId: number): Observable<any> {
+    console.log('[Autopay] Triggering autopay for company:', companyId);
+    return this.http.post(`${environment.apiGatewayUrl}/api/autopay/trigger`, { companyId }).pipe(
+      tap(response => {
+        console.log('[Autopay] Autopay triggered successfully:', response);
+        this.clearInvoicesCache();
+      }),
+      catchError(error => {
+        console.error('[Autopay] Failed to trigger autopay:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * Save payment method to a company
+   * @param companyId Company ID
+   * @param vaultData Vault token and payer info from PayPal
+   */
+  savePaymentMethod(companyId: number, vaultData: {
+    vaultToken: string;
+    payerId: string;
+    payerEmail: string;
+  }): Observable<any> {
+    console.log('[Autopay] Saving payment method for company:', companyId);
+    return this.put(`/tables/LPS_Companies/records?q.where=CompanyID=${companyId}`, {
+      PayPalVaultToken: vaultData.vaultToken,
+      PayPalPayerID: vaultData.payerId,
+      PayPalPayerEmail: vaultData.payerEmail
+    });
+  }
+
+  /**
+   * Remove saved payment method from a company
+   * @param companyId Company ID
+   */
+  removePaymentMethod(companyId: number): Observable<any> {
+    console.log('[Autopay] Removing payment method for company:', companyId);
+    return this.put(`/tables/LPS_Companies/records?q.where=CompanyID=${companyId}`, {
+      PayPalVaultToken: null,
+      PayPalPayerID: null,
+      PayPalPayerEmail: null,
+      AutopayEnabled: 0
+    });
+  }
 }

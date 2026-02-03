@@ -7,6 +7,7 @@ import { LocalImageService } from '../local-image.service';
 import { TemplateConfig, TemplateType } from './template-config.interface';
 import { TemplateConfigService } from './template-config.service';
 import { environment } from '../../../environments/environment';
+import { db } from '../caspio-db';
 
 /**
  * Response wrapper for Caspio API responses
@@ -574,8 +575,30 @@ export class TemplateDataAdapter {
       await this.fetchApi(endpoint, 'DELETE');
       return true;
     } else {
-      const isTempId = String(attachId).startsWith('temp_');
+      const isTempId = String(attachId).startsWith('temp_') || String(attachId).startsWith('img_');
 
+      // MOBILE: Delete from local storage (localImages table)
+      // Try both imageId and attachId since photos can be stored under either
+      try {
+        // Delete by imageId (primary key)
+        await db.localImages.delete(attachId);
+        console.log('[TemplateDataAdapter] Deleted localImage by imageId:', attachId);
+      } catch (e) {
+        console.log('[TemplateDataAdapter] No localImage found for imageId:', attachId);
+      }
+
+      // Also try to find and delete by attachId field (for synced images)
+      try {
+        const byAttachId = await db.localImages.where('attachId').equals(attachId).toArray();
+        for (const img of byAttachId) {
+          await db.localImages.delete(img.imageId);
+          console.log('[TemplateDataAdapter] Deleted localImage by attachId lookup:', img.imageId);
+        }
+      } catch (e) {
+        // Ignore errors if no match found
+      }
+
+      // Queue backend delete (unless it's a temp/local-only image)
       if (isTempId) {
         await this.indexedDb.removePendingRequest(attachId);
       } else {

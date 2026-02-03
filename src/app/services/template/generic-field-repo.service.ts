@@ -404,9 +404,12 @@ export class GenericFieldRepoService {
       return;
     }
 
+    // Mark dirty if any user-editable field changed (for sync to backend)
     const isDirty = mappedUpdates.isSelected !== undefined ||
                     mappedUpdates.answer !== undefined ||
-                    mappedUpdates.otherValue !== undefined;
+                    mappedUpdates.otherValue !== undefined ||
+                    mappedUpdates.templateName !== undefined ||
+                    mappedUpdates.templateText !== undefined;
 
     await table.update(existing.id!, {
       ...mappedUpdates,

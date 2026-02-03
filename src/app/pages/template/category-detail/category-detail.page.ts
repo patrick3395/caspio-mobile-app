@@ -1258,7 +1258,12 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       }
     }
 
-    this.organizedData = { comments, limitations, deficiencies };
+    // Sort each section: multi-select/dropdown items first
+    this.organizedData = {
+      comments: this.sortItemsByAnswerType(comments),
+      limitations: this.sortItemsByAnswerType(limitations),
+      deficiencies: this.sortItemsByAnswerType(deficiencies)
+    };
     this.logDebug('DEXIE', `Organized: ${comments.length} comments, ${limitations.length} limitations, ${deficiencies.length} deficiencies`);
   }
 
@@ -1315,7 +1320,12 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       }
     }
 
-    this.organizedData = { comments, limitations, deficiencies };
+    // Sort each section: multi-select/dropdown items first
+    this.organizedData = {
+      comments: this.sortItemsByAnswerType(comments),
+      limitations: this.sortItemsByAnswerType(limitations),
+      deficiencies: this.sortItemsByAnswerType(deficiencies)
+    };
     this.logDebug('DEXIE', `HUD Organized: ${comments.length} comments, ${limitations.length} limitations, ${deficiencies.length} deficiencies`);
   }
 
@@ -1378,7 +1388,12 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       }
     }
 
-    this.organizedData = { comments, limitations, deficiencies };
+    // Sort each section: multi-select/dropdown items first
+    this.organizedData = {
+      comments: this.sortItemsByAnswerType(comments),
+      limitations: this.sortItemsByAnswerType(limitations),
+      deficiencies: this.sortItemsByAnswerType(deficiencies)
+    };
     this.logDebug('DEXIE', `Generic Organized (${this.config.id}): ${comments.length} comments, ${limitations.length} limitations, ${deficiencies.length} deficiencies`);
   }
 
@@ -1961,7 +1976,12 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       }
     }
 
-    this.organizedData = { comments, limitations, deficiencies };
+    // Sort each section: multi-select/dropdown items first
+    this.organizedData = {
+      comments: this.sortItemsByAnswerType(comments),
+      limitations: this.sortItemsByAnswerType(limitations),
+      deficiencies: this.sortItemsByAnswerType(deficiencies)
+    };
     this.logDebug('ORGANIZE', `Organized: ${comments.length} comments, ${limitations.length} limitations, ${deficiencies.length} deficiencies`);
 
     // Restore custom options from saved answers
@@ -2075,6 +2095,19 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       item.name.toLowerCase().includes(term) ||
       item.text.toLowerCase().includes(term)
     );
+  }
+
+  /**
+   * Sort items so multi-select/dropdown (answerType 2) appear first
+   * This provides a consistent ordering across all templates
+   */
+  private sortItemsByAnswerType(items: VisualItem[]): VisualItem[] {
+    return items.sort((a, b) => {
+      // answerType 2 (multi-select/dropdown) comes first
+      const aIsMultiSelect = a.answerType === 2 ? 0 : 1;
+      const bIsMultiSelect = b.answerType === 2 ? 0 : 1;
+      return aIsMultiSelect - bIsMultiSelect;
+    });
   }
 
   highlightText(text: string): string {

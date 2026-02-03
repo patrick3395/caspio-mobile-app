@@ -4,6 +4,8 @@ import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
 import { environment } from '../../../environments/environment';
+import { CaspioService } from '../../services/caspio.service';
+import { firstValueFrom } from 'rxjs';
 
 // Declare PayPal namespace for TypeScript
 declare const paypal: any;
@@ -17,15 +19,20 @@ declare const paypal: any;
 })
 export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
   @Input() invoice: any;
+  @Input() companyId: number | null = null;
+  @Input() companyName: string = '';
+  @Input() showAutopayOption: boolean = false;
   @ViewChild('paypalButtonContainer', { static: false }) paypalButtonContainer!: ElementRef;
 
   isLoading = false;
   paymentCompleted = false;
   sdkLoading = true; // Track SDK loading state
+  saveForAutopay = false; // Whether to save payment method for autopay
 
   constructor(
     private modalController: ModalController,
-    private alertController: AlertController
+    private alertController: AlertController,
+    private caspioService: CaspioService
   ) {}
 
   ngOnInit() {
@@ -79,9 +86,10 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
         height: 48
       },
 
-      // Create order
+      // Create order with optional vault for autopay
       createOrder: (data: any, actions: any) => {
-        return actions.order.create({
+        const orderData: any = {
+          intent: 'CAPTURE',
           purchase_units: [{
             description: `Invoice #${this.invoice?.InvoiceID || 'N/A'} - ${this.invoice?.Description || 'Payment'}`,
             amount: {
@@ -90,7 +98,28 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
             },
             reference_id: `INV-${this.invoice?.InvoiceID || Date.now()}`
           }]
-        });
+        };
+
+        // Add vault configuration if saving for autopay
+        if (this.saveForAutopay && this.companyId) {
+          orderData.payment_source = {
+            paypal: {
+              attributes: {
+                vault: {
+                  store_in_vault: 'ON_SUCCESS',
+                  usage_type: 'MERCHANT',
+                  customer_type: 'CONSUMER'
+                }
+              },
+              experience_context: {
+                return_url: window.location.href,
+                cancel_url: window.location.href
+              }
+            }
+          };
+        }
+
+        return actions.order.create(orderData);
       },
 
       // On approval
@@ -101,11 +130,41 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
           const order = await actions.order.capture();
           console.log('Payment successful:', order);
 
+          // Check if vault token was saved (for autopay)
+          let vaultToken: string | null = null;
+          if (this.saveForAutopay && this.companyId) {
+            // Extract vault token from the payment response
+            // PayPal returns vault info in payment_source.paypal.attributes.vault
+            const vaultInfo = order?.payment_source?.paypal?.attributes?.vault;
+            if (vaultInfo?.id) {
+              vaultToken = vaultInfo.id;
+              console.log('Vault token received:', vaultToken);
+
+              // Save the payment method to the company record
+              try {
+                await firstValueFrom(
+                  this.caspioService.put(
+                    `/tables/LPS_Companies/records?q.where=CompanyID=${this.companyId}`,
+                    {
+                      PayPalVaultToken: vaultToken,
+                      PayPalPayerID: order.payer.payer_id,
+                      PayPalPayerEmail: order.payer.email_address
+                    }
+                  )
+                );
+                console.log('Payment method saved for company:', this.companyId);
+              } catch (saveError) {
+                console.error('Failed to save payment method:', saveError);
+                // Don't fail the payment, just log the error
+              }
+            }
+          }
+
           this.paymentCompleted = true;
           this.isLoading = false;
 
           // Show success message
-          await this.showSuccess(order);
+          await this.showSuccess(order, vaultToken !== null);
 
           // Return payment details to parent
           this.modalController.dismiss({
@@ -120,7 +179,9 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
               status: order.status,
               createTime: order.create_time,
               updateTime: order.update_time,
-              invoiceID: this.invoice?.InvoiceID
+              invoiceID: this.invoice?.InvoiceID,
+              vaultToken: vaultToken,
+              savedForAutopay: vaultToken !== null
             }
           });
         } catch (error) {
@@ -144,10 +205,14 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
     }).render(this.paypalButtonContainer.nativeElement);
   }
 
-  async showSuccess(order: any) {
+  async showSuccess(order: any, savedForAutopay: boolean = false) {
+    let message = `Your payment of $${order.purchase_units[0].amount.value} has been processed successfully.<br><br>Order ID: ${order.id}`;
+    if (savedForAutopay) {
+      message += '<br><br>Your payment method has been saved for future autopay.';
+    }
     const alert = await this.alertController.create({
       header: 'Payment Successful',
-      message: `Your payment of $${order.purchase_units[0].amount.value} has been processed successfully.<br><br>Order ID: ${order.id}`,
+      message: message,
       buttons: ['OK']
     });
     await alert.present();

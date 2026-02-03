@@ -1551,9 +1551,9 @@
                   <tr *ngFor="let offer of getCompanyOffers(editingCompany.CompanyID)">
                     <td>{{ offer.typeName }}</td>
                     <td>
-                      <input type="number" 
-                             [(ngModel)]="offer.ServiceFee" 
-                             class="form-input fee-input" 
+                      <input type="number"
+                             [(ngModel)]="offer.ServiceFee"
+                             class="form-input fee-input"
                              placeholder="0.00"
                              step="0.01"
                              min="0">
@@ -1566,6 +1566,66 @@
           <ng-template #noEditOffers>
             <p class="no-data-text">No services configured for this company</p>
           </ng-template>
+        </div>
+
+        <div class="form-section">
+          <h4>Payment Settings</h4>
+
+          <div class="form-row">
+            <div class="form-field">
+              <label>Autopay</label>
+              <ion-toggle [(ngModel)]="editingCompany.AutopayEnabled"
+                          [disabled]="!editingCompany.PayPalVaultToken">
+              </ion-toggle>
+              <small *ngIf="!editingCompany.PayPalVaultToken" class="hint-text">
+                No payment method saved. Customer must save during payment.
+              </small>
+            </div>
+          </div>
+
+          <div class="form-row" *ngIf="editingCompany.PayPalVaultToken">
+            <div class="form-field full-width">
+              <label>Saved Payment Method</label>
+              <div class="payment-method-info">
+                <ion-icon name="logo-paypal" class="paypal-icon"></ion-icon>
+                <span>PayPal - {{ editingCompany.PayPalPayerEmail }}</span>
+                <button class="remove-payment-btn" (click)="removePaymentMethod()">
+                  <ion-icon name="trash-outline"></ion-icon>
+                  Remove
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row" *ngIf="editingCompany.AutopayEnabled">
+            <div class="form-field">
+              <label>Autopay Day of Month</label>
+              <select [(ngModel)]="editingCompany.AutopayDay" class="form-input">
+                <option *ngFor="let day of getAutopayDayOptions()" [value]="day">
+                  {{ formatAutopayDay(day) }}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row" *ngIf="editingCompany.AutopayLastRun">
+            <div class="form-field full-width">
+              <label>Last Autopay</label>
+              <span class="autopay-status" [class.success]="editingCompany.AutopayLastStatus === 'Success'"
+                    [class.failed]="editingCompany.AutopayLastStatus?.startsWith('Failed')">
+                {{ editingCompany.AutopayLastRun | date:'short' }} - {{ editingCompany.AutopayLastStatus }}
+              </span>
+            </div>
+          </div>
+
+          <div class="form-row" *ngIf="editingCompany.AutopayEnabled && editingCompany.PayPalVaultToken">
+            <div class="form-field full-width">
+              <button class="run-autopay-btn" (click)="triggerAutopay(editingCompany)">
+                <ion-icon name="card-outline"></ion-icon>
+                Run Autopay Now
+              </button>
+            </div>
+          </div>
         </div>
 
         <div class="form-section">

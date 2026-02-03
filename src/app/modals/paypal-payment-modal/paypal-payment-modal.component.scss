@@ -79,6 +79,26 @@ ion-header {
   }
 }
 
+.autopay-option {
+  --background: #f0f9f0;
+  --border-radius: 8px;
+  margin: 0.75rem auto;
+  width: 80%;
+  padding: 0.5rem;
+
+  .autopay-label {
+    font-weight: 500;
+    color: #333;
+    font-size: 0.95rem;
+  }
+
+  .autopay-hint {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 0.25rem;
+  }
+}
+
 .paypal-button-container {
   margin-top: 0;
   min-height: 150px;

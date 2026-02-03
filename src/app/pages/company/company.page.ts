@@ -52,6 +52,14 @@ interface CompanyRecord {
   SoftwareID?: string;
   'Onboarding Stage'?: string;
   Contract?: string;
+  // Autopay fields
+  AutopayEnabled?: boolean;
+  PayPalVaultToken?: string;
+  PayPalPayerID?: string;
+  PayPalPayerEmail?: string;
+  AutopayDay?: number;
+  AutopayLastRun?: string;
+  AutopayLastStatus?: string;
 }
 
 interface InvoiceTotals {
@@ -2828,6 +2836,126 @@ export class CompanyPage implements OnInit, OnDestroy {
     }
   }
 
+  // ============================================
+  // AUTOPAY METHODS
+  // ============================================
+
+  async removePaymentMethod(): Promise<void> {
+    if (!this.editingCompany) {
+      return;
+    }
+
+    const alert = await this.alertController.create({
+      header: 'Remove Payment Method',
+      message: 'Are you sure you want to remove the saved payment method? Autopay will be disabled.',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Remove',
+          role: 'destructive',
+          handler: async () => {
+            const loading = await this.loadingController.create({
+              message: 'Removing payment method...',
+              spinner: 'lines'
+            });
+            await loading.present();
+
+            try {
+              await firstValueFrom(
+                this.caspioService.put(
+                  `/tables/LPS_Companies/records?q.where=CompanyID=${this.editingCompany.CompanyID}`,
+                  {
+                    PayPalVaultToken: null,
+                    PayPalPayerID: null,
+                    PayPalPayerEmail: null,
+                    AutopayEnabled: 0
+                  }
+                )
+              );
+
+              // Update local state
+              this.editingCompany.PayPalVaultToken = null;
+              this.editingCompany.PayPalPayerID = null;
+              this.editingCompany.PayPalPayerEmail = null;
+              this.editingCompany.AutopayEnabled = false;
+
+              // Update company in the list
+              const index = this.companies.findIndex(c => c.CompanyID === this.editingCompany.CompanyID);
+              if (index !== -1) {
+                this.companies[index] = { ...this.companies[index], ...this.editingCompany };
+              }
+
+              await this.showToast('Payment method removed', 'success');
+            } catch (error: any) {
+              console.error('Error removing payment method:', error);
+              await this.showToast('Failed to remove payment method', 'danger');
+            } finally {
+              await loading.dismiss();
+            }
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  async triggerAutopay(company: CompanyViewModel): Promise<void> {
+    const alert = await this.alertController.create({
+      header: 'Trigger Autopay',
+      message: `Run autopay now for ${company.CompanyName}? This will charge their saved payment method for all unpaid invoices.`,
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Run Autopay',
+          handler: () => this.executeAutopay(company.CompanyID)
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  async executeAutopay(companyId: number): Promise<void> {
+    const loading = await this.loadingController.create({
+      message: 'Processing autopay...',
+      spinner: 'lines'
+    });
+    await loading.present();
+
+    try {
+      const response = await firstValueFrom(
+        this.caspioService.triggerAutopay(companyId)
+      );
+
+      if (response?.success) {
+        await this.showToast(
+          `Autopay successful. Processed ${response.invoicesProcessed || 0} invoice(s) for $${response.amount?.toFixed(2) || '0.00'}`,
+          'success'
+        );
+
+        // Refresh company and invoice data
+        await this.loadCompanyData(false);
+        this.applyCompanyFilters();
+      } else {
+        throw new Error(response?.message || 'Autopay failed');
+      }
+    } catch (error: any) {
+      console.error('Autopay error:', error);
+      const errorMessage = error?.error?.message || error?.message || 'Autopay failed';
+      await this.showToast(`Autopay failed: ${errorMessage}`, 'danger');
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
+  getAutopayDayOptions(): number[] {
+    return [1, 5, 10, 15, 20, 25, 28];
+  }
+
+  formatAutopayDay(day: number): string {
+    const suffix = day === 1 ? 'st' : day === 2 ? 'nd' : day === 3 ? 'rd' : 'th';
+    return `${day}${suffix} of each month`;
+  }
+
   private formatDateForInput(date: Date): string {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -4563,7 +4691,15 @@ export class CompanyPage implements OnInit, OnDestroy {
       CC_Email: company.CC_Email,
       SoftwareID: company.SoftwareID,
       'Onboarding Stage': company['Onboarding Stage'],
-      Contract: company.Contract
+      Contract: company.Contract,
+      // Autopay fields
+      AutopayEnabled: company.AutopayEnabled || false,
+      PayPalVaultToken: company.PayPalVaultToken || null,
+      PayPalPayerID: company.PayPalPayerID || null,
+      PayPalPayerEmail: company.PayPalPayerEmail || null,
+      AutopayDay: company.AutopayDay || 1,
+      AutopayLastRun: company.AutopayLastRun || null,
+      AutopayLastStatus: company.AutopayLastStatus || null
     };
     this.editingCompanyContractFile = null;
     this.isEditModalOpen = true;
@@ -4678,6 +4814,14 @@ export class CompanyPage implements OnInit, OnDestroy {
       if (this.editingCompany['Onboarding Stage'] !== undefined && this.editingCompany['Onboarding Stage'] !== null) {
         // Try without space first (more likely to be correct)
         payload.OnboardingStage = this.editingCompany['Onboarding Stage'];
+      }
+
+      // Autopay fields
+      if (this.editingCompany.AutopayEnabled !== undefined) {
+        payload.AutopayEnabled = this.editingCompany.AutopayEnabled ? 1 : 0;
+      }
+      if (this.editingCompany.AutopayDay !== undefined && this.editingCompany.AutopayDay !== null) {
+        payload.AutopayDay = this.editingCompany.AutopayDay;
       }
 
       console.log('=== Company Update Debug Info ===');
