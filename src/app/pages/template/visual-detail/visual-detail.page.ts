@@ -10,6 +10,7 @@ import { PhotoHandlerService, PhotoCaptureConfig, StandardPhotoEntry, ViewPhotoC
 import { ImageCompressionService } from '../../../services/image-compression.service';
 import { db, VisualField } from '../../../services/caspio-db';
 import { VisualFieldRepoService } from '../../../services/visual-field-repo.service';
+import { GenericFieldRepoService } from '../../../services/template/generic-field-repo.service';
 import { LocalImageService } from '../../../services/local-image.service';
 import { TemplateConfig, TemplateType } from '../../../services/template/template-config.interface';
 import { TemplateConfigService } from '../../../services/template/template-config.service';
@@ -140,6 +141,7 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     private indexedDb: IndexedDbService,
     private imageCompression: ImageCompressionService,
     private visualFieldRepo: VisualFieldRepoService,
+    private genericFieldRepo: GenericFieldRepoService,
     private localImageService: LocalImageService,
     private templateConfigService: TemplateConfigService,
     private dataAdapter: TemplateDataAdapter,
@@ -1130,9 +1132,14 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         if (textChanged) dexieUpdate.templateText = this.editableText;
         dexieUpdate.isSelected = true;
         dexieUpdate.category = actualCategory;
-        if (this.visualId) dexieUpdate.visualId = this.visualId;
+        // Use generic recordId/tempRecordId - genericFieldRepo maps to template-specific fields
+        if (this.visualId) {
+          const isTempId = String(this.visualId).startsWith('temp_');
+          dexieUpdate.recordId = isTempId ? null : String(this.visualId);
+          dexieUpdate.tempRecordId = isTempId ? String(this.visualId) : null;
+        }
 
-        await this.visualFieldRepo.setField(this.serviceId, actualCategory, this.templateId, dexieUpdate);
+        await this.genericFieldRepo.setField(this.config!, this.serviceId, actualCategory, this.templateId, dexieUpdate);
         console.log('[GenericVisualDetail] MOBILE: Updated Dexie:', dexieUpdate);
       }
 
@@ -1173,9 +1180,14 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           isSelected: true,
           category: actualCategory
         };
-        if (this.visualId) dexieUpdate.visualId = this.visualId;
+        // Use generic recordId/tempRecordId - genericFieldRepo maps to template-specific fields
+        if (this.visualId) {
+          const isTempId = String(this.visualId).startsWith('temp_');
+          dexieUpdate.recordId = isTempId ? null : String(this.visualId);
+          dexieUpdate.tempRecordId = isTempId ? String(this.visualId) : null;
+        }
 
-        await this.visualFieldRepo.setField(this.serviceId, actualCategory, this.templateId, dexieUpdate);
+        await this.genericFieldRepo.setField(this.config!, this.serviceId, actualCategory, this.templateId, dexieUpdate);
         console.log('[GenericVisualDetail] MOBILE: Updated title in Dexie');
       }
 
@@ -1210,9 +1222,14 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           isSelected: true,
           category: actualCategory
         };
-        if (this.visualId) dexieUpdate.visualId = this.visualId;
+        // Use generic recordId/tempRecordId - genericFieldRepo maps to template-specific fields
+        if (this.visualId) {
+          const isTempId = String(this.visualId).startsWith('temp_');
+          dexieUpdate.recordId = isTempId ? null : String(this.visualId);
+          dexieUpdate.tempRecordId = isTempId ? String(this.visualId) : null;
+        }
 
-        await this.visualFieldRepo.setField(this.serviceId, actualCategory, this.templateId, dexieUpdate);
+        await this.genericFieldRepo.setField(this.config!, this.serviceId, actualCategory, this.templateId, dexieUpdate);
         console.log('[GenericVisualDetail] MOBILE: Updated text in Dexie');
       }
 

@@ -2152,7 +2152,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
               const isTempId = createdId.startsWith('temp_');
               // GenericFieldRepo.setField handles template-specific ID field names internally
               await this.genericFieldRepo.setField(this.config, this.serviceId, category, templateId, {
-                // Note: setField will use config to determine correct ID field (visualId, hudId, etc.)
+                isSelected: true,
+                recordId: isTempId ? null : String(createdId),
+                tempRecordId: isTempId ? String(createdId) : null
               }).catch(err => this.logDebug('ERROR', `Failed to update recordId: ${err}`));
             }
           }
