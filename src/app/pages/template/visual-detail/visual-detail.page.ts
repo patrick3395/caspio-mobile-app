@@ -273,6 +273,7 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
   private async loadVisualData() {
     if (!this.config) {
+      alert('DEBUG: loadVisualData - config is NULL!');
       console.error('[GenericVisualDetail] No config loaded - cannot load data');
       this.loading = false;
       return;
@@ -282,6 +283,9 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     // loadVisualDataMobile() will set loading=false AFTER item is set
     // This prevents the "Visual item not found" flash
     this.loading = true;
+
+    // DEBUG ALERT: Entry point
+    alert(`DEBUG: loadVisualData\n\nTemplate: ${this.config.id}\nServiceId: ${this.serviceId}\nTemplateId: ${this.templateId}\nVisualId: ${this.visualId || '(none)'}\n\nPath: ${environment.isWeb ? 'WEBAPP (API)' : 'MOBILE (Dexie)'}`);
 
     console.log('[GenericVisualDetail] ========== loadVisualData START ==========');
     console.log('[GenericVisualDetail] Template:', this.config.id);
@@ -373,9 +377,13 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
    */
   private async loadVisualDataMobile() {
     if (!this.config) {
+      alert('DEBUG: loadVisualDataMobile - config is NULL!');
       console.error('[GenericVisualDetail] loadVisualDataMobile: config is null!');
       return;
     }
+
+    // DEBUG ALERT: Confirm method is being called
+    alert(`DEBUG: loadVisualDataMobile START\n\nTemplate: ${this.config.id}\nServiceId: ${this.serviceId}\nTemplateId: ${this.templateId}`);
 
     try {
       // ========================================
@@ -389,6 +397,9 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
       // Guard after async
       if (this.isDestroyed) return;
+
+      // DEBUG ALERT: Show what we found in Dexie
+      alert(`DEBUG: Dexie Query Results\n\nTable: db.${this.config.id}Fields\nTotal fields for service: ${allFields.length}\nField found for templateId ${this.templateId}: ${field ? 'YES' : 'NO'}\n\n${field ? `Field keys: ${Object.keys(field).join(', ')}` : 'No field - will use template fallback'}`);
 
       console.log('[GenericVisualDetail] DEXIE-FIRST: Field found:', !!field, 'templateId:', this.templateId,
         'allFields count:', allFields.length, 'config:', this.config?.id);
@@ -467,6 +478,9 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       // Guard after async
       if (this.isDestroyed) return;
 
+      // DEBUG ALERT: Fallback path - no field in Dexie
+      alert(`DEBUG: FALLBACK PATH (no field in Dexie)\n\nLooking in template cache: ${cacheKey}\nCached templates count: ${cachedTemplates.length}\nTemplate found for ID ${this.templateId}: ${template ? 'YES' : 'NO'}\n\n${template ? `Name: ${template.Name}` : 'No template found - using minimal item'}`);
+
       if (template) {
         this.item = this.convertTemplateToItem(template);
         this.editableTitle = this.item.name;
@@ -488,7 +502,9 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       // Set up Dexie subscription for real-time updates
       this.subscribeToVisualFieldChanges();
 
-    } catch (error) {
+    } catch (error: any) {
+      // DEBUG ALERT: Error occurred
+      alert(`DEBUG: ERROR in loadVisualDataMobile!\n\n${error?.message || error}`);
       console.error('[GenericVisualDetail] MOBILE: Error loading from Dexie:', error);
       // Create minimal item so page doesn't show "not found"
       this.item = this.createMinimalItem();

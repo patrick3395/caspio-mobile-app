@@ -1409,6 +1409,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   /**
    * Show diagnostic popup with image size and quality info
    * Helps debug image quality issues
+   * Uses Alert instead of Toast for better visibility on mobile
    */
   private async showImageDiagnostics(width: number, height: number, imageUrl: string): Promise<void> {
     try {
@@ -1462,47 +1463,41 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       // Determine quality assessment
       let qualityAssessment = '';
       if (width >= 1280 || height >= 1280) {
-        qualityAssessment = '✅ Good';
+        qualityAssessment = 'Good';
       } else if (width >= 1024 || height >= 1024) {
-        qualityAssessment = '⚠️ Medium';
+        qualityAssessment = 'Medium';
       } else {
-        qualityAssessment = '❌ Low';
+        qualityAssessment = 'Low';
       }
 
       // Size assessment
       let sizeAssessment = '';
       if (fileSizeKB >= 500) {
-        sizeAssessment = '✅ Good';
+        sizeAssessment = 'Good';
       } else if (fileSizeKB >= 200) {
-        sizeAssessment = '⚠️ Medium';
+        sizeAssessment = 'Medium';
       } else if (fileSizeKB > 0) {
-        sizeAssessment = '❌ Small';
+        sizeAssessment = 'Small';
       }
-
-      const message = `📊 IMAGE DIAGNOSTICS\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `Dimensions: ${width} × ${height}px\n` +
-        `Megapixels: ${megapixels} MP\n` +
-        `File Size: ${fileSizeDisplay} ${sizeAssessment}\n` +
-        `Resolution: ${qualityAssessment}\n` +
-        `Source: ${sourceType}`;
 
       console.log('[FabricAnnotator] Image Diagnostics:', { width, height, fileSizeKB, sourceType });
 
-      const toast = await this.toastController.create({
-        message: message,
-        duration: 6000,
-        position: 'top',
-        cssClass: 'image-diagnostics-toast',
-        buttons: [
-          {
-            text: 'OK',
-            role: 'cancel'
-          }
-        ]
+      // Use Alert for better visibility on mobile
+      const alert = await this.alertController.create({
+        header: 'Image Quality Info',
+        message: `
+          <div style="text-align: left; font-size: 14px; line-height: 1.6;">
+            <p><strong>Dimensions:</strong> ${width} x ${height}px</p>
+            <p><strong>Megapixels:</strong> ${megapixels} MP</p>
+            <p><strong>File Size:</strong> ${fileSizeDisplay} (${sizeAssessment})</p>
+            <p><strong>Resolution:</strong> ${qualityAssessment}</p>
+            <p><strong>Source:</strong> ${sourceType}</p>
+          </div>
+        `,
+        buttons: ['OK']
       });
 
-      await toast.present();
+      await alert.present();
     } catch (e) {
       console.warn('[FabricAnnotator] Failed to show diagnostics:', e);
     }
