@@ -371,12 +371,19 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
    * DEXIE-FIRST INSTANT LOADING: Show data immediately, no loading screen
    */
   private async loadVisualDataMobile() {
-    if (!this.config) return;
+    if (!this.config) {
+      alert('[DEBUG] loadVisualDataMobile: config is null!');
+      return;
+    }
 
     try {
       // STEP 1: Load template from cache FIRST (instant) to populate item immediately
       const cacheKey = this.config.templatesCacheKey as 'visual' | 'hud' | 'lbw' | 'dte' | 'efe';
       const cachedTemplates = await this.indexedDb.getCachedTemplates(cacheKey) || [];
+
+      // DEBUG: Show what we have
+      alert(`[DEBUG STEP 1]\ncacheKey: ${cacheKey}\ntemplateId: ${this.templateId}\ncachedTemplates count: ${cachedTemplates.length}\nserviceId: ${this.serviceId}`);
+
       const template = cachedTemplates.find((t: any) =>
         Number(t.TemplateID || t.PK_ID) === this.templateId
       );
@@ -390,6 +397,9 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         this.loading = false;
         this.safeDetectChanges();
         console.log('[GenericVisualDetail] MOBILE: Instant load from template:', this.item.name);
+        alert(`[DEBUG] Template found! item.name=${this.item.name}`);
+      } else {
+        alert(`[DEBUG] NO template found for templateId=${this.templateId}. First 3 templates: ${cachedTemplates.slice(0,3).map((t:any) => `ID:${t.TemplateID||t.PK_ID}`).join(', ')}`);
       }
 
       // Guard after async
@@ -405,6 +415,9 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
       console.log('[GenericVisualDetail] MOBILE: Field found:', !!field, 'Template:', this.config.id);
       console.log('[GenericVisualDetail] MOBILE: Template found:', !!template);
+
+      // DEBUG: Show field info
+      alert(`[DEBUG STEP 2]\nDexie table: ${this.config.id}\nallFields count: ${allFields.length}\nfield found: ${!!field}\nvisualId: ${field ? this.getVisualIdFromField(field) : 'N/A'}`);
 
       // Get visualId from field if available (using correct ID field name)
       if (field) {
@@ -917,8 +930,12 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     this.visualId = tempId || realId || this.visualId || '';
     this.lastKnownVisualId = this.visualId;
 
+    // DEBUG PHOTO LOAD
+    alert(`[DEBUG PHOTOS]\nfield found: ${!!field}\ntempId: ${tempId}\nrealId: ${realId}\nvisualId used: ${this.visualId}\nconfig.id: ${this.config.id}`);
+
     if (!this.visualId) {
       console.log('[GenericVisualDetail] MOBILE: No visualId found, cannot load photos');
+      alert('[DEBUG PHOTOS] No visualId found! Cannot load photos.');
       this.photos = [];
       return;
     }
@@ -979,8 +996,10 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     // Log final result
     if (foundAtTier > 0) {
       console.log('[GenericVisualDetail] MOBILE: Photos found at TIER', foundAtTier, '- Total:', localImages.length);
+      alert(`[DEBUG PHOTOS FOUND]\nTIER: ${foundAtTier}\nTotal photos: ${localImages.length}\nFirst photo entityId: ${localImages[0]?.entityId}\nFirst photo status: ${localImages[0]?.status}`);
     } else {
       console.log('[GenericVisualDetail] MOBILE: No photos found after all 4 tiers');
+      alert(`[DEBUG NO PHOTOS]\nNo photos found in localImages table\nSearched with visualId: ${this.visualId}`);
     }
 
     // Guard after async operations
