@@ -219,9 +219,9 @@ export class MemoryDiagnosticsService {
       // Get cached photos sizes
       const cachedPhotos = await db.cachedPhotos.toArray();
       for (const photo of cachedPhotos) {
-        if (photo.base64Data) {
+        if (photo.imageData) {
           // Base64 string length * 0.75 gives approximate binary size
-          cachedPhotosMB += (photo.base64Data.length * 0.75) / (1024 * 1024);
+          cachedPhotosMB += (photo.imageData.length * 0.75) / (1024 * 1024);
         }
       }
 
