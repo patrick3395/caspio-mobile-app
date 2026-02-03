@@ -329,12 +329,12 @@ export class PhotoHandlerService {
     skeletonIdToReplace?: string
   ): Promise<StandardPhotoEntry | null> {
 
-    // Memory diagnostics: track before upload
+    // Memory diagnostics: track storage BEFORE upload
     const fileSizeKB = (compressedFile.size / 1024).toFixed(0);
     const fileSizeMB = (compressedFile.size / (1024 * 1024)).toFixed(2);
     console.log(`[PhotoHandler] Processing photo: ${fileSizeMB}MB, type: ${config.entityType}`);
 
-    const beforeSnapshot = this.memoryDiagnostics.takeSnapshot(`Before Upload`);
+    const beforeStats = await this.memoryDiagnostics.getStorageStats();
 
     let result: StandardPhotoEntry | null = null;
 
@@ -362,12 +362,14 @@ export class PhotoHandlerService {
       );
     }
 
-    // Memory diagnostics: track after upload and show alert
-    const afterSnapshot = this.memoryDiagnostics.takeSnapshot(`After Upload`);
+    // Memory diagnostics: track storage AFTER upload and show comparison
+    const afterStats = await this.memoryDiagnostics.getStorageStats();
 
-    // Show operation alert with file details
-    await this.memoryDiagnostics.showOperationAlert(
+    // Show before/after storage comparison
+    await this.memoryDiagnostics.showStorageComparisonAlert(
       'Image Upload',
+      beforeStats,
+      afterStats,
       `File: ${fileSizeKB} KB | Type: ${config.entityType}`
     );
 

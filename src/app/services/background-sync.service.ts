@@ -3444,8 +3444,8 @@ export class BackgroundSyncService {
 
     console.log(`[BackgroundSync] Processing ${readyItems.length} upload outbox items`);
 
-    // Memory diagnostics: track before sync
-    const beforeSnapshot = this.memoryDiagnostics.takeSnapshot(`Before Image Sync`);
+    // Memory diagnostics: track storage BEFORE sync
+    const beforeStats = await this.memoryDiagnostics.getStorageStats();
 
     for (const item of readyItems) {
       try {
@@ -3460,12 +3460,14 @@ export class BackgroundSyncService {
       }
     }
 
-    // Memory diagnostics: track after sync and show alert
-    const afterSnapshot = this.memoryDiagnostics.takeSnapshot(`After Image Sync`);
+    // Memory diagnostics: track storage AFTER sync and show comparison
+    const afterStats = await this.memoryDiagnostics.getStorageStats();
 
-    // Show operation alert with sync details
-    await this.memoryDiagnostics.showOperationAlert(
+    // Show before/after storage comparison
+    await this.memoryDiagnostics.showStorageComparisonAlert(
       'Image Sync Complete',
+      beforeStats,
+      afterStats,
       `Synced ${readyItems.length} image(s)`
     );
   }

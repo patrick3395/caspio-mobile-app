@@ -613,6 +613,8 @@ export class CompanyPage implements OnInit, OnDestroy {
       if (response && response.Result && response.Result.length > 0) {
         const company = response.Result[0];
         this.currentUserCompanyName = company.CompanyName || company.Name || '';
+        // Store the full company record for client view (needed for Payment Settings)
+        this.companies = [company];
       }
     } catch (error) {
       console.error('Error loading company name:', error);

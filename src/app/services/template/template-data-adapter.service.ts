@@ -280,38 +280,73 @@ export class TemplateDataAdapter {
     visualData: any,
     serviceId?: string
   ): Promise<any> {
-    const endpoint = `/tables/${config.tableName}/records?q.where=${config.idFieldName}=${visualId}`;
-
     if (environment.isWeb) {
       // Webapp: Direct API call
+      const endpoint = `/tables/${config.tableName}/records?q.where=${config.idFieldName}=${visualId}`;
       await this.fetchApi(endpoint, 'PUT', visualData);
       return { success: true, [config.idFieldName]: visualId, ...visualData };
     } else {
       // Mobile: Offline-first
       const isTempId = String(visualId).startsWith('temp_');
+      let effectiveId = visualId;
 
       if (isTempId) {
-        // Update pending request
-        await this.indexedDb.updatePendingRequestData(visualId, visualData);
-      } else {
-        // Queue update for sync
-        await this.indexedDb.addPendingRequest({
-          type: 'UPDATE',
-          endpoint: `/api/caspio-proxy${endpoint}`,
-          method: 'PUT',
-          data: visualData,
-          dependencies: [],
-          status: 'pending',
-          priority: 'normal',
-        });
+        // Try to update pending CREATE request first
+        const updated = await this.indexedDb.updatePendingRequestData(visualId, visualData);
+
+        if (!updated) {
+          // No pending request found - the CREATE has already synced
+          // Look up the real ID and create an UPDATE request instead
+          const realId = await this.indexedDb.getRealId(visualId);
+          if (realId) {
+            console.log(`[TemplateDataAdapter] Temp ID ${visualId} already synced, using real ID ${realId} for UPDATE`);
+            effectiveId = realId;
+            // Fall through to create UPDATE request with real ID
+          } else {
+            console.warn(`[TemplateDataAdapter] No pending request and no real ID mapping for ${visualId}`);
+            // Still try to create an update with temp ID - it might work if mapping exists server-side
+          }
+        } else {
+          // Successfully updated pending CREATE request - we're done
+          console.log(`[TemplateDataAdapter] Updated pending CREATE request for ${visualId}`);
+
+          // Update local cache
+          if (serviceId) {
+            const existingRecords = await this.indexedDb.getCachedServiceData(serviceId, this.getCacheType(config)) || [];
+            const updatedRecords = existingRecords.map((r: any) => {
+              const recordId = r[config.idFieldName] || r.PK_ID;
+              if (String(recordId) === String(visualId)) {
+                return { ...r, ...visualData, _localUpdate: true };
+              }
+              return r;
+            });
+            await this.indexedDb.cacheServiceData(serviceId, this.getCacheType(config), updatedRecords);
+          }
+
+          return { success: true, [config.idFieldName]: visualId, ...visualData };
+        }
       }
+
+      // Queue UPDATE request (for real IDs or temp IDs that have already synced)
+      const endpoint = `/tables/${config.tableName}/records?q.where=${config.idFieldName}=${effectiveId}`;
+      await this.indexedDb.addPendingRequest({
+        type: 'UPDATE',
+        endpoint: `/api/caspio-proxy${endpoint}`,
+        method: 'PUT',
+        data: visualData,
+        dependencies: [],
+        status: 'pending',
+        priority: 'normal',
+      });
+      console.log(`[TemplateDataAdapter] Queued UPDATE request for ${effectiveId}`);
 
       // Update local cache
       if (serviceId) {
         const existingRecords = await this.indexedDb.getCachedServiceData(serviceId, this.getCacheType(config)) || [];
         const updatedRecords = existingRecords.map((r: any) => {
           const recordId = r[config.idFieldName] || r.PK_ID;
-          if (String(recordId) === String(visualId)) {
+          // Match both temp and real IDs
+          if (String(recordId) === String(visualId) || String(recordId) === String(effectiveId)) {
             return { ...r, ...visualData, _localUpdate: true };
           }
           return r;
@@ -319,7 +354,7 @@ export class TemplateDataAdapter {
         await this.indexedDb.cacheServiceData(serviceId, this.getCacheType(config), updatedRecords);
       }
 
-      return { success: true, [config.idFieldName]: visualId, ...visualData };
+      return { success: true, [config.idFieldName]: effectiveId, ...visualData };
     }
   }
 

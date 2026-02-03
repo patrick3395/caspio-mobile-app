@@ -2472,6 +2472,12 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
   togglePhotoExpansion(category: string, itemId: string | number): void {
     const key = `${category}_${itemId}`;
+
+    // Don't expand if there are no photos
+    if (this.getTotalPhotoCount(category, itemId) === 0) {
+      return;
+    }
+
     this.expandedPhotos[key] = !this.expandedPhotos[key];
 
     if (this.expandedPhotos[key] && !this.visualPhotos[key]) {

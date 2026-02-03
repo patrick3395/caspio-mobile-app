@@ -281,6 +281,7 @@
       <span>Gallery</span>
     </button>
     <button class="action-btn secondary"
+            [disabled]="getTotalPhotoCount(categoryName, getItemLookupId(item)) === 0"
             (click)="togglePhotoExpansion(categoryName, getItemLookupId(item)); $event.stopPropagation()">
       <ion-icon [name]="isPhotosExpanded(categoryName, getItemLookupId(item)) ? 'chevron-up' : 'eye'"></ion-icon>
       <span>View ({{ getTotalPhotoCount(categoryName, getItemLookupId(item)) }})</span>

@@ -1175,9 +1175,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         if (this.isValidVisualId(this.visualId)) {
           await this.dataAdapter.updateVisualWithConfig(this.config!, this.visualId, caspioUpdate, this.serviceId);
           console.log('[GenericVisualDetail] MOBILE: Queued sync for:', this.visualId);
-          alert(`DEBUG SAVE: Queued sync\nvisualId: ${this.visualId}\nData: ${JSON.stringify(caspioUpdate)}`);
-        } else {
-          alert(`DEBUG SAVE: visualId NOT valid!\nvisualId: "${this.visualId}"\nisValidVisualId: ${this.isValidVisualId(this.visualId)}`);
         }
       }
 
