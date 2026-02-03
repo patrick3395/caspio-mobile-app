@@ -38,19 +38,19 @@ export class FastImageUploadService {
   private uploads$ = new Subject<UploadProgress>();
   private activeUploads = new Map<string, UploadProgress>();
 
-  // Balanced compression settings for camera photos - improved quality
+  // Quality-focused compression - prioritize resolution over file size
   private readonly CAMERA_PHOTO_OPTIONS = {
-    maxSizeMB: 0.75,         // Target 750KB for better quality
-    maxWidthOrHeight: 1280,  // Consistent with other services
+    maxSizeMB: 2.0,          // Allow up to 2MB to preserve resolution
+    maxWidthOrHeight: 1920,  // Full HD resolution
     useWebWorker: true,      // Don't block UI
     fileType: 'image/jpeg',
-    quality: 0.82            // Improved quality setting
+    quality: 0.80            // Good quality balance
   };
 
   // Lighter compression for already-small images
   private readonly SMALL_IMAGE_OPTIONS = {
-    maxSizeMB: 0.85,         // Slightly higher for small images
-    maxWidthOrHeight: 1280,  // Consistent with other services
+    maxSizeMB: 2.0,          // Allow larger files
+    maxWidthOrHeight: 1920,  // Full HD resolution
     useWebWorker: true,
     fileType: 'image/jpeg',
     quality: 0.85            // Higher quality for already-small images

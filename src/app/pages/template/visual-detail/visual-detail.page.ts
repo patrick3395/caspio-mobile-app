@@ -273,7 +273,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
   private async loadVisualData() {
     if (!this.config) {
-      alert('DEBUG: loadVisualData - config is NULL!');
       console.error('[GenericVisualDetail] No config loaded - cannot load data');
       this.loading = false;
       return;
@@ -283,9 +282,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     // loadVisualDataMobile() will set loading=false AFTER item is set
     // This prevents the "Visual item not found" flash
     this.loading = true;
-
-    // DEBUG ALERT: Entry point
-    alert(`DEBUG: loadVisualData\n\nTemplate: ${this.config.id}\nServiceId: ${this.serviceId}\nTemplateId: ${this.templateId}\nVisualId: ${this.visualId || '(none)'}\n\nPath: ${environment.isWeb ? 'WEBAPP (API)' : 'MOBILE (Dexie)'}`);
 
     console.log('[GenericVisualDetail] ========== loadVisualData START ==========');
     console.log('[GenericVisualDetail] Template:', this.config.id);
@@ -377,13 +373,9 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
    */
   private async loadVisualDataMobile() {
     if (!this.config) {
-      alert('DEBUG: loadVisualDataMobile - config is NULL!');
       console.error('[GenericVisualDetail] loadVisualDataMobile: config is null!');
       return;
     }
-
-    // DEBUG ALERT: Confirm method is being called
-    alert(`DEBUG: loadVisualDataMobile START\n\nTemplate: ${this.config.id}\nServiceId: ${this.serviceId}\nTemplateId: ${this.templateId}`);
 
     try {
       // ========================================
@@ -397,9 +389,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
       // Guard after async
       if (this.isDestroyed) return;
-
-      // DEBUG ALERT: Show what we found in Dexie
-      alert(`DEBUG: Dexie Query Results\n\nTable: db.${this.config.id}Fields\nTotal fields for service: ${allFields.length}\nField found for templateId ${this.templateId}: ${field ? 'YES' : 'NO'}\n\n${field ? `Field keys: ${Object.keys(field).join(', ')}` : 'No field - will use template fallback'}`);
 
       console.log('[GenericVisualDetail] DEXIE-FIRST: Field found:', !!field, 'templateId:', this.templateId,
         'allFields count:', allFields.length, 'config:', this.config?.id);
@@ -416,35 +405,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           'tempId:', tempId, 'realId:', realId,
           'field.tempHudId:', field.tempHudId, 'field.hudId:', field.hudId,
           'field.tempVisualId:', field.tempVisualId, 'field.visualId:', field.visualId);
-
-        // DEBUG ALERT: Show where Name/Text come from and photo lookup keys
-        const debugInfo = [
-          `=== DEBUG: ${this.config?.id?.toUpperCase()} VISUAL-DETAIL ===`,
-          ``,
-          `--- DATA SOURCE (Dexie ${this.config?.id}Fields table) ---`,
-          `Table: db.${this.config?.id}Fields`,
-          `ServiceId: ${this.serviceId}`,
-          `TemplateId: ${this.templateId}`,
-          ``,
-          `--- FIELD VALUES ---`,
-          `templateName: "${field.templateName || '(empty)'}"`,
-          `templateText: "${(field.templateText || '(empty)').substring(0, 50)}..."`,
-          `category: "${field.category || '(empty)'}"`,
-          ``,
-          `--- ID FIELDS (for photo lookup) ---`,
-          `tempHudId: ${field.tempHudId || '(null)'}`,
-          `hudId: ${field.hudId || '(null)'}`,
-          `tempVisualId: ${field.tempVisualId || '(null)'}`,
-          `visualId: ${field.visualId || '(null)'}`,
-          `tempLbwId: ${field.tempLbwId || '(null)'}`,
-          `lbwId: ${field.lbwId || '(null)'}`,
-          ``,
-          `--- EXTRACTED IDs ---`,
-          `getTempIdFromField(): "${tempId || '(empty)'}"`,
-          `getRealIdFromField(): "${realId || '(empty)'}"`,
-          `Final visualId for photos: "${this.visualId || '(empty)'}"`
-        ].join('\n');
-        alert(debugInfo);
 
         // Create item from Dexie field data (NOT from template - that's stale!)
         this.item = this.convertGenericFieldToItem(field);
@@ -478,9 +438,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       // Guard after async
       if (this.isDestroyed) return;
 
-      // DEBUG ALERT: Fallback path - no field in Dexie
-      alert(`DEBUG: FALLBACK PATH (no field in Dexie)\n\nLooking in template cache: ${cacheKey}\nCached templates count: ${cachedTemplates.length}\nTemplate found for ID ${this.templateId}: ${template ? 'YES' : 'NO'}\n\n${template ? `Name: ${template.Name}` : 'No template found - using minimal item'}`);
-
       if (template) {
         this.item = this.convertTemplateToItem(template);
         this.editableTitle = this.item.name;
@@ -503,8 +460,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       this.subscribeToVisualFieldChanges();
 
     } catch (error: any) {
-      // DEBUG ALERT: Error occurred
-      alert(`DEBUG: ERROR in loadVisualDataMobile!\n\n${error?.message || error}`);
       console.error('[GenericVisualDetail] MOBILE: Error loading from Dexie:', error);
       // Create minimal item so page doesn't show "not found"
       this.item = this.createMinimalItem();
@@ -977,198 +932,184 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       return;
     }
 
-    console.log('[GenericVisualDetail] MOBILE: Loading photos - visualId:', this.visualId,
-      'tempId:', tempId, 'realId:', realId);
-
     // ========================================
-    // DEXIE-FIRST PHOTO LOOKUP: Try all possible IDs in parallel for speed
-    // Photos may be stored with tempId OR realId depending on when they were added
+    // OPTIMIZED PHOTO LOOKUP: Gather ALL possible IDs upfront, then search once
+    // This matches EFE pattern - fast, single-pass lookup
     // ========================================
-    let localImages: any[] = [];
-    let foundWithId = '';
-
-    // Collect all IDs to search (de-duplicated)
     const idsToSearch = new Set<string>();
-    if (realId) idsToSearch.add(String(realId));  // Real ID first - most common
+
+    // Add direct IDs from field
+    if (realId) idsToSearch.add(String(realId));
     if (tempId) idsToSearch.add(String(tempId));
     if (this.visualId && this.visualId !== realId && this.visualId !== tempId) {
       idsToSearch.add(String(this.visualId));
     }
 
-    console.log('[GenericVisualDetail] DEXIE-FIRST: Searching for photos with IDs:', Array.from(idsToSearch));
+    // UPFRONT: Get mapped IDs from tempIdMappings BEFORE searching
+    // This eliminates the slow fallback tier
+    if (tempId) {
+      const mappedRealId = await this.indexedDb.getRealId(tempId);
+      if (mappedRealId) idsToSearch.add(String(mappedRealId));
+    }
+    if (realId) {
+      const mappedTempId = await this.indexedDb.getTempId(String(realId));
+      if (mappedTempId) idsToSearch.add(String(mappedTempId));
+    }
 
-    // Search all IDs (check realId first since synced photos use realId)
+    console.log('[GenericVisualDetail] OPTIMIZED: Searching for photos with ALL IDs:', Array.from(idsToSearch));
+
+    // Single-pass search with all possible IDs
+    let localImages: any[] = [];
+    let foundWithId = '';
+
     for (const searchId of idsToSearch) {
       if (localImages.length > 0) break;
       localImages = await db.localImages.where('entityId').equals(searchId).toArray();
       if (localImages.length > 0) {
         foundWithId = searchId;
-        console.log('[GenericVisualDetail] DEXIE-FIRST: Found', localImages.length, 'photos with entityId:', searchId);
-      }
-    }
-
-    // TIER 2: Check tempIdMappings if still not found
-    if (localImages.length === 0 && tempId) {
-      const mappedRealId = await this.indexedDb.getRealId(tempId);
-      if (mappedRealId && !idsToSearch.has(mappedRealId)) {
-        localImages = await db.localImages.where('entityId').equals(mappedRealId).toArray();
-        if (localImages.length > 0) {
-          foundWithId = `mapped:${mappedRealId}`;
-          console.log('[GenericVisualDetail] DEXIE-FIRST: Found', localImages.length, 'photos via tempIdMapping:', mappedRealId);
-        }
-      }
-    }
-
-    // TIER 3: Reverse lookup if we have realId but not tempId
-    if (localImages.length === 0 && realId) {
-      const reverseTempId = await this.indexedDb.getTempId(String(realId));
-      if (reverseTempId && !idsToSearch.has(reverseTempId)) {
-        localImages = await db.localImages.where('entityId').equals(reverseTempId).toArray();
-        if (localImages.length > 0) {
-          foundWithId = `reverse:${reverseTempId}`;
-          console.log('[GenericVisualDetail] DEXIE-FIRST: Found', localImages.length, 'photos via reverse lookup:', reverseTempId);
-        }
+        console.log('[GenericVisualDetail] OPTIMIZED: Found', localImages.length, 'photos with entityId:', searchId);
       }
     }
 
     // Log final result
     if (localImages.length > 0) {
-      console.log('[GenericVisualDetail] DEXIE-FIRST: Total photos:', localImages.length, 'foundWithId:', foundWithId);
+      console.log('[GenericVisualDetail] OPTIMIZED: Total photos:', localImages.length, 'foundWithId:', foundWithId);
     } else {
-      console.log('[GenericVisualDetail] DEXIE-FIRST: No photos found. Searched IDs:', Array.from(idsToSearch));
+      console.log('[GenericVisualDetail] OPTIMIZED: No photos found. Searched IDs:', Array.from(idsToSearch));
     }
-
-    // DEBUG: Get ALL photos for this service to see what entityIds exist
-    const allPhotosForService = await db.localImages.where('serviceId').equals(this.serviceId).toArray();
-    const uniqueEntityIds = [...new Set(allPhotosForService.map(p => p.entityId))];
-
-    // DEBUG ALERT: Show photo search results
-    const photoDebugInfo = [
-      `=== DEBUG: PHOTO LOOKUP RESULTS ===`,
-      ``,
-      `--- SEARCH PARAMETERS ---`,
-      `Template: ${this.config?.id?.toUpperCase()}`,
-      `tempId: "${tempId || '(empty)'}"`,
-      `realId: "${realId || '(empty)'}"`,
-      `visualId: "${this.visualId || '(empty)'}"`,
-      ``,
-      `--- IDs SEARCHED ---`,
-      `${Array.from(idsToSearch).map(id => `• "${id}"`).join('\n') || '(no IDs to search)'}`,
-      ``,
-      `--- RESULTS ---`,
-      `Photos found: ${localImages.length}`,
-      `Found with ID: "${foundWithId || '(none)'}"`,
-      ``,
-      `--- ALL PHOTOS IN SERVICE ${this.serviceId} ---`,
-      `Total photos: ${allPhotosForService.length}`,
-      `Unique entityIds: ${uniqueEntityIds.length}`,
-      uniqueEntityIds.slice(0, 10).map(id => `• "${id}"`).join('\n') || '(no photos)',
-      uniqueEntityIds.length > 10 ? `... and ${uniqueEntityIds.length - 10} more` : '',
-      ``,
-      `--- MATCH CHECK ---`,
-      `Does any photo entityId match our tempId? ${uniqueEntityIds.includes(tempId) ? 'YES' : 'NO'}`,
-      `Does any photo entityId match our realId? ${uniqueEntityIds.includes(realId) ? 'YES' : 'NO'}`
-    ].join('\n');
-    alert(photoDebugInfo);
 
     // Guard after async operations
     if (this.isDestroyed) return;
 
-    // Convert to PhotoItem format (matches EFE pattern exactly)
-    this.photos = [];
+    // ========================================
+    // OPTIMIZED PHOTO DISPLAY: Show photos immediately, load blobs in parallel
+    // This matches EFE pattern for instant photo display
+    // ========================================
 
-    for (const img of localImages) {
-      // Check if image has annotations
+    // STEP 1: Create PhotoItems immediately with placeholder/cached URLs
+    this.photos = localImages.map(img => {
       const hasAnnotations = !!(img.drawings && img.drawings.length > 10);
 
-      // Get the blob data if available
+      // Check memory cache first (instant)
       let displayUrl = 'assets/img/photo-placeholder.svg';
-      let originalUrl = displayUrl;
-
-      // ANNOTATION THUMBNAIL FIX: Check multiple IDs for cached annotated image
-      // Annotations may be cached under imageId or attachId after sync
       const possibleIds = [img.imageId, img.attachId].filter(id => id);
-      let foundCachedAnnotated = false;
-
       for (const checkId of possibleIds) {
-        // First check in-memory map (fastest)
         const memCached = this.bulkAnnotatedImagesMap.get(String(checkId));
         if (memCached) {
           displayUrl = memCached;
-          foundCachedAnnotated = true;
-          console.log('[GenericVisualDetail] Using memory-cached annotated image for:', checkId);
           break;
         }
-
-        // Then check IndexedDB if image has annotations
-        if (hasAnnotations && !foundCachedAnnotated) {
-          const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(String(checkId));
-          if (cachedAnnotated) {
-            displayUrl = cachedAnnotated;
-            foundCachedAnnotated = true;
-            // Also store in memory map for faster future lookups
-            this.bulkAnnotatedImagesMap.set(String(checkId), cachedAnnotated);
-            console.log('[GenericVisualDetail] Using IndexedDB-cached annotated image for:', checkId);
-            break;
-          }
-        }
       }
 
-      // Get original blob URL
-      if (img.localBlobId) {
-        const blob = await db.localBlobs.get(img.localBlobId);
-        if (blob) {
-          const blobObj = new Blob([blob.data], { type: blob.contentType });
-          originalUrl = URL.createObjectURL(blobObj);
-          // If no cached annotated image, use original
-          if (!foundCachedAnnotated) {
-            displayUrl = originalUrl;
-          }
-        }
-      } else if (img.remoteUrl) {
-        originalUrl = img.remoteUrl;
-        if (!foundCachedAnnotated) {
-          displayUrl = img.remoteUrl;
-        }
+      // Use remote URL if available (no await needed)
+      if (displayUrl === 'assets/img/photo-placeholder.svg' && img.remoteUrl) {
+        displayUrl = img.remoteUrl;
       }
 
-      // ANNOTATION THUMBNAIL FIX: If we have drawings but no cached image, render annotations
-      if (hasAnnotations && !foundCachedAnnotated && originalUrl !== 'assets/img/photo-placeholder.svg') {
+      return {
+        id: img.imageId,
+        displayUrl,
+        originalUrl: img.remoteUrl || displayUrl,
+        caption: img.caption || '',
+        uploading: img.status === 'queued' || img.status === 'uploading',
+        loading: !img.remoteUrl && !!img.localBlobId, // Mark as loading if needs blob fetch
+        isLocal: !img.isSynced,
+        hasAnnotations,
+        drawings: img.drawings || '',
+        rawDrawingsString: img.drawings || '',
+        Drawings: img.drawings || '',
+        imageId: img.imageId,
+        attachId: img.attachId || undefined,
+        _localBlobId: img.localBlobId // Store for async loading
+      } as PhotoItem & { _localBlobId?: number };
+    });
+
+    console.log('[GenericVisualDetail] MOBILE: Showing', this.photos.length, 'photos immediately');
+
+    // STEP 2: Trigger UI update immediately so photos show
+    this.safeDetectChanges();
+
+    // STEP 3: Load blob URLs in parallel (background)
+    const loadPromises = this.photos.map(async (photo, index) => {
+      if (this.isDestroyed) return;
+
+      const img = localImages[index];
+      if (!img) return;
+
+      const hasAnnotations = photo.hasAnnotations;
+      let displayUrl = photo.displayUrl;
+      let originalUrl = photo.originalUrl;
+      let needsUpdate = false;
+
+      // Load from local blob if needed
+      if (img.localBlobId && displayUrl === 'assets/img/photo-placeholder.svg') {
         try {
-          console.log('[GenericVisualDetail] Rendering annotations on the fly for:', img.imageId);
+          const blob = await db.localBlobs.get(img.localBlobId);
+          if (blob && !this.isDestroyed) {
+            const blobObj = new Blob([blob.data], { type: blob.contentType });
+            originalUrl = URL.createObjectURL(blobObj);
+            displayUrl = originalUrl;
+            needsUpdate = true;
+          }
+        } catch (e) {
+          console.warn('[GenericVisualDetail] Failed to load blob:', e);
+        }
+      }
+
+      // Check IndexedDB for cached annotated image
+      if (hasAnnotations && !this.bulkAnnotatedImagesMap.has(String(img.imageId))) {
+        const possibleIds = [img.imageId, img.attachId].filter(id => id);
+        for (const checkId of possibleIds) {
+          try {
+            const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(String(checkId));
+            if (cachedAnnotated && !this.isDestroyed) {
+              displayUrl = cachedAnnotated;
+              this.bulkAnnotatedImagesMap.set(String(checkId), cachedAnnotated);
+              needsUpdate = true;
+              break;
+            }
+          } catch (e) {
+            // Ignore cache lookup errors
+          }
+        }
+      }
+
+      // Render annotations if needed (and not already cached)
+      if (hasAnnotations && originalUrl !== 'assets/img/photo-placeholder.svg' &&
+          !this.bulkAnnotatedImagesMap.has(String(img.imageId))) {
+        try {
           const renderedUrl = await renderAnnotationsOnPhoto(originalUrl, img.drawings);
-          if (renderedUrl && renderedUrl !== originalUrl) {
+          if (renderedUrl && renderedUrl !== originalUrl && !this.isDestroyed) {
             displayUrl = renderedUrl;
-            // Cache for future use
             this.bulkAnnotatedImagesMap.set(img.imageId, renderedUrl);
             if (img.attachId) {
               this.bulkAnnotatedImagesMap.set(img.attachId, renderedUrl);
             }
+            needsUpdate = true;
           }
         } catch (renderErr) {
           console.warn('[GenericVisualDetail] Failed to render annotations:', renderErr);
         }
       }
 
-      this.photos.push({
-        id: img.imageId,
-        displayUrl,
-        originalUrl,
-        caption: img.caption || '',
-        uploading: img.status === 'queued' || img.status === 'uploading',
-        isLocal: !img.isSynced,
-        hasAnnotations,
-        // Store drawings in MULTIPLE fields (matches EFE pattern)
-        drawings: img.drawings || '',
-        rawDrawingsString: img.drawings || '',
-        Drawings: img.drawings || '',
-        // Store all IDs for cache lookup
-        imageId: img.imageId,
-        attachId: img.attachId || undefined
-      });
-    }
+      // Update photo in array if changed
+      if (needsUpdate && !this.isDestroyed) {
+        this.photos[index] = {
+          ...this.photos[index],
+          displayUrl,
+          originalUrl,
+          loading: false
+        };
+      }
+    });
 
-    console.log('[GenericVisualDetail] MOBILE: Loaded', this.photos.length, 'photos from Dexie');
+    // Wait for all to complete, then update UI once
+    await Promise.all(loadPromises);
+
+    if (!this.isDestroyed) {
+      this.safeDetectChanges();
+      console.log('[GenericVisualDetail] MOBILE: Finished loading all photo blobs');
+    }
   }
 
   // ===== SAVE METHODS =====

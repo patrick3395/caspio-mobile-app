@@ -8,14 +8,14 @@ export class ImageCompressionService {
   
   // [PERFORMANCE] WebP format for smaller files and faster encoding
   // WebP is 25-35% smaller than JPEG with BETTER quality, faster encoding
-  // [QUALITY] Medium quality targets: 500KB-1MB, 1280px for better visual quality
+  // [QUALITY] Prioritize resolution - allow larger files to preserve dimensions
   private defaultOptions = {
-    maxSizeMB: 0.75,          // WebP: 750KB target for better quality
-    maxWidthOrHeight: 1280,   // Higher resolution for reports
+    maxSizeMB: 2.0,           // Allow up to 2MB to preserve resolution
+    maxWidthOrHeight: 1920,   // Full HD resolution for quality
     useWebWorker: true,       // Use web worker for better performance
     fileType: 'image/webp',   // WebP: smaller, faster, better than JPEG
-    quality: 0.82,            // Higher quality for better visual results
-    initialQuality: 0.90
+    quality: 0.80,            // Good quality balance
+    initialQuality: 0.85
   };
 
   constructor() {
@@ -109,30 +109,30 @@ export class ImageCompressionService {
     switch (useCase) {
       case 'thumbnail':
         return {
-          maxSizeMB: 0.08,         // 80KB for thumbnails (improved from 50KB)
+          maxSizeMB: 0.15,         // 150KB for thumbnails
           maxWidthOrHeight: 512,   // Good for preview
-          quality: 0.70,           // Improved quality for thumbnails
+          quality: 0.75,           // Good quality for thumbnails
           fileType: 'image/webp'   // WebP instead of JPEG
         };
       case 'documentation':
         return {
-          maxSizeMB: 0.8,          // 800KB for documentation (improved from 400KB)
-          maxWidthOrHeight: 1280,  // High quality
-          quality: 0.85,           // Improved quality
+          maxSizeMB: 2.0,          // 2MB for documentation - prioritize quality
+          maxWidthOrHeight: 1920,  // Full HD
+          quality: 0.85,           // High quality
           fileType: 'image/webp'   // WebP instead of JPEG
         };
       case 'inspection':
         return {
-          maxSizeMB: 0.75,         // 750KB for inspection (improved from 250KB)
-          maxWidthOrHeight: 1280,  // Increased from 1024 for better detail
-          quality: 0.82,           // Improved quality
+          maxSizeMB: 2.0,          // 2MB for inspection - prioritize quality
+          maxWidthOrHeight: 1920,  // Full HD for detail
+          quality: 0.80,           // Good quality
           fileType: 'image/webp'   // WebP instead of JPEG
         };
       case 'profile':
         return {
-          maxSizeMB: 0.15,         // 150KB for profile (improved from 100KB)
+          maxSizeMB: 0.2,          // 200KB for profile
           maxWidthOrHeight: 512,   // Profile size
-          quality: 0.80,           // Improved quality
+          quality: 0.80,           // Good quality
           fileType: 'image/webp'   // WebP instead of JPEG
         };
       default:

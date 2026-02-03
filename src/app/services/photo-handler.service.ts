@@ -646,14 +646,15 @@ export class PhotoHandlerService {
 
   /**
    * Compress an image file with fallback
+   * Prioritizes resolution over file size - allows up to 2MB to preserve quality
    */
   private async compressImage(file: File): Promise<File> {
     try {
       const compressed = await this.imageCompression.compressImage(file, {
-        maxSizeMB: 0.75,           // Match new default compression settings
-        maxWidthOrHeight: 1280,
+        maxSizeMB: 2.0,            // Allow larger files to preserve resolution
+        maxWidthOrHeight: 1920,    // Full HD resolution
         useWebWorker: true,
-        quality: 0.82              // Match new default quality
+        quality: 0.80              // Good quality balance
       });
       return new File([compressed], file.name, { type: 'image/jpeg' });
     } catch (error) {
