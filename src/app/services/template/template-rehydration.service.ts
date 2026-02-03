@@ -316,9 +316,9 @@ export class TemplateRehydrationService {
         if (!entityId) continue;
 
         // Check if LocalImage already exists for this attachment
-        const attachId = attachment.PK_ID || attachment[`${config.idFieldName}AttachID`];
+        const serverAttachId = attachment.PK_ID || attachment[`${config.idFieldName}AttachID`];
         const existingImage = await db.localImages
-          .filter(img => img.remoteAttachId === String(attachId))
+          .filter(img => img.attachId === String(serverAttachId))
           .first();
 
         if (existingImage) {
@@ -343,13 +343,22 @@ export class TemplateRehydrationService {
           localBlobId: null,    // No local blob - will use S3
           thumbBlobId: null,    // No thumbnail - will use S3
           remoteS3Key: s3Key,
-          remoteAttachId: String(attachId),
+          attachId: String(serverAttachId),  // Real AttachID from Caspio
           status: 'verified',   // Already synced to server
+          isSynced: true,       // Already synced
+          remoteUrl: null,      // Will be generated at runtime from S3 key
+          fileName: attachment.Attachment || '',
+          fileSize: 0,
+          contentType: 'image/jpeg',
           caption: attachment.Annotation || '',
-          drawings: attachment.Drawings || null,
-          originalS3Key: attachment.OriginalAttachment || null,
+          drawings: attachment.Drawings || '',
+          photoType: null,
           createdAt: now,
-          updatedAt: now
+          updatedAt: now,
+          lastError: null,
+          localVersion: 1,
+          remoteVerifiedAt: now,  // Assume verified since it came from server
+          remoteLoadedInUI: false // Will be set to true when UI loads it
         });
 
         imagesRestored++;
