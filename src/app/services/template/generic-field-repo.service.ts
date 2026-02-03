@@ -99,8 +99,6 @@ export class GenericFieldRepoService {
 
     console.log(`[GenericFieldRepo] Found ${categoryTemplates.length} templates for category "${category}" (template type: ${config.id})`);
 
-    // DEBUG ALERT for mobile
-    alert(`[SEED] ${config.id}: ${templates.length} total templates → ${categoryTemplates.length} passed filter for category "${category}"`);
 
     if (categoryTemplates.length === 0) {
       console.log('[GenericFieldRepo] No templates to seed for this category');
@@ -196,11 +194,8 @@ export class GenericFieldRepoService {
         await table.bulkAdd(newFields);
       });
       console.log(`[GenericFieldRepo] ✅ Successfully seeded ${newFields.length} new fields to ${config.id}Fields table`);
-      // DEBUG ALERT for mobile
-      alert(`[SEED COMPLETE] ${config.id}: Created ${newFields.length} fields in ${config.id}Fields table`);
     } else {
       console.log(`[GenericFieldRepo] No new fields to seed (all ${categoryTemplates.length} templates already have fields)`);
-      alert(`[SEED] ${config.id}: No new fields created (${skippedCount} already exist)`);
     }
   }
 
@@ -355,6 +350,16 @@ export class GenericFieldRepoService {
   // WRITES
   // ============================================================================
 
+  /**
+   * Set field values in the appropriate template table
+   * Handles template-specific ID field mapping automatically
+   *
+   * @param config - Template configuration
+   * @param serviceId - Service ID
+   * @param category - Category name
+   * @param templateId - Template ID
+   * @param updates - Field updates (can include generic recordId/tempRecordId)
+   */
   async setField(
     config: TemplateConfig,
     serviceId: string,
@@ -371,17 +376,72 @@ export class GenericFieldRepoService {
       return;
     }
 
+    // Map generic recordId/tempRecordId to template-specific field names
+    const mappedUpdates = this.mapRecordIdFields(config, updates);
+
     const now = Date.now();
-    const isDirty = updates.isSelected !== undefined ||
-                    updates.answer !== undefined ||
-                    updates.otherValue !== undefined;
+    const isDirty = mappedUpdates.isSelected !== undefined ||
+                    mappedUpdates.answer !== undefined ||
+                    mappedUpdates.otherValue !== undefined;
 
     await table.update(existing.id!, {
-      ...updates,
+      ...mappedUpdates,
       rev: (existing.rev || 0) + 1,
       updatedAt: now,
       dirty: isDirty ? true : existing.dirty
     });
+  }
+
+  /**
+   * Map generic recordId/tempRecordId to template-specific field names
+   * This allows callers to use generic field names that get converted to:
+   * - EFE: visualId, tempVisualId
+   * - HUD: hudId, tempHudId
+   * - LBW: lbwId, tempLbwId
+   * - DTE: dteId, tempDteId
+   */
+  private mapRecordIdFields(config: TemplateConfig, updates: any): any {
+    const mapped = { ...updates };
+
+    // If caller passed generic recordId, map to template-specific field
+    if ('recordId' in updates) {
+      switch (config.id) {
+        case 'efe':
+          mapped.visualId = updates.recordId;
+          break;
+        case 'hud':
+          mapped.hudId = updates.recordId;
+          break;
+        case 'lbw':
+          mapped.lbwId = updates.recordId;
+          break;
+        case 'dte':
+          mapped.dteId = updates.recordId;
+          break;
+      }
+      delete mapped.recordId;
+    }
+
+    // If caller passed generic tempRecordId, map to template-specific field
+    if ('tempRecordId' in updates) {
+      switch (config.id) {
+        case 'efe':
+          mapped.tempVisualId = updates.tempRecordId;
+          break;
+        case 'hud':
+          mapped.tempHudId = updates.tempRecordId;
+          break;
+        case 'lbw':
+          mapped.tempLbwId = updates.tempRecordId;
+          break;
+        case 'dte':
+          mapped.tempDteId = updates.tempRecordId;
+          break;
+      }
+      delete mapped.tempRecordId;
+    }
+
+    return mapped;
   }
 
   // ============================================================================

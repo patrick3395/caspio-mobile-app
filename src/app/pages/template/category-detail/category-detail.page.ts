@@ -387,8 +387,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     const isDexieFirstEnabled = this.genericFieldRepo.isDexieFirstEnabled(this.config);
 
     if (isDexieFirstEnabled) {
-      // DEBUG ALERT for mobile
-      alert(`[INIT] Starting Dexie-first for ${this.config.id}, serviceId=${this.serviceId}, category=${this.categoryName}`);
 
       // STEP 1: Ensure TEMPLATES are loaded (via offlineTemplate service)
       // This is critical - templates must be cached before we can seed fields
@@ -406,8 +404,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         this.categoryName
       );
 
-      // DEBUG ALERT for mobile
-      alert(`[CHECK] ${this.config.id}: hasFields=${hasFields} for [${this.serviceId}, ${this.categoryName}]`);
 
       if (!hasFields) {
         this.logDebug('DEXIE', `No fields found for ${this.config.id}, seeding from templates...`);
@@ -419,12 +415,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         const templates = await this.indexedDb.getCachedTemplates(templateCacheKey as any) || [];
         this.logDebug('DEXIE', `Found ${templates.length} templates in cache for key "${templateCacheKey}"`);
 
-        // DEBUG ALERT for mobile
-        alert(`[DEBUG] ${this.config.id}: Found ${templates.length} templates in cache (key: ${templateCacheKey}), category: ${this.categoryName}`);
 
         if (templates.length === 0) {
           this.logDebug('WARN', 'No templates in cache after ensureTemplatesReady, falling back to loadData()');
-          alert(`[DEBUG] ${this.config.id}: No templates in cache! Falling back to loadData()`);
           await this.loadData();
           console.timeEnd('[GenericCategoryDetail] initializeVisualFields');
           return;
@@ -478,10 +471,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       this.visualFieldsSubscription = fields$.subscribe({
         next: async (fields: any[]) => {
           this.logDebug('DEXIE', `Received ${fields.length} fields from liveQuery for ${this.config!.id}`);
-          // DEBUG ALERT for mobile (only first time or when count changes significantly)
-          if (!this.initialLoadComplete) {
-            alert(`[LIVEQUERY] ${this.config!.id}: Received ${fields.length} fields from Dexie for category "${this.categoryName}"`);
-          }
 
           // Convert to organized data using unified method
           this.convertGenericFieldsToOrganizedData(fields);
@@ -767,13 +756,13 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           const mappedRealId = await this.indexedDb.getRealId(tempId);
           if (mappedRealId) {
             localImages = localImagesMap.get(mappedRealId) || [];
-            // Update VisualField with the real ID
-            if (localImages.length > 0 && field.templateId) {
-              this.visualFieldRepo.setField(this.serviceId, this.categoryName, field.templateId, {
-                visualId: mappedRealId,
-                tempVisualId: null
+            // Update field with the real ID using GENERIC field repo
+            if (localImages.length > 0 && field.templateId && this.config) {
+              this.genericFieldRepo.setField(this.config, this.serviceId, this.categoryName, field.templateId, {
+                recordId: mappedRealId,
+                tempRecordId: null
               }).catch(err => {
-                this.logDebug('ERROR', `Failed to update VisualField with mapped realId: ${err}`);
+                this.logDebug('ERROR', `Failed to update field with mapped realId: ${err}`);
               });
             }
           }
@@ -922,9 +911,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         // Update photo count
         this.photoCountsByKey[key] = this.visualPhotos[key].length;
 
-        // Persist photo count to Dexie
-        if (field.templateId) {
-          this.visualFieldRepo.setField(this.serviceId, field.category, field.templateId, {
+        // Persist photo count to Dexie using GENERIC field repo
+        if (field.templateId && this.config) {
+          this.genericFieldRepo.setField(this.config, this.serviceId, field.category, field.templateId, {
             photoCount: this.visualPhotos[key].length
           }).catch(err => {
             this.logDebug('WARN', `Failed to save photoCount: ${err}`);
@@ -1000,13 +989,13 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           const mappedRealId = await this.indexedDb.getRealId(tempId);
           if (mappedRealId) {
             localImages = localImagesMap.get(mappedRealId) || [];
-            // Update HudField with the real ID
-            if (localImages.length > 0 && field.templateId) {
-              this.hudFieldRepo.setField(this.serviceId, this.categoryName, field.templateId, {
-                hudId: mappedRealId,
-                tempHudId: null
+            // Update field with the real ID using GENERIC field repo
+            if (localImages.length > 0 && field.templateId && this.config) {
+              this.genericFieldRepo.setField(this.config, this.serviceId, this.categoryName, field.templateId, {
+                recordId: mappedRealId,
+                tempRecordId: null
               }).catch(err => {
-                this.logDebug('ERROR', `Failed to update HudField with mapped realId: ${err}`);
+                this.logDebug('ERROR', `Failed to update field with mapped realId: ${err}`);
               });
             }
           }
@@ -1146,9 +1135,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         // Update photo count
         this.photoCountsByKey[key] = this.visualPhotos[key].length;
 
-        // Persist photo count to Dexie
-        if (field.templateId) {
-          this.hudFieldRepo.setField(this.serviceId, field.category, field.templateId, {
+        // Persist photo count to Dexie using GENERIC field repo
+        if (field.templateId && this.config) {
+          this.genericFieldRepo.setField(this.config, this.serviceId, field.category, field.templateId, {
             photoCount: this.visualPhotos[key].length
           }).catch(err => {
             this.logDebug('WARN', `Failed to save photoCount: ${err}`);
@@ -2077,17 +2066,18 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     const newState = !this.selectedItems[key];
     this.selectedItems[key] = newState;
 
-    this.logDebug('SELECT', `Item ${key} selection: ${newState}`);
+    this.logDebug('SELECT', `Item ${key} selection: ${newState} (template: ${this.config?.id})`);
 
-    // DEXIE-FIRST (MOBILE): Persist selection state to Dexie
+    // DEXIE-FIRST (MOBILE): Persist selection state to Dexie using GENERIC field repo
+    // This routes to the correct table (visualFields, hudFields, lbwFields, dteFields) based on config
     if (!environment.isWeb && this.config?.features.offlineFirst) {
       const templateId = typeof itemId === 'number' ? itemId : parseInt(String(itemId), 10);
       if (!isNaN(templateId)) {
         try {
-          await this.visualFieldRepo.setField(this.serviceId, category, templateId, {
+          await this.genericFieldRepo.setField(this.config, this.serviceId, category, templateId, {
             isSelected: newState
           });
-          this.logDebug('SELECT', `Persisted isSelected to Dexie: ${newState}`);
+          this.logDebug('SELECT', `Persisted isSelected to Dexie (${this.config.id}Fields): ${newState}`);
         } catch (err) {
           this.logDebug('ERROR', `Failed to write selection to Dexie: ${err}`);
         }
@@ -2101,15 +2091,15 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         // Create visual record
         const createdId = await this.ensureVisualRecordExists(category, itemId);
         if (createdId) {
-          // Update Dexie with the visual ID
+          // Update Dexie with the record ID using GENERIC field repo
           if (!environment.isWeb && this.config?.features.offlineFirst) {
             const templateId = typeof itemId === 'number' ? itemId : parseInt(String(itemId), 10);
             if (!isNaN(templateId)) {
               const isTempId = createdId.startsWith('temp_');
-              await this.visualFieldRepo.setField(this.serviceId, category, templateId, {
-                visualId: isTempId ? null : createdId,
-                tempVisualId: isTempId ? createdId : null
-              }).catch(err => this.logDebug('ERROR', `Failed to update visualId: ${err}`));
+              // GenericFieldRepo.setField handles template-specific ID field names internally
+              await this.genericFieldRepo.setField(this.config, this.serviceId, category, templateId, {
+                // Note: setField will use config to determine correct ID field (visualId, hudId, etc.)
+              }).catch(err => this.logDebug('ERROR', `Failed to update recordId: ${err}`));
             }
           }
         }
@@ -2138,13 +2128,13 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       const isSelected = !!(item.answer && item.answer.trim() !== '');
       this.selectedItems[key] = isSelected;
 
-      // DEXIE-FIRST (MOBILE): Persist answer and selection to Dexie
+      // DEXIE-FIRST (MOBILE): Persist answer and selection to Dexie using GENERIC field repo
       if (!environment.isWeb && this.config?.features.offlineFirst) {
-        await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+        await this.genericFieldRepo.setField(this.config, this.serviceId, category, item.templateId, {
           answer: item.answer || '',
           isSelected: isSelected
         });
-        this.logDebug('ANSWER', `Persisted answer to Dexie`);
+        this.logDebug('ANSWER', `Persisted answer to Dexie (${this.config.id}Fields)`);
       }
 
       // Save to backend if we have a visual record
@@ -2292,17 +2282,18 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     const key = `${this.categoryName}_${itemId}`;
     let visualId = this.visualRecordIds[key];
 
-    // DEXIE-FIRST (MOBILE): Always persist to Dexie first
+    // DEXIE-FIRST (MOBILE): Always persist to Dexie first using GENERIC field repo
+    // This routes to the correct table (visualFields, hudFields, lbwFields, dteFields) based on config
     if (!environment.isWeb && this.config.features.offlineFirst) {
       const templateId = item.templateId;
       if (templateId) {
         try {
-          await this.visualFieldRepo.setField(this.serviceId, this.categoryName, templateId, {
+          await this.genericFieldRepo.setField(this.config, this.serviceId, this.categoryName, templateId, {
             answer: item.answer || '',
             isSelected: isSelected,
             otherValue: item.otherValue || ''
           });
-          this.logDebug('SAVE', `Persisted multi-select to Dexie: ${item.answer}`);
+          this.logDebug('SAVE', `Persisted multi-select to Dexie (${this.config.id}Fields): ${item.answer}`);
         } catch (err) {
           this.logDebug('ERROR', `Failed to write multi-select to Dexie: ${err}`);
         }
@@ -3197,19 +3188,21 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         this.logDebug('VISUAL', `Created visual record: ${visualId}`);
 
         // DEXIE-FIRST (MOBILE): Persist to Dexie when visual record is created
+        // Uses GENERIC field repo which maps recordId to template-specific field names
         if (!environment.isWeb && this.config?.features.offlineFirst) {
           const templateId = typeof itemId === 'number' ? itemId : parseInt(String(itemId), 10);
           if (!isNaN(templateId)) {
             const isTempId = String(visualId).startsWith('temp_');
             try {
-              await this.visualFieldRepo.setField(this.serviceId, category, templateId, {
+              // Use generic recordId/tempRecordId - gets mapped to visualId/hudId/lbwId/dteId
+              await this.genericFieldRepo.setField(this.config, this.serviceId, category, templateId, {
                 isSelected: true,
-                visualId: isTempId ? null : String(visualId),
-                tempVisualId: isTempId ? String(visualId) : null
+                recordId: isTempId ? null : String(visualId),
+                tempRecordId: isTempId ? String(visualId) : null
               });
-              this.logDebug('VISUAL', `Persisted visual to Dexie: ${visualId}`);
+              this.logDebug('VISUAL', `Persisted record to Dexie (${this.config.id}Fields): ${visualId}`);
             } catch (err) {
-              this.logDebug('ERROR', `Failed to persist visual to Dexie: ${err}`);
+              this.logDebug('ERROR', `Failed to persist record to Dexie: ${err}`);
             }
           }
         }
@@ -3383,17 +3376,18 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
       this.logDebug('CUSTOM', `Stored visualId in visualRecordIds: ${key} = ${visualId}`);
 
-      // DEXIE-FIRST (MOBILE): Persist custom visual to Dexie
+      // DEXIE-FIRST (MOBILE): Persist custom visual to Dexie using GENERIC field repo
       if (!environment.isWeb && this.config.features.offlineFirst) {
         // Use a negative templateId for custom visuals (to avoid collision with real templates)
         const customTemplateId = -Math.abs(parseInt(visualId, 10) || Date.now());
         const isTempId = visualId.startsWith('temp_');
 
         try {
-          await this.visualFieldRepo.setField(this.serviceId, category, customTemplateId, {
+          // Use generic recordId/tempRecordId - gets mapped to visualId/hudId/lbwId/dteId
+          await this.genericFieldRepo.setField(this.config, this.serviceId, category, customTemplateId, {
             isSelected: true,
-            visualId: isTempId ? null : visualId,
-            tempVisualId: isTempId ? visualId : null,
+            recordId: isTempId ? null : visualId,
+            tempRecordId: isTempId ? visualId : null,
             templateName: name,
             templateText: text,
             kind: kind as 'Comment' | 'Limitation' | 'Deficiency',
@@ -3401,7 +3395,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
             answer: '',
             photoCount: files?.length || 0
           });
-          this.logDebug('CUSTOM', `Persisted custom visual to Dexie: templateId=${customTemplateId}`);
+          this.logDebug('CUSTOM', `Persisted custom visual to Dexie (${this.config.id}Fields): templateId=${customTemplateId}`);
         } catch (err) {
           this.logDebug('ERROR', `Failed to persist custom visual to Dexie: ${err}`);
         }
