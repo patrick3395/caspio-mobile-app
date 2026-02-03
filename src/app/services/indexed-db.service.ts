@@ -3228,12 +3228,18 @@ export class IndexedDbService {
       .toArray();
 
     // Filter out items where image is already uploading (prevents double-sync race condition)
+    // CRITICAL FIX: Include orphaned items (where LocalImage was deleted) so they can be cleaned up
     const readyItems: UploadOutboxItem[] = [];
     for (const item of outboxItems) {
       const image = await db.localImages.get(item.imageId);
-      if (image && image.status !== 'uploading') {
+      if (!image) {
+        // ORPHANED ITEM FIX: LocalImage was deleted but outbox item wasn't
+        // Include it so processUploadOutboxItem can clean it up properly
+        console.log(`[IndexedDB] Including orphaned outbox item ${item.opId} - LocalImage ${item.imageId} not found`);
         readyItems.push(item);
-      } else if (image && image.status === 'uploading') {
+      } else if (image.status !== 'uploading') {
+        readyItems.push(item);
+      } else {
         console.log(`[IndexedDB] Skipping outbox item ${item.opId} - image already uploading`);
       }
     }

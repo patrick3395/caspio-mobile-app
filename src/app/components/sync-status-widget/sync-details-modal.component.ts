@@ -716,7 +716,13 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
               status: localImage.status
             };
           }
-          return null;
+          // ORPHANED ITEM FIX: Include items where LocalImage was deleted
+          // These will be cleaned up on next sync, but show them so user knows what's pending
+          return {
+            ...item,
+            fileName: '(orphaned - will auto-cleanup)',
+            status: 'orphaned'
+          };
         });
         const results = await Promise.all(photoPromises);
         photos = results.filter(p => p !== null);

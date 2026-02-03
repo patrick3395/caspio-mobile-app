@@ -1375,9 +1375,9 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         await this.dataAdapter.deleteAttachment(photo.id);
         console.log('[GenericVisualDetail] WEBAPP: Deleted attachment:', photo.id);
       } else {
-        // Mobile: Delete from IndexedDB
-        await this.indexedDb.deleteLocalImage(photo.id);
-        console.log('[GenericVisualDetail] MOBILE: Deleted from IndexedDB:', photo.id);
+        // Mobile: Delete from LocalImageService (handles blob cleanup, outbox removal, etc.)
+        await this.localImageService.deleteLocalImage(photo.id);
+        console.log('[GenericVisualDetail] MOBILE: Deleted via LocalImageService:', photo.id);
       }
 
       await this.showToast('Photo deleted', 'success');
