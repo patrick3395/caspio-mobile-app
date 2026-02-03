@@ -551,6 +551,129 @@ ion-content {
   }
 }
 
+// Payment Settings Styles
+.collapsible-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: #d4edda;
+  color: #155724;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+
+  ion-icon {
+    font-size: 14px;
+  }
+}
+
+.payment-settings-content {
+  padding: 8px 0;
+}
+
+.payment-setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px 0;
+  border-bottom: 1px solid #f0f0f0;
+
+  &:last-of-type {
+    border-bottom: none;
+  }
+
+  .payment-setting-label {
+    font-weight: 600;
+    color: #333;
+    font-size: 0.95rem;
+    flex-shrink: 0;
+    width: 180px;
+  }
+
+  .payment-setting-value {
+    flex: 1;
+    text-align: right;
+    color: #69635d;
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      font-weight: 500;
+
+      &.active {
+        background: #d4edda;
+        color: #155724;
+      }
+
+      &.inactive {
+        background: #f8f9fa;
+        color: #6c757d;
+      }
+    }
+
+    .saved-payment-method {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+
+      .paypal-icon {
+        font-size: 20px;
+        color: #003087;
+      }
+    }
+
+    .no-payment-method {
+      color: #6c757d;
+      font-style: italic;
+    }
+
+    .payment-hint {
+      font-size: 0.8rem;
+      color: #999;
+      margin-top: 4px;
+      text-align: right;
+    }
+
+    .autopay-last-status {
+      font-size: 0.9rem;
+
+      &.success {
+        color: #155724;
+      }
+
+      &.failed {
+        color: #721c24;
+      }
+    }
+  }
+}
+
+.payment-info-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: #f0f7ff;
+  border-radius: 12px;
+  margin-top: 16px;
+
+  ion-icon {
+    font-size: 24px;
+    color: #007bff;
+    flex-shrink: 0;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #333;
+    line-height: 1.5;
+  }
+}
+
 // Organization Users Grid
 .org-users-grid {
   display: grid;

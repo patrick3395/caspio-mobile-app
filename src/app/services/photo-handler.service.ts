@@ -330,8 +330,11 @@ export class PhotoHandlerService {
   ): Promise<StandardPhotoEntry | null> {
 
     // Memory diagnostics: track before upload
+    const fileSizeKB = (compressedFile.size / 1024).toFixed(0);
     const fileSizeMB = (compressedFile.size / (1024 * 1024)).toFixed(2);
-    const beforeSnapshot = this.memoryDiagnostics.takeSnapshot(`Before Upload (${fileSizeMB}MB)`);
+    console.log(`[PhotoHandler] Processing photo: ${fileSizeMB}MB, type: ${config.entityType}`);
+
+    const beforeSnapshot = this.memoryDiagnostics.takeSnapshot(`Before Upload`);
 
     let result: StandardPhotoEntry | null = null;
 
@@ -360,10 +363,13 @@ export class PhotoHandlerService {
     }
 
     // Memory diagnostics: track after upload and show alert
-    const afterSnapshot = this.memoryDiagnostics.takeSnapshot(`After Upload (${fileSizeMB}MB)`);
-    if (beforeSnapshot && afterSnapshot) {
-      await this.memoryDiagnostics.showMemoryAlert(`Image Upload (${fileSizeMB}MB)`, beforeSnapshot, afterSnapshot);
-    }
+    const afterSnapshot = this.memoryDiagnostics.takeSnapshot(`After Upload`);
+
+    // Show operation alert with file details
+    await this.memoryDiagnostics.showOperationAlert(
+      'Image Upload',
+      `File: ${fileSizeKB} KB | Type: ${config.entityType}`
+    );
 
     return result;
   }

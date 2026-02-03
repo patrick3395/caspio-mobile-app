@@ -576,27 +576,67 @@ export class TemplateDataAdapter {
       return true;
     } else {
       const isTempId = String(attachId).startsWith('temp_') || String(attachId).startsWith('img_');
+      let deletedCount = 0;
+      const attachIdStr = String(attachId);
 
       // MOBILE: Delete from local storage (localImages table)
-      // Try both imageId and attachId since photos can be stored under either
-      try {
-        // Delete by imageId (primary key)
+      // Try multiple lookup methods since photos can be stored under different IDs
+
+      // Method 1: Delete by imageId (primary key)
+      const beforeDelete1 = await db.localImages.get(attachId);
+      if (beforeDelete1) {
         await db.localImages.delete(attachId);
+        deletedCount++;
         console.log('[TemplateDataAdapter] Deleted localImage by imageId:', attachId);
-      } catch (e) {
-        console.log('[TemplateDataAdapter] No localImage found for imageId:', attachId);
       }
 
-      // Also try to find and delete by attachId field (for synced images)
-      try {
-        const byAttachId = await db.localImages.where('attachId').equals(attachId).toArray();
-        for (const img of byAttachId) {
-          await db.localImages.delete(img.imageId);
-          console.log('[TemplateDataAdapter] Deleted localImage by attachId lookup:', img.imageId);
-        }
-      } catch (e) {
-        // Ignore errors if no match found
+      // Method 2: Find and delete by attachId field (for synced images)
+      const byAttachId = await db.localImages.where('attachId').equals(attachId).toArray();
+      for (const img of byAttachId) {
+        await db.localImages.delete(img.imageId);
+        deletedCount++;
+        console.log('[TemplateDataAdapter] Deleted localImage by attachId lookup:', img.imageId);
       }
+
+      // Method 3: Find by entityId (in case the ID is actually an entityId)
+      const byEntityId = await db.localImages.where('entityId').equals(attachId).toArray();
+      for (const img of byEntityId) {
+        await db.localImages.delete(img.imageId);
+        deletedCount++;
+        console.log('[TemplateDataAdapter] Deleted localImage by entityId lookup:', img.imageId);
+      }
+
+      console.log(`[TemplateDataAdapter] Delete from localImages: ${deletedCount} images deleted for ID: ${attachId}`);
+
+      // CRITICAL FIX: Also remove from attachment cache (visual_attachments, hud_attachments, etc.)
+      // Photos are cached in TWO places - localImages AND cachedServiceData attachment caches
+      const cacheType = this.getAttachmentCacheType(config);
+      const allCached = await db.cachedServiceData.toArray();
+      let cacheUpdatedCount = 0;
+
+      for (const cached of allCached) {
+        // Check both by exact dataType match AND by dataType containing the template type
+        const isRelevantCache = cached.dataType === cacheType ||
+          cached.dataType === 'visual_attachments' ||
+          cached.dataType?.includes('attachments');
+
+        if (isRelevantCache && Array.isArray(cached.data)) {
+          const originalLength = cached.data.length;
+          cached.data = cached.data.filter((att: any) =>
+            String(att.AttachID) !== attachIdStr &&
+            String(att.attachId) !== attachIdStr &&
+            String(att.imageId) !== attachIdStr
+          );
+
+          if (cached.data.length < originalLength) {
+            await db.cachedServiceData.put(cached);
+            cacheUpdatedCount++;
+            console.log(`[TemplateDataAdapter] Removed from ${cached.dataType} cache (${cached.cacheKey}): was ${originalLength} now ${cached.data.length}`);
+          }
+        }
+      }
+
+      console.log(`[TemplateDataAdapter] Delete complete: ${deletedCount} localImages + ${cacheUpdatedCount} cache entries updated for ID: ${attachId}`);
 
       // Queue backend delete (unless it's a temp/local-only image)
       if (isTempId) {

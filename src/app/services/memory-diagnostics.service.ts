@@ -23,8 +23,11 @@ interface MemorySnapshot {
 export class MemoryDiagnosticsService {
   private snapshots: MemorySnapshot[] = [];
   private enabled = true; // Toggle to enable/disable alerts
+  private operationCounter = 0; // Track operation count when memory API unavailable
 
-  constructor(private alertController: AlertController) {}
+  constructor(private alertController: AlertController) {
+    console.log('[MemoryDiagnostics] Service initialized');
+  }
 
   /**
    * Get current memory usage in MB
@@ -85,14 +88,19 @@ export class MemoryDiagnosticsService {
   /**
    * Show alert comparing before/after memory snapshots
    */
-  async showMemoryAlert(operationName: string, before: MemorySnapshot, after: MemorySnapshot): Promise<void> {
-    const diff = after.usedHeapMB - before.usedHeapMB;
-    const diffSign = diff >= 0 ? '+' : '';
-    const diffColor = diff > 5 ? 'red' : diff > 1 ? 'orange' : 'green';
+  async showMemoryAlert(operationName: string, before: MemorySnapshot | null, after: MemorySnapshot | null): Promise<void> {
+    if (!this.enabled) return;
 
-    const alert = await this.alertController.create({
-      header: `Memory: ${operationName}`,
-      message: `
+    console.log('[MemoryDiagnostics] Showing memory alert for:', operationName);
+
+    let message = '';
+
+    if (before && after && before.usedHeapMB > 0 && after.usedHeapMB > 0) {
+      const diff = after.usedHeapMB - before.usedHeapMB;
+      const diffSign = diff >= 0 ? '+' : '';
+      const diffColor = diff > 5 ? 'red' : diff > 1 ? 'orange' : 'green';
+
+      message = `
         <div style="text-align: left; font-size: 14px; line-height: 1.8;">
           <p><strong>Before:</strong> ${before.usedHeapMB.toFixed(2)} MB</p>
           <p><strong>After:</strong> ${after.usedHeapMB.toFixed(2)} MB</p>
@@ -101,11 +109,65 @@ export class MemoryDiagnosticsService {
           </p>
           <p><strong>Total Heap:</strong> ${after.totalHeapMB.toFixed(2)} MB</p>
         </div>
-      `,
-      buttons: ['OK']
-    });
+      `;
+    } else {
+      // Memory API not available - show operation completed message
+      message = `
+        <div style="text-align: left; font-size: 14px; line-height: 1.8;">
+          <p><strong>Operation:</strong> ${operationName}</p>
+          <p><strong>Status:</strong> Completed</p>
+          <p style="color: orange;"><em>Memory API not available on this device</em></p>
+        </div>
+      `;
+    }
 
-    await alert.present();
+    try {
+      const alert = await this.alertController.create({
+        header: `Memory: ${operationName}`,
+        message: message,
+        buttons: ['OK']
+      });
+
+      await alert.present();
+      console.log('[MemoryDiagnostics] Alert presented successfully');
+    } catch (err) {
+      console.error('[MemoryDiagnostics] Failed to show alert:', err);
+    }
+  }
+
+  /**
+   * Simple alert to confirm an operation happened (for debugging)
+   * Use this when you just want to verify code is being reached
+   */
+  async showOperationAlert(operationName: string, details: string = ''): Promise<void> {
+    if (!this.enabled) return;
+
+    this.operationCounter++;
+    console.log(`[MemoryDiagnostics] Operation #${this.operationCounter}: ${operationName}`);
+
+    const memory = this.getMemoryUsage();
+    let memoryInfo = 'Memory API not available';
+    if (memory) {
+      memoryInfo = `Used: ${memory.usedHeapMB.toFixed(2)} MB / ${memory.totalHeapMB.toFixed(2)} MB`;
+    }
+
+    try {
+      const alert = await this.alertController.create({
+        header: `Op #${this.operationCounter}: ${operationName}`,
+        message: `
+          <div style="text-align: left; font-size: 14px; line-height: 1.8;">
+            <p><strong>Memory:</strong> ${memoryInfo}</p>
+            ${details ? `<p><strong>Details:</strong> ${details}</p>` : ''}
+            <p><strong>Time:</strong> ${new Date().toLocaleTimeString()}</p>
+          </div>
+        `,
+        buttons: ['OK']
+      });
+
+      await alert.present();
+    } catch (err) {
+      console.error('[MemoryDiagnostics] Failed to show operation alert:', err);
+    }
   }
 
   /**

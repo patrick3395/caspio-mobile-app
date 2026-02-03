@@ -1271,6 +1271,79 @@
           </div>
         </div>
       </div>
+
+      <!-- Payment Settings Collapsible Section -->
+      <div class="collapsible-section">
+        <div class="collapsible-header" (click)="paymentSettingsExpanded = !paymentSettingsExpanded">
+          <div class="collapsible-title">
+            <ion-icon [name]="paymentSettingsExpanded ? 'chevron-down' : 'chevron-forward'"></ion-icon>
+            <h3>Payment Settings</h3>
+            <span class="collapsible-badge" *ngIf="clientCompany?.AutopayEnabled">
+              <ion-icon name="checkmark-circle" color="success"></ion-icon>
+              Autopay Active
+            </span>
+          </div>
+        </div>
+
+        <div class="collapsible-content" [class.expanded]="paymentSettingsExpanded">
+          <div class="payment-settings-content" *ngIf="clientCompany">
+            <!-- Autopay Status -->
+            <div class="payment-setting-row">
+              <div class="payment-setting-label">Autopay Status</div>
+              <div class="payment-setting-value">
+                <span class="status-badge" [class.active]="clientCompany.AutopayEnabled" [class.inactive]="!clientCompany.AutopayEnabled">
+                  {{ clientCompany.AutopayEnabled ? 'Enabled' : 'Disabled' }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Saved Payment Method -->
+            <div class="payment-setting-row" *ngIf="clientCompany.PayPalVaultToken">
+              <div class="payment-setting-label">Saved Payment Method</div>
+              <div class="payment-setting-value">
+                <div class="saved-payment-method">
+                  <ion-icon name="logo-paypal" class="paypal-icon"></ion-icon>
+                  <span>PayPal - {{ clientCompany.PayPalPayerEmail }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="payment-setting-row" *ngIf="!clientCompany.PayPalVaultToken">
+              <div class="payment-setting-label">Saved Payment Method</div>
+              <div class="payment-setting-value">
+                <span class="no-payment-method">No payment method saved</span>
+                <p class="payment-hint">Save a payment method during your next invoice payment to enable autopay.</p>
+              </div>
+            </div>
+
+            <!-- Autopay Schedule -->
+            <div class="payment-setting-row" *ngIf="clientCompany.AutopayEnabled && clientCompany.AutopayDay">
+              <div class="payment-setting-label">Autopay Schedule</div>
+              <div class="payment-setting-value">
+                {{ formatAutopayDay(clientCompany.AutopayDay) }}
+              </div>
+            </div>
+
+            <!-- Last Autopay -->
+            <div class="payment-setting-row" *ngIf="clientCompany.AutopayLastRun">
+              <div class="payment-setting-label">Last Autopay</div>
+              <div class="payment-setting-value">
+                <span class="autopay-last-status"
+                      [class.success]="clientCompany.AutopayLastStatus === 'Success'"
+                      [class.failed]="clientCompany.AutopayLastStatus?.startsWith('Failed')">
+                  {{ clientCompany.AutopayLastRun | date:'medium' }} - {{ clientCompany.AutopayLastStatus }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Info Message -->
+            <div class="payment-info-box" *ngIf="!clientCompany.AutopayEnabled">
+              <ion-icon name="information-circle-outline"></ion-icon>
+              <p>To enable autopay, save a payment method during your next invoice payment by checking "Save for Autopay", then contact support to activate autopay for your account.</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Metrics Tab Content -->
@@ -1322,6 +1395,9 @@
         </div>
       </div>
     </div>
+
+    <!-- Bottom spacer to ensure full scrolling on mobile -->
+    <div class="bottom-spacer"></div>
   </div>
 </ion-content>
 

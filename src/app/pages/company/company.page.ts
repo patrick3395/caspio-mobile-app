@@ -233,8 +233,14 @@ export class CompanyPage implements OnInit, OnDestroy {
   clientTab: 'company' | 'metrics' = 'company';
   usersExpanded = true;
   servicesExpanded = true;
+  paymentSettingsExpanded = true;
   clientOffers: any[] = [];
   clientMetrics: { totalProjects: number; activeProjects: number; completedProjects: number } | null = null;
+
+  // Getter for client's company (for non-Company-1 users)
+  get clientCompany(): CompanyRecord | null {
+    return this.companies.length > 0 ? this.companies[0] : null;
+  }
   clientProjectsChart: Chart | null = null;
   clientServicesChart: Chart | null = null;
   clientProjectsChartData: { labels: string[]; values: number[] } = { labels: [], values: [] };

@@ -2043,12 +2043,40 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
     for (const key of visualKeys) {
       const visualId = this.visualRecordIds[key];
-      if (visualId && !visualId.startsWith('temp_')) {
+      if (visualId) {
         try {
-          const attachments = await this.dataAdapter.getAttachmentsWithConfig(this.config!, visualId);
-          this.photoCountsByKey[key] = attachments.length;
-          if (attachments.length > 0) {
-            this.logDebug('PHOTO', `${key}: ${attachments.length} photos`);
+          if (environment.isWeb) {
+            // WEBAPP: Use API to get attachments (only for real IDs)
+            if (!visualId.startsWith('temp_')) {
+              const attachments = await this.dataAdapter.getAttachmentsWithConfig(this.config!, visualId);
+              this.photoCountsByKey[key] = attachments.length;
+            }
+          } else {
+            // MOBILE: Use local db.localImages (consistent with loadPhotosMobile pattern)
+            // This ensures deleted photos stay deleted before sync
+            const idsToSearch = new Set<string>();
+            idsToSearch.add(String(visualId));
+
+            // Also check mapped IDs
+            if (visualId.startsWith('temp_') || visualId.startsWith('temp-')) {
+              const mappedRealId = await this.indexedDb.getRealId(visualId);
+              if (mappedRealId) idsToSearch.add(String(mappedRealId));
+            } else {
+              const mappedTempId = await this.indexedDb.getTempId(visualId);
+              if (mappedTempId) idsToSearch.add(String(mappedTempId));
+            }
+
+            let localPhotos: any[] = [];
+            for (const searchId of idsToSearch) {
+              if (localPhotos.length > 0) break;
+              localPhotos = await db.localImages.where('entityId').equals(searchId).toArray();
+            }
+
+            this.photoCountsByKey[key] = localPhotos.length;
+          }
+
+          if (this.photoCountsByKey[key] > 0) {
+            this.logDebug('PHOTO', `${key}: ${this.photoCountsByKey[key]} photos`);
           }
         } catch (error) {
           this.logDebug('ERROR', `Failed to load photo count for ${key}: ${error}`);
@@ -2959,10 +2987,26 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
     if (result.role === 'destructive') {
       try {
-        // Remove from API if it has a real ID
-        if (photoId && !String(photoId).startsWith('temp_') && !String(photoId).startsWith('uploading_')) {
-          await this.dataAdapter.deleteAttachmentWithConfig(this.config!, photoId);
-          this.logDebug('PHOTO', `Deleted from API: ${photoId}`);
+        // Delete from local storage AND queue backend delete (handles all ID types)
+        // deleteAttachmentWithConfig now handles: localImages deletion + backend sync queue
+        await this.dataAdapter.deleteAttachmentWithConfig(this.config!, photoId);
+        this.logDebug('PHOTO', `Deleted attachment: ${photoId}`);
+
+        // Also try alternate IDs to ensure complete cleanup
+        const photo = this.visualPhotos[key]?.find(p =>
+          (p.AttachID || p.id || p.imageId) === photoId
+        );
+        if (photo) {
+          if (photo.imageId && photo.imageId !== photoId) {
+            try {
+              await this.dataAdapter.deleteAttachmentWithConfig(this.config!, photo.imageId);
+            } catch (e) { /* ignore */ }
+          }
+          if (photo.AttachID && photo.AttachID !== photoId && photo.AttachID !== photo.imageId) {
+            try {
+              await this.dataAdapter.deleteAttachmentWithConfig(this.config!, photo.AttachID);
+            } catch (e) { /* ignore */ }
+          }
         }
 
         // Remove from local array
@@ -2972,6 +3016,16 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         );
         this.photoCountsByKey[key] = this.visualPhotos[key].length;
         this.changeDetectorRef.detectChanges();
+
+        // CRITICAL: Save updated photoCount to Dexie so it persists on reload
+        if (!environment.isWeb && this.config) {
+          const templateId = typeof itemId === 'number' ? itemId : parseInt(String(itemId), 10);
+          if (!isNaN(templateId)) {
+            await this.genericFieldRepo.setField(this.config, this.serviceId, category, templateId, {
+              photoCount: this.visualPhotos[key].length
+            }).catch(err => this.logDebug('WARN', `Failed to update photoCount: ${err}`));
+          }
+        }
       } catch (error) {
         this.logDebug('ERROR', `Delete failed: ${error}`);
         await this.showToast('Failed to delete photo', 'danger');

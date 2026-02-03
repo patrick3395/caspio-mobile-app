@@ -1124,7 +1124,9 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
   private isValidVisualId(id: string): boolean {
     if (!id) return false;
-    if (id.startsWith('temp_')) return true;
+    // Accept temp IDs (various patterns used across templates)
+    if (id.startsWith('temp_') || id.startsWith('temp-')) return true;
+    // Accept numeric IDs (real synced IDs from backend)
     const numId = Number(id);
     return !isNaN(numId) && numId > 0;
   }
@@ -1173,6 +1175,9 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         if (this.isValidVisualId(this.visualId)) {
           await this.dataAdapter.updateVisualWithConfig(this.config!, this.visualId, caspioUpdate, this.serviceId);
           console.log('[GenericVisualDetail] MOBILE: Queued sync for:', this.visualId);
+          alert(`DEBUG SAVE: Queued sync\nvisualId: ${this.visualId}\nData: ${JSON.stringify(caspioUpdate)}`);
+        } else {
+          alert(`DEBUG SAVE: visualId NOT valid!\nvisualId: "${this.visualId}"\nisValidVisualId: ${this.isValidVisualId(this.visualId)}`);
         }
       }
 
