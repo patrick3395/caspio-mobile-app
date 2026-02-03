@@ -388,7 +388,8 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       // Guard after async
       if (this.isDestroyed) return;
 
-      console.log('[GenericVisualDetail] DEXIE-FIRST: Field found:', !!field, 'templateId:', this.templateId);
+      console.log('[GenericVisualDetail] DEXIE-FIRST: Field found:', !!field, 'templateId:', this.templateId,
+        'allFields count:', allFields.length, 'config:', this.config?.id);
 
       // STEP 2: If field exists, use it IMMEDIATELY (this is the Dexie-first pattern)
       if (field) {
@@ -396,6 +397,12 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         const tempId = this.getTempIdFromField(field);
         const realId = this.getRealIdFromField(field);
         this.visualId = tempId || realId || '';
+
+        // Debug: Log all ID fields for this template type
+        console.log(`[GenericVisualDetail] DEXIE-FIRST: ${this.config?.id} field IDs:`,
+          'tempId:', tempId, 'realId:', realId,
+          'field.tempHudId:', field.tempHudId, 'field.hudId:', field.hudId,
+          'field.tempVisualId:', field.tempVisualId, 'field.visualId:', field.visualId);
 
         // Create item from Dexie field data (NOT from template - that's stale!)
         this.item = this.convertGenericFieldToItem(field);

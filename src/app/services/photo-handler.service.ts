@@ -113,8 +113,7 @@ export class PhotoHandlerService {
    * @returns The created photo entry, or null if user cancelled
    */
   async captureFromCamera(config: PhotoCaptureConfig): Promise<StandardPhotoEntry | null> {
-    // DEBUG ALERT: Confirm all templates use this centralized function
-    alert(`[PhotoHandlerService] captureFromCamera called!\n\nTemplate: ${config.entityType.toUpperCase()}\nEntity ID: ${config.entityId}\nCategory: ${config.category}\nItem ID: ${config.itemId}`);
+    console.log('[PhotoHandlerService] captureFromCamera:', config.entityType, 'entityId:', config.entityId);
 
     try {
       // 1. Capture photo with camera
@@ -194,8 +193,7 @@ export class PhotoHandlerService {
    * @returns Array of created photo entries
    */
   async captureFromGallery(config: PhotoCaptureConfig): Promise<StandardPhotoEntry[]> {
-    // DEBUG ALERT: Confirm all templates use this centralized function
-    alert(`[PhotoHandlerService] captureFromGallery called!\n\nTemplate: ${config.entityType.toUpperCase()}\nEntity ID: ${config.entityId}\nCategory: ${config.category}\nItem ID: ${config.itemId}`);
+    console.log('[PhotoHandlerService] captureFromGallery:', config.entityType, 'entityId:', config.entityId);
 
     try {
       // 1. Pick images from gallery
@@ -373,10 +371,7 @@ export class PhotoHandlerService {
     skeletonIdToReplace?: string
   ): Promise<StandardPhotoEntry | null> {
 
-    console.log('[PhotoHandler] WEBAPP: Starting direct S3 upload...');
-
-    // DEBUG ALERT: Confirm webapp path is being used
-    alert(`[PhotoHandlerService] WEBAPP PATH\n\nprocessWebappPhoto called!\n\nTemplate: ${config.entityType.toUpperCase()}\nDirect S3 upload starting...`);
+    console.log('[PhotoHandler] WEBAPP: Starting direct S3 upload for', config.entityType);
 
     // Create temp photo entry with loading state
     const tempId = skeletonIdToReplace || `uploading_${Date.now()}`;
@@ -499,10 +494,7 @@ export class PhotoHandlerService {
     skeletonIdToReplace?: string
   ): Promise<StandardPhotoEntry | null> {
 
-    console.log('[PhotoHandler] MOBILE: Starting Dexie-first capture...');
-
-    // DEBUG ALERT: Confirm mobile path is being used
-    alert(`[PhotoHandlerService] MOBILE PATH\n\nprocessMobilePhoto called!\n\nTemplate: ${config.entityType.toUpperCase()}\nDexie-first capture starting...`);
+    console.log('[PhotoHandler] MOBILE: Starting Dexie-first capture for', config.entityType);
 
     try {
       // Create LocalImage with stable UUID (stores blob + creates outbox item)

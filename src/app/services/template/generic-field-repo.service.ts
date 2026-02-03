@@ -371,15 +371,39 @@ export class GenericFieldRepoService {
     const table = this.getTable(config);
     const existing = await table.where('key').equals(key).first();
 
+    // Map generic recordId/tempRecordId to template-specific field names
+    const mappedUpdates = this.mapRecordIdFields(config, updates);
+    const now = Date.now();
+
     if (!existing) {
-      console.warn(`[GenericFieldRepo] Field not found: ${key}`);
+      // Field doesn't exist yet (user acted before seeding completed)
+      // Create a minimal field with the provided updates
+      console.log(`[GenericFieldRepo] Field not found, creating: ${key}`);
+
+      const newField = this.createField(config, {
+        key,
+        serviceId,
+        category,
+        templateId,
+        templateName: '',  // Will be populated when template data is available
+        templateText: '',
+        kind: 'Comment' as const,
+        answerType: 0,
+        isSelected: mappedUpdates.isSelected ?? true,
+        answer: mappedUpdates.answer ?? '',
+        otherValue: mappedUpdates.otherValue ?? '',
+        photoCount: 0,
+        rev: 1,
+        updatedAt: now,
+        dirty: true,
+        ...mappedUpdates
+      });
+
+      await table.add(newField);
+      console.log(`[GenericFieldRepo] Created field: ${key}`);
       return;
     }
 
-    // Map generic recordId/tempRecordId to template-specific field names
-    const mappedUpdates = this.mapRecordIdFields(config, updates);
-
-    const now = Date.now();
     const isDirty = mappedUpdates.isSelected !== undefined ||
                     mappedUpdates.answer !== undefined ||
                     mappedUpdates.otherValue !== undefined;
@@ -465,26 +489,28 @@ export class GenericFieldRepoService {
 
   /**
    * Create a field object with template-specific ID property names
+   * Only sets ID fields if not already present in baseField
    */
   private createField(config: TemplateConfig, baseField: any, recordId?: string | null): any {
     const field = { ...baseField };
 
+    // Only set ID fields if not already present in baseField
     switch (config.id) {
       case 'efe':
-        field.visualId = recordId || null;
-        field.tempVisualId = null;
+        if (!('visualId' in baseField)) field.visualId = recordId || null;
+        if (!('tempVisualId' in baseField)) field.tempVisualId = null;
         break;
       case 'hud':
-        field.hudId = recordId || null;
-        field.tempHudId = null;
+        if (!('hudId' in baseField)) field.hudId = recordId || null;
+        if (!('tempHudId' in baseField)) field.tempHudId = null;
         break;
       case 'lbw':
-        field.lbwId = recordId || null;
-        field.tempLbwId = null;
+        if (!('lbwId' in baseField)) field.lbwId = recordId || null;
+        if (!('tempLbwId' in baseField)) field.tempLbwId = null;
         break;
       case 'dte':
-        field.dteId = recordId || null;
-        field.tempDteId = null;
+        if (!('dteId' in baseField)) field.dteId = recordId || null;
+        if (!('tempDteId' in baseField)) field.tempDteId = null;
         break;
       default:
         throw new Error(`[GenericFieldRepo] Unknown template for createField: ${config.id}`);
