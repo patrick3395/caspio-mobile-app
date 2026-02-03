@@ -990,7 +990,7 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     this.photos = localImages.map(img => {
       const hasAnnotations = !!(img.drawings && img.drawings.length > 10);
 
-      // Check memory cache first (instant)
+      // Check memory cache first for DISPLAY (thumbnail with annotations)
       let displayUrl = 'assets/img/photo-placeholder.svg';
       const possibleIds = [img.imageId, img.attachId].filter(id => id);
       for (const checkId of possibleIds) {
@@ -1006,13 +1006,17 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         displayUrl = img.remoteUrl;
       }
 
+      // CRITICAL: originalUrl must ALWAYS be the non-annotated original
+      // Never use cached annotated URL for originalUrl - it must be for re-editing
+      const originalUrl = img.remoteUrl || 'assets/img/photo-placeholder.svg';
+
       return {
         id: img.imageId,
         displayUrl,
-        originalUrl: img.remoteUrl || displayUrl,
+        originalUrl,  // CRITICAL: Always the original, never annotated
         caption: img.caption || '',
         uploading: img.status === 'queued' || img.status === 'uploading',
-        loading: !img.remoteUrl && !!img.localBlobId, // Mark as loading if needs blob fetch
+        loading: !!img.localBlobId, // Mark as loading if has blob to fetch
         isLocal: !img.isSynced,
         hasAnnotations,
         drawings: img.drawings || '',
@@ -1041,14 +1045,18 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       let originalUrl = photo.originalUrl;
       let needsUpdate = false;
 
-      // Load from local blob if needed
-      if (img.localBlobId && displayUrl === 'assets/img/photo-placeholder.svg') {
+      // CRITICAL: ALWAYS load original blob for originalUrl (for re-editing annotations)
+      // This ensures originalUrl is never the flattened/annotated version
+      if (img.localBlobId) {
         try {
           const blob = await db.localBlobs.get(img.localBlobId);
           if (blob && !this.isDestroyed) {
             const blobObj = new Blob([blob.data], { type: blob.contentType });
             originalUrl = URL.createObjectURL(blobObj);
-            displayUrl = originalUrl;
+            // Only update displayUrl if it's still placeholder (no cached annotated version)
+            if (displayUrl === 'assets/img/photo-placeholder.svg') {
+              displayUrl = originalUrl;
+            }
             needsUpdate = true;
           }
         } catch (e) {
@@ -1438,15 +1446,80 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     // Store original index for reliable lookup after result
     const originalPhotoIndex = this.photos.findIndex(p => p.id === photo.id);
 
+    // ========================================
+    // CRITICAL: Refresh photo from Dexie to get ORIGINAL (non-annotated) image
+    // This prevents annotation flattening - matches category-detail pattern
+    // ========================================
+    let originalUrlForEditor = photo.originalUrl;
+    let freshDrawings = photo.drawings;
+
+    const isLocalFirstPhoto = photo.isLocal || photo.imageId?.startsWith('img_');
+
+    if (isLocalFirstPhoto && !environment.isWeb) {
+      const localImageId = photo.imageId || photo.id;
+      console.log('[GenericVisualDetail] LocalImage detected, refreshing from Dexie:', localImageId);
+
+      try {
+        // Get fresh LocalImage from Dexie
+        const localImage = await this.indexedDb.getLocalImage(localImageId);
+
+        if (localImage) {
+          // Update drawings with fresh data from Dexie
+          if (localImage.drawings && localImage.drawings.length > 10) {
+            freshDrawings = localImage.drawings;
+            console.log('[GenericVisualDetail] Loaded fresh drawings from Dexie:', localImage.drawings.length, 'chars');
+          }
+
+          // Get FULL RESOLUTION original blob URL for the annotator
+          // CRITICAL: This must be the ORIGINAL image, not the annotated thumbnail
+          let fullResUrl: string | null = null;
+
+          if (localImage.localBlobId) {
+            const blob = await db.localBlobs.get(localImage.localBlobId);
+            if (blob) {
+              const blobObj = new Blob([blob.data], { type: blob.contentType });
+              fullResUrl = URL.createObjectURL(blobObj);
+              console.log('[GenericVisualDetail] Got FULL RESOLUTION blob URL for annotator');
+            }
+          }
+
+          // Fallback to S3 if local blob not available
+          if (!fullResUrl && localImage.remoteS3Key) {
+            try {
+              fullResUrl = await this.caspioService.getS3FileUrl(localImage.remoteS3Key);
+              if (fullResUrl) {
+                console.log('[GenericVisualDetail] Got FULL RESOLUTION from S3');
+              }
+            } catch (s3Err) {
+              console.warn('[GenericVisualDetail] S3 fetch failed:', s3Err);
+            }
+          }
+
+          // Fallback to remoteUrl
+          if (!fullResUrl && localImage.remoteUrl) {
+            fullResUrl = localImage.remoteUrl;
+          }
+
+          // Update original URL for the annotator (NOT the flattened thumbnail)
+          if (fullResUrl && fullResUrl !== 'assets/img/photo-placeholder.svg') {
+            originalUrlForEditor = fullResUrl;
+            console.log('[GenericVisualDetail] Using ORIGINAL image URL for annotator (not flattened)');
+          }
+        }
+      } catch (err) {
+        console.error('[GenericVisualDetail] Failed to refresh LocalImage from Dexie:', err);
+      }
+    }
+
     // Use the STANDARDIZED viewExistingPhoto method from PhotoHandlerService
     const viewConfig: ViewPhotoConfig = {
       photo: {
         id: photo.id,
         AttachID: photo.id,
         displayUrl: photo.displayUrl,
-        originalUrl: photo.originalUrl,
-        drawings: photo.drawings,
-        Drawings: photo.drawings,
+        originalUrl: originalUrlForEditor,  // CRITICAL: Use original, not flattened
+        drawings: freshDrawings,
+        Drawings: freshDrawings,
         caption: photo.caption,
         Annotation: photo.caption,
         hasAnnotations: photo.hasAnnotations

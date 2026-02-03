@@ -5,6 +5,7 @@ import { environment } from '../../environments/environment';
 import { LocalImageService } from './local-image.service';
 import { IndexedDbService, LocalImage, ImageEntityType } from './indexed-db.service';
 import { ImageCompressionService } from './image-compression.service';
+import { MemoryDiagnosticsService } from './memory-diagnostics.service';
 import { FabricPhotoAnnotatorComponent } from '../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { compressAnnotationData, decompressAnnotationData } from '../utils/annotation-utils';
 import { CaspioService } from './caspio.service';
@@ -93,7 +94,8 @@ export class PhotoHandlerService {
     private localImageService: LocalImageService,
     private indexedDb: IndexedDbService,
     private imageCompression: ImageCompressionService,
-    private caspioService: CaspioService
+    private caspioService: CaspioService,
+    private memoryDiagnostics: MemoryDiagnosticsService
   ) {}
 
   // ============================================================================
@@ -314,6 +316,7 @@ export class PhotoHandlerService {
 
   /**
    * Process a photo - branches between webapp and mobile paths
+   * Includes memory diagnostics to track upload memory usage
    */
   private async processPhoto(
     originalBlob: Blob,
@@ -326,8 +329,14 @@ export class PhotoHandlerService {
     skeletonIdToReplace?: string
   ): Promise<StandardPhotoEntry | null> {
 
+    // Memory diagnostics: track before upload
+    const fileSizeMB = (compressedFile.size / (1024 * 1024)).toFixed(2);
+    const beforeSnapshot = this.memoryDiagnostics.takeSnapshot(`Before Upload (${fileSizeMB}MB)`);
+
+    let result: StandardPhotoEntry | null = null;
+
     if (environment.isWeb) {
-      return this.processWebappPhoto(
+      result = await this.processWebappPhoto(
         originalBlob,
         compressedFile,
         annotatedBlob,
@@ -338,7 +347,7 @@ export class PhotoHandlerService {
         skeletonIdToReplace
       );
     } else {
-      return this.processMobilePhoto(
+      result = await this.processMobilePhoto(
         originalBlob,
         compressedFile,
         annotatedBlob,
@@ -349,6 +358,14 @@ export class PhotoHandlerService {
         skeletonIdToReplace
       );
     }
+
+    // Memory diagnostics: track after upload and show alert
+    const afterSnapshot = this.memoryDiagnostics.takeSnapshot(`After Upload (${fileSizeMB}MB)`);
+    if (beforeSnapshot && afterSnapshot) {
+      await this.memoryDiagnostics.showMemoryAlert(`Image Upload (${fileSizeMB}MB)`, beforeSnapshot, afterSnapshot);
+    }
+
+    return result;
   }
 
   /**

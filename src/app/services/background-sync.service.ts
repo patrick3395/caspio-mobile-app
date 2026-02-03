@@ -11,6 +11,7 @@ import { OperationsQueueService } from './operations-queue.service';
 import { ServiceMetadataService } from './service-metadata.service';
 import { ThumbnailService } from './thumbnail.service';
 import { PlatformDetectionService } from './platform-detection.service';
+import { MemoryDiagnosticsService } from './memory-diagnostics.service';
 import { environment } from '../../environments/environment';
 
 // HUD services - lazy import to avoid circular dependency
@@ -273,7 +274,8 @@ export class BackgroundSyncService {
     private operationsQueue: OperationsQueueService,
     private serviceMetadata: ServiceMetadataService,
     private thumbnailService: ThumbnailService,
-    private platform: PlatformDetectionService
+    private platform: PlatformDetectionService,
+    private memoryDiagnostics: MemoryDiagnosticsService
   ) {
     this.startBackgroundSync();
     this.listenToConnectionChanges();
@@ -3442,6 +3444,9 @@ export class BackgroundSyncService {
 
     console.log(`[BackgroundSync] Processing ${readyItems.length} upload outbox items`);
 
+    // Memory diagnostics: track before sync
+    const beforeSnapshot = this.memoryDiagnostics.takeSnapshot(`Before Image Sync (${readyItems.length} items)`);
+
     for (const item of readyItems) {
       try {
         await this.processUploadOutboxItem(item);
@@ -3453,6 +3458,12 @@ export class BackgroundSyncService {
           err?.message || 'Unknown error'
         );
       }
+    }
+
+    // Memory diagnostics: track after sync and show alert
+    const afterSnapshot = this.memoryDiagnostics.takeSnapshot(`After Image Sync (${readyItems.length} items)`);
+    if (beforeSnapshot && afterSnapshot) {
+      await this.memoryDiagnostics.showMemoryAlert(`Image Sync (${readyItems.length})`, beforeSnapshot, afterSnapshot);
     }
   }
 
