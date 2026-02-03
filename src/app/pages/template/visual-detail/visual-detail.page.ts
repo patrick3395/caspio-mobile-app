@@ -739,7 +739,8 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     if (!this.config) return;
 
     // Create liveQuery for the correct table based on template type
-    const observable = liveQuery(() => {
+    // Use any type to handle different field types (VisualField, HudField, LbwField, DteField)
+    const observable = liveQuery((): Promise<any> => {
       switch (this.config!.id) {
         case 'efe':
           return db.visualFields.where('[serviceId+templateId]').equals([this.serviceId, this.templateId]).first();
