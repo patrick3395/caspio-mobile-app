@@ -3782,11 +3782,6 @@ export class CaspioService {
     console.log('[CSA ATTACH S3] Drawings length:', drawings?.length || 0);
     console.log('[CSA ATTACH S3] Caption:', annotation || '(none)');
 
-    // DEBUG ALERT
-    if (typeof alert !== 'undefined') {
-      alert(`[CSA DEBUG] Starting upload - CSAID: ${csaId}, File: ${file?.name}, Size: ${file?.size} bytes`);
-    }
-
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
 
@@ -3814,38 +3809,19 @@ export class CaspioService {
 
       console.log('[CSA ATTACH S3] Step 1: Uploading to S3 FIRST...');
 
-      // DEBUG ALERT
-      if (typeof alert !== 'undefined') {
-        alert(`[CSA DEBUG] Step 1: Uploading to S3... URL: ${environment.apiGatewayUrl}/api/s3/upload`);
-      }
-
       const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
       if (!uploadResponse.ok) {
         const errorText = await uploadResponse.text();
         console.error('[CSA ATTACH S3] ❌ S3 upload failed:', errorText);
-        // DEBUG ALERT
-        if (typeof alert !== 'undefined') {
-          alert(`[CSA DEBUG] ❌ S3 upload FAILED: ${errorText}`);
-        }
         throw new Error('S3 upload failed');
       }
       const { s3Key } = await uploadResponse.json();
       console.log('[CSA ATTACH S3] ✅ S3 upload complete, key:', s3Key);
 
-      // DEBUG ALERT
-      if (typeof alert !== 'undefined') {
-        alert(`[CSA DEBUG] ✅ S3 upload SUCCESS - s3Key: ${s3Key?.substring(0, 50)}...`);
-      }
-
       // Step 2: Create the Caspio record WITH the Attachment field populated
       recordData.Attachment = s3Key;  // CRITICAL: Include Attachment in initial creation
 
       console.log('[CSA ATTACH S3] Step 2: Creating Caspio record with Attachment...');
-
-      // DEBUG ALERT
-      if (typeof alert !== 'undefined') {
-        alert(`[CSA DEBUG] Step 2: Creating Caspio record - CSAID: ${csaId}, Attachment: ${s3Key?.substring(0, 30)}...`);
-      }
 
       const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
       const recordResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_CSA_Attach/records?response=rows`, {
@@ -3857,29 +3833,16 @@ export class CaspioService {
       if (!recordResponse.ok) {
         const errorText = await recordResponse.text();
         console.error('[CSA ATTACH S3] ❌ Record creation failed:', errorText);
-        // DEBUG ALERT
-        if (typeof alert !== 'undefined') {
-          alert(`[CSA DEBUG] ❌ Record creation FAILED: ${errorText}`);
-        }
         throw new Error('CSA record creation failed');
       }
 
       const attachId = (await recordResponse.json()).Result?.[0]?.AttachID;
       if (!attachId) {
-        // DEBUG ALERT
-        if (typeof alert !== 'undefined') {
-          alert(`[CSA DEBUG] ❌ No AttachID in response!`);
-        }
         throw new Error('Failed to get AttachID from record creation response');
       }
 
       console.log('[CSA ATTACH S3] ✅ Created record AttachID:', attachId, 'with Attachment:', s3Key);
       console.log('[CSA ATTACH S3] ✅ Complete! (Atomic - no orphaned records)');
-
-      // DEBUG ALERT
-      if (typeof alert !== 'undefined') {
-        alert(`[CSA DEBUG] ✅ COMPLETE! AttachID: ${attachId}, s3Key: ${s3Key?.substring(0, 30)}...`);
-      }
 
       // Return result with all fields
       return {
@@ -3896,10 +3859,6 @@ export class CaspioService {
       };
     } catch (error) {
       console.error('[CSA ATTACH S3] ❌ Failed:', error);
-      // DEBUG ALERT
-      if (typeof alert !== 'undefined') {
-        alert(`[CSA DEBUG] ❌ EXCEPTION: ${error}`);
-      }
       throw error;
     }
   }

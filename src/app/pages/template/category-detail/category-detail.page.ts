@@ -2498,13 +2498,33 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         this.logDebug('ANSWER', `Persisted answer to Dexie (${this.config.id}Fields)`);
       }
 
-      // Save to backend if we have a visual record
-      const visualId = this.visualRecordIds[key];
-      if (visualId && !String(visualId).startsWith('temp_')) {
+      // Ensure visual record exists (BOTH MOBILE AND WEBAPP)
+      let visualId = this.visualRecordIds[key];
+      if (!visualId && isSelected) {
+        this.logDebug('ANSWER', `No visual record for ${key}, creating one...`);
+        const createdId = await this.ensureVisualRecordExists(category, item.templateId);
+        if (createdId) {
+          visualId = createdId;
+          this.logDebug('ANSWER', `Created visual record: ${visualId}`);
+
+          // DEXIE-FIRST (MOBILE): Update Dexie with the record ID
+          if (!environment.isWeb && this.config?.features.offlineFirst) {
+            const isTempId = createdId.startsWith('temp_');
+            await this.genericFieldRepo.setField(this.config, this.serviceId, category, item.templateId, {
+              recordId: isTempId ? null : String(createdId),
+              tempRecordId: isTempId ? String(createdId) : null
+            }).catch(err => this.logDebug('ERROR', `Failed to update recordId: ${err}`));
+          }
+        }
+      }
+
+      // Save to backend - dataAdapter handles temp IDs by updating pending request
+      if (visualId) {
         await this.dataAdapter.updateVisualWithConfig(this.config!, visualId, {
           Answers: item.answer || '',
           Answer: item.answer || ''
         });
+        this.logDebug('ANSWER', `Saved answer to backend (visualId: ${visualId})`);
       }
 
     } catch (error) {
@@ -2661,13 +2681,26 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       }
     }
 
-    // WEBAPP: If no visual record exists, create one first
-    if (!visualId && environment.isWeb) {
+    // If no visual record exists, create one first (BOTH MOBILE AND WEBAPP)
+    // This ensures multi-select changes are queued for sync
+    if (!visualId) {
       this.logDebug('SAVE', `No visual record for ${key}, creating one...`);
       const createdId = await this.ensureVisualRecordExists(this.categoryName, itemId);
       if (createdId) {
         visualId = createdId;
         this.logDebug('SAVE', `Created visual record: ${visualId}`);
+
+        // DEXIE-FIRST (MOBILE): Update Dexie with the record ID
+        if (!environment.isWeb && this.config.features.offlineFirst) {
+          const templateId = item.templateId;
+          if (templateId) {
+            const isTempId = createdId.startsWith('temp_');
+            await this.genericFieldRepo.setField(this.config, this.serviceId, this.categoryName, templateId, {
+              recordId: isTempId ? null : String(createdId),
+              tempRecordId: isTempId ? String(createdId) : null
+            }).catch(err => this.logDebug('ERROR', `Failed to update recordId: ${err}`));
+          }
+        }
       } else {
         this.logDebug('ERROR', `Failed to create visual record for ${key}`);
         return;
@@ -2679,18 +2712,16 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       return;
     }
 
-    // Skip temp IDs - they haven't been synced to server yet
-    if (String(visualId).startsWith('temp_')) {
-      this.logDebug('SAVE', `Skipping temp ID ${visualId}, will sync later`);
-      return;
-    }
-
+    // For temp IDs, update the pending request data so changes sync when the record syncs
+    // dataProvider.updateVisual handles temp IDs by calling updatePendingRequestData
     try {
       // Use unified dataProvider - handles webapp/mobile differences internally
+      // For temp IDs: updates pending CREATE request data
+      // For real IDs: queues UPDATE request
       await this.dataProvider.updateVisual(this.config, String(visualId), {
         answer: item.answer || ''
       });
-      this.logDebug('SAVE', `Saved Answers for ${key}: ${item.answer}`);
+      this.logDebug('SAVE', `Saved Answers for ${key}: ${item.answer} (visualId: ${visualId})`);
     } catch (error) {
       console.error('[SAVE] Failed to save answer:', error);
       await this.showToast('Failed to save selection', 'warning');

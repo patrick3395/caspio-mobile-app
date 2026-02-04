@@ -1833,6 +1833,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.statusOptions = response.Result;
         console.log('[Status Table] Loaded status options:', this.statusOptions);
         console.log('[Status Table] Sample record structure:', this.statusOptions[0]);
+        console.log('[Status Table] All StatusID -> Status_Client mappings:',
+          this.statusOptions.map((s: any) => ({ StatusID: s.StatusID, PK_ID: s.PK_ID, Status_Client: s.Status_Client, Status_Admin: s.Status_Admin }))
+        );
 
         // Verify "Created" exists
         const createdRecord = this.statusOptions.find((s: any) => s.Status_Client === 'Created');
@@ -1915,14 +1918,18 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   // Helper method to get Status_Client value by StatusID lookup (for client-facing display)
   getStatusClientById(statusId: number | undefined): string {
-    if (!statusId) {
+    if (!statusId && statusId !== 0) {
       return '';
     }
-    const statusRecord = this.statusOptions.find(s => s.StatusID === statusId || s.PK_ID === statusId);
+    // Use string comparison to handle potential type mismatches from Caspio API
+    // Only search by StatusID field (not PK_ID, which is a different value)
+    const statusIdStr = String(statusId);
+    const statusRecord = this.statusOptions.find(s => String(s.StatusID) === statusIdStr);
     if (statusRecord && statusRecord.Status_Client) {
+      console.log(`[Status Lookup] StatusID ${statusId} -> Status_Client: "${statusRecord.Status_Client}"`);
       return statusRecord.Status_Client;
     }
-    // Fallback to empty string if not found
+    console.warn(`[Status Lookup] No Status_Client found for StatusID: ${statusId}`);
     return '';
   }
 
