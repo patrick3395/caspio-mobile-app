@@ -353,12 +353,25 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
     const isTempId = visualId.startsWith('temp_');
     const dbData = this.mapFromVisualRecord(config, updates);
 
+    console.log(`[MobileDataProvider] updateVisual called:`, {
+      templateType: config.id,
+      visualId,
+      isTempId,
+      updates,
+      dbData,
+      serviceId
+    });
+
     if (isTempId) {
       // Update the pending request data
-      await this.indexedDb.updatePendingRequestData(visualId, dbData);
+      console.log(`[MobileDataProvider] Updating existing pending request for temp ID: ${visualId}`);
+      const updated = await this.indexedDb.updatePendingRequestData(visualId, dbData);
+      console.log(`[MobileDataProvider] updatePendingRequestData result: ${updated}`);
     } else {
       // Queue update for background sync
       const endpoint = `/tables/${config.tableName}/records?q.where=${config.idFieldName}=${visualId}`;
+      console.log(`[MobileDataProvider] Creating UPDATE pending request for real ID: ${visualId}`);
+      console.log(`[MobileDataProvider] Endpoint: ${endpoint}`);
       await this.indexedDb.addPendingRequest({
         type: 'UPDATE',
         endpoint: `/api/caspio-proxy${endpoint}`,
@@ -369,6 +382,7 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
         priority: 'normal',
         serviceId: serviceId
       });
+      console.log(`[MobileDataProvider] UPDATE request queued successfully`);
     }
 
     return { id: visualId, ...updates } as VisualRecord;

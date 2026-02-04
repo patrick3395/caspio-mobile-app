@@ -480,6 +480,21 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
           this.logDebug('DEXIE', `Received ${fields.length} fields from liveQuery for ${this.config!.id}`);
 
+          // DEBUG: Log record IDs from liveQuery to verify real IDs are being received
+          const recordIdsDebug = fields.map(f => ({
+            templateId: f.templateId,
+            csaId: f.csaId,
+            dteId: f.dteId,
+            lbwId: f.lbwId,
+            tempCsaId: f.tempCsaId,
+            tempDteId: f.tempDteId,
+            tempLbwId: f.tempLbwId,
+            answer: f.answer?.substring(0, 30)
+          })).filter(f => f.csaId || f.dteId || f.lbwId || f.tempCsaId || f.tempDteId || f.tempLbwId);
+          if (recordIdsDebug.length > 0) {
+            console.log(`[LIVEQUERY-DEBUG] Fields with record IDs:`, recordIdsDebug);
+          }
+
           // Convert to organized data using unified method
           this.convertGenericFieldsToOrganizedData(fields);
           this.safeDetectChanges();
@@ -2743,6 +2758,16 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       return;
     }
 
+    // DEBUG: Log the visualId being used for sync
+    const isTempId = String(visualId).startsWith('temp_');
+    console.log(`[MULTISELECT-DEBUG] saveMultiSelectAnswer:`, {
+      key,
+      visualId,
+      isTempId,
+      answer: item.answer,
+      visualRecordIdsMap: JSON.stringify(this.visualRecordIds)
+    });
+
     // For temp IDs, update the pending request data so changes sync when the record syncs
     // dataProvider.updateVisual handles temp IDs by calling updatePendingRequestData
     try {
@@ -2751,7 +2776,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       // For real IDs: queues UPDATE request
       await this.dataProvider.updateVisual(this.config, String(visualId), {
         answer: item.answer || ''
-      });
+      }, this.serviceId);  // FIX: Pass serviceId for UPDATE requests
       this.logDebug('SAVE', `Saved Answers for ${key}: ${item.answer} (visualId: ${visualId})`);
     } catch (error) {
       console.error('[SAVE] Failed to save answer:', error);

@@ -1408,10 +1408,12 @@ export class BackgroundSyncService {
               // CRITICAL FIX: Update csaFields table to replace tempCsaId with real csaId
               // Without this, subsequent changes still use temp ID and fail to create UPDATE requests
               try {
+                console.log(`[BackgroundSync] Looking for csaField with tempCsaId: ${request.tempId}`);
                 const csaFieldRecord = await db.csaFields
                   .where('tempCsaId')
                   .equals(request.tempId)
                   .first();
+                console.log(`[BackgroundSync] csaField lookup result:`, csaFieldRecord ? `Found id=${csaFieldRecord.id}` : 'NOT FOUND');
                 if (csaFieldRecord) {
                   await db.csaFields.update(csaFieldRecord.id!, {
                     csaId: String(realId),
@@ -1419,6 +1421,12 @@ export class BackgroundSyncService {
                     dirty: false
                   });
                   console.log(`[BackgroundSync] ✅ Updated csaFields: temp ${request.tempId} -> real ${realId}`);
+                } else {
+                  // Try to find any csaField records for debugging
+                  const allCsaFields = await db.csaFields.toArray();
+                  console.log(`[BackgroundSync] No csaField found with tempCsaId=${request.tempId}. Total csaFields: ${allCsaFields.length}`);
+                  const fieldsWithTempIds = allCsaFields.filter(f => f.tempCsaId);
+                  console.log(`[BackgroundSync] csaFields with tempCsaId:`, fieldsWithTempIds.map(f => ({ id: f.id, templateId: f.templateId, tempCsaId: f.tempCsaId, csaId: f.csaId })));
                 }
               } catch (err) {
                 console.warn('[BackgroundSync] Failed to update csaFields after sync:', err);

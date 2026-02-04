@@ -377,6 +377,15 @@ export class GenericFieldRepoService {
     const mappedUpdates = this.mapRecordIdFields(config, updates);
     const now = Date.now();
 
+    // DEBUG: Log when tempRecordId is being set
+    if (updates.tempRecordId) {
+      console.log(`[GenericFieldRepo] Setting tempRecordId for ${key}:`, {
+        templateType: config.id,
+        tempRecordId: updates.tempRecordId,
+        mappedField: config.id === 'csa' ? 'tempCsaId' : config.id === 'dte' ? 'tempDteId' : config.id === 'lbw' ? 'tempLbwId' : 'other'
+      });
+    }
+
     if (!existing) {
       // Field doesn't exist yet (user acted before seeding completed)
       // Create a minimal field with the provided updates
