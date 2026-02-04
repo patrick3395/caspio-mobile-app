@@ -160,14 +160,23 @@ export class PhotoHandlerService {
           caption = result.caption;
         }
 
-        // 4. Create file and compress
+        // 4. Create skeleton placeholder for immediate UI feedback
+        let skeletonId: string | undefined;
+        if (config.onTempPhotoAdded) {
+          const skeleton = this.createSkeletonPlaceholders(1)[0];
+          skeleton.photoType = config.photoType;
+          skeletonId = skeleton.imageId;
+          config.onTempPhotoAdded(skeleton);
+        }
+
+        // 5. Create file and compress
         const originalFile = new File([blob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' });
         const compressedFile = await this.compressImage(originalFile);
 
-        // 5. Compress annotations
+        // 6. Compress annotations
         const compressedDrawings = this.compressAnnotations(annotationsData);
 
-        // 6. Process based on platform
+        // 7. Process based on platform (replaces skeleton via onUploadComplete)
         const photo = await this.processPhoto(
           blob,
           compressedFile,
@@ -175,7 +184,8 @@ export class PhotoHandlerService {
           compressedDrawings,
           caption,
           !!annotationsData,
-          config
+          config,
+          skeletonId
         );
 
         // Clean up
@@ -238,6 +248,15 @@ export class PhotoHandlerService {
             const { annotatedBlob, annotationsData, caption, cancelled } = await this.openAnnotator(imageUrl);
 
             if (!cancelled) {
+              // Create skeleton for immediate UI feedback
+              let skeletonId: string | undefined;
+              if (config.onTempPhotoAdded) {
+                const skeleton = this.createSkeletonPlaceholders(1)[0];
+                skeleton.photoType = config.photoType;
+                skeletonId = skeleton.imageId;
+                config.onTempPhotoAdded(skeleton);
+              }
+
               const originalFile = new File([blob], `gallery-${Date.now()}.jpg`, { type: 'image/jpeg' });
               const compressedFile = await this.compressImage(originalFile);
               const compressedDrawings = this.compressAnnotations(annotationsData);
@@ -249,7 +268,8 @@ export class PhotoHandlerService {
                 compressedDrawings,
                 caption,
                 !!annotationsData,
-                config
+                config,
+                skeletonId
               );
 
               if (photo) {
@@ -264,8 +284,13 @@ export class PhotoHandlerService {
           }
         }
       } else {
-        // Multiple photos - create skeleton placeholders first
+        // Multiple photos (or single with skipAnnotator) - create skeleton placeholders first
         const skeletons = this.createSkeletonPlaceholders(images.photos.length);
+
+        // Set photoType on skeletons for proper routing
+        if (config.photoType) {
+          skeletons.forEach(skeleton => skeleton.photoType = config.photoType);
+        }
 
         // Notify UI about skeletons
         if (config.onTempPhotoAdded) {

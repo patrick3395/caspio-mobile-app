@@ -4697,7 +4697,21 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     }
     const fdfPhotos = this.roomData.fdfPhotos;
 
-    // Update fdfPhotos structure with StandardPhotoEntry data
+    if (photo.isSkeleton) {
+      // Skeleton: mark as having photo but don't set URLs → triggers skeleton HTML condition
+      fdfPhotos[photoKey] = true;
+      fdfPhotos[`${photoKey}Loading`] = false;
+      fdfPhotos[`${photoKey}Uploading`] = false;
+      fdfPhotos[`${photoKey}TempId`] = photo.imageId;
+      // Clear any existing URLs so skeleton condition fires
+      delete fdfPhotos[`${photoKey}Url`];
+      delete fdfPhotos[`${photoKey}DisplayUrl`];
+      this.changeDetectorRef.detectChanges();
+      console.log(`[FDF Photo] Skeleton added for ${photoType}:`, photo.imageId);
+      return;
+    }
+
+    // Real photo: update fdfPhotos structure with StandardPhotoEntry data
     fdfPhotos[photoKey] = true;
     fdfPhotos[`${photoKey}Url`] = photo.displayUrl;
     fdfPhotos[`${photoKey}DisplayUrl`] = photo.displayUrl;
@@ -5662,11 +5676,36 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       point.photos = [];
     }
 
+    // Handle skeleton placeholders - show skeleton UI without URLs
+    if (photo.isSkeleton) {
+      let existingPhoto = point.photos.find((p: any) => p.photoType === photoType);
+      if (existingPhoto) {
+        existingPhoto.isSkeleton = true;
+        existingPhoto.displayUrl = null;
+        existingPhoto.url = null;
+        existingPhoto._tempId = photo.imageId;
+      } else {
+        point.photos.push({
+          photoType: photoType,
+          isSkeleton: true,
+          url: null,
+          displayUrl: null,
+          _tempId: photo.imageId,
+          imageId: photo.imageId,
+          uploading: false
+        });
+      }
+      this.changeDetectorRef.detectChanges();
+      console.log(`[Point Photo] Skeleton added for ${photoType} on point ${point.pointName}:`, photo.imageId);
+      return;
+    }
+
     // Find existing photo with same type or create new one
     let existingPhoto = point.photos.find((p: any) => p.photoType === photoType);
 
     if (existingPhoto) {
       // Update existing photo
+      existingPhoto.isSkeleton = false;
       existingPhoto.url = photo.displayUrl;
       existingPhoto.displayUrl = photo.displayUrl;
       existingPhoto.originalUrl = photo.originalUrl;
@@ -5687,6 +5726,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       // Add new photo
       const newPhoto = {
         photoType: photoType,
+        isSkeleton: false,
         url: photo.displayUrl,
         displayUrl: photo.displayUrl,
         originalUrl: photo.originalUrl,
@@ -5726,7 +5766,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     );
 
     if (existingPhoto) {
-      // Update with final uploaded data
+      // Update with final uploaded data - clears skeleton state
+      existingPhoto.isSkeleton = false;
       existingPhoto.url = photo.displayUrl;
       existingPhoto.displayUrl = photo.displayUrl;
       existingPhoto.originalUrl = photo.originalUrl;

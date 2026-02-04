@@ -126,8 +126,8 @@
   --background-hover: #f8f9fa;
 
   &:focus-within {
-    border-color: #F15A27;
-    box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.1);
+    border-color: #e0e0e0;
+    box-shadow: none;
   }
 
   ion-icon {
@@ -135,6 +135,10 @@
     margin-right: 12px;
     font-size: 20px;
   }
+
+  --highlight-color-focused: transparent !important;
+  --highlight-color-valid: transparent !important;
+  --highlight-color-invalid: transparent !important;
 
   ion-input {
     --padding-top: 16px;
@@ -145,6 +149,11 @@
     --color: #333;
     caret-color: #000 !important;
     --background: transparent;
+    --highlight-color: transparent !important;
+    --highlight-color-focused: transparent !important;
+    --highlight-color-valid: transparent !important;
+    --highlight-color-invalid: transparent !important;
+    --highlight-height: 0 !important;
   }
 
   // CRITICAL: Override all browser autofill styling
@@ -282,6 +291,43 @@
 
     ion-icon {
       font-size: 14px;
+    }
+  }
+}
+
+// Force-remove Ionic's orange highlight bars inside Shadow DOM
+:host ::ng-deep {
+  .input-item ion-input {
+    --highlight-color: transparent !important;
+    --highlight-color-focused: transparent !important;
+    --highlight-color-valid: transparent !important;
+    --highlight-color-invalid: transparent !important;
+    --highlight-height: 0px !important;
+
+    .input-highlight {
+      display: none !important;
+    }
+
+    .input-bottom {
+      display: none !important;
+    }
+
+    .native-input {
+      caret-color: #000 !important;
+    }
+  }
+
+  .input-item {
+    --highlight-color-focused: transparent !important;
+    --highlight-color-valid: transparent !important;
+    --highlight-color-invalid: transparent !important;
+    --highlight-height: 0px !important;
+    --show-full-highlight: 0 !important;
+    --show-inset-highlight: 0 !important;
+
+    .item-highlight,
+    .item-inner-highlight {
+      display: none !important;
     }
   }
 }

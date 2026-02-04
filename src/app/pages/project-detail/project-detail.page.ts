@@ -1989,18 +1989,31 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const updateData: any = {};
       updateData[fieldName] = value;
 
-      // If StatusEng is being changed to "Complete", also update Status to "Complete"
-      if (fieldName === 'StatusEng' && value === 'Complete') {
-        updateData.Status = 'Complete';
-        console.log('[Deliverables] StatusEng changed to Complete, also updating Status to Complete');
+      // If StatusEng is being changed, also update StatusID from the matching LPS_Status record
+      if (fieldName === 'StatusEng' && value) {
+        const statusRecord = this.statusOptions.find(s => s.Status_Admin === value);
+        if (statusRecord && statusRecord.StatusID) {
+          updateData.StatusID = statusRecord.StatusID;
+          console.log(`[Deliverables] StatusEng changed to "${value}", updating StatusID to ${statusRecord.StatusID}`);
+        }
+        if (value === 'Complete') {
+          updateData.Status = 'Complete';
+          console.log('[Deliverables] StatusEng changed to Complete, also updating Status to Complete');
+        }
       }
 
       await this.caspioService.updateService(service.serviceId, updateData).toPromise();
-      
+
       // Update local service object
       service[fieldName] = value;
-      if (fieldName === 'StatusEng' && value === 'Complete') {
-        service.Status = 'Complete';
+      if (fieldName === 'StatusEng') {
+        const statusRecord = this.statusOptions.find(s => s.Status_Admin === value);
+        if (statusRecord && statusRecord.StatusID) {
+          service.StatusID = statusRecord.StatusID;
+        }
+        if (value === 'Complete') {
+          service.Status = 'Complete';
+        }
       }
       
       // Silent update - no toast notification

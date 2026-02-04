@@ -3638,6 +3638,27 @@ body.dark-theme {
   }
 }
 
+/* Login page: Kill all Ionic orange highlight bars on inputs */
+.login-content ion-item,
+.login-content ion-item.input-item,
+.login-content ion-item.item-interactive {
+  --highlight-color-focused: transparent !important;
+  --highlight-color-valid: transparent !important;
+  --highlight-color-invalid: transparent !important;
+  --highlight-height: 0px !important;
+  --show-full-highlight: 0 !important;
+  --show-inset-highlight: 0 !important;
+}
+
+.login-content ion-input,
+.login-content ion-input.has-focus {
+  --highlight-color: transparent !important;
+  --highlight-color-focused: transparent !important;
+  --highlight-color-valid: transparent !important;
+  --highlight-color-invalid: transparent !important;
+  --highlight-height: 0px !important;
+}
+
 /* ============================================================================
  * G2-A11Y-004: WCAG AA Color Contrast Compliance (Web Only)
  * Ensures sufficient color contrast for text and UI elements.
