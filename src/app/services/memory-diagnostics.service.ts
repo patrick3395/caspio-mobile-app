@@ -20,6 +20,17 @@ interface StorageStats {
   cachedPhotosMB: number;
   uploadOutboxCount: number;
   totalMB: number;
+  // Extended stats (optional)
+  pendingImagesCount?: number;
+  pendingImagesMB?: number;
+  cachedServiceDataCount?: number;
+  cachedServiceDataMB?: number;
+  cachedTemplatesCount?: number;
+  cachedTemplatesMB?: number;
+  fieldTablesCount?: number;
+  fieldTablesMB?: number;
+  orphanedBlobsCount?: number;
+  orphanedBlobsMB?: number;
 }
 
 // Storage thresholds for mobile devices
@@ -265,6 +276,287 @@ export class MemoryDiagnosticsService {
   }
 
   /**
+   * Get DETAILED storage statistics including ALL tables
+   * Use this to diagnose storage bloat
+   */
+  async getDetailedStorageStats(): Promise<StorageStats> {
+    const basicStats = await this.getStorageStats();
+
+    try {
+      // Pending images (has ArrayBuffer data)
+      const pendingImages = await db.pendingImages.toArray();
+      let pendingImagesMB = 0;
+      for (const img of pendingImages) {
+        if (img.fileData) {
+          pendingImagesMB += img.fileData.byteLength / (1024 * 1024);
+        }
+      }
+
+      // Cached service data (JSON responses)
+      const cachedServiceData = await db.cachedServiceData.toArray();
+      let cachedServiceDataMB = 0;
+      for (const item of cachedServiceData) {
+        cachedServiceDataMB += JSON.stringify(item).length / (1024 * 1024);
+      }
+
+      // Cached templates
+      const cachedTemplates = await db.cachedTemplates.toArray();
+      let cachedTemplatesMB = 0;
+      for (const item of cachedTemplates) {
+        cachedTemplatesMB += JSON.stringify(item).length / (1024 * 1024);
+      }
+
+      // Field tables
+      let fieldTablesCount = 0;
+      let fieldTablesMB = 0;
+
+      const visualFields = await db.visualFields.toArray();
+      fieldTablesCount += visualFields.length;
+      fieldTablesMB += JSON.stringify(visualFields).length / (1024 * 1024);
+
+      const efeFields = await db.efeFields.toArray();
+      fieldTablesCount += efeFields.length;
+      fieldTablesMB += JSON.stringify(efeFields).length / (1024 * 1024);
+
+      const hudFields = await db.hudFields.toArray();
+      fieldTablesCount += hudFields.length;
+      fieldTablesMB += JSON.stringify(hudFields).length / (1024 * 1024);
+
+      const lbwFields = await db.lbwFields.toArray();
+      fieldTablesCount += lbwFields.length;
+      fieldTablesMB += JSON.stringify(lbwFields).length / (1024 * 1024);
+
+      const dteFields = await db.dteFields.toArray();
+      fieldTablesCount += dteFields.length;
+      fieldTablesMB += JSON.stringify(dteFields).length / (1024 * 1024);
+
+      // Find orphaned blobs (blobs not referenced by any LocalImage)
+      const allLocalImages = await db.localImages.toArray();
+      const referencedBlobIds = new Set<string>();
+      for (const img of allLocalImages) {
+        if (img.localBlobId) referencedBlobIds.add(img.localBlobId);
+        if (img.thumbBlobId) referencedBlobIds.add(img.thumbBlobId);
+      }
+
+      const allBlobs = await db.localBlobs.toArray();
+      let orphanedBlobsCount = 0;
+      let orphanedBlobsMB = 0;
+      for (const blob of allBlobs) {
+        if (!referencedBlobIds.has(blob.blobId)) {
+          orphanedBlobsCount++;
+          if (blob.data) {
+            orphanedBlobsMB += blob.data.byteLength / (1024 * 1024);
+          }
+        }
+      }
+
+      const extendedTotalMB = basicStats.totalMB + pendingImagesMB + cachedServiceDataMB +
+                              cachedTemplatesMB + fieldTablesMB;
+
+      return {
+        ...basicStats,
+        totalMB: extendedTotalMB,
+        pendingImagesCount: pendingImages.length,
+        pendingImagesMB,
+        cachedServiceDataCount: cachedServiceData.length,
+        cachedServiceDataMB,
+        cachedTemplatesCount: cachedTemplates.length,
+        cachedTemplatesMB,
+        fieldTablesCount,
+        fieldTablesMB,
+        orphanedBlobsCount,
+        orphanedBlobsMB
+      };
+    } catch (err) {
+      console.error('[MemoryDiagnostics] Failed to get detailed stats:', err);
+      return basicStats;
+    }
+  }
+
+  /**
+   * Show detailed storage breakdown alert
+   */
+  async showDetailedStorageAlert(): Promise<void> {
+    const stats = await this.getDetailedStorageStats();
+
+    const alert = await this.alertController.create({
+      header: '📊 Detailed Storage',
+      message: `
+        <div style="text-align: left; font-size: 13px; line-height: 1.6;">
+          <p><strong>Total: ${stats.totalMB.toFixed(1)} MB</strong></p>
+          <hr style="margin: 8px 0;">
+          <p>• Local Blobs: ${stats.localBlobsCount} (${stats.localBlobsMB.toFixed(1)} MB)</p>
+          <p>• Cached Photos: ${stats.cachedPhotosCount} (${stats.cachedPhotosMB.toFixed(1)} MB)</p>
+          <p>• Local Images: ${stats.localImagesCount} records</p>
+          <p>• Upload Queue: ${stats.uploadOutboxCount}</p>
+          ${stats.pendingImagesCount !== undefined ? `<p>• Pending Images: ${stats.pendingImagesCount} (${stats.pendingImagesMB?.toFixed(1)} MB)</p>` : ''}
+          ${stats.cachedServiceDataCount !== undefined ? `<p>• Cached API Data: ${stats.cachedServiceDataCount} (${stats.cachedServiceDataMB?.toFixed(1)} MB)</p>` : ''}
+          ${stats.cachedTemplatesCount !== undefined ? `<p>• Cached Templates: ${stats.cachedTemplatesCount} (${stats.cachedTemplatesMB?.toFixed(1)} MB)</p>` : ''}
+          ${stats.fieldTablesCount !== undefined ? `<p>• Field Records: ${stats.fieldTablesCount} (${stats.fieldTablesMB?.toFixed(1)} MB)</p>` : ''}
+          ${stats.orphanedBlobsCount !== undefined && stats.orphanedBlobsCount > 0 ? `<p style="color: #dc3545;">• ⚠️ Orphaned Blobs: ${stats.orphanedBlobsCount} (${stats.orphanedBlobsMB?.toFixed(1)} MB)</p>` : ''}
+          <hr style="margin: 8px 0;">
+          <p style="color: #666; font-size: 11px;">Note: iOS may show higher storage in Settings due to WebKit caching.</p>
+        </div>
+      `,
+      buttons: [
+        {
+          text: 'Clear Orphans',
+          handler: () => {
+            this.clearOrphanedBlobs();
+          }
+        },
+        {
+          text: 'Clear ALL',
+          cssClass: 'danger',
+          handler: () => {
+            this.showAggressiveClearConfirmation();
+          }
+        },
+        { text: 'OK' }
+      ]
+    });
+    await alert.present();
+  }
+
+  /**
+   * Clear orphaned blobs (blobs not referenced by any LocalImage)
+   */
+  async clearOrphanedBlobs(): Promise<number> {
+    const allLocalImages = await db.localImages.toArray();
+    const referencedBlobIds = new Set<string>();
+    for (const img of allLocalImages) {
+      if (img.localBlobId) referencedBlobIds.add(img.localBlobId);
+      if (img.thumbBlobId) referencedBlobIds.add(img.thumbBlobId);
+    }
+
+    const allBlobs = await db.localBlobs.toArray();
+    let clearedCount = 0;
+    let clearedMB = 0;
+
+    for (const blob of allBlobs) {
+      if (!referencedBlobIds.has(blob.blobId)) {
+        if (blob.data) {
+          clearedMB += blob.data.byteLength / (1024 * 1024);
+        }
+        await db.localBlobs.delete(blob.blobId);
+        clearedCount++;
+      }
+    }
+
+    console.log(`[MemoryDiagnostics] Cleared ${clearedCount} orphaned blobs (${clearedMB.toFixed(1)} MB)`);
+
+    if (clearedCount > 0) {
+      const alert = await this.alertController.create({
+        header: '✅ Orphans Cleared',
+        message: `Removed ${clearedCount} orphaned blob(s) (${clearedMB.toFixed(1)} MB)`,
+        buttons: ['OK']
+      });
+      await alert.present();
+    }
+
+    return clearedCount;
+  }
+
+  /**
+   * Show confirmation for aggressive clear
+   */
+  private async showAggressiveClearConfirmation(): Promise<void> {
+    const alert = await this.alertController.create({
+      header: '⚠️ Clear ALL Data?',
+      message: `
+        <div style="text-align: left; font-size: 14px;">
+          <p>This will delete <strong>ALL</strong> local data including:</p>
+          <ul style="margin: 8px 0; padding-left: 20px;">
+            <li>All cached photos and blobs</li>
+            <li>All pending uploads</li>
+            <li>All cached API data</li>
+            <li>All field data</li>
+          </ul>
+          <p style="color: #dc3545;"><strong>Data not yet synced to server will be LOST.</strong></p>
+          <p style="margin-top: 8px;">You may need to restart the app for iOS to reclaim space.</p>
+        </div>
+      `,
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Clear Everything',
+          cssClass: 'danger',
+          handler: () => {
+            this.clearAllDataAggressive();
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  /**
+   * AGGRESSIVE clear - removes ALL IndexedDB data
+   * Use when normal clear isn't freeing space
+   */
+  async clearAllDataAggressive(): Promise<void> {
+    console.log('[MemoryDiagnostics] Starting AGGRESSIVE clear...');
+
+    const beforeStats = await this.getDetailedStorageStats();
+
+    try {
+      // Clear ALL tables
+      await db.localBlobs.clear();
+      await db.localImages.clear();
+      await db.uploadOutbox.clear();
+      await db.cachedPhotos.clear();
+      await db.cachedServiceData.clear();
+      await db.cachedTemplates.clear();
+      await db.pendingImages.clear();
+      await db.pendingRequests.clear();
+      await db.pendingCaptions.clear();
+      await db.pendingEFEData.clear();
+      await db.tempIdMappings.clear();
+      await db.operationsQueue.clear();
+      await db.visualFields.clear();
+      await db.efeFields.clear();
+      await db.hudFields.clear();
+      await db.lbwFields.clear();
+      await db.dteFields.clear();
+
+      // Mark all services as PURGED
+      const services = await db.serviceMetadata.toArray();
+      for (const svc of services) {
+        await this.serviceMetadata.setPurgeState(svc.serviceId, 'PURGED');
+      }
+
+      const afterStats = await this.getDetailedStorageStats();
+      const freedMB = beforeStats.totalMB - afterStats.totalMB;
+
+      console.log(`[MemoryDiagnostics] AGGRESSIVE clear complete. Freed ${freedMB.toFixed(1)} MB`);
+
+      const alert = await this.alertController.create({
+        header: '✅ All Data Cleared',
+        message: `
+          <div style="text-align: left;">
+            <p>Freed <strong>${freedMB.toFixed(1)} MB</strong> from IndexedDB.</p>
+            <p style="margin-top: 8px;">Current usage: <strong>${afterStats.totalMB.toFixed(1)} MB</strong></p>
+            <p style="margin-top: 12px; color: #666; font-size: 13px;">
+              <strong>Important:</strong> iOS may still show high storage in Settings.
+              Try closing and reopening the app, or delete and reinstall to fully reclaim space.
+            </p>
+          </div>
+        `,
+        buttons: ['OK']
+      });
+      await alert.present();
+    } catch (err) {
+      console.error('[MemoryDiagnostics] Aggressive clear failed:', err);
+      const errorAlert = await this.alertController.create({
+        header: 'Clear Failed',
+        message: 'Unable to clear all data. Try restarting the app.',
+        buttons: ['OK']
+      });
+      await errorAlert.present();
+    }
+  }
+
+  /**
    * Simple alert to confirm an operation happened (for debugging)
    * Shows IndexedDB storage stats which work on mobile
    */
@@ -428,6 +720,14 @@ export class MemoryDiagnosticsService {
       message,
       backdropDismiss: !isCritical, // Critical requires action
       buttons: [
+        {
+          text: 'Details',
+          cssClass: 'secondary',
+          handler: () => {
+            this.showDetailedStorageAlert();
+            return false; // Keep alert open
+          }
+        },
         {
           text: 'Later',
           role: 'cancel',

@@ -3641,7 +3641,8 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
     let visualId: string | null = null;
 
     try {
-      const response = await this.caspioService.createServicesDTE(visualData).toPromise();
+      // SYNC QUEUE FIX: Use DteDataService which handles offline-first with sync queue
+      const response = await this.hudData.createVisual(visualData);
 
       if (Array.isArray(response) && response.length > 0) {
         visualId = String(response[0].DTEID || response[0].PK_ID || response[0].id || '');
@@ -4885,9 +4886,10 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
           const updateData = {
             Answers: answersText
           };
-          
+
           try {
-            await this.caspioService.updateServicesDTE(existingVisualId, updateData).toPromise();
+            // SYNC QUEUE FIX: Use DteDataService which handles offline-first with sync queue
+            await this.hudData.updateVisual(existingVisualId, updateData, this.serviceId);
             
             // Show success debug
             const successAlert = await this.alertController.create({
@@ -4973,7 +4975,8 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
           const updateData = {
             Answers: ''
           };
-          await this.caspioService.updateServicesDTE(existingVisualId, updateData).toPromise();
+          // SYNC QUEUE FIX: Use DteDataService which handles offline-first with sync queue
+          await this.hudData.updateVisual(existingVisualId, updateData, this.serviceId);
           
           const clearAlert = await this.alertController.create({
             header: 'CLEARED ANSWERS',
@@ -6143,10 +6146,10 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
 
       // Online mode - proceed with API call
       try {
-        // Create the visual record using the EXACT same pattern as createVisualRecord (line 4742)
-        const response = await this.caspioService.createServicesDTE(visualData).toPromise();
+        // SYNC QUEUE FIX: Use DteDataService which handles offline-first with sync queue
+        const response = await this.hudData.createVisual(visualData);
 
-        // Extract DTEID using the SAME logic as line 4744-4754
+        // Extract DTEID using the SAME logic
         let visualId: string | null = null;
 
         if (Array.isArray(response) && response.length > 0) {
@@ -6304,10 +6307,11 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
         message: 'Adding visual...'
       });
       await loading.present();
-      
+
       try {
-        const response = await this.caspioService.createServicesDTE(visualData).toPromise();
-        
+        // SYNC QUEUE FIX: Use DteDataService which handles offline-first with sync queue
+        const response = await this.hudData.createVisual(visualData);
+
         // Show debug popup with the response
         const debugAlert = await this.alertController.create({
           header: 'Custom Visual Creation Response',

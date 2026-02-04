@@ -916,6 +916,36 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
                 if (!cachedAnnotatedUrl) {
                   cachedAnnotatedUrl = this.bulkAnnotatedImagesMap.get(localImage.imageId);
                 }
+
+                // TIER 2: Check IndexedDB cache if not in memory (needed after rehydration)
+                if (!cachedAnnotatedUrl && hasAnnotations) {
+                  const cacheKey = localImage.attachId || localImage.imageId;
+                  try {
+                    cachedAnnotatedUrl = await this.indexedDb.getCachedAnnotatedImage(cacheKey);
+                    if (cachedAnnotatedUrl) {
+                      this.bulkAnnotatedImagesMap.set(cacheKey, cachedAnnotatedUrl);
+                    }
+                  } catch (e) { /* ignore cache lookup errors */ }
+                }
+
+                // TIER 3: Render on-the-fly if still no cached version (needed after rehydration clears cache)
+                if (!cachedAnnotatedUrl && hasAnnotations && freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.svg' && localImage.drawings) {
+                  try {
+                    const renderedUrl = await renderAnnotationsOnPhoto(freshDisplayUrl, localImage.drawings);
+                    if (renderedUrl && renderedUrl !== freshDisplayUrl) {
+                      cachedAnnotatedUrl = renderedUrl;
+                      const cacheKey = localImage.attachId || localImage.imageId;
+                      this.bulkAnnotatedImagesMap.set(cacheKey, renderedUrl);
+                      // Cache to IndexedDB in background (non-blocking)
+                      fetch(renderedUrl).then(r => r.blob()).then(blob =>
+                        this.indexedDb.cacheAnnotatedImage(cacheKey, blob)
+                      ).catch(() => {});
+                    }
+                  } catch (e) {
+                    this.logDebug('WARN', `Failed to render annotations on-the-fly: ${e}`);
+                  }
+                }
+
                 const thumbnailUrl = (cachedAnnotatedUrl && hasAnnotations) ? cachedAnnotatedUrl : freshDisplayUrl;
 
                 // DEXIE-FIRST FIX: Always set uploading/loading to false when updating from LocalImages
@@ -975,6 +1005,35 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
             : null;
           if (!cachedAnnotatedUrl) {
             cachedAnnotatedUrl = this.bulkAnnotatedImagesMap.get(localImage.imageId);
+          }
+
+          // TIER 2: Check IndexedDB cache if not in memory (needed after rehydration)
+          if (!cachedAnnotatedUrl && hasAnnotations) {
+            const cacheKey = localImage.attachId || localImage.imageId;
+            try {
+              cachedAnnotatedUrl = await this.indexedDb.getCachedAnnotatedImage(cacheKey);
+              if (cachedAnnotatedUrl) {
+                this.bulkAnnotatedImagesMap.set(cacheKey, cachedAnnotatedUrl);
+              }
+            } catch (e) { /* ignore cache lookup errors */ }
+          }
+
+          // TIER 3: Render on-the-fly if still no cached version (needed after rehydration clears cache)
+          if (!cachedAnnotatedUrl && hasAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg' && localImage.drawings) {
+            try {
+              const renderedUrl = await renderAnnotationsOnPhoto(displayUrl, localImage.drawings);
+              if (renderedUrl && renderedUrl !== displayUrl) {
+                cachedAnnotatedUrl = renderedUrl;
+                const cacheKey = localImage.attachId || localImage.imageId;
+                this.bulkAnnotatedImagesMap.set(cacheKey, renderedUrl);
+                // Cache to IndexedDB in background (non-blocking)
+                fetch(renderedUrl).then(r => r.blob()).then(blob =>
+                  this.indexedDb.cacheAnnotatedImage(cacheKey, blob)
+                ).catch(() => {});
+              }
+            } catch (e) {
+              this.logDebug('WARN', `Failed to render annotations on-the-fly: ${e}`);
+            }
           }
 
           if (cachedAnnotatedUrl && hasAnnotations) {
@@ -1150,6 +1209,36 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
                 if (!cachedAnnotatedUrl) {
                   cachedAnnotatedUrl = this.bulkAnnotatedImagesMap.get(localImage.imageId);
                 }
+
+                // TIER 2: Check IndexedDB cache if not in memory (needed after rehydration)
+                if (!cachedAnnotatedUrl && hasAnnotations) {
+                  const cacheKey = localImage.attachId || localImage.imageId;
+                  try {
+                    cachedAnnotatedUrl = await this.indexedDb.getCachedAnnotatedImage(cacheKey);
+                    if (cachedAnnotatedUrl) {
+                      this.bulkAnnotatedImagesMap.set(cacheKey, cachedAnnotatedUrl);
+                    }
+                  } catch (e) { /* ignore cache lookup errors */ }
+                }
+
+                // TIER 3: Render on-the-fly if still no cached version (needed after rehydration clears cache)
+                if (!cachedAnnotatedUrl && hasAnnotations && freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.svg' && localImage.drawings) {
+                  try {
+                    const renderedUrl = await renderAnnotationsOnPhoto(freshDisplayUrl, localImage.drawings);
+                    if (renderedUrl && renderedUrl !== freshDisplayUrl) {
+                      cachedAnnotatedUrl = renderedUrl;
+                      const cacheKey = localImage.attachId || localImage.imageId;
+                      this.bulkAnnotatedImagesMap.set(cacheKey, renderedUrl);
+                      // Cache to IndexedDB in background (non-blocking)
+                      fetch(renderedUrl).then(r => r.blob()).then(blob =>
+                        this.indexedDb.cacheAnnotatedImage(cacheKey, blob)
+                      ).catch(() => {});
+                    }
+                  } catch (e) {
+                    this.logDebug('WARN', `Failed to render annotations on-the-fly: ${e}`);
+                  }
+                }
+
                 const thumbnailUrl = (cachedAnnotatedUrl && hasAnnotations) ? cachedAnnotatedUrl : freshDisplayUrl;
 
                 // DEXIE-FIRST FIX: Always set uploading/loading to false when updating from LocalImages
@@ -1201,6 +1290,35 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
             : null;
           if (!cachedAnnotatedUrl) {
             cachedAnnotatedUrl = this.bulkAnnotatedImagesMap.get(localImage.imageId);
+          }
+
+          // TIER 2: Check IndexedDB cache if not in memory (needed after rehydration)
+          if (!cachedAnnotatedUrl && hasAnnotations) {
+            const cacheKey = localImage.attachId || localImage.imageId;
+            try {
+              cachedAnnotatedUrl = await this.indexedDb.getCachedAnnotatedImage(cacheKey);
+              if (cachedAnnotatedUrl) {
+                this.bulkAnnotatedImagesMap.set(cacheKey, cachedAnnotatedUrl);
+              }
+            } catch (e) { /* ignore cache lookup errors */ }
+          }
+
+          // TIER 3: Render on-the-fly if still no cached version (needed after rehydration clears cache)
+          if (!cachedAnnotatedUrl && hasAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg' && localImage.drawings) {
+            try {
+              const renderedUrl = await renderAnnotationsOnPhoto(displayUrl, localImage.drawings);
+              if (renderedUrl && renderedUrl !== displayUrl) {
+                cachedAnnotatedUrl = renderedUrl;
+                const cacheKey = localImage.attachId || localImage.imageId;
+                this.bulkAnnotatedImagesMap.set(cacheKey, renderedUrl);
+                // Cache to IndexedDB in background (non-blocking)
+                fetch(renderedUrl).then(r => r.blob()).then(blob =>
+                  this.indexedDb.cacheAnnotatedImage(cacheKey, blob)
+                ).catch(() => {});
+              }
+            } catch (e) {
+              this.logDebug('WARN', `Failed to render annotations on-the-fly: ${e}`);
+            }
           }
 
           let thumbnailUrl = displayUrl;
@@ -1571,6 +1689,36 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
                 if (!cachedAnnotatedUrl) {
                   cachedAnnotatedUrl = this.bulkAnnotatedImagesMap.get(localImage.imageId);
                 }
+
+                // TIER 2: Check IndexedDB cache if not in memory (needed after rehydration)
+                if (!cachedAnnotatedUrl && hasAnnotations) {
+                  const cacheKey = localImage.attachId || localImage.imageId;
+                  try {
+                    cachedAnnotatedUrl = await this.indexedDb.getCachedAnnotatedImage(cacheKey);
+                    if (cachedAnnotatedUrl) {
+                      this.bulkAnnotatedImagesMap.set(cacheKey, cachedAnnotatedUrl);
+                    }
+                  } catch (e) { /* ignore cache lookup errors */ }
+                }
+
+                // TIER 3: Render on-the-fly if still no cached version (needed after rehydration clears cache)
+                if (!cachedAnnotatedUrl && hasAnnotations && freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.svg' && localImage.drawings) {
+                  try {
+                    const renderedUrl = await renderAnnotationsOnPhoto(freshDisplayUrl, localImage.drawings);
+                    if (renderedUrl && renderedUrl !== freshDisplayUrl) {
+                      cachedAnnotatedUrl = renderedUrl;
+                      const cacheKey = localImage.attachId || localImage.imageId;
+                      this.bulkAnnotatedImagesMap.set(cacheKey, renderedUrl);
+                      // Cache to IndexedDB in background (non-blocking)
+                      fetch(renderedUrl).then(r => r.blob()).then(blob =>
+                        this.indexedDb.cacheAnnotatedImage(cacheKey, blob)
+                      ).catch(() => {});
+                    }
+                  } catch (e) {
+                    this.logDebug('WARN', `Failed to render annotations on-the-fly: ${e}`);
+                  }
+                }
+
                 const thumbnailUrl = (cachedAnnotatedUrl && hasAnnotations) ? cachedAnnotatedUrl : freshDisplayUrl;
 
                 // DEXIE-FIRST FIX: Always set uploading/loading to false when updating from LocalImages
@@ -1621,6 +1769,35 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
             : null;
           if (!cachedAnnotatedUrl) {
             cachedAnnotatedUrl = this.bulkAnnotatedImagesMap.get(localImage.imageId);
+          }
+
+          // TIER 2: Check IndexedDB cache if not in memory (needed after rehydration)
+          if (!cachedAnnotatedUrl && hasAnnotations) {
+            const cacheKey = localImage.attachId || localImage.imageId;
+            try {
+              cachedAnnotatedUrl = await this.indexedDb.getCachedAnnotatedImage(cacheKey);
+              if (cachedAnnotatedUrl) {
+                this.bulkAnnotatedImagesMap.set(cacheKey, cachedAnnotatedUrl);
+              }
+            } catch (e) { /* ignore cache lookup errors */ }
+          }
+
+          // TIER 3: Render on-the-fly if still no cached version (needed after rehydration clears cache)
+          if (!cachedAnnotatedUrl && hasAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg' && localImage.drawings) {
+            try {
+              const renderedUrl = await renderAnnotationsOnPhoto(displayUrl, localImage.drawings);
+              if (renderedUrl && renderedUrl !== displayUrl) {
+                cachedAnnotatedUrl = renderedUrl;
+                const cacheKey = localImage.attachId || localImage.imageId;
+                this.bulkAnnotatedImagesMap.set(cacheKey, renderedUrl);
+                // Cache to IndexedDB in background (non-blocking)
+                fetch(renderedUrl).then(r => r.blob()).then(blob =>
+                  this.indexedDb.cacheAnnotatedImage(cacheKey, blob)
+                ).catch(() => {});
+              }
+            } catch (e) {
+              this.logDebug('WARN', `Failed to render annotations on-the-fly: ${e}`);
+            }
           }
 
           if (cachedAnnotatedUrl && hasAnnotations) {

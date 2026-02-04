@@ -1972,7 +1972,8 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       console.log('[CREATE VISUAL] Creating HUD record with data:', hudData);
       console.log('[CREATE VISUAL] Item details:', { id: item.id, templateId: item.templateId, name: item.name, answer: item.answer });
 
-      const result = await firstValueFrom(this.caspioService.createServicesDTE(hudData));
+      // SYNC QUEUE FIX: Use DteDataService which handles offline-first with sync queue
+      const result = await this.hudData.createVisual(hudData);
       
       console.log('[CREATE VISUAL] API response:', result);
       console.log('[CREATE VISUAL] Response type:', typeof result);
@@ -2069,10 +2070,11 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // If answer is empty/cleared, hide the visual instead of deleting
       if (!item.answer || item.answer === '') {
         if (visualId && !String(visualId).startsWith('temp_')) {
-          await firstValueFrom(this.caspioService.updateServicesDTE(visualId, {
+          // SYNC QUEUE FIX: Use DteDataService which handles offline-first with sync queue
+          await this.hudData.updateVisual(visualId, {
             Answers: '',
             Notes: 'HIDDEN'
-          }));
+          }, this.serviceId);
           console.log('[ANSWER] Hid visual (preserved photos):', visualId);
         }
         this.savingItems[key] = false;
@@ -2098,7 +2100,8 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         console.log('[ANSWER] Creating with data:', visualData);
 
-        const result = await firstValueFrom(this.caspioService.createServicesDTE(visualData));
+        // SYNC QUEUE FIX: Use DteDataService which handles offline-first with sync queue
+        const result = await this.hudData.createVisual(visualData);
         
         console.log('[ANSWER] 🔍 RAW API RESPONSE:', result);
         
@@ -2127,10 +2130,11 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       } else if (!String(visualId).startsWith('temp_')) {
         // Update existing visual and unhide if it was hidden
         console.log('[ANSWER] Updating existing visual:', visualId);
-        await firstValueFrom(this.caspioService.updateServicesDTE(visualId, {
+        // SYNC QUEUE FIX: Use DteDataService which handles offline-first with sync queue
+        await this.hudData.updateVisual(visualId, {
           Answers: item.answer || '',
           Notes: ''
-        }));
+        }, this.serviceId);
         console.log('[ANSWER] ✅ Updated visual:', visualId, 'with Answers:', item.answer);
       }
     } catch (error) {
@@ -2174,10 +2178,11 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // If all options are unchecked AND no "Other" value, hide the visual
       if ((!item.answer || item.answer === '') && (!item.otherValue || item.otherValue === '')) {
         if (visualId && !String(visualId).startsWith('temp_')) {
-          await firstValueFrom(this.caspioService.updateServicesDTE(visualId, {
+          // SYNC QUEUE FIX: Use DteDataService which handles offline-first with sync queue
+          await this.hudData.updateVisual(visualId, {
             Answers: '',
             Notes: 'HIDDEN'
-          }));
+          }, this.serviceId);
           console.log('[OPTION] Hid visual (preserved photos):', visualId);
         }
         this.savingItems[key] = false;
@@ -2203,7 +2208,8 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         console.log('[OPTION] Creating with data:', visualData);
 
-        const result = await firstValueFrom(this.caspioService.createServicesDTE(visualData));
+        // SYNC QUEUE FIX: Use DteDataService which handles offline-first with sync queue
+        const result = await this.hudData.createVisual(visualData);
         
         console.log('[OPTION] 🔍 RAW API RESPONSE:', result);
         console.log('[OPTION] 🔍 Response type:', typeof result);
@@ -2240,10 +2246,11 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // Update existing visual
         console.log('[OPTION] Updating existing visual:', visualId);
         const notesValue = item.otherValue || '';
-        await firstValueFrom(this.caspioService.updateServicesDTE(visualId, {
+        // SYNC QUEUE FIX: Use DteDataService which handles offline-first with sync queue
+        await this.hudData.updateVisual(visualId, {
           Answers: item.answer,
           Notes: notesValue
-        }));
+        }, this.serviceId);
         console.log('[OPTION] ✅ Updated visual:', visualId, 'with Answers:', item.answer);
       }
     } catch (error) {

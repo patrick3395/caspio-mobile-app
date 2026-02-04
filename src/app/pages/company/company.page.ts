@@ -708,12 +708,12 @@ export class CompanyPage implements OnInit, OnDestroy {
         )
       ]);
 
-      // Build type lookup
+      // Build type lookup - use full TypeName for client view
       const typeLookup = new Map<number, string>();
       if (typesResponse && typesResponse.Result) {
         typesResponse.Result.forEach((type: any) => {
           const typeId = Number(type.TypeID || type.PK_ID);
-          typeLookup.set(typeId, type.TypeShort || type.TypeName || 'Unknown');
+          typeLookup.set(typeId, type.TypeName || type.TypeShort || 'Unknown');
         });
       }
 
@@ -725,6 +725,11 @@ export class CompanyPage implements OnInit, OnDestroy {
             ...offer,
             typeName: typeId !== null ? (typeLookup.get(typeId) || 'Unknown Service') : 'Unknown Service'
           };
+        }).sort((a: any, b: any) => {
+          // Move "Other" to the bottom
+          if (a.typeName === 'Other') return 1;
+          if (b.typeName === 'Other') return -1;
+          return a.typeName.localeCompare(b.typeName);
         });
       }
     } catch (error) {

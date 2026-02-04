@@ -1165,10 +1165,9 @@
             <h3>Users</h3>
             <span class="collapsible-count" *ngIf="!isLoading">({{ organizationUsers.length }})</span>
           </div>
-          <ion-button size="small" (click)="openAddUserModal(); $event.stopPropagation()" class="add-button">
-            <ion-icon name="add-circle-outline" slot="start"></ion-icon>
-            Add User
-          </ion-button>
+          <button class="minimal-add-btn" (click)="openAddUserModal(); $event.stopPropagation()" title="Add User">
+            <ion-icon name="add"></ion-icon>
+          </button>
         </div>
 
         <div class="collapsible-content" [class.expanded]="usersExpanded">
@@ -1279,37 +1278,18 @@
             <ion-icon [name]="paymentSettingsExpanded ? 'chevron-down' : 'chevron-forward'"></ion-icon>
             <ion-icon name="card-outline" class="section-icon"></ion-icon>
             <h3>Payment Settings</h3>
-            <span class="collapsible-badge" *ngIf="clientCompany?.AutopayEnabled">
-              <ion-icon name="checkmark-circle"></ion-icon>
-              Autopay Active
+          </div>
+          <div class="header-balance" *ngIf="!outstandingInvoicesLoading">
+            <span class="balance-label">Balance:</span>
+            <span class="balance-value" [class.has-balance]="outstandingBalance > 0">
+              {{ outstandingBalance | currency:'USD':'symbol':'1.2-2' }}
             </span>
           </div>
+          <ion-spinner *ngIf="outstandingInvoicesLoading" name="crescent" class="header-spinner"></ion-spinner>
         </div>
 
         <div class="collapsible-content" [class.expanded]="paymentSettingsExpanded">
           <div class="payment-settings-content">
-            <!-- Outstanding Balance Summary -->
-            <div class="outstanding-balance-card">
-              <div class="balance-header">
-                <ion-icon name="receipt-outline"></ion-icon>
-                <span>Outstanding Balance</span>
-              </div>
-              <div class="balance-content" *ngIf="!outstandingInvoicesLoading">
-                <div class="balance-amount" [class.has-balance]="outstandingBalance > 0">
-                  {{ outstandingBalance | currency:'USD':'symbol':'1.2-2' }}
-                </div>
-                <div class="balance-details" *ngIf="outstandingInvoiceCount > 0">
-                  {{ outstandingInvoiceCount }} unpaid invoice{{ outstandingInvoiceCount > 1 ? 's' : '' }}
-                </div>
-                <div class="balance-details paid" *ngIf="outstandingInvoiceCount === 0">
-                  All invoices paid
-                </div>
-              </div>
-              <div class="balance-content" *ngIf="outstandingInvoicesLoading">
-                <ion-spinner name="crescent" class="balance-spinner"></ion-spinner>
-              </div>
-            </div>
-
             <!-- Autopay Toggle -->
             <div class="payment-setting-row">
               <div class="payment-setting-label">
