@@ -3762,6 +3762,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Check for CSA template - Cost Segregation Analysis
     const isCSATemplate =
+      service.typeShort?.toUpperCase() === 'ECSA' ||
       service.typeName?.toLowerCase().includes('csa') ||
       service.typeName?.toLowerCase().includes('cost segregation');
 
@@ -4804,14 +4805,16 @@ Troubleshooting:
    * Maps service typeShort to OfflineTemplateService template types.
    * Returns null for services without offline template support.
    */
-  private getTemplateType(typeShort: string): 'EFE' | 'HUD' | 'LBW' | 'DTE' | null {
+  private getTemplateType(typeShort: string): 'EFE' | 'HUD' | 'LBW' | 'DTE' | 'CSA' | null {
     const normalized = typeShort?.toUpperCase() || '';
     if (normalized === 'EFE') return 'EFE';
     if (normalized === 'HUD') return 'HUD';
     if (normalized === 'LBW') return 'LBW';
     if (normalized === 'DTE') return 'DTE';
+    if (normalized === 'CSA') return 'CSA';
     if (normalized === 'ELBW') return 'LBW';
     if (normalized === 'EDTE') return 'DTE';
+    if (normalized === 'ECSA') return 'CSA';
     return null;
   }
 

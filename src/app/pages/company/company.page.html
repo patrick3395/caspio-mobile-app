@@ -492,15 +492,24 @@
                   </div>
                   <div class="detail-col">
                     <label>Autopay Day</label>
-                    <select
-                      class="autopay-day-select"
-                      [ngModel]="company.AutopayDay || 1"
-                      (ngModelChange)="updateCompanyAutopayDay(company, $event)"
-                      [disabled]="!company.PayPalVaultToken">
-                      <option *ngFor="let day of getAutopayDayOptions()" [value]="day">
-                        {{ formatAutopayDay(day) }}
-                      </option>
-                    </select>
+                    <div class="autopay-day-row">
+                      <select
+                        class="autopay-day-select"
+                        [ngModel]="company.AutopayDay || 1"
+                        (ngModelChange)="updateCompanyAutopayDay(company, $event)"
+                        [disabled]="!company.PayPalVaultToken">
+                        <option *ngFor="let day of getAutopayDayOptions()" [value]="day">
+                          {{ formatAutopayDay(day) }}
+                        </option>
+                      </select>
+                      <button
+                        class="run-autopay-btn-small"
+                        (click)="triggerAutopay(company)"
+                        [disabled]="!company.AutopayEnabled || !company.PayPalVaultToken || getCompanyOutstandingData(company.CompanyID).balance === 0"
+                        title="Run Autopay Now">
+                        <ion-icon name="play"></ion-icon>
+                      </button>
+                    </div>
                     <small *ngIf="!company.PayPalVaultToken" class="autopay-hint">Save payment method first</small>
                   </div>
                 </div>
@@ -1374,100 +1383,6 @@
             </div>
             <h3>No services configured</h3>
             <p>Contact support to set up your service offerings</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Payment Settings Collapsible Section -->
-      <div class="collapsible-section payment-settings-section">
-        <div class="collapsible-header" (click)="paymentSettingsExpanded = !paymentSettingsExpanded">
-          <div class="collapsible-title">
-            <ion-icon [name]="paymentSettingsExpanded ? 'chevron-down' : 'chevron-forward'"></ion-icon>
-            <h3>Payment Settings</h3>
-          </div>
-          <div class="header-balance" *ngIf="!outstandingInvoicesLoading">
-            <span class="balance-value" [class.has-balance]="outstandingBalance > 0">
-              {{ outstandingBalance | currency:'USD':'symbol':'1.2-2' }}
-            </span>
-          </div>
-          <ion-spinner *ngIf="outstandingInvoicesLoading" name="crescent" class="header-spinner"></ion-spinner>
-        </div>
-
-        <div class="collapsible-content" [class.expanded]="paymentSettingsExpanded">
-          <div class="payment-settings-content">
-            <!-- Autopay Toggle -->
-            <div class="payment-setting-row">
-              <div class="payment-setting-label">
-                <span>Enable Autopay</span>
-                <p class="setting-description">Automatically pay invoices on a schedule</p>
-              </div>
-              <div class="payment-setting-value">
-                <ion-toggle
-                  [checked]="clientCompany?.AutopayEnabled"
-                  (ionChange)="toggleAutopay($event)"
-                  class="autopay-toggle">
-                </ion-toggle>
-              </div>
-            </div>
-
-            <!-- Autopay Day Selector (only show when enabled) -->
-            <div class="payment-setting-row" *ngIf="clientCompany?.AutopayEnabled">
-              <div class="payment-setting-label">
-                <span>Payment Day</span>
-                <p class="setting-description">Day of month to process payments</p>
-              </div>
-              <div class="payment-setting-value">
-                <select class="autopay-day-select"
-                        [ngModel]="clientCompany?.AutopayDay || 1"
-                        (ngModelChange)="updateAutopayDay($event)">
-                  <option *ngFor="let day of getAutopayDayOptions()" [value]="day">
-                    {{ formatAutopayDay(day) }}
-                  </option>
-                </select>
-              </div>
-            </div>
-
-            <!-- Saved Payment Method -->
-            <div class="payment-setting-row" *ngIf="clientCompany?.PayPalVaultToken">
-              <div class="payment-setting-label">
-                <span>Payment Method</span>
-                <p class="setting-description">Saved payment method for autopay</p>
-              </div>
-              <div class="payment-setting-value">
-                <div class="saved-payment-method">
-                  <ion-icon name="logo-paypal" class="paypal-icon"></ion-icon>
-                  <span>PayPal - {{ clientCompany?.PayPalPayerEmail }}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- No Payment Method - Add Button -->
-            <div class="payment-setting-row" *ngIf="!clientCompany?.PayPalVaultToken">
-              <div class="payment-setting-label">
-                <span>Payment Method</span>
-                <p class="setting-description">Required for autopay</p>
-              </div>
-              <div class="payment-setting-value">
-                <button class="add-payment-btn" (click)="openAddPaymentMethodModal()">
-                  <ion-icon name="add-circle-outline"></ion-icon>
-                  Add Payment Method
-                </button>
-              </div>
-            </div>
-
-            <!-- Last Autopay -->
-            <div class="payment-setting-row" *ngIf="clientCompany?.AutopayLastRun">
-              <div class="payment-setting-label">
-                <span>Last Payment</span>
-              </div>
-              <div class="payment-setting-value">
-                <span class="autopay-last-status"
-                      [class.success]="clientCompany?.AutopayLastStatus === 'Success'"
-                      [class.failed]="clientCompany?.AutopayLastStatus?.startsWith('Failed')">
-                  {{ clientCompany?.AutopayLastRun | date:'medium' }} - {{ clientCompany?.AutopayLastStatus }}
-                </span>
-              </div>
-            </div>
           </div>
         </div>
       </div>

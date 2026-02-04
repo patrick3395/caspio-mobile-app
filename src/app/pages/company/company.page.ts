@@ -722,9 +722,6 @@ export class CompanyPage implements OnInit, OnDestroy {
    * Calculates balance based on services added to projects, minus any payments
    */
   async loadCompanyOutstandingInvoices(companyId: number): Promise<void> {
-    console.log('🔴🔴🔴 NEW CODE RUNNING - loadCompanyOutstandingInvoices v2 🔴🔴🔴');
-    alert('NEW CODE v2 - Loading outstanding data for company ' + companyId);
-
     // Initialize loading state
     this.companyOutstandingData.set(companyId, {
       loading: true,
@@ -734,28 +731,14 @@ export class CompanyPage implements OnInit, OnDestroy {
     });
 
     try {
-      // Load projects, services, offers, and invoices in parallel
+      // Load projects, offers, and types in parallel
       const [projectsResponse, offersResponse, typesResponse] = await Promise.all([
         firstValueFrom(this.caspioService.get<any>(`/tables/LPS_Projects/records?q.where=CompanyID=${companyId}`)),
         firstValueFrom(this.caspioService.get<any>(`/tables/LPS_Offers/records?q.where=CompanyID=${companyId}`)),
         firstValueFrom(this.caspioService.get<any>('/tables/LPS_Type/records'))
       ]);
 
-      // DEBUG: Show what we got from API
-      const debugInfo: string[] = [];
-      debugInfo.push(`Company ID: ${companyId}`);
-      debugInfo.push(`Projects found: ${projectsResponse?.Result?.length || 0}`);
-      debugInfo.push(`Offers found: ${offersResponse?.Result?.length || 0}`);
-
-      if (offersResponse?.Result?.length) {
-        offersResponse.Result.forEach((o: any, i: number) => {
-          debugInfo.push(`  Offer ${i + 1}: TypeID=${o.TypeID}, ServiceFee=${o.ServiceFee}`);
-        });
-      }
-
       if (!projectsResponse?.Result?.length) {
-        debugInfo.push('NO PROJECTS - returning $0 balance');
-        alert('DEBUG Outstanding Balance:\n' + debugInfo.join('\n'));
         this.companyOutstandingData.set(companyId, { loading: false, balance: 0, invoices: [], paidInvoices: [] });
         return;
       }
@@ -766,31 +749,19 @@ export class CompanyPage implements OnInit, OnDestroy {
         const projectId = p.ProjectID || p.PK_ID;
         const address = p.Address || p.ProjectName || `Project #${projectId}`;
         projectLookup.set(projectId, { address, projectId });
-        debugInfo.push(`  Project ${projectId}: ${address}`);
       });
 
       // Build offer fee lookup by TypeID
       const offerFeeLookup = new Map<number, number>();
-      console.log('Offers response for company', companyId, ':', offersResponse?.Result);
       if (offersResponse?.Result) {
         offersResponse.Result.forEach((offer: any) => {
           const typeId = offer.TypeID;
           const fee = parseFloat(offer.ServiceFee) || 0;
-          console.log(`Offer: TypeID=${typeId}, ServiceFee=${offer.ServiceFee}, parsed fee=${fee}`);
           if (typeId && fee > 0) {
             offerFeeLookup.set(typeId, fee);
           }
         });
       }
-      debugInfo.push(`\nOffer fee lookup (TypeID -> Fee):`);
-      offerFeeLookup.forEach((fee, typeId) => {
-        debugInfo.push(`  TypeID ${typeId} = $${fee}`);
-      });
-      if (offerFeeLookup.size === 0) {
-        debugInfo.push(`  (no offers with fees > 0)`);
-      }
-      alert('DEBUG Initial Data:\n' + debugInfo.join('\n'));
-      console.log('Offer fee lookup map:', Array.from(offerFeeLookup.entries()));
 
       // Build type name lookup
       const typeNameLookup = new Map<number, string>();
@@ -852,28 +823,18 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       let totalBalance = 0;
 
-      // DEBUG: Show services found
-      const servicesDebug: string[] = [];
-      servicesDebug.push(`Projects: ${projectIds.length}`);
-
       // Process services to calculate outstanding balance
       servicesResponses.forEach((response: any, index: number) => {
         const projectId = projectIds[index];
         const projectInfo = projectLookup.get(projectId);
         const projectAddress = projectInfo?.address || 'Unknown';
 
-        servicesDebug.push(`\nProject ${projectId} (${projectAddress}):`);
-        servicesDebug.push(`  Services found: ${response?.Result?.length || 0}`);
-
-        console.log(`Project ${projectId} services:`, response?.Result);
         if (response?.Result) {
           response.Result.forEach((service: any) => {
             const typeId = service.TypeID;
             const serviceId = service.ServiceID || service.PK_ID;
             const serviceName = typeNameLookup.get(typeId) || `Service ${typeId}`;
             const fee = offerFeeLookup.get(typeId) || 0;
-            servicesDebug.push(`    Service: TypeID=${typeId}, name=${serviceName}, fee=$${fee}`);
-            console.log(`Service: TypeID=${typeId}, ServiceID=${serviceId}, looked up fee=${fee}`);
 
             if (fee > 0) {
               // Check if this service has been paid
@@ -917,21 +878,6 @@ export class CompanyPage implements OnInit, OnDestroy {
         if (!b.paidDate) return -1;
         return new Date(b.paidDate).getTime() - new Date(a.paidDate).getTime();
       });
-
-      // DEBUG: Show services info
-      alert('DEBUG Services Info:\n' + servicesDebug.join('\n'));
-
-      console.log('Total outstanding balance calculated:', totalBalance);
-      console.log('Unpaid services:', unpaidServices);
-
-      // DEBUG: Show final calculation
-      const finalDebug: string[] = [];
-      finalDebug.push(`Total Balance: $${totalBalance.toFixed(2)}`);
-      finalDebug.push(`Unpaid services: ${unpaidServices.length}`);
-      unpaidServices.forEach((s: any, i: number) => {
-        finalDebug.push(`  ${i + 1}. ${s.serviceName} @ ${s.projectAddress}: $${s.remaining.toFixed(2)}`);
-      });
-      alert('DEBUG Final Calculation:\n' + finalDebug.join('\n'));
 
       this.companyOutstandingData.set(companyId, {
         loading: false,

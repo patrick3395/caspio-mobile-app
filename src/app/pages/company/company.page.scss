@@ -2205,6 +2205,42 @@ ion-segment.filter-segment {
   margin-bottom: 16px;
 }
 
+.autopay-day-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.run-autopay-btn-small {
+  padding: 6px 8px;
+  background: var(--ion-color-primary, #3880ff);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+
+  ion-icon {
+    font-size: 14px;
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--ion-color-primary-shade, #3171e0);
+  }
+
+  &:disabled {
+    background: #ccc;
+    color: #888;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
 .autopay-badge {
   display: inline-flex;
   align-items: center;
@@ -3607,6 +3643,37 @@ select.form-input {
 
   &:active {
     transform: translateY(0);
+  }
+}
+
+.run-autopay-btn-inline {
+  padding: 8px 12px;
+  background: var(--ion-color-primary, #3880ff);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+
+  ion-icon {
+    font-size: 16px;
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--ion-color-primary-shade, #3171e0);
+  }
+
+  &:disabled {
+    background: #ccc;
+    color: #888;
+    cursor: not-allowed;
+    opacity: 0.7;
   }
 }
 
