@@ -43,6 +43,10 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
   private statusOptions: any[] = []; // LPS_Status records for StatusID -> Status_Client lookup
   private mutationSubscription?: Subscription;
 
+  // Admin company name lookup (only used when CompanyID = 1)
+  isAdminView = false;
+  private companyNameLookup: Map<number, string> = new Map();
+
   // WEBAPP: Track which project is being navigated to for loading feedback
   selectingProjectId: string | number | null = null;
 
@@ -194,6 +198,8 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
       try {
         const user = JSON.parse(userStr);
         companyId = user.companyId || user.CompanyID;
+        // Check if admin view (CompanyID = 1)
+        this.isAdminView = companyId === 1;
       } catch (e) {
         console.error('Error parsing user data:', e);
       }
@@ -212,16 +218,34 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
         });
         console.log('📦 Loaded projects:', this.projects.length);
         
-        // Load service types and status options in parallel, then services
-        forkJoin({
+        // Load service types, status options, and companies (for admin) in parallel
+        const requests: any = {
           serviceTypes: this.projectsService.getServiceTypes(),
           statusOptions: this.caspioService.get<any>('/tables/LPS_Status/records')
-        }).subscribe({
-          next: (results) => {
+        };
+        // Load companies for admin view to show company names
+        if (this.isAdminView) {
+          requests.companies = this.caspioService.get<any>('/tables/LPS_Company/records');
+        }
+        forkJoin(requests).subscribe({
+          next: (results: any) => {
             this.serviceTypes = results.serviceTypes || [];
             this.statusOptions = results.statusOptions?.Result || [];
             console.log('📦 Loaded service types:', this.serviceTypes.length);
             console.log('📦 Loaded status options:', this.statusOptions.length);
+
+            // Build company name lookup for admin view
+            if (this.isAdminView && results.companies?.Result) {
+              this.companyNameLookup.clear();
+              results.companies.Result.forEach((company: any) => {
+                const companyId = company.CompanyID || company.PK_ID;
+                const companyName = company.CompanyName || company.Name || '';
+                if (companyId && companyName) {
+                  this.companyNameLookup.set(Number(companyId), companyName);
+                }
+              });
+              console.log('📦 Loaded company names:', this.companyNameLookup.size);
+            }
 
             // Simple services loading for each project
             this.loadServicesSimple();
@@ -592,6 +616,16 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     if (project.State) parts.push(project.State);
     if (project.Zip) parts.push(project.Zip);
     return parts.join(', ');
+  }
+
+  /**
+   * Get company name for a project (admin view only)
+   */
+  getCompanyName(project: Project): string {
+    if (!this.isAdminView) return '';
+    const companyId = project.CompanyID || project.Company_ID;
+    if (!companyId) return '';
+    return this.companyNameLookup.get(Number(companyId)) || '';
   }
 
   formatCreatedDate(dateString: string): string {

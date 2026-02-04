@@ -367,6 +367,28 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
       console.log(`[MobileDataProvider] Updating existing pending request for temp ID: ${visualId}`);
       const updated = await this.indexedDb.updatePendingRequestData(visualId, dbData);
       console.log(`[MobileDataProvider] updatePendingRequestData result: ${updated}`);
+
+      // FIX: If temp ID no longer in pending queue (already synced), look up the real ID and create UPDATE request
+      if (!updated) {
+        const realId = await this.indexedDb.getRealId(visualId);
+        if (realId) {
+          console.log(`[MobileDataProvider] Temp ID ${visualId} already synced, creating UPDATE for real ID: ${realId}`);
+          const endpoint = `/tables/${config.tableName}/records?q.where=${config.idFieldName}=${realId}`;
+          await this.indexedDb.addPendingRequest({
+            type: 'UPDATE',
+            endpoint: `/api/caspio-proxy${endpoint}`,
+            method: 'PUT',
+            data: dbData,
+            dependencies: [],
+            status: 'pending',
+            priority: 'normal',
+            serviceId: serviceId
+          });
+          console.log(`[MobileDataProvider] UPDATE request queued for real ID: ${realId}`);
+        } else {
+          console.warn(`[MobileDataProvider] Temp ID ${visualId} not in pending queue and no real ID mapping found - update lost!`);
+        }
+      }
     } else {
       // Queue update for background sync
       const endpoint = `/tables/${config.tableName}/records?q.where=${config.idFieldName}=${visualId}`;
