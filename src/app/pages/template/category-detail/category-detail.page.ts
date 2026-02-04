@@ -1569,6 +1569,11 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       deficiencies: this.sortItemsByAnswerType(deficiencies)
     };
     this.logDebug('DEXIE', `Generic Organized (${this.config.id}): ${comments.length} comments, ${limitations.length} limitations, ${deficiencies.length} deficiencies`);
+
+    // CRITICAL FIX: Restore custom "Other" options from saved answers
+    // Without this, custom options get wiped when liveQuery rebuilds organizedData
+    // because field.dropdownOptions doesn't include user-added custom values
+    this.restoreCustomOptionsFromAnswers();
   }
 
   /**
