@@ -208,7 +208,8 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     // [v1.4.498] PERFORMANCE FIX: Load projects first, then services
     // Load projects and service types in parallel
     // Simple approach: Load projects first, then load services for each
-    this.projectsService.getActiveProjects(companyId).subscribe({
+    // Admin view (CompanyID = 1) sees all projects; others see only their company's projects
+    this.projectsService.getActiveProjects(this.isAdminView ? undefined : companyId).subscribe({
       next: (projects) => {
         // Sort by DateOfRequest, newest to oldest
         this.projects = (projects || []).sort((a, b) => {
@@ -225,7 +226,8 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
         };
         // Load companies for admin view to show company names
         if (this.isAdminView) {
-          requests.companies = this.caspioService.get<any>('/tables/LPS_Company/records');
+          // Use large page size to ensure all companies are loaded
+          requests.companies = this.caspioService.get<any>('/tables/LPS_Companies/records?q.pageSize=1000');
         }
         forkJoin(requests).subscribe({
           next: (results: any) => {
