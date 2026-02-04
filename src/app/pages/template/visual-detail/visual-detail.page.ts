@@ -1342,6 +1342,11 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       const entityId = await this.getIdForSync();
       console.log('[GenericVisualDetail] addPhotoFromCamera: using entityId:', entityId, '(visualId was:', this.visualId, ')');
 
+      // DEBUG ALERT for CSA
+      if (this.config.entityType === 'csa' && typeof alert !== 'undefined') {
+        alert(`[CSA DEBUG] addPhotoFromCamera - entityType: ${this.config.entityType}, entityId: ${entityId}, serviceId: ${this.serviceId}`);
+      }
+
       const config: PhotoCaptureConfig = {
         entityType: this.config.entityType,
         entityId: entityId,
@@ -1349,14 +1354,26 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         category: this.categoryName,
         itemId: this.templateId,
         onTempPhotoAdded: (photo: StandardPhotoEntry) => {
+          // DEBUG ALERT for CSA
+          if (this.config?.entityType === 'csa' && typeof alert !== 'undefined') {
+            alert(`[CSA DEBUG] onTempPhotoAdded - photoId: ${photo.id}`);
+          }
           this.photos.unshift(this.convertStandardPhotoToPhotoItem(photo));
           this.changeDetectorRef.detectChanges();
         },
         onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
+          // DEBUG ALERT for CSA
+          if (this.config?.entityType === 'csa' && typeof alert !== 'undefined') {
+            alert(`[CSA DEBUG] onUploadComplete - photoId: ${photo.id}, tempId: ${tempId}`);
+          }
           this.updatePhotoInList(photo, tempId);
           this.changeDetectorRef.detectChanges();
         },
         onUploadFailed: (tempId: string, error: any) => {
+          // DEBUG ALERT for CSA
+          if (this.config?.entityType === 'csa' && typeof alert !== 'undefined') {
+            alert(`[CSA DEBUG] onUploadFailed - tempId: ${tempId}, error: ${error}`);
+          }
           this.removePhotoFromList(tempId);
           this.changeDetectorRef.detectChanges();
         }
@@ -1387,6 +1404,11 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       const entityId = await this.getIdForSync();
       console.log('[GenericVisualDetail] addPhotoFromGallery: using entityId:', entityId, '(visualId was:', this.visualId, ')');
 
+      // DEBUG ALERT for CSA
+      if (this.config.entityType === 'csa' && typeof alert !== 'undefined') {
+        alert(`[CSA DEBUG] addPhotoFromGallery - entityType: ${this.config.entityType}, entityId: ${entityId}, serviceId: ${this.serviceId}`);
+      }
+
       const config: PhotoCaptureConfig = {
         entityType: this.config.entityType,
         entityId: entityId,
@@ -1395,14 +1417,26 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         itemId: this.templateId,
         skipAnnotator: true,
         onTempPhotoAdded: (photo: StandardPhotoEntry) => {
+          // DEBUG ALERT for CSA
+          if (this.config?.entityType === 'csa' && typeof alert !== 'undefined') {
+            alert(`[CSA DEBUG] Gallery onTempPhotoAdded - photoId: ${photo.id}`);
+          }
           this.photos.unshift(this.convertStandardPhotoToPhotoItem(photo, true));
           this.changeDetectorRef.detectChanges();
         },
         onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
+          // DEBUG ALERT for CSA
+          if (this.config?.entityType === 'csa' && typeof alert !== 'undefined') {
+            alert(`[CSA DEBUG] Gallery onUploadComplete - photoId: ${photo.id}, tempId: ${tempId}`);
+          }
           this.updatePhotoInList(photo, tempId);
           this.changeDetectorRef.detectChanges();
         },
         onUploadFailed: (tempId: string, error: any) => {
+          // DEBUG ALERT for CSA
+          if (this.config?.entityType === 'csa' && typeof alert !== 'undefined') {
+            alert(`[CSA DEBUG] Gallery onUploadFailed - tempId: ${tempId}, error: ${error}`);
+          }
           const index = this.photos.findIndex(p => p.id === tempId);
           if (index >= 0) {
             this.photos[index].uploading = false;

@@ -1315,6 +1315,76 @@ export class BackgroundSyncService {
               });
             });
           }
+        } else if (request.endpoint.includes('Services_CSA') && !request.endpoint.includes('Attach')) {
+          // For CSA records, use CSAID (or PK_ID as fallback)
+          console.log('[BackgroundSync] CSA record sync - processing result');
+          // DEBUG ALERT
+          if (typeof alert !== 'undefined') {
+            alert(`[CSA SYNC DEBUG] CSA record created - processing result: ${JSON.stringify(result)?.substring(0, 100)}`);
+          }
+
+          if (result && result.CSAID) {
+            realId = result.CSAID;
+          } else if (result && result.PK_ID) {
+            realId = result.PK_ID;
+          } else if (result && result.Result && result.Result[0]) {
+            realId = result.Result[0].CSAID || result.Result[0].PK_ID;
+          }
+
+          // Update IndexedDB 'csa' cache and emit sync complete event
+          if (realId) {
+            const serviceId = String(request.data?.ServiceID || '');
+            console.log(`[BackgroundSync] CSA record synced - realId: ${realId}, serviceId: ${serviceId}`);
+            // DEBUG ALERT
+            if (typeof alert !== 'undefined') {
+              alert(`[CSA SYNC DEBUG] CSA record synced - realId: ${realId}, serviceId: ${serviceId}`);
+            }
+
+            // Update the IndexedDB cache to replace temp ID with real CSA data
+            if (serviceId) {
+              const existingCsa = await this.indexedDb.getCachedServiceData(serviceId, 'csa_records') || [];
+              const csaData = result.Result?.[0] || result;
+
+              // Find and update the CSA record with temp ID, or add new if not found
+              let csaUpdated = false;
+              const updatedCsa = existingCsa.map((d: any) => {
+                if (d._tempId === request.tempId || d.CSAID === request.tempId || d.PK_ID === request.tempId) {
+                  csaUpdated = true;
+                  return {
+                    ...d,
+                    ...csaData,
+                    CSAID: realId,
+                    PK_ID: realId,
+                    _tempId: undefined,
+                    _localOnly: undefined,
+                    _syncing: undefined
+                  };
+                }
+                return d;
+              });
+
+              // If CSA record wasn't in cache (shouldn't happen but just in case), add it
+              if (!csaUpdated && csaData) {
+                updatedCsa.push({
+                  ...csaData,
+                  CSAID: realId,
+                  PK_ID: realId
+                });
+              }
+
+              await this.indexedDb.cacheServiceData(serviceId, 'csa_records', updatedCsa);
+              console.log(`[BackgroundSync] ✅ Updated CSA cache for service ${serviceId}: temp ${request.tempId} -> real ${realId}`);
+            }
+
+            // Emit sync complete event for CSA
+            this.ngZone.run(() => {
+              this.csaSyncComplete$.next({
+                serviceId: String(request.data?.ServiceID || ''),
+                csaId: String(realId),
+                operation: 'create'
+              });
+            });
+          }
         } else {
           // For other tables, use PK_ID
           if (result && result.PK_ID) {
@@ -1603,6 +1673,17 @@ export class BackgroundSyncService {
             break;
           case 'lbw':
             endpoint = `/api/caspio-proxy/tables/LPS_Services_LBW_Attach/records?q.where=AttachID=${resolvedAttachId}`;
+            break;
+          case 'dte':
+            endpoint = `/api/caspio-proxy/tables/LPS_Services_DTE_Attach/records?q.where=AttachID=${resolvedAttachId}`;
+            break;
+          case 'csa':
+            console.log('[BackgroundSync] CSA caption sync - AttachID:', resolvedAttachId);
+            // DEBUG ALERT
+            if (typeof alert !== 'undefined') {
+              alert(`[CSA SYNC DEBUG] Caption sync starting - AttachID: ${resolvedAttachId}`);
+            }
+            endpoint = `/api/caspio-proxy/tables/LPS_Services_CSA_Attach/records?q.where=AttachID=${resolvedAttachId}`;
             break;
           case 'fdf':
             // FDF updates go to the EFE room record, not attachments
@@ -2585,7 +2666,7 @@ export class BackgroundSyncService {
   private async updateSyncedCacheWithCaption(
     caption: {
       attachId: string;
-      attachType: 'visual' | 'efe_point' | 'fdf' | 'hud' | 'lbw';
+      attachType: 'visual' | 'efe_point' | 'fdf' | 'hud' | 'lbw' | 'dte' | 'csa';
       caption?: string;
       drawings?: string;
       visualId?: string;
@@ -3844,6 +3925,28 @@ export class BackgroundSyncService {
           );
           console.log('[BackgroundSync] DTE photo upload completed:', item.imageId, 'result:', result);
           break;
+        case 'csa':
+          // CSA photos are stored in LPS_Services_CSA_Attach table
+          console.log('[BackgroundSync] CSA photo upload starting:', item.imageId, 'csaId:', entityId);
+          // DEBUG ALERT
+          if (typeof alert !== 'undefined') {
+            alert(`[CSA SYNC DEBUG] Starting photo upload - imageId: ${item.imageId}, csaId: ${entityId}`);
+          }
+          result = await uploadWithTimeout(
+            this.caspioService.createServicesCSAAttachWithFile(
+              parseInt(entityId),
+              image.caption || '',
+              file,
+              image.drawings || ''
+            ).toPromise(),
+            `csa upload for ${item.imageId}`
+          );
+          console.log('[BackgroundSync] CSA photo upload completed:', item.imageId, 'result:', result);
+          // DEBUG ALERT
+          if (typeof alert !== 'undefined') {
+            alert(`[CSA SYNC DEBUG] Photo upload completed - imageId: ${item.imageId}, result: ${JSON.stringify(result)?.substring(0, 100)}`);
+          }
+          break;
         default:
           throw new Error(`Unsupported entity type: ${image.entityType}`);
       }
@@ -3922,6 +4025,20 @@ export class BackgroundSyncService {
           attachId: attachId,
           s3Key: s3Key,
           lbwId: entityId
+        });
+      });
+    } else if (image.entityType === 'csa') {
+      console.log('[BackgroundSync] Emitting csaPhotoUploadComplete$ event');
+      // DEBUG ALERT
+      if (typeof alert !== 'undefined') {
+        alert(`[CSA SYNC DEBUG] Emitting csaPhotoUploadComplete$ - imageId: ${item.imageId}, attachId: ${attachId}, csaId: ${entityId}`);
+      }
+      this.ngZone.run(() => {
+        this.csaPhotoUploadComplete$.next({
+          imageId: item.imageId,
+          attachId: attachId,
+          s3Key: s3Key,
+          csaId: entityId
         });
       });
     }

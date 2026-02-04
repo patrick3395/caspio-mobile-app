@@ -3762,6 +3762,148 @@ export class CaspioService {
     return this.delete<any>(`/tables/LPS_Services_CSA_Attach/records?q.where=AttachID=${attachId}`);
   }
 
+  createServicesCSAAttachWithFile(csaId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Observable<any> {
+    return new Observable(observer => {
+      this.uploadCSAAttachWithS3(csaId, annotation, file, drawings)
+        .then(result => {
+          observer.next(result);
+          observer.complete();
+        })
+        .catch(error => {
+          observer.error(error);
+        });
+    });
+  }
+
+  private async uploadCSAAttachWithS3(csaId: number, annotation: string, file: File, drawings?: string): Promise<any> {
+    console.log('[CSA ATTACH S3] ========== Starting S3 Upload (Atomic) ==========');
+    console.log('[CSA ATTACH S3] CSAID:', csaId);
+    console.log('[CSA ATTACH S3] File:', file?.name, 'Size:', file?.size, 'bytes');
+    console.log('[CSA ATTACH S3] Drawings length:', drawings?.length || 0);
+    console.log('[CSA ATTACH S3] Caption:', annotation || '(none)');
+
+    // DEBUG ALERT
+    if (typeof alert !== 'undefined') {
+      alert(`[CSA DEBUG] Starting upload - CSAID: ${csaId}, File: ${file?.name}, Size: ${file?.size} bytes`);
+    }
+
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+
+    try {
+      // Prepare record data
+      const recordData: any = { CSAID: parseInt(csaId.toString()), Annotation: annotation || '' };
+      if (drawings && drawings.length > 0) {
+        let compressedDrawings = drawings;
+        if (drawings.length > 50000) compressedDrawings = compressAnnotationData(drawings, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
+        if (compressedDrawings.length <= 64000) recordData.Drawings = compressedDrawings;
+      }
+
+      // US-002 FIX: ATOMIC UPLOAD - Upload to S3 FIRST, then create record with Attachment
+      // This prevents orphaned records without Attachment field
+
+      // Step 1: Generate unique filename and upload to S3 FIRST
+      const timestamp = Date.now();
+      const uniqueFilename = `csa_${csaId}_${timestamp}_${Math.random().toString(36).substring(2, 8)}.${file.name.split('.').pop() || 'jpg'}`;
+      const tempAttachId = `pending_${timestamp}`;
+
+      const formData = new FormData();
+      formData.append('file', file, uniqueFilename);
+      formData.append('tableName', 'LPS_Services_CSA_Attach');
+      formData.append('attachId', tempAttachId);
+
+      console.log('[CSA ATTACH S3] Step 1: Uploading to S3 FIRST...');
+
+      // DEBUG ALERT
+      if (typeof alert !== 'undefined') {
+        alert(`[CSA DEBUG] Step 1: Uploading to S3... URL: ${environment.apiGatewayUrl}/api/s3/upload`);
+      }
+
+      const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error('[CSA ATTACH S3] ❌ S3 upload failed:', errorText);
+        // DEBUG ALERT
+        if (typeof alert !== 'undefined') {
+          alert(`[CSA DEBUG] ❌ S3 upload FAILED: ${errorText}`);
+        }
+        throw new Error('S3 upload failed');
+      }
+      const { s3Key } = await uploadResponse.json();
+      console.log('[CSA ATTACH S3] ✅ S3 upload complete, key:', s3Key);
+
+      // DEBUG ALERT
+      if (typeof alert !== 'undefined') {
+        alert(`[CSA DEBUG] ✅ S3 upload SUCCESS - s3Key: ${s3Key?.substring(0, 50)}...`);
+      }
+
+      // Step 2: Create the Caspio record WITH the Attachment field populated
+      recordData.Attachment = s3Key;  // CRITICAL: Include Attachment in initial creation
+
+      console.log('[CSA ATTACH S3] Step 2: Creating Caspio record with Attachment...');
+
+      // DEBUG ALERT
+      if (typeof alert !== 'undefined') {
+        alert(`[CSA DEBUG] Step 2: Creating Caspio record - CSAID: ${csaId}, Attachment: ${s3Key?.substring(0, 30)}...`);
+      }
+
+      const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
+      const recordResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_CSA_Attach/records?response=rows`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(recordData)
+      });
+
+      if (!recordResponse.ok) {
+        const errorText = await recordResponse.text();
+        console.error('[CSA ATTACH S3] ❌ Record creation failed:', errorText);
+        // DEBUG ALERT
+        if (typeof alert !== 'undefined') {
+          alert(`[CSA DEBUG] ❌ Record creation FAILED: ${errorText}`);
+        }
+        throw new Error('CSA record creation failed');
+      }
+
+      const attachId = (await recordResponse.json()).Result?.[0]?.AttachID;
+      if (!attachId) {
+        // DEBUG ALERT
+        if (typeof alert !== 'undefined') {
+          alert(`[CSA DEBUG] ❌ No AttachID in response!`);
+        }
+        throw new Error('Failed to get AttachID from record creation response');
+      }
+
+      console.log('[CSA ATTACH S3] ✅ Created record AttachID:', attachId, 'with Attachment:', s3Key);
+      console.log('[CSA ATTACH S3] ✅ Complete! (Atomic - no orphaned records)');
+
+      // DEBUG ALERT
+      if (typeof alert !== 'undefined') {
+        alert(`[CSA DEBUG] ✅ COMPLETE! AttachID: ${attachId}, s3Key: ${s3Key?.substring(0, 30)}...`);
+      }
+
+      // Return result with all fields
+      return {
+        Result: [{
+          AttachID: attachId,
+          CSAID: csaId,
+          Attachment: s3Key,
+          Drawings: recordData.Drawings || '',
+          Annotation: annotation || ''
+        }],
+        AttachID: attachId,
+        Attachment: s3Key,
+        Annotation: annotation || ''
+      };
+    } catch (error) {
+      console.error('[CSA ATTACH S3] ❌ Failed:', error);
+      // DEBUG ALERT
+      if (typeof alert !== 'undefined') {
+        alert(`[CSA DEBUG] ❌ EXCEPTION: ${error}`);
+      }
+      throw error;
+    }
+  }
+
   // Service_Visuals_Attach methods (for photos)
   createServiceVisualsAttach(attachData: any): Observable<any> {
     return this.post<any>('/tables/LPS_Service_Visuals_Attach/records', attachData).pipe(

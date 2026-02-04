@@ -492,25 +492,25 @@
                   </div>
                   <div class="detail-col">
                     <label>Autopay Day</label>
-                    <div class="autopay-day-row">
-                      <select
-                        class="autopay-day-select"
-                        [ngModel]="company.AutopayDay || 1"
-                        (ngModelChange)="updateCompanyAutopayDay(company, $event)"
-                        [disabled]="!company.PayPalVaultToken">
-                        <option *ngFor="let day of getAutopayDayOptions()" [value]="day">
-                          {{ formatAutopayDay(day) }}
-                        </option>
-                      </select>
-                      <button
-                        class="run-autopay-btn-small"
-                        (click)="triggerAutopay(company)"
-                        [disabled]="!company.AutopayEnabled || !company.PayPalVaultToken || getCompanyOutstandingData(company.CompanyID).balance === 0"
-                        title="Run Autopay Now">
-                        <ion-icon name="play"></ion-icon>
-                      </button>
-                    </div>
+                    <select
+                      class="autopay-day-select"
+                      [ngModel]="company.AutopayDay || 1"
+                      (ngModelChange)="updateCompanyAutopayDay(company, $event)"
+                      [disabled]="!company.PayPalVaultToken">
+                      <option *ngFor="let day of getAutopayDayOptions()" [value]="day">
+                        {{ formatAutopayDay(day) }}
+                      </option>
+                    </select>
                     <small *ngIf="!company.PayPalVaultToken" class="autopay-hint">Save payment method first</small>
+                  </div>
+                  <div class="detail-col">
+                    <label>Action</label>
+                    <button
+                      class="manual-run-btn"
+                      (click)="triggerAutopay(company)"
+                      [disabled]="!company.AutopayEnabled || !company.PayPalVaultToken || getCompanyOutstandingData(company.CompanyID).balance === 0">
+                      Manual Run
+                    </button>
                   </div>
                 </div>
                 <!-- Outstanding Balance Section -->

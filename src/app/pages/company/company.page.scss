@@ -2203,41 +2203,36 @@ ion-segment.filter-segment {
   padding: 12px;
   border-radius: 8px;
   margin-bottom: 16px;
+  grid-template-columns: repeat(4, 1fr);
+
+  @media (max-width: 1024px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
 }
 
-.autopay-day-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.run-autopay-btn-small {
-  padding: 6px 8px;
+.manual-run-btn {
+  padding: 6px 12px;
   background: var(--ion-color-primary, #3880ff);
   color: white;
   border: none;
   border-radius: 4px;
-  font-size: 14px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
-  flex-shrink: 0;
-
-  ion-icon {
-    font-size: 14px;
-  }
 
   &:hover:not(:disabled) {
     background: var(--ion-color-primary-shade, #3171e0);
   }
 
   &:disabled {
-    background: #ccc;
-    color: #888;
+    background: #e0e0e0;
+    color: #999;
     cursor: not-allowed;
-    opacity: 0.6;
   }
 }
 

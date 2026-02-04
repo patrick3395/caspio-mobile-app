@@ -75,7 +75,7 @@ export interface PendingEFEData {
 export interface PendingCaptionUpdate {
   captionId: string;           // Unique ID for this caption update
   attachId: string;            // Attachment ID (can be temp_xxx or real ID)
-  attachType: 'visual' | 'efe_point' | 'fdf' | 'hud' | 'lbw';  // Type of attachment
+  attachType: 'visual' | 'efe_point' | 'fdf' | 'hud' | 'lbw' | 'dte' | 'csa';  // Type of attachment
   caption?: string;            // New caption text
   drawings?: string;           // New drawings data
   serviceId?: string;          // Service ID for cache lookup
@@ -2360,7 +2360,7 @@ export class IndexedDbService {
    */
   async queueCaptionUpdate(data: {
     attachId: string;
-    attachType: 'visual' | 'efe_point' | 'fdf' | 'hud' | 'lbw';
+    attachType: 'visual' | 'efe_point' | 'fdf' | 'hud' | 'lbw' | 'dte' | 'csa';
     caption?: string;
     drawings?: string;
     serviceId?: string;
