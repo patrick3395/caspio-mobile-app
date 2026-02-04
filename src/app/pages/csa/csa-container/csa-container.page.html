@@ -1,0 +1,56 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="goBack()">
+        <ion-icon slot="icon-only" name="arrow-back"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title class="full-title">{{ currentPageTitle }}</ion-title>
+    <ion-title class="short-title">{{ currentPageShortTitle }}</ion-title>
+    <ion-buttons slot="end">
+      <!-- MOBILE ONLY: Sync status widget (not needed on web since data saves directly) -->
+      <app-sync-status-widget *ngIf="!isWeb"></app-sync-status-widget>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <!-- Loading overlay while downloading template data -->
+  <!-- Use CSS visibility instead of *ngIf to prevent overlay from blocking router-outlet -->
+  <div class="template-loading-overlay" [class.hidden]="templateReady">
+    <div class="loading-content">
+      <ion-spinner name="crescent" color="primary"></ion-spinner>
+      <h2>Preparing Template</h2>
+      <p>{{ downloadProgress }}</p>
+      <!-- MOBILE ONLY: Offline capability hint -->
+      <p class="loading-hint" *ngIf="!isWeb">This ensures you can work offline</p>
+    </div>
+  </div>
+
+  <!-- CRITICAL FIX: NEVER use *ngIf on router-outlet!
+       When *ngIf removes/adds router-outlet, Angular destroys ALL child components
+       and their entire state, causing what looks like a hard refresh to users.
+
+       Instead, always keep router-outlet mounted and use CSS to hide content.
+       Child components now persist across templateReady state changes. -->
+  <div class="router-wrapper" [class.loading]="!templateReady">
+    <router-outlet></router-outlet>
+  </div>
+</ion-content>
+
+<ion-footer class="breadcrumb-footer">
+  <ion-toolbar>
+    <div class="breadcrumb-container">
+      <div class="breadcrumb-item" (click)="navigateToHome()">
+        <ion-icon name="home"></ion-icon>
+      </div>
+      <ng-container *ngFor="let crumb of breadcrumbs; let last = last">
+        <ion-icon name="chevron-forward-outline" class="breadcrumb-arrow"></ion-icon>
+        <div class="breadcrumb-item" [class.active]="last" (click)="navigateToCrumb(crumb)">
+          <ion-icon *ngIf="crumb.icon" [name]="crumb.icon" class="breadcrumb-icon-mobile"></ion-icon>
+          <span class="breadcrumb-text-desktop">{{ crumb.label }}</span>
+        </div>
+      </ng-container>
+    </div>
+  </ion-toolbar>
+</ion-footer>

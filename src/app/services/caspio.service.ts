@@ -3658,6 +3658,110 @@ export class CaspioService {
     return result.Result && result.Result.length > 0 ? result.Result[0] : result;
   }
 
+  // ============================================
+  // CSA (Cost Segregation Analysis) API Methods
+  // ============================================
+
+  // Templates
+  getServicesCSATemplates(): Observable<any[]> {
+    return this.get<any>('/tables/LPS_Services_CSA_Templates/records').pipe(
+      map(response => response.Result || []),
+      catchError(error => {
+        console.error('CSA templates error:', error);
+        return of([]);
+      })
+    );
+  }
+
+  // Dropdown Options
+  getServicesCSADrop(): Observable<any[]> {
+    return this.get<any>('/tables/LPS_Services_CSA_Drop/records').pipe(
+      map(response => {
+        if (response && response.Result) {
+          return response.Result;
+        }
+        return [];
+      })
+    );
+  }
+
+  // Main Records (CRUD)
+  createServicesCSA(csaData: any): Observable<any> {
+    return this.post<any>('/tables/LPS_Services_CSA/records?response=rows', csaData).pipe(
+      tap(response => {
+        if (response && response.Result && response.Result.length > 0) {
+          console.log('✅ CSA record created:', response.Result[0]);
+        }
+      }),
+      map(response => {
+        if (response && response.Result && response.Result.length > 0) {
+          return response.Result[0];
+        }
+        return response;
+      }),
+      catchError(error => {
+        console.error('❌ Failed to create Services_CSA:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  updateServicesCSA(csaId: string, csaData: any): Observable<any> {
+    const url = `/tables/LPS_Services_CSA/records?q.where=CSAID=${csaId}`;
+    return this.put<any>(url, csaData).pipe(
+      catchError(error => {
+        console.error('❌ Failed to update Services_CSA:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  getServicesCSAByServiceId(serviceId: string, bypassCache: boolean = false): Observable<any[]> {
+    return this.get<any>(`/tables/LPS_Services_CSA/records?q.where=ServiceID=${serviceId}&q.limit=1000`, !bypassCache).pipe(
+      map(response => response.Result || [])
+    );
+  }
+
+  /**
+   * Get a single CSA record by its CSAID
+   * Always bypasses cache to get fresh data
+   */
+  getServicesCSAById(csaId: string): Observable<any> {
+    // Add timestamp to bust any HTTP/CDN caching
+    const cacheBuster = Date.now();
+    console.log(`[CaspioService] getServicesCSAById called with CSAID=${csaId}, cacheBuster=${cacheBuster}`);
+    return this.get<any>(`/tables/LPS_Services_CSA/records?q.where=CSAID=${csaId}&_cb=${cacheBuster}`, false).pipe(
+      tap(response => {
+        console.log(`[CaspioService] getServicesCSAById RAW response:`, JSON.stringify(response));
+        console.log(`[CaspioService] getServicesCSAById Result array length:`, response?.Result?.length || 0);
+        if (response?.Result?.[0]) {
+          console.log(`[CaspioService] getServicesCSAById record - CSAID:${response.Result[0].CSAID}, Name:${response.Result[0].Name}, Text:${response.Result[0].Text?.substring(0, 50)}`);
+        }
+      }),
+      map(response => response.Result?.[0] || null)
+    );
+  }
+
+  deleteServicesCSA(csaId: string): Observable<any> {
+    return this.delete<any>(`/tables/LPS_Services_CSA/records?q.where=PK_ID=${csaId}`);
+  }
+
+  // Attachments (Photos)
+  getServiceCSAAttachByCSAId(csaId: string): Observable<any[]> {
+    return this.get<any>(`/tables/LPS_Services_CSA_Attach/records?q.where=CSAID=${csaId}&q.limit=1000`).pipe(
+      map(response => response.Result || [])
+    );
+  }
+
+  updateServicesCSAAttach(attachId: string, data: any): Observable<any> {
+    const url = `/tables/LPS_Services_CSA_Attach/records?q.where=AttachID=${attachId}`;
+    return this.put<any>(url, data);
+  }
+
+  deleteServicesCSAAttach(attachId: string): Observable<any> {
+    return this.delete<any>(`/tables/LPS_Services_CSA_Attach/records?q.where=AttachID=${attachId}`);
+  }
+
   // Service_Visuals_Attach methods (for photos)
   createServiceVisualsAttach(attachData: any): Observable<any> {
     return this.post<any>('/tables/LPS_Service_Visuals_Attach/records', attachData).pipe(

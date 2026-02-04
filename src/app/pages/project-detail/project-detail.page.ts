@@ -99,6 +99,7 @@ interface ProjectDetailCacheState {
   templateServicesCacheKey: string;
   showDeliverablesTable: boolean;
   isCompanyOne: boolean;
+  projectCompanyId: string;
   timestamp: number;
 }
 
@@ -153,6 +154,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   currentDeliverableUpload: any = null;
   statusOptions: any[] = [];
   isCompanyOne = false; // Track if this is CompanyID = 1
+  projectCompanyId: string = '1'; // Store the project's CompanyID for API calls
   expandedDeliverables: Set<string> = new Set(); // Track which deliverables are expanded (by unique key)
   
   // Track changes since last submission (by serviceId)
@@ -220,6 +222,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.templateServicesCacheKey = cached.templateServicesCacheKey;
       this.showDeliverablesTable = cached.showDeliverablesTable;
       this.isCompanyOne = cached.isCompanyOne;
+      this.projectCompanyId = cached.projectCompanyId || '1';
 
       // Apply pending finalized service flag if present (from cache restoration)
       if (this.pendingFinalizedServiceId) {
@@ -275,6 +278,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         templateServicesCacheKey: this.templateServicesCacheKey,
         showDeliverablesTable: this.showDeliverablesTable,
         isCompanyOne: this.isCompanyOne,
+        projectCompanyId: this.projectCompanyId,
         timestamp: Date.now()
       };
 
@@ -657,8 +661,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const isAddServiceMode = this.route.snapshot.queryParams['mode'] === 'add-service';
       this.isReadOnly = isCompletedProject && !isAddServiceMode;
 
-      // Check company ID
+      // Check company ID and store it for API calls
       const companyId = Number(projectData?.CompanyID || projectData?.Company_ID);
+      this.projectCompanyId = companyId ? companyId.toString() : '1';
       this.isCompanyOne = companyId === 1;
 
       const parallelStartTime = performance.now();
@@ -672,7 +677,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         : this.caspioService.getServicesByProject(actualProjectId).toPromise();
 
       const promises = [
-        this.caspioService.getOffersByCompany('1').toPromise(),
+        this.caspioService.getOffersByCompany(this.projectCompanyId).toPromise(),
         this.caspioService.getServiceTypes().toPromise(),
         servicesPromise, // Use the conditional promise
         this.caspioService.getAttachTemplates().toPromise(),
@@ -946,7 +951,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   async loadAvailableOffers() {
     this.loadingServices = true;
     try {
-      const offers = await this.caspioService.getOffersByCompany('1').toPromise();
+      const offers = await this.caspioService.getOffersByCompany(this.projectCompanyId).toPromise();
       const types = await this.caspioService.getServiceTypes().toPromise();
 
       // Merge offer data with type names
@@ -3755,6 +3760,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       service.typeName?.toLowerCase().includes('damaged truss') ||
       service.typeName?.toLowerCase().includes('truss evaluation');
 
+    // Check for CSA template - Cost Segregation Analysis
+    const isCSATemplate =
+      service.typeName?.toLowerCase().includes('csa') ||
+      service.typeName?.toLowerCase().includes('cost segregation');
+
     // Navigate immediately - remove all blocking checks
     // US-002 FIX: Use retryNavigation helper to avoid hard refresh fallbacks
     if (isHUDTemplate) {
@@ -3775,6 +3785,12 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         extras.queryParams = { openPdf: '1' };
       }
       this.retryNavigation(['dte', this.projectId, service.serviceId], extras);
+    } else if (isCSATemplate) {
+      const extras: any = { replaceUrl: false };
+      if (openPdf) {
+        extras.queryParams = { openPdf: '1' };
+      }
+      this.retryNavigation(['csa', this.projectId, service.serviceId], extras);
     } else if (isEngineersFoundation) {
       const extras: any = { replaceUrl: false };
       if (openPdf) {

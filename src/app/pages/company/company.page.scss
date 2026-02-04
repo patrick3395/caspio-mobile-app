@@ -1768,6 +1768,10 @@ ion-segment.filter-segment {
   text-align: left;
   font-size: 0.9rem;
   word-break: break-word;
+
+  &.text-right {
+    text-align: right;
+  }
 }
 
 .responsive-table tbody tr:nth-child(even) {
@@ -2258,6 +2262,444 @@ ion-segment.filter-segment {
   color: #6c757d;
   margin-top: 4px;
   font-style: italic;
+}
+
+// Outstanding Balance Section
+.outstanding-balance-section {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid #e9ecef;
+
+  .balance-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+
+    .balance-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      color: #495057;
+      font-size: 0.95rem;
+
+      ion-icon {
+        font-size: 1.2rem;
+        color: #6c757d;
+      }
+    }
+
+    .balance-amount {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #28a745;
+
+      &.has-balance {
+        color: #dc3545;
+      }
+
+      ion-spinner {
+        width: 20px;
+        height: 20px;
+      }
+    }
+  }
+
+  .unpaid-invoices-list {
+    border-top: 1px solid #dee2e6;
+    padding-top: 12px;
+
+    .unpaid-invoice-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid #e9ecef;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      .invoice-details {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+
+        .invoice-address {
+          font-weight: 500;
+          color: #212529;
+          font-size: 0.9rem;
+        }
+
+        .invoice-service {
+          font-size: 0.8rem;
+          color: #6c757d;
+        }
+      }
+
+      .invoice-amount {
+        font-weight: 600;
+        color: #dc3545;
+        font-size: 0.95rem;
+      }
+    }
+  }
+
+  .no-balance-message {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #28a745;
+    font-size: 0.9rem;
+
+    ion-icon {
+      font-size: 1.1rem;
+    }
+  }
+}
+
+// Payment History Section
+.payment-history-section {
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid #e9ecef;
+
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.95rem;
+    margin-bottom: 12px;
+
+    ion-icon {
+      font-size: 1.2rem;
+      color: #6c757d;
+    }
+  }
+
+  table {
+    width: 100%;
+
+    th {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      color: #6c757d;
+      font-weight: 600;
+    }
+
+    td {
+      font-size: 0.85rem;
+      vertical-align: middle;
+    }
+
+    .truncate-text {
+      max-width: 150px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .payment-amount {
+      font-weight: 600;
+      color: #28a745;
+    }
+
+    .payment-method-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      background: #e9ecef;
+      color: #495057;
+
+      &.paypal {
+        background: #0070ba;
+        color: white;
+      }
+    }
+
+    .download-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      color: #6c757d;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: #f0f0f0;
+        color: var(--noble-orange, #F15A27);
+      }
+
+      ion-icon {
+        font-size: 1.1rem;
+      }
+    }
+  }
+}
+
+// Payments Tab Styles (Partner View)
+.payments-tab {
+  padding: 16px;
+
+  .payments-section {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+    .section-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+
+      .section-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+
+        ion-icon {
+          font-size: 1.4rem;
+          color: var(--noble-orange, #F15A27);
+        }
+
+        h3 {
+          margin: 0;
+          font-size: 1.1rem;
+          font-weight: 600;
+          color: #212529;
+        }
+      }
+
+      .balance-total {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #28a745;
+
+        &.has-balance {
+          color: #dc3545;
+        }
+
+        ion-spinner {
+          width: 24px;
+          height: 24px;
+        }
+      }
+    }
+
+    .balance-due {
+      font-weight: 600;
+      color: #dc3545;
+    }
+
+    .no-balance-message,
+    .no-payments-message {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 24px;
+      color: #28a745;
+      font-size: 1rem;
+      background: #f0fff4;
+      border-radius: 8px;
+
+      ion-icon {
+        font-size: 1.3rem;
+      }
+    }
+
+    .no-payments-message {
+      color: #6c757d;
+      background: #f8f9fa;
+    }
+  }
+
+  .payment-history-table,
+  .unpaid-invoices-table {
+    .truncate-cell {
+      max-width: 180px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .payment-amount-cell {
+      font-weight: 600;
+      color: #28a745;
+    }
+
+    .payment-method-tag {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      background: #e9ecef;
+      color: #495057;
+
+      &.paypal {
+        background: #0070ba;
+        color: white;
+      }
+    }
+
+    .download-invoice-btn {
+      background: none;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      padding: 6px 10px;
+      cursor: pointer;
+      color: #495057;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: var(--noble-orange, #F15A27);
+        border-color: var(--noble-orange, #F15A27);
+        color: white;
+      }
+
+      ion-icon {
+        font-size: 1rem;
+      }
+    }
+  }
+
+  .autopay-settings {
+    .autopay-settings-content {
+      .setting-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 0;
+        border-bottom: 1px solid #e9ecef;
+
+        &:last-child {
+          border-bottom: none;
+        }
+
+        .setting-info {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+
+          .setting-label {
+            font-weight: 600;
+            color: #212529;
+            font-size: 0.95rem;
+          }
+
+          .setting-description {
+            font-size: 0.8rem;
+            color: #6c757d;
+          }
+        }
+
+        .payment-method-display {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+
+          .saved-method {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            background: #f0f7ff;
+            border: 1px solid #0070ba;
+            border-radius: 8px;
+            color: #0070ba;
+            font-weight: 500;
+
+            ion-icon {
+              font-size: 1.2rem;
+            }
+          }
+
+          .add-payment-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            background: var(--noble-orange, #F15A27);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: opacity 0.2s ease;
+
+            &:hover {
+              opacity: 0.9;
+            }
+
+            ion-icon {
+              font-size: 1.1rem;
+            }
+          }
+
+          .remove-payment-btn {
+            background: none;
+            border: 1px solid #dc3545;
+            color: #dc3545;
+            padding: 8px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+
+            &:hover {
+              background: #dc3545;
+              color: white;
+            }
+
+            ion-icon {
+              font-size: 1rem;
+            }
+          }
+        }
+
+        .autopay-day-select {
+          padding: 10px 14px;
+          border: 1px solid #ced4da;
+          border-radius: 8px;
+          font-size: 0.9rem;
+          background: white;
+          cursor: pointer;
+          min-width: 180px;
+
+          &:disabled {
+            background: #e9ecef;
+            cursor: not-allowed;
+            opacity: 0.7;
+          }
+
+          &:focus {
+            outline: none;
+            border-color: var(--noble-orange, #F15A27);
+            box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.15);
+          }
+        }
+
+        ion-toggle {
+          --background: #dee2e6;
+          --background-checked: var(--noble-orange, #F15A27);
+          --handle-background: white;
+          --handle-background-checked: white;
+        }
+      }
+    }
+  }
 }
 
 .rollup-actions {

@@ -127,6 +127,8 @@ export class TemplateConfigService {
       this._config$.next(ALL_CONFIGS.lbw);
     } else if (url.includes('/dte/')) {
       this._config$.next(ALL_CONFIGS.dte);
+    } else if (url.includes('/csa/')) {
+      this._config$.next(ALL_CONFIGS.csa);
     } else {
       // Not in a template context
       this._config$.next(null);

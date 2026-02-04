@@ -230,7 +230,7 @@ export class CompanyPage implements OnInit, OnDestroy {
   selectedTab: 'company' | 'companies' | 'contacts' | 'tasks' | 'meetings' | 'communications' | 'invoices' | 'metrics' | 'users' = 'users';
 
   // Client-only tabs (for non-CompanyID 1 users)
-  clientTab: 'company' | 'metrics' = 'company';
+  clientTab: 'company' | 'payments' | 'metrics' = 'company';
   usersExpanded = true;
   servicesExpanded = true;
   paymentSettingsExpanded = true;
@@ -246,6 +246,29 @@ export class CompanyPage implements OnInit, OnDestroy {
   outstandingBalance: number = 0;
   outstandingInvoiceCount: number = 0;
   outstandingInvoicesLoading: boolean = false;
+
+  // Outstanding invoices tracking for CRM company rollups
+  companyOutstandingData: Map<number, {
+    loading: boolean;
+    balance: number;
+    invoices: Array<{
+      projectAddress: string;
+      serviceName: string;
+      fee: number;
+      paid: number;
+      remaining: number;
+    }>;
+    paidInvoices: Array<{
+      invoiceId: number;
+      projectAddress: string;
+      serviceName: string;
+      fee: number;
+      paidAmount: number;
+      paidDate: string | null;
+      paymentProcessor: string;
+      paymentNotes: string;
+    }>;
+  }> = new Map();
 
   clientProjectsChart: Chart | null = null;
   clientServicesChart: Chart | null = null;
@@ -692,6 +715,327 @@ export class CompanyPage implements OnInit, OnDestroy {
     } finally {
       this.outstandingInvoicesLoading = false;
     }
+  }
+
+  /**
+   * Load outstanding balance for a specific company (CRM view)
+   * Calculates balance based on services added to projects, minus any payments
+   */
+  async loadCompanyOutstandingInvoices(companyId: number): Promise<void> {
+    console.log('🔴🔴🔴 NEW CODE RUNNING - loadCompanyOutstandingInvoices v2 🔴🔴🔴');
+    alert('NEW CODE v2 - Loading outstanding data for company ' + companyId);
+
+    // Initialize loading state
+    this.companyOutstandingData.set(companyId, {
+      loading: true,
+      balance: 0,
+      invoices: [],
+      paidInvoices: []
+    });
+
+    try {
+      // Load projects, services, offers, and invoices in parallel
+      const [projectsResponse, offersResponse, typesResponse] = await Promise.all([
+        firstValueFrom(this.caspioService.get<any>(`/tables/LPS_Projects/records?q.where=CompanyID=${companyId}`)),
+        firstValueFrom(this.caspioService.get<any>(`/tables/LPS_Offers/records?q.where=CompanyID=${companyId}`)),
+        firstValueFrom(this.caspioService.get<any>('/tables/LPS_Type/records'))
+      ]);
+
+      // DEBUG: Show what we got from API
+      const debugInfo: string[] = [];
+      debugInfo.push(`Company ID: ${companyId}`);
+      debugInfo.push(`Projects found: ${projectsResponse?.Result?.length || 0}`);
+      debugInfo.push(`Offers found: ${offersResponse?.Result?.length || 0}`);
+
+      if (offersResponse?.Result?.length) {
+        offersResponse.Result.forEach((o: any, i: number) => {
+          debugInfo.push(`  Offer ${i + 1}: TypeID=${o.TypeID}, ServiceFee=${o.ServiceFee}`);
+        });
+      }
+
+      if (!projectsResponse?.Result?.length) {
+        debugInfo.push('NO PROJECTS - returning $0 balance');
+        alert('DEBUG Outstanding Balance:\n' + debugInfo.join('\n'));
+        this.companyOutstandingData.set(companyId, { loading: false, balance: 0, invoices: [], paidInvoices: [] });
+        return;
+      }
+
+      // Build lookups
+      const projectLookup = new Map<number, { address: string; projectId: number }>();
+      projectsResponse.Result.forEach((p: any) => {
+        const projectId = p.ProjectID || p.PK_ID;
+        const address = p.Address || p.ProjectName || `Project #${projectId}`;
+        projectLookup.set(projectId, { address, projectId });
+        debugInfo.push(`  Project ${projectId}: ${address}`);
+      });
+
+      // Build offer fee lookup by TypeID
+      const offerFeeLookup = new Map<number, number>();
+      console.log('Offers response for company', companyId, ':', offersResponse?.Result);
+      if (offersResponse?.Result) {
+        offersResponse.Result.forEach((offer: any) => {
+          const typeId = offer.TypeID;
+          const fee = parseFloat(offer.ServiceFee) || 0;
+          console.log(`Offer: TypeID=${typeId}, ServiceFee=${offer.ServiceFee}, parsed fee=${fee}`);
+          if (typeId && fee > 0) {
+            offerFeeLookup.set(typeId, fee);
+          }
+        });
+      }
+      debugInfo.push(`\nOffer fee lookup (TypeID -> Fee):`);
+      offerFeeLookup.forEach((fee, typeId) => {
+        debugInfo.push(`  TypeID ${typeId} = $${fee}`);
+      });
+      if (offerFeeLookup.size === 0) {
+        debugInfo.push(`  (no offers with fees > 0)`);
+      }
+      alert('DEBUG Initial Data:\n' + debugInfo.join('\n'));
+      console.log('Offer fee lookup map:', Array.from(offerFeeLookup.entries()));
+
+      // Build type name lookup
+      const typeNameLookup = new Map<number, string>();
+      if (typesResponse?.Result) {
+        typesResponse.Result.forEach((type: any) => {
+          const typeId = type.TypeID || type.PK_ID;
+          typeNameLookup.set(typeId, type.TypeName || type.TypeAbbr || `Service ${typeId}`);
+        });
+      }
+
+      const projectIds = Array.from(projectLookup.keys());
+
+      // Load services and invoices for all projects
+      const [servicesResponses, invoiceResponses] = await Promise.all([
+        Promise.all(projectIds.map((projectId: number) =>
+          firstValueFrom(
+            this.caspioService.get<any>(`/tables/LPS_Services/records?q.where=ProjectID=${projectId}`)
+          ).catch(() => ({ Result: [] }))
+        )),
+        Promise.all(projectIds.map((projectId: number) =>
+          firstValueFrom(
+            this.caspioService.get<any>(`/tables/LPS_Invoices/records?q.where=ProjectID=${projectId}`)
+          ).catch(() => ({ Result: [] }))
+        ))
+      ]);
+
+      // Build a map of paid amounts by project+service
+      const paidAmountsMap = new Map<string, { paid: number; invoice: any }>();
+      invoiceResponses.forEach((response: any, index: number) => {
+        const projectId = projectIds[index];
+        if (response?.Result) {
+          response.Result.forEach((invoice: any) => {
+            const key = `${projectId}-${invoice.ServiceID || invoice.TypeID || 'unknown'}`;
+            const paid = parseFloat(invoice.Paid) || 0;
+            paidAmountsMap.set(key, { paid, invoice });
+          });
+        }
+      });
+
+      // Collect unpaid services and paid invoices
+      const unpaidServices: Array<{
+        projectAddress: string;
+        serviceName: string;
+        fee: number;
+        paid: number;
+        remaining: number;
+      }> = [];
+
+      const paidInvoices: Array<{
+        invoiceId: number;
+        projectAddress: string;
+        serviceName: string;
+        fee: number;
+        paidAmount: number;
+        paidDate: string | null;
+        paymentProcessor: string;
+        paymentNotes: string;
+      }> = [];
+
+      let totalBalance = 0;
+
+      // DEBUG: Show services found
+      const servicesDebug: string[] = [];
+      servicesDebug.push(`Projects: ${projectIds.length}`);
+
+      // Process services to calculate outstanding balance
+      servicesResponses.forEach((response: any, index: number) => {
+        const projectId = projectIds[index];
+        const projectInfo = projectLookup.get(projectId);
+        const projectAddress = projectInfo?.address || 'Unknown';
+
+        servicesDebug.push(`\nProject ${projectId} (${projectAddress}):`);
+        servicesDebug.push(`  Services found: ${response?.Result?.length || 0}`);
+
+        console.log(`Project ${projectId} services:`, response?.Result);
+        if (response?.Result) {
+          response.Result.forEach((service: any) => {
+            const typeId = service.TypeID;
+            const serviceId = service.ServiceID || service.PK_ID;
+            const serviceName = typeNameLookup.get(typeId) || `Service ${typeId}`;
+            const fee = offerFeeLookup.get(typeId) || 0;
+            servicesDebug.push(`    Service: TypeID=${typeId}, name=${serviceName}, fee=$${fee}`);
+            console.log(`Service: TypeID=${typeId}, ServiceID=${serviceId}, looked up fee=${fee}`);
+
+            if (fee > 0) {
+              // Check if this service has been paid
+              const paidKey = `${projectId}-${serviceId}`;
+              const paidInfo = paidAmountsMap.get(paidKey);
+              const paidAmount = paidInfo?.paid || 0;
+              const remaining = fee - paidAmount;
+
+              if (remaining > 0) {
+                unpaidServices.push({
+                  projectAddress,
+                  serviceName,
+                  fee,
+                  paid: paidAmount,
+                  remaining
+                });
+                totalBalance += remaining;
+              }
+
+              if (paidAmount > 0 && paidInfo?.invoice) {
+                paidInvoices.push({
+                  invoiceId: paidInfo.invoice.InvoiceID || paidInfo.invoice.PK_ID,
+                  projectAddress,
+                  serviceName,
+                  fee,
+                  paidAmount,
+                  paidDate: paidInfo.invoice.Date || null,
+                  paymentProcessor: paidInfo.invoice.PaymentProcessor || 'Unknown',
+                  paymentNotes: paidInfo.invoice.InvoiceNotes || ''
+                });
+              }
+            }
+          });
+        }
+      });
+
+      // Sort paid invoices by date (most recent first)
+      paidInvoices.sort((a, b) => {
+        if (!a.paidDate && !b.paidDate) return 0;
+        if (!a.paidDate) return 1;
+        if (!b.paidDate) return -1;
+        return new Date(b.paidDate).getTime() - new Date(a.paidDate).getTime();
+      });
+
+      // DEBUG: Show services info
+      alert('DEBUG Services Info:\n' + servicesDebug.join('\n'));
+
+      console.log('Total outstanding balance calculated:', totalBalance);
+      console.log('Unpaid services:', unpaidServices);
+
+      // DEBUG: Show final calculation
+      const finalDebug: string[] = [];
+      finalDebug.push(`Total Balance: $${totalBalance.toFixed(2)}`);
+      finalDebug.push(`Unpaid services: ${unpaidServices.length}`);
+      unpaidServices.forEach((s: any, i: number) => {
+        finalDebug.push(`  ${i + 1}. ${s.serviceName} @ ${s.projectAddress}: $${s.remaining.toFixed(2)}`);
+      });
+      alert('DEBUG Final Calculation:\n' + finalDebug.join('\n'));
+
+      this.companyOutstandingData.set(companyId, {
+        loading: false,
+        balance: totalBalance,
+        invoices: unpaidServices,
+        paidInvoices
+      });
+    } catch (error) {
+      console.error('Error loading company outstanding data:', error);
+      this.companyOutstandingData.set(companyId, { loading: false, balance: 0, invoices: [], paidInvoices: [] });
+    }
+  }
+
+  getCompanyOutstandingData(companyId: number): { loading: boolean; balance: number; invoices: any[]; paidInvoices: any[] } {
+    return this.companyOutstandingData.get(companyId) || { loading: false, balance: 0, invoices: [], paidInvoices: [] };
+  }
+
+  /**
+   * Generate and download an invoice PDF
+   */
+  async downloadInvoice(invoice: any, companyName: string): Promise<void> {
+    // Create a simple invoice HTML for download
+    const invoiceHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Invoice #${invoice.invoiceId}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
+          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+          .header h1 { margin: 0; color: #333; }
+          .header p { margin: 5px 0; color: #666; }
+          .details { margin-bottom: 30px; }
+          .details-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
+          .label { font-weight: bold; color: #555; }
+          .value { color: #333; }
+          .amount-section { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-top: 30px; }
+          .amount-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
+          .total { font-size: 1.2em; font-weight: bold; border-top: 2px solid #333; padding-top: 10px; margin-top: 10px; }
+          .footer { margin-top: 40px; text-align: center; color: #888; font-size: 0.9em; }
+          .paid-badge { background: #28a745; color: white; padding: 5px 15px; border-radius: 4px; display: inline-block; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>LPS Foundations</h1>
+          <p>Invoice</p>
+        </div>
+        <div class="details">
+          <div class="details-row">
+            <span class="label">Invoice #:</span>
+            <span class="value">${invoice.invoiceId}</span>
+          </div>
+          <div class="details-row">
+            <span class="label">Company:</span>
+            <span class="value">${companyName}</span>
+          </div>
+          <div class="details-row">
+            <span class="label">Property:</span>
+            <span class="value">${invoice.projectAddress}</span>
+          </div>
+          <div class="details-row">
+            <span class="label">Service:</span>
+            <span class="value">${invoice.serviceName}</span>
+          </div>
+          <div class="details-row">
+            <span class="label">Date:</span>
+            <span class="value">${invoice.paidDate ? new Date(invoice.paidDate).toLocaleDateString() : 'N/A'}</span>
+          </div>
+        </div>
+        <div class="amount-section">
+          <div class="amount-row">
+            <span class="label">Service Fee:</span>
+            <span class="value">$${invoice.fee.toFixed(2)}</span>
+          </div>
+          <div class="amount-row">
+            <span class="label">Amount Paid:</span>
+            <span class="value">$${invoice.paidAmount.toFixed(2)}</span>
+          </div>
+          <div class="amount-row total">
+            <span>Status:</span>
+            <span class="paid-badge">PAID</span>
+          </div>
+        </div>
+        <div class="footer">
+          <p>Payment processed via ${invoice.paymentProcessor}</p>
+          <p>Thank you for your business!</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Create blob and download
+    const blob = new Blob([invoiceHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Invoice_${invoice.invoiceId}_${companyName.replace(/\s+/g, '_')}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    await this.showToast('Invoice downloaded', 'success');
   }
 
   async loadClientOffers() {
@@ -3210,10 +3554,15 @@ export class CompanyPage implements OnInit, OnDestroy {
     this.applyCompanyFilters();
   }
 
-  selectClientTab(tab: 'company' | 'metrics') {
+  selectClientTab(tab: 'company' | 'payments' | 'metrics') {
     this.clientTab = tab;
     if (tab === 'metrics' && !this.clientMetrics) {
       this.loadClientMetrics();
+    }
+    if (tab === 'payments' && this.currentUserCompanyId) {
+      // Force reload payment data each time tab is selected
+      this.companyOutstandingData.delete(this.currentUserCompanyId);
+      this.loadCompanyOutstandingInvoices(this.currentUserCompanyId);
     }
   }
 
@@ -4884,6 +5233,8 @@ export class CompanyPage implements OnInit, OnDestroy {
       this.expandedCompanies.delete(company.CompanyID);
     } else {
       this.expandedCompanies.add(company.CompanyID);
+      // Load outstanding invoice data when expanding
+      this.loadCompanyOutstandingInvoices(company.CompanyID);
     }
   }
 
@@ -6464,35 +6815,27 @@ export class CompanyPage implements OnInit, OnDestroy {
   }
 
   async logout() {
-    const alert = await this.alertController.create({
+    const result = await this.confirmationDialog.confirm({
       header: 'Confirm Logout',
       message: 'Are you sure you want to logout?',
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
-          text: 'Logout',
-          handler: () => {
-            // G2-SEC-002: Clear all auth data on logout (web only)
-            if (environment.isWeb) {
-              localStorage.removeItem('authToken');
-              localStorage.removeItem('currentUser');
-              localStorage.removeItem('caspio_token');
-              localStorage.removeItem('caspio_token_expiry');
-              // Clear any Cognito tokens
-              localStorage.removeItem('cognito_access_token');
-              localStorage.removeItem('cognito_id_token');
-            }
-
-            // Navigate to login
-            this.router.navigate(['/login']);
-          }
-        }
-      ]
+      confirmText: 'Logout',
+      cancelText: 'Cancel'
     });
 
-    await alert.present();
+    if (result.confirmed) {
+      // G2-SEC-002: Clear all auth data on logout (web only)
+      if (environment.isWeb) {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('caspio_token');
+        localStorage.removeItem('caspio_token_expiry');
+        // Clear any Cognito tokens
+        localStorage.removeItem('cognito_access_token');
+        localStorage.removeItem('cognito_id_token');
+      }
+
+      // Navigate to login
+      this.router.navigate(['/login']);
+    }
   }
 }

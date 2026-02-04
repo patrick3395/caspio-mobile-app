@@ -1858,13 +1858,20 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
   /**
    * Refresh local state when returning to the page (MOBILE ONLY)
-   * Regenerates blob URLs and restores pending captions
+   * Regenerates blob URLs, restores pending captions, and re-converts organized data
+   *
+   * FIX: Also re-convert visual fields to organizedData to prevent "raw HTML showing"
+   * issue when returning from visual-detail. The liveQuery won't fire if data hasn't
+   * changed, so we need to ensure organizedData is properly set from cached fields.
    */
   private async refreshLocalState(): Promise<void> {
     this.logDebug('DEXIE', 'Refreshing local state...');
 
     // UNIFIED: Use generic method for all templates with Dexie-first
     if (this.config && this.lastConvertedGenericFields && this.lastConvertedGenericFields.length > 0) {
+      // FIX: Re-convert fields to organizedData to ensure UI is properly rendered
+      // This prevents "raw HTML showing" when returning from visual-detail
+      this.convertGenericFieldsToOrganizedData(this.lastConvertedGenericFields);
       await this.populateGenericPhotosFromDexie(this.lastConvertedGenericFields);
       this.changeDetectorRef.detectChanges();
     } else if (this.config?.id === 'efe' && this.lastConvertedFields && this.lastConvertedFields.length > 0) {

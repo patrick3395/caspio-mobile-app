@@ -22,7 +22,7 @@ export interface NavigationCard {
 export interface TemplateConfig {
   // ==================== Identity ====================
   /** Unique identifier for this template type */
-  id: 'hud' | 'efe' | 'lbw' | 'dte';
+  id: 'hud' | 'efe' | 'lbw' | 'dte' | 'csa';
 
   /** Display name shown in UI */
   displayName: string;

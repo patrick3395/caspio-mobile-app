@@ -155,6 +155,40 @@ export class ProjectsService {
     return stateID || null;
   }
 
+  // Get the current logged-in user's CompanyID from localStorage
+  private getCurrentCompanyId(): number {
+    try {
+      const currentUser = localStorage.getItem('currentUser');
+      if (currentUser) {
+        const user = JSON.parse(currentUser);
+        if (user.companyId) {
+          return parseInt(user.companyId.toString(), 10);
+        }
+      }
+    } catch (e) {
+      console.error('Error getting current company ID:', e);
+    }
+    // Fallback to 1 if no user is logged in (shouldn't happen in normal flow)
+    return 1;
+  }
+
+  // Get the current logged-in user's UserID from localStorage
+  private getCurrentUserId(): number {
+    try {
+      const currentUser = localStorage.getItem('currentUser');
+      if (currentUser) {
+        const user = JSON.parse(currentUser);
+        if (user.id) {
+          return parseInt(user.id.toString(), 10);
+        }
+      }
+    } catch (e) {
+      console.error('Error getting current user ID:', e);
+    }
+    // Fallback to 1 if no user is logged in (shouldn't happen in normal flow)
+    return 1;
+  }
+
   // Create new project (exact same logic as local server)
   createProject(projectData: ProjectCreationData): Observable<any> {
     // Save original data for later lookup
@@ -199,12 +233,16 @@ export class ProjectsService {
       return throwError(() => new Error('State is required'));
     }
 
+    // Get the logged-in user's CompanyID and UserID
+    const companyId = this.getCurrentCompanyId();
+    const userId = this.getCurrentUserId();
+
     // Build payload matching exact Caspio table structure
     const caspioData: any = {
-      // Required fields - all must be integers
-      CompanyID: 1, // Integer - Noble Property Inspections (REQUIRED)
+      // Required fields - all must be integers (use logged-in user's company and user)
+      CompanyID: companyId, // Integer - from logged-in user
       StateID: stateId, // Integer - must be numeric (VERIFIED)
-      UserID: 1, // Integer - Default user (REQUIRED)
+      UserID: userId, // Integer - from logged-in user
       StatusID: 7, // Integer - Active status (REQUIRED)
       Address: projectData.address.trim(), // Text(255) - Required
 

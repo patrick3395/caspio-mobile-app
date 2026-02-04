@@ -391,7 +391,7 @@ export class OfflineTemplateService {
    * Call this when user creates or opens a service.
    * Returns immediately if already downloaded.
    */
-  async downloadTemplateForOffline(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE', projectId?: string): Promise<void> {
+  async downloadTemplateForOffline(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE' | 'CSA', projectId?: string): Promise<void> {
     const cacheKey = `${templateType}_${serviceId}`;
     console.log(`[OfflineTemplate] downloadTemplateForOffline(${serviceId}, ${templateType}) called`);
 
@@ -446,7 +446,7 @@ export class OfflineTemplateService {
    * CRITICAL: This now also clears Dexie field tables (efeFields, visualFields, etc.)
    * to ensure local data is completely replaced by fresh cloud data.
    */
-  async forceRefreshTemplateData(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE', projectId?: string): Promise<void> {
+  async forceRefreshTemplateData(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE' | 'CSA', projectId?: string): Promise<void> {
     if (!this.offlineService.isOnline()) {
       console.warn('[OfflineTemplate] Cannot force refresh while offline');
       return;
@@ -491,6 +491,9 @@ export class OfflineTemplateService {
     } else if (templateType === 'DTE') {
       const deletedDteCount = await db.dteFields.where('serviceId').equals(serviceId).delete();
       console.log(`[OfflineTemplate] Cleared ${deletedDteCount} dteFields records`);
+    } else if (templateType === 'CSA') {
+      const deletedCsaCount = await db.csaFields.where('serviceId').equals(serviceId).delete();
+      console.log(`[OfflineTemplate] Cleared ${deletedCsaCount} csaFields records`);
     }
 
     // Re-download fresh data from cloud into cachedServiceData
@@ -517,7 +520,7 @@ export class OfflineTemplateService {
   /**
    * Perform the actual download of all template data
    */
-  private async performDownload(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE', cacheKey: string, projectId?: string): Promise<void> {
+  private async performDownload(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE' | 'CSA', cacheKey: string, projectId?: string): Promise<void> {
     console.log('╔════════════════════════════════════════════════════════════════╗');
     console.log('║         OFFLINE TEMPLATE DOWNLOAD STARTING                      ║');
     console.log(`║  Service: ${String(serviceId).padEnd(10)} | Type: ${templateType.padEnd(5)} | Key: ${cacheKey.padEnd(15)}  ║`);
@@ -825,6 +828,82 @@ export class OfflineTemplateService {
             })
             .catch(err => {
               console.warn('    ⚠️ LBW Records cache failed:', err);
+              return [];
+            })
+        );
+      }
+
+      // CSA-001: Download CSA templates and dropdown options when template type is CSA
+      if (templateType === 'CSA') {
+        console.log('[CSA] 📊 Downloading CSA TEMPLATES...');
+        downloads.push(
+          firstValueFrom(this.caspioService.getServicesCSATemplates())
+            .then(async (templates) => {
+              const count = templates?.length || 0;
+              await this.indexedDb.cacheTemplates('csa', templates || [], OfflineTemplateService.CSA_TEMPLATE_VERSION);
+              console.log(`    ✅ CSA Templates: ${count} templates cached`);
+              return templates;
+            })
+            .catch(err => {
+              console.warn('    ⚠️ CSA Templates cache failed:', err);
+              return [];
+            })
+        );
+
+        console.log('[CSA] 📋 Downloading CSA_DROP (dropdown options)...');
+        downloads.push(
+          firstValueFrom(this.caspioService.getServicesCSADrop())
+            .then(async (data) => {
+              const count = data?.length || 0;
+              await this.indexedDb.cacheTemplates('csa_dropdown', data || [], OfflineTemplateService.CSA_TEMPLATE_VERSION);
+              console.log(`    ✅ CSA_Drop (dropdown options): ${count} options cached`);
+              return data;
+            })
+            .catch(err => {
+              console.warn('    ⚠️ CSA_Drop cache failed:', err);
+              return [];
+            })
+        );
+
+        // Download existing CSA records for this service
+        console.log('[CSA] 📝 Downloading CSA RECORDS for service...');
+        downloads.push(
+          firstValueFrom(this.caspioService.getServicesCSAByServiceId(serviceId))
+            .then(async (records) => {
+              const count = records?.length || 0;
+              await this.indexedDb.cacheServiceData(serviceId, 'csa_records', records || []);
+              console.log(`    ✅ CSA Records: ${count} records cached for service ${serviceId}`);
+
+              // Also download attachments for CSA records
+              if (records && records.length > 0) {
+                console.log('[CSA] 📸 Downloading CSA ATTACHMENTS...');
+                const attachmentPromises = records.map(async (record: any) => {
+                  const csaId = record.CSAID || record.PK_ID;
+                  if (csaId) {
+                    try {
+                      const attachments = await firstValueFrom(this.caspioService.getServiceCSAAttachByCSAId(String(csaId)));
+                      if (attachments && attachments.length > 0) {
+                        await this.indexedDb.cacheServiceData(String(csaId), 'csa_attachments', attachments);
+                        // Collect for image download
+                        collectedVisualAttachments.push(...attachments);
+                      }
+                      return attachments || [];
+                    } catch (err) {
+                      console.warn(`    ⚠️ Failed to cache attachments for CSAID ${csaId}:`, err);
+                      return [];
+                    }
+                  }
+                  return [];
+                });
+                const allAttachments = await Promise.all(attachmentPromises);
+                const totalAttachments = allAttachments.flat().length;
+                console.log(`    ✅ CSA Attachments: ${totalAttachments} attachments cached`);
+              }
+
+              return records;
+            })
+            .catch(err => {
+              console.warn('    ⚠️ CSA Records cache failed:', err);
               return [];
             })
         );
@@ -1353,7 +1432,7 @@ export class OfflineTemplateService {
    * 
    * OPTIMIZATION: Uses parallel IndexedDB reads instead of sequential
    */
-  async isTemplateReady(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE'): Promise<boolean> {
+  async isTemplateReady(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE' | 'CSA'): Promise<boolean> {
     // First check the download flag (must be first - early exit)
     const hasDownloadFlag = await this.indexedDb.isTemplateDownloaded(serviceId, templateType);
     if (!hasDownloadFlag) {
@@ -1362,11 +1441,12 @@ export class OfflineTemplateService {
     }
 
     // OPTIMIZATION: Verify all data exists in PARALLEL (faster than sequential)
-    const [visualTemplates, efeTemplates, hudTemplates, lbwTemplates, serviceRecord] = await Promise.all([
+    const [visualTemplates, efeTemplates, hudTemplates, lbwTemplates, csaTemplates, serviceRecord] = await Promise.all([
       this.indexedDb.getCachedTemplates('visual'),
       templateType === 'EFE' ? this.indexedDb.getCachedTemplates('efe') : Promise.resolve([1]), // Dummy array for non-EFE
       templateType === 'HUD' ? this.indexedDb.getCachedTemplates('hud') : Promise.resolve([1]), // Dummy array for non-HUD
       templateType === 'LBW' ? this.indexedDb.getCachedTemplates('lbw') : Promise.resolve([1]), // Dummy array for non-LBW
+      templateType === 'CSA' ? this.indexedDb.getCachedTemplates('csa') : Promise.resolve([1]), // Dummy array for non-CSA
       this.indexedDb.getCachedServiceRecord(serviceId)
     ]);
 
@@ -1394,6 +1474,13 @@ export class OfflineTemplateService {
     // Check LBW templates (only for LBW template type)
     if (templateType === 'LBW' && (!lbwTemplates || lbwTemplates.length === 0)) {
       console.log(`[OfflineTemplate] isTemplateReady: Download flag set but LBW templates missing - forcing re-download`);
+      await this.indexedDb.removeTemplateDownloadStatus(serviceId, templateType);
+      return false;
+    }
+
+    // Check CSA templates (only for CSA template type)
+    if (templateType === 'CSA' && (!csaTemplates || csaTemplates.length === 0)) {
+      console.log(`[OfflineTemplate] isTemplateReady: Download flag set but CSA templates missing - forcing re-download`);
       await this.indexedDb.removeTemplateDownloadStatus(serviceId, templateType);
       return false;
     }
@@ -1442,7 +1529,7 @@ export class OfflineTemplateService {
   /**
    * Get download status for UI display (sync version - checks memory only)
    */
-  getDownloadStatus(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE'): 'pending' | 'downloading' | 'ready' | 'error' | 'unknown' {
+  getDownloadStatus(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE' | 'CSA'): 'pending' | 'downloading' | 'ready' | 'error' | 'unknown' {
     const cacheKey = `${templateType}_${serviceId}`;
     return this.downloadStatus.get(cacheKey) || 'unknown';
   }
@@ -1450,7 +1537,7 @@ export class OfflineTemplateService {
   /**
    * Check if template data is ready (async version - checks IndexedDB)
    */
-  async isTemplateDataReady(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE'): Promise<boolean> {
+  async isTemplateDataReady(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE' | 'CSA'): Promise<boolean> {
     // Check in-memory status first (fastest)
     const cacheKey = `${templateType}_${serviceId}`;
     if (this.downloadStatus.get(cacheKey) === 'ready') {
@@ -2148,6 +2235,9 @@ export class OfflineTemplateService {
   // DTE template version for cache invalidation
   private static readonly DTE_TEMPLATE_VERSION = 1;
 
+  // CSA template version for cache invalidation
+  private static readonly CSA_TEMPLATE_VERSION = 1;
+
   /**
    * Get DTE templates - CACHE-FIRST for instant loading
    * Mirrors getLbwTemplates() pattern
@@ -2458,6 +2548,323 @@ export class OfflineTemplateService {
       this.backgroundRefreshComplete$.next({ serviceId, dataType: 'dte' });
     } catch (error) {
       console.warn(`[OfflineTemplate] Background DTE refresh failed (non-blocking):`, error);
+    }
+  }
+
+  // ============================================
+  // CSA SERVICE METHODS (DEXIE-FIRST PATTERN)
+  // ============================================
+
+  /**
+   * Get CSA templates - CACHE-FIRST for instant loading
+   * Mirrors getDteTemplates() pattern
+   */
+  async getCsaTemplates(): Promise<any[]> {
+    // WEBAPP: Network-first with no local caching
+    if (environment.isWeb) {
+      console.log('[OfflineTemplate] WEBAPP MODE: Fetching CSA templates directly from API');
+      try {
+        const templates = await firstValueFrom(this.caspioService.getServicesCSATemplates());
+        console.log(`[OfflineTemplate] WEBAPP: Loaded ${templates?.length || 0} CSA templates from server`);
+        return templates || [];
+      } catch (error) {
+        console.error('[OfflineTemplate] WEBAPP: API fetch failed for CSA templates:', error);
+        return [];
+      }
+    }
+
+    // MOBILE: Dexie-first pattern
+    const cached = await this.indexedDb.getCachedTemplates('csa');
+
+    // Return immediately if we have data
+    if (cached && cached.length > 0) {
+      console.log(`[OfflineTemplate] CSA Templates: ${cached.length} (instant from cache)`);
+
+      // Background refresh when online
+      if (this.offlineService.isOnline()) {
+        this.refreshCsaTemplatesInBackground();
+      }
+      return cached;
+    }
+
+    // No cache - fetch from API if online (blocking)
+    if (this.offlineService.isOnline()) {
+      try {
+        console.log('[OfflineTemplate] No cached CSA templates, fetching from API...');
+        const templates = await firstValueFrom(this.caspioService.getServicesCSATemplates());
+        await this.indexedDb.cacheTemplates('csa', templates || [], OfflineTemplateService.CSA_TEMPLATE_VERSION);
+        console.log(`[OfflineTemplate] CSA Templates cached: ${templates?.length || 0}`);
+        return templates || [];
+      } catch (error) {
+        console.error('[OfflineTemplate] CSA Templates API fetch failed:', error);
+      }
+    }
+
+    console.log('[OfflineTemplate] No CSA templates available (offline, no cache)');
+    return [];
+  }
+
+  /**
+   * Background refresh for CSA templates
+   */
+  private refreshCsaTemplatesInBackground(): void {
+    const refreshJob = async () => {
+      try {
+        console.log('[OfflineTemplate] [BG] Starting CSA template background refresh...');
+        const templates = await firstValueFrom(this.caspioService.getServicesCSATemplates());
+        await this.indexedDb.cacheTemplates('csa', templates || [], OfflineTemplateService.CSA_TEMPLATE_VERSION);
+        console.log(`[OfflineTemplate] [BG] ✅ CSA templates refreshed: ${templates?.length || 0} templates`);
+
+        // Also refresh dropdown options
+        const dropdown = await firstValueFrom(this.caspioService.getServicesCSADrop());
+        await this.indexedDb.cacheTemplates('csa_dropdown', dropdown || [], OfflineTemplateService.CSA_TEMPLATE_VERSION);
+        console.log(`[OfflineTemplate] [BG] ✅ CSA dropdown refreshed: ${dropdown?.length || 0} options`);
+      } catch (error) {
+        console.warn('[OfflineTemplate] [BG] CSA template background refresh failed:', error);
+      }
+    };
+
+    refreshJob();
+  }
+
+  /**
+   * Get CSA dropdown options - CACHE-FIRST for instant loading
+   */
+  async getCsaDropdownOptions(): Promise<any[]> {
+    // WEBAPP: Network-first with no local caching
+    if (environment.isWeb) {
+      console.log('[OfflineTemplate] WEBAPP MODE: Fetching CSA dropdown directly from API');
+      try {
+        const dropdown = await firstValueFrom(this.caspioService.getServicesCSADrop());
+        console.log(`[OfflineTemplate] WEBAPP: Loaded ${dropdown?.length || 0} CSA dropdown options from server`);
+        return dropdown || [];
+      } catch (error) {
+        console.error('[OfflineTemplate] WEBAPP: API fetch failed for CSA dropdown:', error);
+        return [];
+      }
+    }
+
+    // MOBILE: Dexie-first pattern
+    const cached = await this.indexedDb.getCachedTemplates('csa_dropdown');
+
+    if (cached && cached.length > 0) {
+      console.log(`[OfflineTemplate] CSA Dropdown: ${cached.length} (instant from cache)`);
+      return cached;
+    }
+
+    // No cache - fetch from API if online
+    if (this.offlineService.isOnline()) {
+      try {
+        console.log('[OfflineTemplate] No cached CSA dropdown, fetching from API...');
+        const dropdown = await firstValueFrom(this.caspioService.getServicesCSADrop());
+        await this.indexedDb.cacheTemplates('csa_dropdown', dropdown || [], OfflineTemplateService.CSA_TEMPLATE_VERSION);
+        console.log(`[OfflineTemplate] CSA Dropdown cached: ${dropdown?.length || 0}`);
+        return dropdown || [];
+      } catch (error) {
+        console.error('[OfflineTemplate] CSA Dropdown API fetch failed:', error);
+      }
+    }
+
+    console.log('[OfflineTemplate] No CSA dropdown available (offline, no cache)');
+    return [];
+  }
+
+  /**
+   * Get CSA records for a service - CACHE-FIRST for instant loading
+   * Returns cached data immediately, refreshes in background when online
+   *
+   * WEBAPP MODE (isWeb=true): Always fetches from API to show synced data from mobile
+   */
+  async getCsaByService(serviceId: string): Promise<any[]> {
+    // WEBAPP MODE: Always fetch from API to see synced data from mobile
+    if (environment.isWeb) {
+      console.log(`[OfflineTemplate] WEBAPP MODE: Fetching CSA records from LPS_Services_CSA where ServiceID=${serviceId}`);
+      try {
+        // WEBAPP FIX: Bypass cache to ensure we get fresh data from server
+        const freshCsa = await firstValueFrom(this.caspioService.getServicesCSAByServiceId(serviceId, true));
+        console.log(`[OfflineTemplate] WEBAPP: Loaded ${freshCsa?.length || 0} CSA records from server`);
+        if (freshCsa && freshCsa.length > 0) {
+          console.log(`[OfflineTemplate] WEBAPP: First CSA record:`, {
+            CSAID: freshCsa[0].CSAID,
+            ServiceID: freshCsa[0].ServiceID,
+            Name: freshCsa[0].Name,
+            Category: freshCsa[0].Category
+          });
+        }
+        return freshCsa || [];
+      } catch (error) {
+        console.error(`[OfflineTemplate] WEBAPP: API fetch failed for CSA records:`, error);
+        return [];
+      }
+    }
+
+    // MOBILE MODE: Cache-first pattern
+    // 1. Read from cache IMMEDIATELY
+    const cached = await this.indexedDb.getCachedServiceData(serviceId, 'csa_records') || [];
+
+    // 2. Merge with pending offline CSA records (if any in queue)
+    const pending = await this.getPendingCsaRecords(serviceId);
+    const merged = [...cached, ...pending];
+
+    // 3. Return immediately if we have data
+    if (merged.length > 0) {
+      console.log(`[OfflineTemplate] CSA: ${cached.length} cached + ${pending.length} pending (instant)`);
+
+      // 4. Background refresh (non-blocking) when online
+      if (this.offlineService.isOnline()) {
+        this.refreshCsaInBackground(serviceId);
+      }
+      return merged;
+    }
+
+    // 5. Cache empty - fetch from API if online (blocking only when no cache)
+    if (this.offlineService.isOnline()) {
+      try {
+        console.log(`[OfflineTemplate] No cached CSA records, fetching from API...`);
+        const freshCsa = await firstValueFrom(this.caspioService.getServicesCSAByServiceId(serviceId));
+        await this.indexedDb.cacheServiceData(serviceId, 'csa_records', freshCsa);
+        return [...freshCsa, ...pending];
+      } catch (error) {
+        console.error(`[OfflineTemplate] CSA API fetch failed:`, error);
+      }
+    }
+
+    // 6. Offline with no cache - return pending only
+    console.log(`[OfflineTemplate] Offline with no CSA cache, returning ${pending.length} pending`);
+    return pending;
+  }
+
+  /**
+   * Get pending CSA records from operations queue for a service
+   * Mirrors getPendingDteRecords() pattern for LPS_Services_CSA table
+   */
+  private async getPendingCsaRecords(serviceId: string): Promise<any[]> {
+    const pendingRequests = await this.indexedDb.getPendingRequests();
+
+    return pendingRequests
+      .filter(r =>
+        r.type === 'CREATE' &&
+        r.endpoint.includes('Services_CSA') &&
+        !r.endpoint.includes('Attach') &&
+        r.data?.ServiceID === parseInt(serviceId) &&
+        r.status !== 'synced'
+      )
+      .map(r => ({
+        ...r.data,
+        PK_ID: r.tempId,
+        CSAID: r.tempId,
+        _tempId: r.tempId,
+        _localOnly: true,
+        _syncing: r.status === 'syncing',
+      }));
+  }
+
+  /**
+   * Background refresh CSA records (non-blocking)
+   * CRITICAL: Preserves local changes (_localUpdate flag and temp IDs) during merge
+   */
+  private async refreshCsaInBackground(serviceId: string): Promise<void> {
+    try {
+      // Check for pending UPDATE requests BEFORE fetching from server
+      let pendingCsaUpdates = new Set<string>();
+      try {
+        const pendingRequests = await this.indexedDb.getPendingRequests();
+        pendingCsaUpdates = new Set<string>(
+          pendingRequests
+            .filter(r => r.type === 'UPDATE' && r.endpoint.includes('LPS_Services_CSA/records') && !r.endpoint.includes('Attach'))
+            .map(r => {
+              const match = r.endpoint.match(/CSAID=(\d+)/);
+              return match ? match[1] : null;
+            })
+            .filter((id): id is string => id !== null)
+        );
+
+        if (pendingCsaUpdates.size > 0) {
+          console.log(`[OfflineTemplate] Found ${pendingCsaUpdates.size} pending UPDATE requests for CSA:`, [...pendingCsaUpdates]);
+        }
+      } catch (pendingErr) {
+        console.warn('[OfflineTemplate] Failed to check pending requests (continuing without):', pendingErr);
+      }
+
+      const freshCsa = await firstValueFrom(this.caspioService.getServicesCSAByServiceId(serviceId));
+
+      // Get existing cached CSA records to find local updates that should be preserved
+      const existingCache = await this.indexedDb.getCachedServiceData(serviceId, 'csa_records') || [];
+
+      // Check if cache has any LOCAL changes that need protection
+      const hasLocalChanges = existingCache.some((item: any) =>
+        item._localUpdate ||
+        (item._tempId && String(item._tempId).startsWith('temp_'))
+      ) || pendingCsaUpdates.size > 0;
+
+      // SMART DEFENSIVE GUARD: Only protect if there are actual local changes
+      if ((!freshCsa || freshCsa.length === 0) && existingCache.length > 0) {
+        if (hasLocalChanges) {
+          console.warn(`[OfflineTemplate] ⚠️ API returned empty but CSA cache has ${existingCache.length} items with local changes - protecting cache`);
+          return; // Preserve cache with local changes
+        }
+        // No local changes - clear cache (data was deleted on server)
+        console.log(`[OfflineTemplate] API returned empty, no local changes - clearing CSA cache for ${serviceId}`);
+        await this.indexedDb.cacheServiceData(serviceId, 'csa_records', []);
+        this.backgroundRefreshComplete$.next({ serviceId, dataType: 'dte' }); // Using 'dte' as placeholder since 'csa' not in type
+        return;
+      }
+
+      // Warn if API returns significantly fewer items but still allow if no local changes
+      if (freshCsa && existingCache.length > 0 && freshCsa.length < existingCache.length * 0.5) {
+        if (hasLocalChanges) {
+          console.warn(`[OfflineTemplate] ⚠️ API returned ${freshCsa.length} CSA records but cache has ${existingCache.length} with local changes - protecting cache`);
+          return; // Preserve cache with local changes
+        }
+        console.log(`[OfflineTemplate] API returned ${freshCsa.length} CSA records (was ${existingCache.length}), no local changes - updating cache`);
+      }
+
+      // Build a map of locally updated CSA records that should NOT be overwritten
+      const localUpdates = new Map<string, any>();
+      for (const csa of existingCache) {
+        const csaId = String(csa.CSAID || '');
+        const pkId = String(csa.PK_ID || '');
+        const tempId = csa._tempId || '';
+
+        // Check if has _localUpdate flag OR has pending UPDATE request
+        const hasPendingByCsaId = csaId && pendingCsaUpdates.has(csaId);
+        const hasPendingByPkId = pkId && pendingCsaUpdates.has(pkId);
+
+        if (csa._localUpdate || hasPendingByCsaId || hasPendingByPkId) {
+          // Store by all keys to ensure we find it when merging
+          if (csaId) localUpdates.set(csaId, csa);
+          if (pkId) localUpdates.set(pkId, csa);
+          if (tempId) localUpdates.set(tempId, csa);
+          const reason = csa._localUpdate ? '_localUpdate flag' : 'pending UPDATE request';
+          console.log(`[OfflineTemplate] Preserving local CSA CSAID=${csaId} PK_ID=${pkId} (${reason}, Notes: ${csa.Notes})`);
+        }
+      }
+
+      // Merge: use local version for items with pending updates, server version for others
+      const mergedCsa = freshCsa.map((serverCsa: any) => {
+        const csaId = String(serverCsa.CSAID || '');
+        const pkId = String(serverCsa.PK_ID || '');
+
+        const localVersion = localUpdates.get(csaId) || localUpdates.get(pkId);
+        if (localVersion) {
+          // Keep local version since it has pending changes not yet on server
+          console.log(`[OfflineTemplate] Keeping local version of CSA CSAID=${csaId} PK_ID=${pkId} with Notes: ${localVersion.Notes}`);
+          return localVersion;
+        }
+        return serverCsa;
+      });
+
+      // Also add any temp CSA records (created offline, not yet synced) from existing cache
+      const tempCsa = existingCache.filter((v: any) => v._tempId && String(v._tempId).startsWith('temp_'));
+      const finalCsa = [...mergedCsa, ...tempCsa];
+
+      await this.indexedDb.cacheServiceData(serviceId, 'csa_records', finalCsa);
+      console.log(`[OfflineTemplate] Background CSA refresh: ${freshCsa.length} server records, ${localUpdates.size} local updates preserved, ${tempCsa.length} temp records for ${serviceId}`);
+
+      // Notify pages that fresh data is available
+      this.backgroundRefreshComplete$.next({ serviceId, dataType: 'dte' }); // Using 'dte' as placeholder
+    } catch (error) {
+      console.warn(`[OfflineTemplate] Background CSA refresh failed (non-blocking):`, error);
     }
   }
 

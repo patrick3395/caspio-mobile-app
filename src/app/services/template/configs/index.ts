@@ -2,18 +2,20 @@
  * Template Configuration Barrel Export
  *
  * Import all configs from this file:
- * import { HUD_CONFIG, EFE_CONFIG, LBW_CONFIG, DTE_CONFIG, ALL_CONFIGS } from './configs';
+ * import { HUD_CONFIG, EFE_CONFIG, LBW_CONFIG, DTE_CONFIG, CSA_CONFIG, ALL_CONFIGS } from './configs';
  */
 
 export { HUD_CONFIG } from './hud.config';
 export { EFE_CONFIG } from './efe.config';
 export { LBW_CONFIG } from './lbw.config';
 export { DTE_CONFIG } from './dte.config';
+export { CSA_CONFIG } from './csa.config';
 
 import { HUD_CONFIG } from './hud.config';
 import { EFE_CONFIG } from './efe.config';
 import { LBW_CONFIG } from './lbw.config';
 import { DTE_CONFIG } from './dte.config';
+import { CSA_CONFIG } from './csa.config';
 import { TemplateConfig, TemplateType } from '../template-config.interface';
 
 /**
@@ -24,6 +26,7 @@ export const ALL_CONFIGS: Record<TemplateType, TemplateConfig> = {
   efe: EFE_CONFIG,
   lbw: LBW_CONFIG,
   dte: DTE_CONFIG,
+  csa: CSA_CONFIG,
 };
 
 /**

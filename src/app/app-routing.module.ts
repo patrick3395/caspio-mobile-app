@@ -24,6 +24,9 @@ import { LbwContainerPage } from './pages/lbw/lbw-container/lbw-container.page';
 // Eager load DTE components for offline support
 import { DteContainerPage } from './pages/dte/dte-container/dte-container.page';
 
+// Eager load CSA components for offline support
+import { CsaContainerPage } from './pages/csa/csa-container/csa-container.page';
+
 // Generic visual-detail page (consolidation - replaces template-specific pages)
 import { GenericVisualDetailPage } from './pages/template/visual-detail/visual-detail.page';
 
@@ -145,6 +148,24 @@ const routes: Routes = [
   {
     path: 'dte/:projectId/:serviceId',
     component: DteContainerPage,
+    canActivate: [AuthGuard],
+    children: [
+      { path: '', component: GenericMainPage },
+      { path: 'project-details', component: GenericProjectDetailPage, canDeactivate: [UnsavedChangesGuard] },
+      { path: 'categories', component: GenericCategoryHubPage },
+      {
+        path: 'category/:category',
+        children: [
+          { path: '', component: GenericCategoryDetailPage, canDeactivate: [UnsavedChangesGuard] },
+          { path: 'visual/:templateId', component: GenericVisualDetailPage, canDeactivate: [UnsavedChangesGuard] }
+        ]
+      }
+    ]
+  },
+  // CSA routes - eager loaded for offline support
+  {
+    path: 'csa/:projectId/:serviceId',
+    component: CsaContainerPage,
     canActivate: [AuthGuard],
     children: [
       { path: '', component: GenericMainPage },

@@ -261,6 +261,33 @@ export interface DteField {
   dirty: boolean;                 // true until backend sync acknowledges
 }
 
+/**
+ * CsaField - Normalized field-level storage for CSA (Cost Segregation Analysis) items
+ * Follows same Dexie-first architecture pattern as VisualField and HudField
+ * MOBILE ONLY: Dexie-first is only enabled on Capacitor.isNativePlatform()
+ */
+export interface CsaField {
+  id?: number;                    // Auto-increment primary key
+  key: string;                    // Deterministic: ${serviceId}:${category}:${templateId}
+  serviceId: string;
+  category: string;
+  templateId: number;
+  templateName: string;           // Name from template for display
+  templateText: string;           // Text/description from template
+  kind: 'Comment' | 'Limitation' | 'Deficiency';
+  answerType: number;             // 0=none, 1=text, 2=dropdown
+  dropdownOptions?: string[];     // Parsed dropdown options if answerType=2
+  isSelected: boolean;            // User selected this item
+  answer: string;                 // User's answer/notes
+  otherValue: string;             // "Other" field value
+  csaId: string | null;           // Real CSA ID after sync (null if pending)
+  tempCsaId: string | null;       // Temp ID while pending sync
+  photoCount: number;             // Number of photos attached
+  rev: number;                    // Increment on every local write
+  updatedAt: number;              // Date.now() on update
+  dirty: boolean;                 // true until backend sync acknowledges
+}
+
 // ============================================================================
 // DEXIE DATABASE CLASS
 // ============================================================================
@@ -284,6 +311,7 @@ export class CaspioDB extends Dexie {
   hudFields!: Table<HudField, number>;
   lbwFields!: Table<LbwField, number>;
   dteFields!: Table<DteField, number>;
+  csaFields!: Table<CsaField, number>;
   serviceMetadata!: Table<ServiceMetadata, string>;
 
   // MOBILE FIX: Cache last known good results for liveQueries
@@ -319,6 +347,9 @@ export class CaspioDB extends Dexie {
 
   // Cache for DTE fields by service ID + category
   private _lastDteFieldsCache: Map<string, DteField[]> = new Map();
+
+  // Cache for CSA fields by service ID + category
+  private _lastCsaFieldsCache: Map<string, CsaField[]> = new Map();
 
   constructor() {
     super('CaspioOfflineDB');
@@ -560,6 +591,53 @@ export class CaspioDB extends Dexie {
 
       // DTE fields (v12) - Detailed Technical Evaluation visuals
       dteFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt'
+    });
+
+    // Version 13: Add csaFields table for CSA (Cost Segregation Analysis) Dexie-first architecture (MOBILE ONLY)
+    // Extends standardized Dexie-first pattern to CSA template
+    this.version(13).stores({
+      // Local-first image system
+      localImages: 'imageId, entityType, entityId, serviceId, status, attachId, createdAt, [entityType+entityId], [serviceId+entityType]',
+      localBlobs: 'blobId, createdAt',
+      uploadOutbox: 'opId, imageId, nextRetryAt, createdAt',
+
+      // Core sync system
+      pendingRequests: 'requestId, timestamp, status, priority, tempId',
+      tempIdMappings: 'tempId, realId, type',
+
+      // Caching
+      cachedServiceData: 'cacheKey, serviceId, dataType, lastUpdated',
+      cachedTemplates: 'cacheKey, type, lastUpdated',
+      cachedPhotos: 'photoKey, attachId, serviceId, cachedAt',
+
+      // Pending data
+      pendingCaptions: 'captionId, attachId, attachType, status, serviceId, createdAt',
+      pendingEFEData: 'tempId, serviceId, type, parentId',
+      pendingImages: 'imageId, requestId, status, serviceId, visualId',
+
+      // Operations queue
+      operationsQueue: 'id, type, status, createdAt, dedupeKey',
+
+      // Visual fields - EFE visuals
+      visualFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt',
+
+      // EFE fields - elevation plot rooms
+      efeFields: '++id, key, serviceId, roomName, [serviceId+roomName], efeId, tempEfeId, dirty, updatedAt',
+
+      // Service metadata
+      serviceMetadata: 'serviceId, lastTouchedAt, purgeState, [purgeState+lastTouchedAt]',
+
+      // HUD fields - HUD visuals
+      hudFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt',
+
+      // LBW fields - Load Bearing Walls visuals
+      lbwFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt',
+
+      // DTE fields - Detailed Technical Evaluation visuals
+      dteFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt',
+
+      // CSA fields (v13) - Cost Segregation Analysis visuals
+      csaFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt'
     });
 
     // Log successful database open
@@ -1436,6 +1514,76 @@ export class CaspioDB extends Dexie {
       }
     });
     return this.toRxObservable<DteField[]>(query);
+  }
+
+  // ============================================================================
+  // CSA FIELDS - REACTIVE QUERIES FOR DEXIE-FIRST ARCHITECTURE (MOBILE ONLY)
+  // ============================================================================
+
+  /**
+   * Live query for CSA fields by service and category
+   * This is the primary query for rendering CSA category detail pages on mobile
+   * Auto-updates when ANY field in the category changes
+   *
+   * MOBILE FIX: Caches last known good result and returns it on error
+   * This prevents the page from hanging when IndexedDB has temporary connection issues
+   * during photo upload transactions (common on mobile WebView)
+   */
+  liveCsaFields$(serviceId: string, category: string): Observable<CsaField[]> {
+    const cacheKey = `${serviceId}:${category}`;
+    const query = liveQuery(async () => {
+      try {
+        // MOBILE FIX: Check if database connection is open, reopen if needed
+        if (!this.isOpen()) {
+          console.log('[LIVEQUERY] liveCsaFields$ - Database not open, reopening...');
+          await this.open();
+        }
+
+        const fields = await this.csaFields
+          .where('[serviceId+category]')
+          .equals([serviceId, category])
+          .toArray();
+        console.log(`[LIVEQUERY] liveCsaFields$: serviceId=${serviceId}, category=${category}, fields=${fields.length}`);
+
+        // Cache the successful result
+        this._lastCsaFieldsCache.set(cacheKey, fields);
+
+        return fields;
+      } catch (err: any) {
+        console.error('[LIVEQUERY ERROR] liveCsaFields$:', err?.message || err);
+
+        // MOBILE FIX: On connection lost, try to reopen database
+        if (err?.message?.includes('Connection') || err?.name === 'UnknownError') {
+          console.log('[LIVEQUERY] liveCsaFields$ - Connection lost, attempting to reopen database...');
+          try {
+            await this.close();
+            await this.open();
+            // Retry the query after reopening
+            const fields = await this.csaFields
+              .where('[serviceId+category]')
+              .equals([serviceId, category])
+              .toArray();
+            console.log('[LIVEQUERY] liveCsaFields$ - Reconnected successfully');
+            this._lastCsaFieldsCache.set(cacheKey, fields);
+            return fields;
+          } catch (retryErr) {
+            console.error('[LIVEQUERY] liveCsaFields$ - Retry failed:', retryErr);
+          }
+        }
+
+        // CRITICAL FIX: Return cached data instead of empty array on error
+        // This prevents the page from hanging when IndexedDB has temporary issues
+        const cached = this._lastCsaFieldsCache.get(cacheKey);
+        if (cached) {
+          console.log('[LIVEQUERY] liveCsaFields$ - Returning cached data to prevent hang');
+          return cached;
+        }
+
+        // Only return empty array if we have no cached data (first run)
+        return [];
+      }
+    });
+    return this.toRxObservable<CsaField[]>(query);
   }
 
   // ============================================================================

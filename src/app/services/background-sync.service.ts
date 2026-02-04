@@ -91,6 +91,19 @@ export interface DteSyncComplete {
   operation: 'create' | 'update' | 'delete';
 }
 
+export interface CsaPhotoUploadComplete {
+  imageId: string;
+  attachId: string;
+  s3Key: string;
+  csaId: string;
+}
+
+export interface CsaSyncComplete {
+  serviceId: string;
+  csaId: string;
+  operation: 'create' | 'update' | 'delete';
+}
+
 export interface SyncStatus {
   isSyncing: boolean;
   pendingCount: number;
@@ -167,6 +180,10 @@ export class BackgroundSyncService {
   // DTE sync events - pages can subscribe to update UI when DTE data syncs
   public dteSyncComplete$ = new Subject<DteSyncComplete>();
   public dtePhotoUploadComplete$ = new Subject<DtePhotoUploadComplete>();
+
+  // CSA sync events - pages can subscribe to update UI when CSA data syncs
+  public csaSyncComplete$ = new Subject<CsaSyncComplete>();
+  public csaPhotoUploadComplete$ = new Subject<CsaPhotoUploadComplete>();
 
   // ==========================================================================
   // HUD SERVICES - Lazy loaded to avoid circular dependencies

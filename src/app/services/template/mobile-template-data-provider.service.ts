@@ -61,6 +61,11 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
     this.backgroundSync.dteSyncComplete$.subscribe(e => {
       this.syncComplete$.next({ serviceId: e.serviceId, reason: 'dte_sync' });
     });
+
+    // Subscribe to CSA sync events
+    this.backgroundSync.csaSyncComplete$.subscribe(e => {
+      this.syncComplete$.next({ serviceId: e.serviceId, reason: 'csa_sync' });
+    });
   }
 
   // ==================== Visual Operations ====================
@@ -132,6 +137,23 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
           hasPending = dteRecords.some(r => r._localOnly);
         }
         break;
+
+      case 'csa':
+        // Use csaFields table for CSA (Dexie-first)
+        if (config.features.offlineFirst) {
+          const fields = await db.csaFields
+            .where('serviceId')
+            .equals(serviceId)
+            .toArray();
+          records = fields.map(f => this.mapCsaFieldToVisualRecord(f));
+          hasPending = fields.some(f => !!f.tempCsaId && !f.csaId);
+        } else {
+          // Use getCsaByService to include pending records from sync queue
+          const csaRecords = await this.offlineTemplate.getCsaByService(serviceId);
+          records = csaRecords.map(r => this.mapToVisualRecord(config, r));
+          hasPending = csaRecords.some(r => r._localOnly);
+        }
+        break;
     }
 
     return {
@@ -178,6 +200,15 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
             .toArray();
           if (dteFields.length > 0) {
             return this.mapDteFieldToVisualRecord(dteFields[0]);
+          }
+          break;
+
+        case 'csa':
+          const csaFields = await db.csaFields
+            .filter(f => f.csaId === visualId || f.tempCsaId === visualId)
+            .toArray();
+          if (csaFields.length > 0) {
+            return this.mapCsaFieldToVisualRecord(csaFields[0]);
           }
           break;
       }
@@ -231,6 +262,15 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
             .toArray();
           records = dteFields.map(f => this.mapDteFieldToVisualRecord(f));
           hasPending = dteFields.some(f => !!f.tempDteId && !f.dteId);
+          break;
+
+        case 'csa':
+          const csaFields = await db.csaFields
+            .where('[serviceId+category]')
+            .equals([serviceId, category])
+            .toArray();
+          records = csaFields.map(f => this.mapCsaFieldToVisualRecord(f));
+          hasPending = csaFields.some(f => !!f.tempCsaId && !f.csaId);
           break;
       }
 
@@ -443,6 +483,9 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
       case 'dte':
         templates = await this.offlineTemplate.getDteTemplates();
         break;
+      case 'csa':
+        templates = await this.offlineTemplate.getCsaTemplates();
+        break;
       default:
         templates = [];
     }
@@ -606,6 +649,22 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
       answer: field.answer || '',
       _tempId: field.tempDteId || undefined,
       _localOnly: !!field.tempDteId && !field.dteId
+    };
+  }
+
+  private mapCsaFieldToVisualRecord(field: any): VisualRecord {
+    return {
+      id: String(field.csaId || field.tempCsaId || field.templateId),
+      templateId: field.templateId,
+      serviceId: field.serviceId,
+      category: field.category,
+      name: field.templateName || '',
+      text: field.answer || field.templateText || '',
+      kind: field.kind as any || 'Comment',
+      isSelected: field.isSelected,
+      answer: field.answer || '',
+      _tempId: field.tempCsaId || undefined,
+      _localOnly: !!field.tempCsaId && !field.csaId
     };
   }
 

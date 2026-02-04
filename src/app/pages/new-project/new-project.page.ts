@@ -25,14 +25,14 @@ export class NewProjectPage implements OnInit, OnDestroy {
   private readonly FORM_ID = 'new-project';
 
   formData: ProjectCreationData = {
-    company: '1',  // Always Noble Property Inspections (CompanyID = 1)
+    company: '',  // Will be set from logged-in user in ngOnInit
     inspectionDate: new Date().toISOString().split('T')[0], // Default to today
     address: '',
     // Keep these for potential future use but not required for creation
     city: '',
     state: null,  // No default state - user must select
     zip: '',
-    user: '1',
+    user: '',  // Will be set from logged-in user in ngOnInit
     dateOfRequest: new Date().toISOString().split('T')[0],
     services: [],
     fee: '265.00',
@@ -83,6 +83,9 @@ export class NewProjectPage implements OnInit, OnDestroy {
     // G2-SEO-001: Set page title for new project
     this.pageTitleService.setTitle('New Project');
 
+    // Set company and user from logged-in user
+    this.initializeUserContext();
+
     // Initialize validation state (web only)
     if (this.isWeb) {
       this.validationState = this.formValidation.createFormState(['address', 'city', 'state', 'zip']);
@@ -123,6 +126,26 @@ export class NewProjectPage implements OnInit, OnDestroy {
     if (this.isWeb) {
       this.formAutosave.destroyAutosave(this.FORM_ID);
       this.formKeyboard.destroyKeyboardNavigation('new-project-page');
+    }
+  }
+
+  // Initialize company and user from logged-in user context
+  private initializeUserContext(): void {
+    try {
+      const currentUser = localStorage.getItem('currentUser');
+      if (currentUser) {
+        const user = JSON.parse(currentUser);
+        this.formData.company = user.companyId?.toString() || '1';
+        this.formData.user = user.id?.toString() || '1';
+      } else {
+        // Fallback defaults if no user is logged in
+        this.formData.company = '1';
+        this.formData.user = '1';
+      }
+    } catch (e) {
+      console.error('Error initializing user context:', e);
+      this.formData.company = '1';
+      this.formData.user = '1';
     }
   }
 
@@ -220,8 +243,9 @@ export class NewProjectPage implements OnInit, OnDestroy {
 
   async loadServices() {
     try {
-      // Load offers for Noble Property Inspections (CompanyID = 1)
-      const offers = await this.projectsService.getOffers(1).toPromise();
+      // Load offers for the current logged-in company
+      const companyId = parseInt(this.formData.company, 10) || 1;
+      const offers = await this.projectsService.getOffers(companyId).toPromise();
       const serviceTypes = await this.projectsService.getServiceTypes().toPromise();
       
       // Match offers with service types to get names

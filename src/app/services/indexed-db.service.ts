@@ -44,7 +44,7 @@ export interface TempIdMapping {
 
 export interface CachedTemplate {
   cacheKey: string;
-  type: 'visual' | 'efe' | 'lbw' | 'dte' | 'lbw_dropdown' | 'visual_dropdown' | 'hud' | 'hud_dropdown' | 'dte_dropdown';
+  type: 'visual' | 'efe' | 'lbw' | 'dte' | 'csa' | 'lbw_dropdown' | 'visual_dropdown' | 'hud' | 'hud_dropdown' | 'dte_dropdown' | 'csa_dropdown';
   templates: any[];
   lastUpdated: number;
   version?: number;  // HUD-012: Template version for cache invalidation
@@ -53,7 +53,7 @@ export interface CachedTemplate {
 // HUD uses dynamic attachment keys like 'hud_attach_123'
 export type HudAttachmentKey = `hud_attach_${string}`;
 // Template-specific cache types - used by TemplateDataAdapter
-export type CacheDataType = 'visuals' | 'hud' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments' | 'hud_attachments' | 'lbw_records' | 'lbw_attachments' | 'lbw_dropdown' | 'hud_records' | 'dte_records' | 'dte_attachments' | 'lbw' | 'dte' | 'visual' | 'efe' | HudAttachmentKey;
+export type CacheDataType = 'visuals' | 'hud' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments' | 'hud_attachments' | 'lbw_records' | 'lbw_attachments' | 'lbw_dropdown' | 'hud_records' | 'dte_records' | 'dte_attachments' | 'csa_records' | 'csa_attachments' | 'lbw' | 'dte' | 'csa' | 'visual' | 'efe' | HudAttachmentKey;
 
 export interface CachedServiceData {
   cacheKey: string;
@@ -95,7 +95,7 @@ export interface PendingCaptionUpdate {
 // ============================================================================
 
 export type ImageStatus = 'local_only' | 'queued' | 'uploading' | 'uploaded' | 'verified' | 'failed';
-export type ImageEntityType = 'visual' | 'efe_point' | 'fdf' | 'hud' | 'lbw' | 'dte';
+export type ImageEntityType = 'visual' | 'efe_point' | 'fdf' | 'hud' | 'lbw' | 'dte' | 'csa';
 
 /**
  * LocalImage - Single source of truth for all images
@@ -1349,7 +1349,7 @@ export class IndexedDbService {
    * Added 'dte' and 'dte_dropdown' for DTE template caching
    */
   async cacheTemplates(
-    type: 'visual' | 'efe' | 'lbw' | 'dte' | 'lbw_dropdown' | 'visual_dropdown' | 'hud' | 'hud_dropdown' | 'dte_dropdown',
+    type: 'visual' | 'efe' | 'lbw' | 'dte' | 'csa' | 'lbw_dropdown' | 'visual_dropdown' | 'hud' | 'hud_dropdown' | 'dte_dropdown' | 'csa_dropdown',
     templates: any[],
     version?: number
   ): Promise<void> {
@@ -1371,7 +1371,7 @@ export class IndexedDbService {
    * Added 'dte' and 'dte_dropdown' for DTE template caching
    */
   async getCachedTemplates(
-    type: 'visual' | 'efe' | 'lbw' | 'dte' | 'lbw_dropdown' | 'visual_dropdown' | 'hud' | 'hud_dropdown' | 'dte_dropdown'
+    type: 'visual' | 'efe' | 'lbw' | 'dte' | 'csa' | 'lbw_dropdown' | 'visual_dropdown' | 'hud' | 'hud_dropdown' | 'dte_dropdown' | 'csa_dropdown'
   ): Promise<any[] | null> {
     const cached = await db.cachedTemplates.get(`templates_${type}`);
     if (cached) {
@@ -1387,7 +1387,7 @@ export class IndexedDbService {
    * Added 'dte' and 'dte_dropdown' for DTE template caching
    */
   async isTemplateCacheValid(
-    type: 'visual' | 'efe' | 'lbw' | 'dte' | 'lbw_dropdown' | 'visual_dropdown' | 'hud' | 'hud_dropdown' | 'dte_dropdown',
+    type: 'visual' | 'efe' | 'lbw' | 'dte' | 'csa' | 'lbw_dropdown' | 'visual_dropdown' | 'hud' | 'hud_dropdown' | 'dte_dropdown' | 'csa_dropdown',
     maxAgeMs: number
   ): Promise<boolean> {
     const cached = await db.cachedTemplates.get(`templates_${type}`);
@@ -1402,7 +1402,7 @@ export class IndexedDbService {
    * Used for cache invalidation on version change
    */
   async getCachedTemplateWithMeta(
-    type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown' | 'visual_dropdown' | 'hud' | 'hud_dropdown'
+    type: 'visual' | 'efe' | 'lbw' | 'dte' | 'csa' | 'lbw_dropdown' | 'visual_dropdown' | 'hud' | 'hud_dropdown' | 'dte_dropdown' | 'csa_dropdown'
   ): Promise<CachedTemplate | null> {
     const cached = await db.cachedTemplates.get(`templates_${type}`);
     return cached || null;
@@ -1413,7 +1413,7 @@ export class IndexedDbService {
    * Used when version changes or cache needs to be cleared
    */
   async invalidateTemplateCache(
-    type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown' | 'visual_dropdown' | 'hud' | 'hud_dropdown'
+    type: 'visual' | 'efe' | 'lbw' | 'dte' | 'csa' | 'lbw_dropdown' | 'visual_dropdown' | 'hud' | 'hud_dropdown' | 'dte_dropdown' | 'csa_dropdown'
   ): Promise<void> {
     await db.cachedTemplates.delete(`templates_${type}`);
     console.log(`[IndexedDB] Invalidated ${type} template cache`);

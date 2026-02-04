@@ -504,6 +504,73 @@
                     <small *ngIf="!company.PayPalVaultToken" class="autopay-hint">Save payment method first</small>
                   </div>
                 </div>
+                <!-- Outstanding Balance Section -->
+                <div class="outstanding-balance-section">
+                  <div class="balance-header-row">
+                    <div class="balance-label">
+                      <ion-icon name="wallet-outline"></ion-icon>
+                      <span>Outstanding Balance</span>
+                    </div>
+                    <div class="balance-amount" [class.has-balance]="getCompanyOutstandingData(company.CompanyID).balance > 0">
+                      <ion-spinner *ngIf="getCompanyOutstandingData(company.CompanyID).loading" name="crescent"></ion-spinner>
+                      <span *ngIf="!getCompanyOutstandingData(company.CompanyID).loading">
+                        {{ getCompanyOutstandingData(company.CompanyID).balance | currency:'USD':'symbol':'1.2-2' }}
+                      </span>
+                    </div>
+                  </div>
+                  <div class="unpaid-invoices-list" *ngIf="getCompanyOutstandingData(company.CompanyID).invoices.length > 0">
+                    <div class="unpaid-invoice-item" *ngFor="let inv of getCompanyOutstandingData(company.CompanyID).invoices">
+                      <div class="invoice-details">
+                        <span class="invoice-address">{{ inv.projectAddress }}</span>
+                        <span class="invoice-service">{{ inv.serviceName }}</span>
+                      </div>
+                      <div class="invoice-amount">{{ inv.remaining | currency:'USD':'symbol':'1.2-2' }}</div>
+                    </div>
+                  </div>
+                  <div class="no-balance-message" *ngIf="!getCompanyOutstandingData(company.CompanyID).loading && getCompanyOutstandingData(company.CompanyID).balance === 0">
+                    <ion-icon name="checkmark-circle-outline"></ion-icon>
+                    <span>No outstanding balance</span>
+                  </div>
+                </div>
+                <!-- Payment History Section -->
+                <div class="payment-history-section" *ngIf="getCompanyOutstandingData(company.CompanyID).paidInvoices.length > 0">
+                  <div class="section-title">
+                    <ion-icon name="card-outline"></ion-icon>
+                    <span>Payment History</span>
+                  </div>
+                  <div class="responsive-table dark-outline">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Property</th>
+                          <th>Service</th>
+                          <th>Amount</th>
+                          <th>Method</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let payment of getCompanyOutstandingData(company.CompanyID).paidInvoices">
+                          <td>{{ payment.paidDate ? (payment.paidDate | date:'shortDate') : 'N/A' }}</td>
+                          <td class="truncate-text">{{ payment.projectAddress }}</td>
+                          <td>{{ payment.serviceName }}</td>
+                          <td class="payment-amount">{{ payment.paidAmount | currency:'USD':'symbol':'1.2-2' }}</td>
+                          <td>
+                            <span class="payment-method-badge" [class.paypal]="payment.paymentProcessor === 'PayPal'">
+                              {{ payment.paymentProcessor }}
+                            </span>
+                          </td>
+                          <td>
+                            <button class="download-btn" (click)="downloadInvoice(payment, company.CompanyName)" title="Download Invoice">
+                              <ion-icon name="download-outline"></ion-icon>
+                            </button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
                 <div class="detail-row">
                   <div class="detail-col" style="grid-column: 1 / -1;">
                     <label>Services Offered</label>
@@ -1185,6 +1252,10 @@
         <ion-icon name="business"></ion-icon>
         <span>Company</span>
       </button>
+      <button class="main-tab" [class.active]="clientTab === 'payments'" (click)="selectClientTab('payments')">
+        <ion-icon name="card"></ion-icon>
+        <span>Payments</span>
+      </button>
       <button class="main-tab" [class.active]="clientTab === 'metrics'" (click)="selectClientTab('metrics')">
         <ion-icon name="analytics"></ion-icon>
         <span>Metrics</span>
@@ -1284,13 +1355,13 @@
               <thead>
                 <tr>
                   <th>Service</th>
-                  <th>Fee</th>
+                  <th class="text-right">Fee</th>
                 </tr>
               </thead>
               <tbody>
                 <tr *ngFor="let offer of clientOffers">
                   <td>{{ offer.typeName }}</td>
-                  <td>{{ offer.ServiceFee ? ('$' + offer.ServiceFee) : '—' }}</td>
+                  <td class="text-right">{{ offer.ServiceFee ? ('$' + offer.ServiceFee) : '—' }}</td>
                 </tr>
               </tbody>
             </table>
@@ -1396,6 +1467,165 @@
                   {{ clientCompany?.AutopayLastRun | date:'medium' }} - {{ clientCompany?.AutopayLastStatus }}
                 </span>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payments Tab Content -->
+    <div *ngIf="clientTab === 'payments'" class="client-tab-content payments-tab">
+      <!-- Outstanding Balance Section -->
+      <div class="payments-section">
+        <div class="section-header-row">
+          <div class="section-title">
+            <ion-icon name="wallet-outline"></ion-icon>
+            <h3>Outstanding Balance</h3>
+          </div>
+          <div class="balance-total" [class.has-balance]="getCompanyOutstandingData(currentUserCompanyId || 0).balance > 0">
+            <ion-spinner *ngIf="getCompanyOutstandingData(currentUserCompanyId || 0).loading" name="crescent"></ion-spinner>
+            <span *ngIf="!getCompanyOutstandingData(currentUserCompanyId || 0).loading">
+              {{ getCompanyOutstandingData(currentUserCompanyId || 0).balance | currency:'USD':'symbol':'1.2-2' }}
+            </span>
+          </div>
+        </div>
+
+        <div class="unpaid-invoices-table" *ngIf="getCompanyOutstandingData(currentUserCompanyId || 0).invoices.length > 0">
+          <div class="responsive-table dark-outline">
+            <table>
+              <thead>
+                <tr>
+                  <th>Property</th>
+                  <th>Service</th>
+                  <th>Fee</th>
+                  <th>Paid</th>
+                  <th>Balance</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let inv of getCompanyOutstandingData(currentUserCompanyId || 0).invoices">
+                  <td>{{ inv.projectAddress }}</td>
+                  <td>{{ inv.serviceName }}</td>
+                  <td>{{ inv.fee | currency:'USD':'symbol':'1.2-2' }}</td>
+                  <td>{{ inv.paid | currency:'USD':'symbol':'1.2-2' }}</td>
+                  <td class="balance-due">{{ inv.remaining | currency:'USD':'symbol':'1.2-2' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="no-balance-message" *ngIf="!getCompanyOutstandingData(currentUserCompanyId || 0).loading && getCompanyOutstandingData(currentUserCompanyId || 0).balance === 0">
+          <ion-icon name="checkmark-circle-outline"></ion-icon>
+          <span>No outstanding balance - all invoices paid!</span>
+        </div>
+      </div>
+
+      <!-- Payment History Section -->
+      <div class="payments-section">
+        <div class="section-header-row">
+          <div class="section-title">
+            <ion-icon name="receipt-outline"></ion-icon>
+            <h3>Payment History</h3>
+          </div>
+        </div>
+
+        <div class="payment-history-table" *ngIf="getCompanyOutstandingData(currentUserCompanyId || 0).paidInvoices.length > 0">
+          <div class="responsive-table dark-outline">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Property</th>
+                  <th>Service</th>
+                  <th>Amount</th>
+                  <th>Method</th>
+                  <th>Invoice</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let payment of getCompanyOutstandingData(currentUserCompanyId || 0).paidInvoices">
+                  <td>{{ payment.paidDate ? (payment.paidDate | date:'shortDate') : 'N/A' }}</td>
+                  <td class="truncate-cell">{{ payment.projectAddress }}</td>
+                  <td>{{ payment.serviceName }}</td>
+                  <td class="payment-amount-cell">{{ payment.paidAmount | currency:'USD':'symbol':'1.2-2' }}</td>
+                  <td>
+                    <span class="payment-method-tag" [class.paypal]="payment.paymentProcessor === 'PayPal'">
+                      {{ payment.paymentProcessor }}
+                    </span>
+                  </td>
+                  <td>
+                    <button class="download-invoice-btn" (click)="downloadInvoice(payment, currentCompany?.CompanyName || 'Company')" title="Download Invoice">
+                      <ion-icon name="download-outline"></ion-icon>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="no-payments-message" *ngIf="!getCompanyOutstandingData(currentUserCompanyId || 0).loading && getCompanyOutstandingData(currentUserCompanyId || 0).paidInvoices.length === 0">
+          <ion-icon name="time-outline"></ion-icon>
+          <span>No payment history yet</span>
+        </div>
+      </div>
+
+      <!-- Autopay Settings Section -->
+      <div class="payments-section autopay-settings">
+        <div class="section-header-row">
+          <div class="section-title">
+            <ion-icon name="sync-outline"></ion-icon>
+            <h3>Autopay Settings</h3>
+          </div>
+        </div>
+
+        <div class="autopay-settings-content">
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Enable Autopay</span>
+              <span class="setting-description">Automatically pay invoices on a schedule</span>
+            </div>
+            <ion-toggle
+              [ngModel]="clientCompany?.AutopayEnabled"
+              (ngModelChange)="toggleAutopay($event)"
+              [disabled]="!clientCompany?.PayPalVaultToken">
+            </ion-toggle>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Payment Day</span>
+              <span class="setting-description">Day of month to process payments</span>
+            </div>
+            <select
+              class="autopay-day-select"
+              [ngModel]="clientCompany?.AutopayDay || 1"
+              (ngModelChange)="updateAutopayDay($event)"
+              [disabled]="!clientCompany?.PayPalVaultToken">
+              <option *ngFor="let day of getAutopayDayOptions()" [value]="day">
+                {{ formatAutopayDay(day) }}
+              </option>
+            </select>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Payment Method</span>
+              <span class="setting-description">Saved payment method for autopay</span>
+            </div>
+            <div class="payment-method-display">
+              <span *ngIf="clientCompany?.PayPalPayerEmail" class="saved-method">
+                <ion-icon name="logo-paypal"></ion-icon>
+                {{ clientCompany?.PayPalPayerEmail }}
+              </span>
+              <button *ngIf="!clientCompany?.PayPalVaultToken" class="add-payment-btn" (click)="openAddPaymentMethodModal()">
+                <ion-icon name="add-circle-outline"></ion-icon>
+                Add Payment Method
+              </button>
+              <button *ngIf="clientCompany?.PayPalVaultToken" class="remove-payment-btn" (click)="removePaymentMethod()">
+                <ion-icon name="trash-outline"></ion-icon>
+              </button>
             </div>
           </div>
         </div>
