@@ -5899,6 +5899,17 @@ export class CompanyPage implements OnInit, OnDestroy {
 
     // Apply filters across all tabs
     this.applyAllFilters();
+
+    // Auto-expand the company's stage and company details
+    const company = this.companies.find(c => c.CompanyID === companyId);
+    if (company && company.StageID) {
+      // Expand the stage group
+      this.expandedStages.add(company.StageID);
+      // Expand the company details
+      this.expandedCompanies.add(companyId);
+      // Load outstanding invoice data for the expanded company
+      this.loadCompanyOutstandingInvoices(companyId);
+    }
   }
 
   clearGlobalCompanyFilter() {

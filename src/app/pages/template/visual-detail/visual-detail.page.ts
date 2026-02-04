@@ -1648,6 +1648,15 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
               this.bulkAnnotatedImagesMap.set(String(this.photos[photoIndex].imageId), result.annotatedUrl);
             }
             console.log('[GenericVisualDetail] Cached annotated thumbnail in memory map for:', result.photoId);
+
+            // ANNOTATION FIX: Also cache to IndexedDB for persistence across page navigation
+            // This ensures TIER 2 lookup works in category-detail after returning
+            const cacheKey = this.photos[photoIndex].attachId || this.photos[photoIndex].imageId || result.photoId;
+            fetch(result.annotatedUrl)
+              .then(r => r.blob())
+              .then(blob => this.indexedDb.cacheAnnotatedImage(String(cacheKey), blob))
+              .then(() => console.log('[GenericVisualDetail] Cached annotated image to IndexedDB for:', cacheKey))
+              .catch(err => console.warn('[GenericVisualDetail] Failed to cache annotated to IndexedDB:', err));
           }
           this.changeDetectorRef.detectChanges();
         }

@@ -42,6 +42,7 @@ interface ServiceSelection {
   dateOfInspection: string;
   ReportFinalized?: boolean; // Whether the report has been finalized
   Status?: string; // Status field (e.g., "Under Review", "Report Finalized")
+  StatusID?: number; // FK to LPS_Status.StatusID - used for client status lookup
   StatusDateTime?: string; // ISO date string when the status was last updated (also used for submission date)
   saving?: boolean;
   saved?: boolean;
@@ -753,6 +754,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           dateOfInspection: service.DateOfInspection || service.InspectionDate || new Date().toISOString(),
           ReportFinalized: service.Status === 'Finalized' || service.Status === 'Updated' || service.Status === 'Under Review' || service.ReportFinalized || false,
           Status: service.Status || '',
+          StatusID: service.StatusID || null,  // FK to LPS_Status.StatusID
           StatusDateTime: service.StatusDateTime || '',
           // Deliverables fields - use StatusEng from database (should be "Created")
           StatusEng: service.StatusEng || '',  // Don't fallback to Status - show what's actually in StatusEng field
@@ -1042,6 +1044,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           dateOfInspection: service.DateOfInspection || new Date().toISOString(),
           ReportFinalized: service.Status === 'Finalized' || service.Status === 'Updated' || service.Status === 'Under Review' || service.ReportFinalized || false,
           Status: service.Status || '',
+          StatusID: service.StatusID || null,  // FK to LPS_Status.StatusID
           StatusDateTime: service.StatusDateTime || '',
           // Deliverables fields - preload StatusEng with Status if not set
           StatusEng: service.StatusEng || service.Status || '',
@@ -1298,6 +1301,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         TypeID: offer.TypeID,
         DateOfInspection: new Date().toISOString().split('T')[0], // Format as YYYY-MM-DD for date input
         Status: inProgressStatus, // Set status to "In Progress" (using StatusAdmin from Status table)
+        StatusID: 7, // FK to LPS_Status.StatusID - default status for new services
         StatusEng: createdStatus // Set StatusEng to "Created" (using StatusAdmin from Status table)
       };
 
@@ -1335,6 +1339,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         dateOfInspection: serviceData.DateOfInspection,
         ReportFinalized: false,  // New services are not finalized
         Status: serviceData.Status,  // StatusAdmin value for "In Progress"
+        StatusID: 7,  // FK to LPS_Status.StatusID - default status for new services
         StatusEng: serviceData.StatusEng,  // StatusAdmin value for "Created"
         StatusDateTime: new Date().toISOString()  // Set current timestamp
       };
@@ -1906,6 +1911,19 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // Fallback to Status_Admin if Status_Client not found (or if it's a legacy value)
     // This handles backwards compatibility with old hardcoded values
     return statusAdmin;
+  }
+
+  // Helper method to get Status_Client value by StatusID lookup (for client-facing display)
+  getStatusClientById(statusId: number | undefined): string {
+    if (!statusId) {
+      return '';
+    }
+    const statusRecord = this.statusOptions.find(s => s.StatusID === statusId || s.PK_ID === statusId);
+    if (statusRecord && statusRecord.Status_Client) {
+      return statusRecord.Status_Client;
+    }
+    // Fallback to empty string if not found
+    return '';
   }
 
   // Deliverables methods (for CompanyID = 1)

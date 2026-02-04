@@ -819,8 +819,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         });
       }
 
-      // Get ALL LocalImages for this service in one query
-      const allLocalImages = await this.localImageService.getImagesForService(this.serviceId);
+      // Get LocalImages for this service filtered by entityType (if available)
+      const entityType = this.config ? this.config.entityType as any : undefined;
+      const allLocalImages = await this.localImageService.getImagesForService(this.serviceId, entityType);
 
       // Group by entityId for efficient lookup
       const localImagesMap = new Map<string, LocalImage[]>();
@@ -833,7 +834,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         localImagesMap.get(entityId)!.push(img);
       }
 
-      this.logDebug('DEXIE', `Found ${allLocalImages.length} LocalImages for ${localImagesMap.size} entities`);
+      this.logDebug('DEXIE', `Found ${allLocalImages.length} LocalImages (entityType: ${entityType}) for ${localImagesMap.size} entities`);
 
       let photosAddedCount = 0;
 
@@ -1114,8 +1115,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         });
       }
 
-      // Get ALL LocalImages for this service (entityType = 'hud')
-      const allLocalImages = await this.localImageService.getImagesForService(this.serviceId);
+      // Get LocalImages for this service filtered by entityType = 'hud'
+      const allLocalImages = await this.localImageService.getImagesForService(this.serviceId, 'hud');
 
       // Group by entityId for efficient lookup
       const localImagesMap = new Map<string, LocalImage[]>();
@@ -1128,7 +1129,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         localImagesMap.get(entityId)!.push(img);
       }
 
-      this.logDebug('DEXIE', `Found ${allLocalImages.length} LocalImages for ${localImagesMap.size} entities`);
+      this.logDebug('DEXIE', `Found ${allLocalImages.length} LocalImages (entityType: hud) for ${localImagesMap.size} entities`);
 
       let photosAddedCount = 0;
 
@@ -1594,8 +1595,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         });
       }
 
-      // Get ALL LocalImages for this service in one query
-      const allLocalImages = await this.localImageService.getImagesForService(this.serviceId);
+      // Get LocalImages for this service filtered by entityType
+      const entityType = this.config.entityType as any;
+      const allLocalImages = await this.localImageService.getImagesForService(this.serviceId, entityType);
 
       // Group by entityId for efficient lookup
       const localImagesMap = new Map<string, LocalImage[]>();
@@ -1608,7 +1610,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         localImagesMap.get(entityId)!.push(img);
       }
 
-      this.logDebug('DEXIE', `Found ${allLocalImages.length} LocalImages for ${localImagesMap.size} entities`);
+      this.logDebug('DEXIE', `Found ${allLocalImages.length} LocalImages (entityType: ${entityType}) for ${localImagesMap.size} entities`);
 
       let photosAddedCount = 0;
 

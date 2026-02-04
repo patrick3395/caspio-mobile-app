@@ -210,6 +210,14 @@
             </td>
           </tr>
 
+          <!-- Status Row (Client view - read-only display of Status_Client) -->
+          <tr class="deliverable-row field-row" *ngIf="isDeliverableExpanded(service)">
+            <td class="field-label-cell">Status</td>
+            <td class="field-value-cell">
+              <span class="status-display">{{ getStatusClientById(service.StatusID) || 'Pending' }}</span>
+            </td>
+          </tr>
+
           <!-- Deliverable Row -->
           <tr class="deliverable-row field-row" *ngIf="isDeliverableExpanded(service)">
             <td class="field-label-cell">Deliverable</td>
