@@ -791,14 +791,27 @@ export class CompanyPage implements OnInit, OnDestroy {
       ]);
 
       // Build a map of paid amounts by project+service
+      // Payment records have negative Fee values (ledger model: positive = charge, negative = payment)
       const paidAmountsMap = new Map<string, { paid: number; invoice: any }>();
       invoiceResponses.forEach((response: any, index: number) => {
         const projectId = projectIds[index];
         if (response?.Result) {
           response.Result.forEach((invoice: any) => {
-            const key = `${projectId}-${invoice.ServiceID || invoice.TypeID || 'unknown'}`;
-            const paid = parseFloat(invoice.Paid) || 0;
-            paidAmountsMap.set(key, { paid, invoice });
+            const serviceId = invoice.ServiceID || invoice.TypeID || 'unknown';
+            const key = `${projectId}-${serviceId}`;
+            const fee = parseFloat(invoice.Fee) || 0;
+
+            // Negative Fee = payment, positive Fee = charge
+            // We track payments (negative fees) as paid amounts
+            if (fee < 0) {
+              const existingData = paidAmountsMap.get(key);
+              const existingPaid = existingData?.paid || 0;
+              // Add the absolute value of negative fee to paid amount
+              paidAmountsMap.set(key, {
+                paid: existingPaid + Math.abs(fee),
+                invoice
+              });
+            }
           });
         }
       });
@@ -825,7 +838,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       let totalBalance = 0;
 
-      // Process services to calculate outstanding balance
+      // Process services to calculate outstanding balance and payment history
       servicesResponses.forEach((response: any, index: number) => {
         const projectId = projectIds[index];
         const projectInfo = projectLookup.get(projectId);
@@ -833,6 +846,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
         if (response?.Result) {
           response.Result.forEach((service: any) => {
+            const statusId = Number(service.StatusID);
             const typeId = service.TypeID;
             const serviceId = service.ServiceID || service.PK_ID;
             const serviceName = typeNameLookup.get(typeId) || `Service ${typeId}`;
@@ -845,7 +859,8 @@ export class CompanyPage implements OnInit, OnDestroy {
               const paidAmount = paidInfo?.paid || 0;
               const remaining = fee - paidAmount;
 
-              if (remaining > 0) {
+              // Only add to balance if service is complete (StatusID = 5) and has remaining balance
+              if (statusId === 5 && remaining > 0) {
                 unpaidServices.push({
                   projectAddress,
                   serviceName,
@@ -856,6 +871,7 @@ export class CompanyPage implements OnInit, OnDestroy {
                 totalBalance += remaining;
               }
 
+              // Track paid invoices for payment history (show ALL paid services regardless of status)
               if (paidAmount > 0 && paidInfo?.invoice) {
                 paidInvoices.push({
                   invoiceId: paidInfo.invoice.InvoiceID || paidInfo.invoice.PK_ID,
@@ -925,7 +941,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       </head>
       <body>
         <div class="header">
-          <h1>LPS Foundations</h1>
+          <h1>Noble Engineering Services</h1>
           <p>Invoice</p>
         </div>
         <div class="details">
@@ -965,7 +981,7 @@ export class CompanyPage implements OnInit, OnDestroy {
           </div>
         </div>
         <div class="footer">
-          <p>Payment processed via ${invoice.paymentProcessor}</p>
+          <p style="white-space: pre-line;">${invoice.paymentNotes ? invoice.paymentNotes : (invoice.paymentProcessor !== 'Unknown' ? `Payment processed via ${invoice.paymentProcessor}` : 'Autopay Payment')}</p>
           <p>Thank you for your business!</p>
         </div>
       </body>
@@ -3309,6 +3325,10 @@ export class CompanyPage implements OnInit, OnDestroy {
           `Autopay successful. Processed ${response.invoicesProcessed || 0} invoice(s) for $${response.amount?.toFixed(2) || '0.00'}`,
           'success'
         );
+
+        // Clear cached outstanding data and refresh
+        this.companyOutstandingData.delete(companyId);
+        this.loadCompanyOutstandingInvoices(companyId);
 
         // Refresh company and invoice data
         await this.loadCompanyData(false);
