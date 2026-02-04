@@ -5,6 +5,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { liveQuery } from 'dexie';
 import { CaspioService } from '../../../services/caspio.service';
+import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { IndexedDbService } from '../../../services/indexed-db.service';
 import { db } from '../../../services/caspio-db';
 import { environment } from '../../../../environments/environment';
@@ -40,6 +41,7 @@ export class DteCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
     private router: Router,
     private route: ActivatedRoute,
     private caspioService: CaspioService,
+    private offlineTemplate: OfflineTemplateService,
     private indexedDb: IndexedDbService,
     private changeDetectorRef: ChangeDetectorRef
   ) {}
@@ -95,8 +97,8 @@ export class DteCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
     this.changeDetectorRef.detectChanges();
     console.log('[DTE Categories] ✅ Loading set to false immediately');
 
-    // Load templates from cache (fast IndexedDB read)
-    this.cachedTemplates = await this.indexedDb.getCachedTemplates('dte') || [];
+    // Load templates using cache-first pattern (fetches from API if cache empty)
+    this.cachedTemplates = await this.offlineTemplate.getDteTemplates() || [];
 
     // Guard after async
     if (this.isDestroyed) return;

@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ToastController, AlertController, ModalController, NavController } from '@ionic/angular';
+import { IonicModule, ToastController, AlertController, ModalController, NavController, ViewWillEnter } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { CaspioService } from '../../../services/caspio.service';
@@ -54,7 +54,7 @@ interface PhotoItem {
   standalone: true,
   imports: [CommonModule, IonicModule, FormsModule, LazyImageDirective]
 })
-export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
+export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, HasUnsavedChanges {
   // WEBAPP: Expose isWeb for template to hide camera button
   isWeb = environment.isWeb;
 

@@ -334,8 +334,6 @@ export class PhotoHandlerService {
     const fileSizeMB = (compressedFile.size / (1024 * 1024)).toFixed(2);
     console.log(`[PhotoHandler] Processing photo: ${fileSizeMB}MB, type: ${config.entityType}`);
 
-    const beforeStats = await this.memoryDiagnostics.getStorageStats();
-
     let result: StandardPhotoEntry | null = null;
 
     if (environment.isWeb) {
@@ -361,17 +359,6 @@ export class PhotoHandlerService {
         skeletonIdToReplace
       );
     }
-
-    // Memory diagnostics: track storage AFTER upload and show comparison
-    const afterStats = await this.memoryDiagnostics.getStorageStats();
-
-    // Show before/after storage comparison
-    await this.memoryDiagnostics.showStorageComparisonAlert(
-      'Image Upload',
-      beforeStats,
-      afterStats,
-      `File: ${fileSizeKB} KB | Type: ${config.entityType}`
-    );
 
     return result;
   }

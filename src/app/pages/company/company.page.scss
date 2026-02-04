@@ -583,6 +583,65 @@ ion-content {
   padding: 8px 0;
 }
 
+// Outstanding Balance Card
+.outstanding-balance-card {
+  background: linear-gradient(135deg, #fff5f0 0%, #fff 100%);
+  border: 2px solid #f15a27;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+
+  .balance-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+
+    ion-icon {
+      font-size: 1.2rem;
+      color: #f15a27;
+    }
+
+    span {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+  }
+
+  .balance-content {
+    .balance-amount {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #28a745;
+      line-height: 1.2;
+
+      &.has-balance {
+        color: #f15a27;
+      }
+    }
+
+    .balance-details {
+      font-size: 0.9rem;
+      color: #888;
+      margin-top: 4px;
+
+      &.paid {
+        color: #28a745;
+        font-weight: 500;
+      }
+    }
+
+    .balance-spinner {
+      --color: #f15a27;
+      width: 24px;
+      height: 24px;
+    }
+  }
+}
+
 .payment-setting-row {
   display: flex;
   justify-content: space-between;

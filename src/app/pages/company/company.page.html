@@ -1288,6 +1288,28 @@
 
         <div class="collapsible-content" [class.expanded]="paymentSettingsExpanded">
           <div class="payment-settings-content">
+            <!-- Outstanding Balance Summary -->
+            <div class="outstanding-balance-card">
+              <div class="balance-header">
+                <ion-icon name="receipt-outline"></ion-icon>
+                <span>Outstanding Balance</span>
+              </div>
+              <div class="balance-content" *ngIf="!outstandingInvoicesLoading">
+                <div class="balance-amount" [class.has-balance]="outstandingBalance > 0">
+                  {{ outstandingBalance | currency:'USD':'symbol':'1.2-2' }}
+                </div>
+                <div class="balance-details" *ngIf="outstandingInvoiceCount > 0">
+                  {{ outstandingInvoiceCount }} unpaid invoice{{ outstandingInvoiceCount > 1 ? 's' : '' }}
+                </div>
+                <div class="balance-details paid" *ngIf="outstandingInvoiceCount === 0">
+                  All invoices paid
+                </div>
+              </div>
+              <div class="balance-content" *ngIf="outstandingInvoicesLoading">
+                <ion-spinner name="crescent" class="balance-spinner"></ion-spinner>
+              </div>
+            </div>
+
             <!-- Autopay Toggle -->
             <div class="payment-setting-row">
               <div class="payment-setting-label">

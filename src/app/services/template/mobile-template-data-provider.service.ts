@@ -434,7 +434,7 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
         templates = await this.offlineTemplate.getLbwTemplates();
         break;
       case 'dte':
-        templates = await this.indexedDb.getCachedTemplates('dte') || [];
+        templates = await this.offlineTemplate.getDteTemplates();
         break;
       default:
         templates = [];

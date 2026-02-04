@@ -241,6 +241,12 @@ export class CompanyPage implements OnInit, OnDestroy {
   get clientCompany(): CompanyRecord | null {
     return this.companies.length > 0 ? this.companies[0] : null;
   }
+
+  // Outstanding invoices tracking for client view
+  outstandingBalance: number = 0;
+  outstandingInvoiceCount: number = 0;
+  outstandingInvoicesLoading: boolean = false;
+
   clientProjectsChart: Chart | null = null;
   clientServicesChart: Chart | null = null;
   clientProjectsChartData: { labels: string[]; values: number[] } = { labels: [], values: [] };
@@ -615,9 +621,76 @@ export class CompanyPage implements OnInit, OnDestroy {
         this.currentUserCompanyName = company.CompanyName || company.Name || '';
         // Store the full company record for client view (needed for Payment Settings)
         this.companies = [company];
+
+        // Load outstanding invoices for the payment settings section
+        this.loadOutstandingInvoices();
       }
     } catch (error) {
       console.error('Error loading company name:', error);
+    }
+  }
+
+  /**
+   * Load outstanding (unpaid) invoices for the current user's company
+   */
+  async loadOutstandingInvoices() {
+    if (!this.currentUserCompanyId) return;
+
+    this.outstandingInvoicesLoading = true;
+
+    try {
+      // Get all projects for this company first
+      const projectsResponse = await firstValueFrom(
+        this.caspioService.get<any>(`/tables/LPS_Projects/records?q.where=CompanyID=${this.currentUserCompanyId}`)
+      );
+
+      if (!projectsResponse?.Result?.length) {
+        this.outstandingBalance = 0;
+        this.outstandingInvoiceCount = 0;
+        this.outstandingInvoicesLoading = false;
+        return;
+      }
+
+      // Get project IDs
+      const projectIds = projectsResponse.Result.map((p: any) => p.ProjectID || p.PK_ID);
+
+      // Load invoices for all projects
+      const invoicePromises = projectIds.map((projectId: number) =>
+        firstValueFrom(
+          this.caspioService.get<any>(`/tables/LPS_Invoices/records?q.where=ProjectID=${projectId}`)
+        ).catch(() => ({ Result: [] }))
+      );
+
+      const invoiceResponses = await Promise.all(invoicePromises);
+
+      // Calculate outstanding balance from unpaid invoices
+      let totalOutstanding = 0;
+      let unpaidCount = 0;
+
+      invoiceResponses.forEach((response: any) => {
+        if (response?.Result) {
+          response.Result.forEach((invoice: any) => {
+            const fee = parseFloat(invoice.Fee) || 0;
+            const paid = parseFloat(invoice.Paid) || 0;
+            const remaining = fee - paid;
+
+            // Count as unpaid if there's remaining balance
+            if (remaining > 0) {
+              totalOutstanding += remaining;
+              unpaidCount++;
+            }
+          });
+        }
+      });
+
+      this.outstandingBalance = totalOutstanding;
+      this.outstandingInvoiceCount = unpaidCount;
+    } catch (error) {
+      console.error('Error loading outstanding invoices:', error);
+      this.outstandingBalance = 0;
+      this.outstandingInvoiceCount = 0;
+    } finally {
+      this.outstandingInvoicesLoading = false;
     }
   }
 

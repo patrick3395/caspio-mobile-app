@@ -1,7 +1,7 @@
 import { Component, OnInit, ChangeDetectorRef, ViewChild, ElementRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ToastController, LoadingController, AlertController, ActionSheetController, ModalController, IonContent } from '@ionic/angular';
+import { IonicModule, ToastController, LoadingController, AlertController, ActionSheetController, ModalController, IonContent, ViewWillEnter } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { CaspioService } from '../../../services/caspio.service';
@@ -57,7 +57,7 @@ interface VisualItem {
   standalone: true,
   imports: [CommonModule, IonicModule, FormsModule]
 })
-export class LbwCategoryDetailPage implements OnInit, OnDestroy {
+export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   projectId: string = '';
   serviceId: string = '';
   categoryName: string = '';
