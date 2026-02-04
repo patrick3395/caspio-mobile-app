@@ -22,5 +22,8 @@ export const environment = {
   paypal: {
     clientId: 'Ab5YsZla-pIyZZmxfKgb3k0GwWe3NoCqxIcfwefzzbutjjRgD15vdDcIIIABkNpbuFxlwS6Huu9uZgMq',
     currency: 'USD'
+  },
+  stripe: {
+    publishableKey: 'pk_live_51PLTqgFeRJdYiXMWA0EFdZGARdKBsNmnZnhBRQMVQk3CrCxz8L6nDvGRrkjntzYecZs7unJCZVoFDFutx4QqoazX00q6sH3pes'
   }
 };
