@@ -2299,6 +2299,35 @@ ion-segment.filter-segment {
   }
 }
 
+.action-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.link-account-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: var(--noble-orange, #F15A27);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  ion-icon {
+    font-size: 1rem;
+  }
+
+  &:hover {
+    background: #d94e1f;
+  }
+}
+
 .manual-run-btn {
   padding: 6px 12px;
   background: var(--ion-color-primary, #3880ff);

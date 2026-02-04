@@ -100,9 +100,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
   private deletedPointPhotoIds: Set<string> = new Set();
   private deletedFdfPhotoTypes: Set<string> = new Set();
 
-  // ===== SKELETON LOADER TRACKING =====
-  pointPhotoLoadingMap: Map<string, boolean> = new Map();
-
   // ===== LIVE QUERY SUPPORT (matches structural-systems pattern) =====
   // This subscription keeps the UI updated when LocalImages change without requiring full reload
   private localImagesSubscription?: Subscription;
@@ -4615,13 +4612,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     // Clear deleted tracking so new capture of same type works
     this.deletedFdfPhotoTypes.delete(photoType.toLowerCase());
 
-    // Show skeleton loader immediately
-    const photoKey = photoType.toLowerCase();
-    if (!this.roomData.fdfPhotos) this.roomData.fdfPhotos = {};
-    this.roomData.fdfPhotos[photoKey] = true;
-    this.roomData.fdfPhotos[`${photoKey}Loading`] = true;
-    this.changeDetectorRef.detectChanges();
-
     try {
       const config: PhotoCaptureConfig = {
         entityType: 'fdf',
@@ -4642,22 +4632,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         }
       };
 
-      const result = await this.photoHandler.captureFromCamera(config);
-      // If user cancelled, clear skeleton
-      if (!result) {
-        this.roomData.fdfPhotos[`${photoKey}Loading`] = false;
-        if (!this.roomData.fdfPhotos[`${photoKey}Url`]) {
-          this.roomData.fdfPhotos[photoKey] = false;
-        }
-        this.changeDetectorRef.detectChanges();
-      }
+      await this.photoHandler.captureFromCamera(config);
     } catch (error: any) {
-      // Clear skeleton on error
-      this.roomData.fdfPhotos[`${photoKey}Loading`] = false;
-      if (!this.roomData.fdfPhotos[`${photoKey}Url`]) {
-        this.roomData.fdfPhotos[photoKey] = false;
-      }
-      this.changeDetectorRef.detectChanges();
       const errorMessage = typeof error === 'string' ? error : error?.message || '';
       if (!errorMessage.includes('cancel') && !errorMessage.includes('Cancel') && !errorMessage.includes('User')) {
         console.error('Error taking FDF camera photo:', error);
@@ -4676,13 +4652,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     // Clear deleted tracking so new capture of same type works
     this.deletedFdfPhotoTypes.delete(photoType.toLowerCase());
 
-    // Show skeleton loader immediately
-    const photoKey = photoType.toLowerCase();
-    if (!this.roomData.fdfPhotos) this.roomData.fdfPhotos = {};
-    this.roomData.fdfPhotos[photoKey] = true;
-    this.roomData.fdfPhotos[`${photoKey}Loading`] = true;
-    this.changeDetectorRef.detectChanges();
-
     try {
       const config: PhotoCaptureConfig = {
         entityType: 'fdf',
@@ -4703,22 +4672,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         }
       };
 
-      const result = await this.photoHandler.captureFromGallery(config);
-      // If user cancelled, clear skeleton
-      if (!result) {
-        this.roomData.fdfPhotos[`${photoKey}Loading`] = false;
-        if (!this.roomData.fdfPhotos[`${photoKey}Url`]) {
-          this.roomData.fdfPhotos[photoKey] = false;
-        }
-        this.changeDetectorRef.detectChanges();
-      }
+      await this.photoHandler.captureFromGallery(config);
     } catch (error: any) {
-      // Clear skeleton on error
-      this.roomData.fdfPhotos[`${photoKey}Loading`] = false;
-      if (!this.roomData.fdfPhotos[`${photoKey}Url`]) {
-        this.roomData.fdfPhotos[photoKey] = false;
-      }
-      this.changeDetectorRef.detectChanges();
       const errorMessage = typeof error === 'string' ? error : error?.message || '';
       if (!errorMessage.includes('cancel') && !errorMessage.includes('Cancel') && !errorMessage.includes('User')) {
         console.error('Error selecting FDF gallery photo:', error);
@@ -5622,11 +5577,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
     const pointId = String(point.pointId);
 
-    // Show skeleton loader immediately
-    const loadingKey = `${pointId}:${photoType}`;
-    this.pointPhotoLoadingMap.set(loadingKey, true);
-    this.changeDetectorRef.detectChanges();
-
     try {
       const config: PhotoCaptureConfig = {
         entityType: 'efe_point',
@@ -5637,27 +5587,18 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         photoType: photoType,
         skipAnnotator: true,  // Elevation plot photos don't use annotator on capture
         onTempPhotoAdded: (photo: StandardPhotoEntry) => {
-          this.pointPhotoLoadingMap.delete(loadingKey);
           this.handlePointPhotoAdded(point, photo, photoType);
         },
         onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
           this.handlePointUploadComplete(point, photo, photoType, tempId);
         },
         onUploadFailed: (tempId: string, error: any) => {
-          this.pointPhotoLoadingMap.delete(loadingKey);
           this.handlePointUploadFailed(point, tempId, photoType, error);
         }
       };
 
-      const result = await this.photoHandler.captureFromCamera(config);
-      // If user cancelled, clear skeleton
-      if (!result) {
-        this.pointPhotoLoadingMap.delete(loadingKey);
-        this.changeDetectorRef.detectChanges();
-      }
+      await this.photoHandler.captureFromCamera(config);
     } catch (error: any) {
-      this.pointPhotoLoadingMap.delete(loadingKey);
-      this.changeDetectorRef.detectChanges();
       const errorMessage = typeof error === 'string' ? error : error?.message || '';
       if (!errorMessage.includes('cancel') && !errorMessage.includes('Cancel') && !errorMessage.includes('User')) {
         console.error('Error taking point camera photo:', error);
@@ -5679,11 +5620,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
     const pointId = String(point.pointId);
 
-    // Show skeleton loader immediately
-    const loadingKey = `${pointId}:${photoType}`;
-    this.pointPhotoLoadingMap.set(loadingKey, true);
-    this.changeDetectorRef.detectChanges();
-
     try {
       const config: PhotoCaptureConfig = {
         entityType: 'efe_point',
@@ -5694,27 +5630,18 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         photoType: photoType,
         skipAnnotator: true,  // Elevation plot photos don't use annotator on capture
         onTempPhotoAdded: (photo: StandardPhotoEntry) => {
-          this.pointPhotoLoadingMap.delete(loadingKey);
           this.handlePointPhotoAdded(point, photo, photoType);
         },
         onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
           this.handlePointUploadComplete(point, photo, photoType, tempId);
         },
         onUploadFailed: (tempId: string, error: any) => {
-          this.pointPhotoLoadingMap.delete(loadingKey);
           this.handlePointUploadFailed(point, tempId, photoType, error);
         }
       };
 
-      const result = await this.photoHandler.captureFromGallery(config);
-      // If user cancelled, clear skeleton
-      if (!result) {
-        this.pointPhotoLoadingMap.delete(loadingKey);
-        this.changeDetectorRef.detectChanges();
-      }
+      await this.photoHandler.captureFromGallery(config);
     } catch (error: any) {
-      this.pointPhotoLoadingMap.delete(loadingKey);
-      this.changeDetectorRef.detectChanges();
       const errorMessage = typeof error === 'string' ? error : error?.message || '';
       if (!errorMessage.includes('cancel') && !errorMessage.includes('Cancel') && !errorMessage.includes('User')) {
         console.error('Error selecting point gallery photo:', error);
@@ -6907,10 +6834,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     return this.getPointPhoto(point, photoType);
   }
 
-  isPointPhotoLoading(point: any, photoType: string): boolean {
-    const pointId = String(point.pointId || point.id);
-    return this.pointPhotoLoadingMap.has(`${pointId}:${photoType}`);
-  }
 
   viewRoomPhoto(photo: any, point: any) {
     // This would open a photo viewer modal

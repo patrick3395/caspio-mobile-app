@@ -520,12 +520,20 @@
                   </div>
                   <div class="detail-col">
                     <label>Action</label>
-                    <button
-                      class="manual-run-btn"
-                      (click)="triggerAutopay(company)"
-                      [disabled]="!company.AutopayEnabled || (!company.PayPalVaultToken && !company.StripePaymentMethodID) || getCompanyOutstandingData(company.CompanyID).balance === 0">
-                      Manual Run
-                    </button>
+                    <div class="action-buttons">
+                      <button
+                        class="link-account-btn"
+                        (click)="openStripeAchModal(company)">
+                        <ion-icon name="link-outline"></ion-icon>
+                        Link Account
+                      </button>
+                      <button
+                        class="manual-run-btn"
+                        (click)="triggerAutopay(company)"
+                        [disabled]="!company.AutopayEnabled || (!company.PayPalVaultToken && !company.StripePaymentMethodID) || getCompanyOutstandingData(company.CompanyID).balance === 0">
+                        Manual Run
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <!-- Outstanding Balance Section -->
@@ -1878,7 +1886,7 @@
                           [disabled]="!editingCompany.PayPalVaultToken && !editingCompany.StripePaymentMethodID">
               </ion-toggle>
               <small *ngIf="!editingCompany.PayPalVaultToken && !editingCompany.StripePaymentMethodID" class="hint-text">
-                No payment method saved. Customer must save during payment.
+                No payment method saved.
               </small>
             </div>
           </div>
@@ -1911,6 +1919,16 @@
                   Remove
                 </button>
               </div>
+            </div>
+          </div>
+
+          <!-- Link Bank Account Button (when no payment method exists) -->
+          <div class="form-row" *ngIf="!editingCompany.PayPalVaultToken && !editingCompany.StripePaymentMethodID">
+            <div class="form-field full-width">
+              <button class="link-account-btn" (click)="openStripeAchModal(editingCompany)">
+                <ion-icon name="link-outline"></ion-icon>
+                Link Bank Account
+              </button>
             </div>
           </div>
 

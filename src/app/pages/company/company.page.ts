@@ -3614,8 +3614,19 @@ export class CompanyPage implements OnInit, OnDestroy {
           group.companies[stageCompanyIndex].AutopayEnabled = true;
         }
       }
+      // Update editingCompany if it matches (for edit modal)
+      if (this.editingCompany && this.editingCompany.CompanyID === company.CompanyID) {
+        this.editingCompany.StripeCustomerID = paymentData.customerId;
+        this.editingCompany.StripePaymentMethodID = paymentData.paymentMethodId;
+        this.editingCompany.StripeBankName = paymentData.bankName;
+        this.editingCompany.StripeBankLast4 = paymentData.last4;
+        this.editingCompany.AutopayMethod = 'Stripe';
+        this.editingCompany.AutopayEnabled = true;
+      }
       // Reload to ensure server data is synced
-      await this.loadCurrentUserCompanyName();
+      if (this.currentUserCompanyId) {
+        await this.loadCurrentUserCompanyName();
+      }
       await this.showToast('Bank account linked and autopay enabled!', 'success');
     }
   }
