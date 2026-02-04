@@ -213,6 +213,7 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       case 'efe': return 'visualId';
       case 'lbw': return 'lbwId';
       case 'dte': return 'dteId';
+      case 'csa': return 'csaId';
       default: return 'visualId';
     }
   }
@@ -485,6 +486,8 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         return db.lbwFields.where('serviceId').equals(this.serviceId).toArray();
       case 'dte':
         return db.dteFields.where('serviceId').equals(this.serviceId).toArray();
+      case 'csa':
+        return db.csaFields.where('serviceId').equals(this.serviceId).toArray();
       default:
         return db.visualFields.where('serviceId').equals(this.serviceId).toArray();
     }
@@ -505,6 +508,8 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         return String(field.tempLbwId || field.lbwId || '');
       case 'dte':
         return String(field.tempDteId || field.dteId || '');
+      case 'csa':
+        return String(field.tempCsaId || field.csaId || '');
       default:
         return String(field.tempVisualId || field.visualId || '');
     }
@@ -567,6 +572,8 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         return field.tempLbwId ? String(field.tempLbwId) : '';
       case 'dte':
         return field.tempDteId ? String(field.tempDteId) : '';
+      case 'csa':
+        return field.tempCsaId ? String(field.tempCsaId) : '';
       default:
         return field.tempVisualId ? String(field.tempVisualId) : '';
     }
@@ -587,6 +594,8 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         return field.lbwId ? String(field.lbwId) : '';
       case 'dte':
         return field.dteId ? String(field.dteId) : '';
+      case 'csa':
+        return field.csaId ? String(field.csaId) : '';
       default:
         return field.visualId ? String(field.visualId) : '';
     }
@@ -768,7 +777,7 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     if (!this.config) return;
 
     // Create liveQuery for the correct table based on template type
-    // Use any type to handle different field types (VisualField, HudField, LbwField, DteField)
+    // Use any type to handle different field types (VisualField, HudField, LbwField, DteField, CsaField)
     const observable = liveQuery((): Promise<any> => {
       switch (this.config!.id) {
         case 'efe':
@@ -779,6 +788,8 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           return db.lbwFields.where('[serviceId+templateId]').equals([this.serviceId, this.templateId]).first();
         case 'dte':
           return db.dteFields.where('[serviceId+templateId]').equals([this.serviceId, this.templateId]).first();
+        case 'csa':
+          return db.csaFields.where('[serviceId+templateId]').equals([this.serviceId, this.templateId]).first();
         default:
           return db.visualFields.where('[serviceId+templateId]').equals([this.serviceId, this.templateId]).first();
       }
@@ -1906,10 +1917,49 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       await db.localImages.update(photo.id, { caption, updatedAt: Date.now() });
       console.log('[GenericVisualDetail] MOBILE: Updated caption in Dexie');
 
+      // SYNC FIX: Queue caption update for background sync
+      // This ensures caption changes appear in the sync modal
+      const attachId = photo.attachId || photo.id;
+      const attachType = this.getAttachTypeFromConfig();
+
+      // DEBUG: Alert for CSA caption sync
+      if (this.config?.id === 'csa' && typeof alert !== 'undefined') {
+        alert(`[CSA DEBUG] Queuing caption sync - attachId: ${attachId}, attachType: ${attachType}, caption: ${caption}`);
+      }
+
+      await this.indexedDb.queueCaptionUpdate({
+        attachId: attachId,
+        attachType: attachType,
+        caption: caption,
+        drawings: photo.drawings || ''
+      });
+      console.log('[GenericVisualDetail] MOBILE: Queued caption for sync:', attachId, 'type:', attachType);
+
       this.changeDetectorRef.detectChanges();
     } catch (error) {
       console.error('[GenericVisualDetail] Error saving caption:', error);
       await this.showToast('Error saving caption', 'danger');
+    }
+  }
+
+  /**
+   * Get the attach type string from template config for caption updates
+   */
+  private getAttachTypeFromConfig(): 'visual' | 'efe_point' | 'fdf' | 'hud' | 'lbw' | 'dte' | 'csa' {
+    if (!this.config) return 'visual';
+    switch (this.config.id) {
+      case 'hud':
+        return 'hud';
+      case 'lbw':
+        return 'lbw';
+      case 'dte':
+        return 'dte';
+      case 'csa':
+        return 'csa';
+      case 'efe':
+        return 'visual';
+      default:
+        return 'visual';
     }
   }
 

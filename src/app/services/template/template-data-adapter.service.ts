@@ -577,16 +577,18 @@ export class TemplateDataAdapter {
   /**
    * Get the attach type string from template config for caption updates
    */
-  private getAttachTypeFromConfig(config: TemplateConfig): 'visual' | 'efe_point' | 'fdf' | 'hud' | 'lbw' {
+  private getAttachTypeFromConfig(config: TemplateConfig): 'visual' | 'efe_point' | 'fdf' | 'hud' | 'lbw' | 'dte' | 'csa' {
     switch (config.id) {
       case 'hud':
         return 'hud';
       case 'lbw':
         return 'lbw';
+      case 'dte':
+        return 'dte';
+      case 'csa':
+        return 'csa';
       case 'efe':
         return 'visual';  // EFE uses 'visual' type for its attachments
-      case 'dte':
-        return 'visual';  // DTE also uses 'visual' type
       default:
         return 'visual';
     }

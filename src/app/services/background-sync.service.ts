@@ -2934,6 +2934,125 @@ export class BackgroundSyncService {
         if (!foundInCache) {
           console.log(`[BackgroundSync] ⚠️ LBW Attachment ${caption.attachId} not in any cache - will be loaded on next page visit`);
         }
+      } else if (caption.attachType === 'dte') {
+        // DTE: Update dte_attachments cache and localImages
+        let foundInCache = false;
+
+        // Update localImages table (MOBILE mode source of truth)
+        try {
+          // First try to find by imageId matching attachId
+          const localImage = await db.localImages.get(caption.attachId);
+          if (localImage) {
+            const updateData: any = { updatedAt: Date.now() };
+            if (caption.caption !== undefined) updateData.caption = caption.caption;
+            if (caption.drawings !== undefined) updateData.drawings = caption.drawings;
+            await db.localImages.update(caption.attachId, updateData);
+            foundInCache = true;
+            console.log(`[BackgroundSync] ✅ Updated localImages with synced caption for DTE: ${caption.attachId}`);
+          } else {
+            // Try to find by attachId field
+            const imagesWithAttachId = await db.localImages.where('attachId').equals(caption.attachId).toArray();
+            if (imagesWithAttachId.length > 0) {
+              for (const img of imagesWithAttachId) {
+                const updateData: any = { updatedAt: Date.now() };
+                if (caption.caption !== undefined) updateData.caption = caption.caption;
+                if (caption.drawings !== undefined) updateData.drawings = caption.drawings;
+                await db.localImages.update(img.imageId, updateData);
+                foundInCache = true;
+                console.log(`[BackgroundSync] ✅ Updated localImages (by attachId) with synced caption for DTE: ${img.imageId}`);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn(`[BackgroundSync] Failed to update localImages for DTE caption:`, err);
+        }
+
+        // Update dte_attachments cache
+        if (caption.visualId) {
+          const cached = await this.indexedDb.getCachedServiceData(caption.visualId, 'dte_attachments') || [];
+          const updated = cached.map((att: any) => {
+            if (String(att.AttachID) === String(caption.attachId)) {
+              foundInCache = true;
+              const updatedAtt = { ...att, _syncedAt: Date.now() };
+              delete updatedAtt._localUpdate;
+              delete updatedAtt._updatedAt;
+              if (caption.caption !== undefined) updatedAtt.Annotation = caption.caption;
+              if (caption.drawings !== undefined) updatedAtt.Drawings = caption.drawings;
+              return updatedAtt;
+            }
+            return att;
+          });
+          if (foundInCache) {
+            await this.indexedDb.cacheServiceData(caption.visualId, 'dte_attachments', updated);
+            console.log(`[BackgroundSync] ✅ Updated dte_attachments cache for ${caption.attachId}`);
+          }
+        }
+
+        if (!foundInCache) {
+          console.log(`[BackgroundSync] ⚠️ DTE Attachment ${caption.attachId} not in any cache - will be loaded on next page visit`);
+        }
+      } else if (caption.attachType === 'csa') {
+        // CSA: Update csa_attachments cache and localImages
+        let foundInCache = false;
+
+        // DEBUG ALERT
+        if (typeof alert !== 'undefined') {
+          alert(`[CSA SYNC DEBUG] updateSyncedCacheWithCaption - attachId: ${caption.attachId}`);
+        }
+
+        // Update localImages table (MOBILE mode source of truth)
+        try {
+          // First try to find by imageId matching attachId
+          const localImage = await db.localImages.get(caption.attachId);
+          if (localImage) {
+            const updateData: any = { updatedAt: Date.now() };
+            if (caption.caption !== undefined) updateData.caption = caption.caption;
+            if (caption.drawings !== undefined) updateData.drawings = caption.drawings;
+            await db.localImages.update(caption.attachId, updateData);
+            foundInCache = true;
+            console.log(`[BackgroundSync] ✅ Updated localImages with synced caption for CSA: ${caption.attachId}`);
+          } else {
+            // Try to find by attachId field
+            const imagesWithAttachId = await db.localImages.where('attachId').equals(caption.attachId).toArray();
+            if (imagesWithAttachId.length > 0) {
+              for (const img of imagesWithAttachId) {
+                const updateData: any = { updatedAt: Date.now() };
+                if (caption.caption !== undefined) updateData.caption = caption.caption;
+                if (caption.drawings !== undefined) updateData.drawings = caption.drawings;
+                await db.localImages.update(img.imageId, updateData);
+                foundInCache = true;
+                console.log(`[BackgroundSync] ✅ Updated localImages (by attachId) with synced caption for CSA: ${img.imageId}`);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn(`[BackgroundSync] Failed to update localImages for CSA caption:`, err);
+        }
+
+        // Update csa_attachments cache
+        if (caption.visualId) {
+          const cached = await this.indexedDb.getCachedServiceData(caption.visualId, 'csa_attachments') || [];
+          const updated = cached.map((att: any) => {
+            if (String(att.AttachID) === String(caption.attachId)) {
+              foundInCache = true;
+              const updatedAtt = { ...att, _syncedAt: Date.now() };
+              delete updatedAtt._localUpdate;
+              delete updatedAtt._updatedAt;
+              if (caption.caption !== undefined) updatedAtt.Annotation = caption.caption;
+              if (caption.drawings !== undefined) updatedAtt.Drawings = caption.drawings;
+              return updatedAtt;
+            }
+            return att;
+          });
+          if (foundInCache) {
+            await this.indexedDb.cacheServiceData(caption.visualId, 'csa_attachments', updated);
+            console.log(`[BackgroundSync] ✅ Updated csa_attachments cache for ${caption.attachId}`);
+          }
+        }
+
+        if (!foundInCache) {
+          console.log(`[BackgroundSync] ⚠️ CSA Attachment ${caption.attachId} not in any cache - will be loaded on next page visit`);
+        }
       }
       // FDF type is handled differently (stored in room record, not attachments)
     } catch (error) {
