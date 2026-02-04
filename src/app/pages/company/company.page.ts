@@ -3492,25 +3492,28 @@ export class CompanyPage implements OnInit, OnDestroy {
     // Show choice between PayPal and Stripe ACH
     const alert = await this.alertController.create({
       header: 'Add Payment Method',
-      message: 'Choose how you want to pay:',
       buttons: [
         {
           text: 'Bank Account (ACH)',
+          cssClass: 'alert-button-confirm',
           handler: () => {
             this.openStripeAchModal(company);
           }
         },
         {
           text: 'PayPal',
+          cssClass: 'alert-button-confirm',
           handler: () => {
             this.openPayPalModal(company);
           }
         },
         {
           text: 'Cancel',
-          role: 'cancel'
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
-      ]
+      ],
+      cssClass: 'custom-document-alert'
     });
     await alert.present();
   }

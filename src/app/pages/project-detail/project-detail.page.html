@@ -66,8 +66,13 @@
     <div class="info-section">
       <h2 class="section-title">Project Information</h2>
 
-      <!-- Mobile layout: Address only -->
+      <!-- Mobile layout -->
       <div *ngIf="!platform.isWeb()">
+        <!-- Company (admin view only) -->
+        <div class="info-row" *ngIf="isCompanyOne && projectCompanyName">
+          <span class="info-label">Company:</span>
+          <span class="info-value company-name">{{ projectCompanyName }}</span>
+        </div>
         <div class="info-row address-row">
           <span class="info-label">Address:</span>
           <span class="info-value">{{ project.Address || 'Not specified' }}, {{ getCityStateZip() }}</span>
@@ -77,13 +82,20 @@
         </div>
       </div>
 
-      <!-- Web layout: Address only -->
-      <div *ngIf="platform.isWeb()" class="info-row-single address-row">
-        <span class="info-label">Address:</span>
-        <span class="info-value">{{ project.Address || 'Not specified' }}, {{ getCityStateZip() }}</span>
-        <button class="edit-address-btn-inline" (click)="openEditAddressModal()" title="Edit Address">
-          <ion-icon name="create-outline"></ion-icon>
-        </button>
+      <!-- Web layout -->
+      <div *ngIf="platform.isWeb()">
+        <!-- Company (admin view only) -->
+        <div class="info-row-single" *ngIf="isCompanyOne && projectCompanyName">
+          <span class="info-label">Company:</span>
+          <span class="info-value company-name">{{ projectCompanyName }}</span>
+        </div>
+        <div class="info-row-single address-row">
+          <span class="info-label">Address:</span>
+          <span class="info-value">{{ project.Address || 'Not specified' }}, {{ getCityStateZip() }}</span>
+          <button class="edit-address-btn-inline" (click)="openEditAddressModal()" title="Edit Address">
+            <ion-icon name="create-outline"></ion-icon>
+          </button>
+        </div>
       </div>
     </div>
 

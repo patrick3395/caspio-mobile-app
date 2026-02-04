@@ -109,11 +109,11 @@ export class PhotoHandlerService {
   // ============================================================================
 
   /**
-   * Capture a photo from camera with annotator
+   * Capture a photo from camera with optional annotator
    *
    * Flow:
    * 1. Open camera
-   * 2. Open annotator modal
+   * 2. Open annotator modal (unless skipAnnotator is true)
    * 3. Compress image
    * 4. WEBAPP: Upload directly to S3
    * 5. MOBILE: Store in Dexie, sync in background
@@ -121,7 +121,7 @@ export class PhotoHandlerService {
    * @returns The created photo entry, or null if user cancelled
    */
   async captureFromCamera(config: PhotoCaptureConfig): Promise<StandardPhotoEntry | null> {
-    console.log('[PhotoHandlerService] captureFromCamera:', config.entityType, 'entityId:', config.entityId);
+    console.log('[PhotoHandlerService] captureFromCamera:', config.entityType, 'entityId:', config.entityId, 'skipAnnotator:', config.skipAnnotator);
 
     try {
       // 1. Capture photo with camera
@@ -142,12 +142,22 @@ export class PhotoHandlerService {
       const imageUrl = URL.createObjectURL(blob);
 
       try {
-        // 3. Open annotator modal
-        const { annotatedBlob, annotationsData, caption, cancelled } = await this.openAnnotator(imageUrl);
+        let annotatedBlob: Blob | null = null;
+        let annotationsData: any = null;
+        let caption = '';
 
-        if (cancelled) {
-          URL.revokeObjectURL(imageUrl);
-          return null;
+        // 3. Open annotator modal (unless skipAnnotator is true)
+        if (!config.skipAnnotator) {
+          const result = await this.openAnnotator(imageUrl);
+
+          if (result.cancelled) {
+            URL.revokeObjectURL(imageUrl);
+            return null;
+          }
+
+          annotatedBlob = result.annotatedBlob;
+          annotationsData = result.annotationsData;
+          caption = result.caption;
         }
 
         // 4. Create file and compress

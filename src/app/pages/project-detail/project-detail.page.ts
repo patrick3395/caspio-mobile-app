@@ -154,8 +154,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   showDeliverablesTable = false;
   currentDeliverableUpload: any = null;
   statusOptions: any[] = [];
-  isCompanyOne = false; // Track if this is CompanyID = 1
+  isCompanyOne = false; // Track if logged-in user is CompanyID = 1
   projectCompanyId: string = '1'; // Store the project's CompanyID for API calls
+  projectCompanyName: string = ''; // Store the project's company name (for admin view)
   expandedDeliverables: Set<string> = new Set(); // Track which deliverables are expanded (by unique key)
   
   // Track changes since last submission (by serviceId)
@@ -663,9 +664,22 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.isReadOnly = isCompletedProject && !isAddServiceMode;
 
       // Check company ID and store it for API calls
-      const companyId = Number(projectData?.CompanyID || projectData?.Company_ID);
-      this.projectCompanyId = companyId ? companyId.toString() : '1';
-      this.isCompanyOne = companyId === 1;
+      const projectCompanyId = Number(projectData?.CompanyID || projectData?.Company_ID);
+      this.projectCompanyId = projectCompanyId ? projectCompanyId.toString() : '1';
+
+      // Check if logged-in user is from admin company (CompanyID = 1)
+      // This determines if they see admin view (all services) vs client view (completed only)
+      const userStr = localStorage.getItem('currentUser');
+      let userCompanyId = 0;
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          userCompanyId = user.companyId || user.CompanyID || 0;
+        } catch (e) {
+          console.error('Error parsing user data:', e);
+        }
+      }
+      this.isCompanyOne = userCompanyId === 1;
 
       const parallelStartTime = performance.now();
 
@@ -688,9 +702,14 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Always load Status table for deliverables
       promises.push(this.caspioService.get<any>('/tables/LPS_Status/records').toPromise());
 
+      // Load company name for admin view
+      if (this.isCompanyOne && projectCompanyId) {
+        promises.push(this.caspioService.get<any>(`/tables/LPS_Companies/records?q.where=CompanyID=${projectCompanyId}`).toPromise());
+      }
+
       const results = await Promise.allSettled(promises);
 
-      const [offers, types, services, attachTemplates, existingAttachments, statuses] = results;
+      const [offers, types, services, attachTemplates, existingAttachments, statuses, companyResult] = results;
 
       const parallelElapsed = performance.now() - parallelStartTime;
 
@@ -706,6 +725,14 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         const statusesData: any = statuses.status === 'fulfilled' ? statuses.value : null;
         if (statusesData && statusesData.Result) {
           this.statusOptions = statusesData.Result;
+        }
+      }
+
+      // Extract company name for admin view
+      if (companyResult && companyResult.status === 'fulfilled') {
+        const companyData: any = companyResult.value;
+        if (companyData?.Result?.[0]) {
+          this.projectCompanyName = companyData.Result[0].CompanyName || companyData.Result[0].Name || '';
         }
       }
 
@@ -887,9 +914,32 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           this.isReadOnly = isCompletedProject;
         }
 
-        // Check company ID
-        const companyId = Number(project.CompanyID || project.Company_ID);
-        this.isCompanyOne = companyId === 1;
+        // Check if logged-in user is from admin company (CompanyID = 1)
+        const userStr = localStorage.getItem('currentUser');
+        let userCompanyId = 0;
+        if (userStr) {
+          try {
+            const user = JSON.parse(userStr);
+            userCompanyId = user.companyId || user.CompanyID || 0;
+          } catch (e) {
+            console.error('Error parsing user data:', e);
+          }
+        }
+        this.isCompanyOne = userCompanyId === 1;
+
+        // Load company name for admin view
+        const projectCompanyId = Number(project.CompanyID || project.Company_ID);
+        this.projectCompanyId = projectCompanyId ? projectCompanyId.toString() : '1';
+        if (this.isCompanyOne && projectCompanyId) {
+          try {
+            const companyResult: any = await this.caspioService.get<any>(`/tables/LPS_Companies/records?q.where=CompanyID=${projectCompanyId}`).toPromise();
+            if (companyResult?.Result?.[0]) {
+              this.projectCompanyName = companyResult.Result[0].CompanyName || companyResult.Result[0].Name || '';
+            }
+          } catch (e) {
+            console.error('Error loading company name:', e);
+          }
+        }
 
         if (this.isReadOnly) {
         }

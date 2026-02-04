@@ -868,6 +868,11 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
       return 'trash-outline';
     }
 
+    // Point photo deletion
+    if (data._displayType === 'POINT_PHOTO_DELETE') {
+      return 'trash-outline';
+    }
+
     // Annotation/drawing updates
     if (endpoint.includes('Attach') && request.type === 'UPDATE' && (data.Drawings !== undefined || data.Annotation !== undefined)) {
       return 'brush-outline';
@@ -909,6 +914,20 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
         return `Delete FDF ${photoType} photo: ${roomName}`.substring(0, 50);
       }
       return `Delete FDF ${photoType} photo`;
+    }
+
+    // Point photo deletion (from room-elevation page)
+    if (data._displayType === 'POINT_PHOTO_DELETE') {
+      const photoType = data._photoType || 'Point';
+      const pointName = data._pointName || '';
+      const roomName = data._roomName || '';
+      if (pointName && roomName) {
+        return `Delete ${photoType} photo: ${pointName} (${roomName})`.substring(0, 50);
+      }
+      if (pointName) {
+        return `Delete ${photoType} photo: ${pointName}`.substring(0, 50);
+      }
+      return `Delete ${photoType} point photo`;
     }
 
     // Visual photo uploads

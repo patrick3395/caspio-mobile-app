@@ -4613,6 +4613,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         category: 'EFE',
         itemId: this.roomId,
         photoType: photoType,
+        skipAnnotator: true,  // Elevation plot photos don't use annotator on capture
         onTempPhotoAdded: (photo: StandardPhotoEntry) => {
           this.handleFDFPhotoAdded(photo, photoType);
         },
@@ -4649,7 +4650,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         category: 'EFE',
         itemId: this.roomId,
         photoType: photoType,
-        skipAnnotator: false,  // FDF photos should still go through annotator for single selection
+        skipAnnotator: true,  // Elevation plot photos don't use annotator on capture
         onTempPhotoAdded: (photo: StandardPhotoEntry) => {
           this.handleFDFPhotoAdded(photo, photoType);
         },
@@ -5544,6 +5545,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         category: 'EFE',
         itemId: pointId,
         photoType: photoType,
+        skipAnnotator: true,  // Elevation plot photos don't use annotator on capture
         onTempPhotoAdded: (photo: StandardPhotoEntry) => {
           this.handlePointPhotoAdded(point, photo, photoType);
         },
@@ -5580,7 +5582,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         category: 'EFE',
         itemId: pointId,
         photoType: photoType,
-        skipAnnotator: false,  // Point photos should still go through annotator for single selection
+        skipAnnotator: true,  // Elevation plot photos don't use annotator on capture
         onTempPhotoAdded: (photo: StandardPhotoEntry) => {
           this.handlePointPhotoAdded(point, photo, photoType);
         },
@@ -6056,8 +6058,18 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                 // Remove from cached ATTACHMENTS LIST in IndexedDB
                 await this.indexedDb.removeAttachmentFromCache(String(photo.attachId), 'efe_point_attachments');
 
-                // Delete from database
-                if (!String(photo.attachId).startsWith('temp_') && !String(photo.attachId).startsWith('img_')) {
+                // Delete from database - only if this is a real server AttachID (numeric)
+                // Local-first photos have UUID attachIds and don't exist on server yet
+                const attachIdStr = String(photo.attachId);
+                const isNumericAttachId = /^\d+$/.test(attachIdStr);
+                const isLocalOnlyPhoto = attachIdStr.startsWith('temp_') ||
+                                         attachIdStr.startsWith('img_') ||
+                                         attachIdStr.startsWith('uploading_') ||
+                                         photo.isLocalFirst ||
+                                         photo.isLocal ||
+                                         !isNumericAttachId;
+
+                if (!isLocalOnlyPhoto) {
                   // WEBAPP MODE: Call API directly for immediate persistence
                   if (environment.isWeb) {
                     console.log('[Point Photo] WEBAPP: Deleting photo via API:', photo.attachId);
@@ -6074,6 +6086,22 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                       }
                     } catch (apiError: any) {
                       console.error('[Point Photo] WEBAPP: ❌ Delete failed:', apiError?.message || apiError);
+                      // Queue for retry on failure
+                      await this.indexedDb.addPendingRequest({
+                        type: 'DELETE',
+                        endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`,
+                        method: 'DELETE',
+                        data: {
+                          attachId: photo.attachId,
+                          _displayType: 'POINT_PHOTO_DELETE',
+                          _photoType: photo.photoType,
+                          _pointName: point.pointName || point.name,
+                          _roomName: this.roomName
+                        },
+                        dependencies: [],
+                        status: 'pending',
+                        priority: 'high',
+                      });
                     }
                   } else {
                     // MOBILE MODE: Queue for background sync
@@ -6082,13 +6110,21 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                       type: 'DELETE',
                       endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`,
                       method: 'DELETE',
-                      data: { attachId: photo.attachId },
+                      data: {
+                        attachId: photo.attachId,
+                        _displayType: 'POINT_PHOTO_DELETE',
+                        _photoType: photo.photoType,
+                        _pointName: point.pointName || point.name,
+                        _roomName: this.roomName
+                      },
                       dependencies: [],
                       status: 'pending',
                       priority: 'high',
                     });
                     // Sync will happen on next 60-second interval (batched sync)
                   }
+                } else {
+                  console.log('[Point Photo] Local-only photo, no backend delete needed:', attachIdStr);
                 }
 
                 console.log('[Point Photo] Photo removed successfully');
