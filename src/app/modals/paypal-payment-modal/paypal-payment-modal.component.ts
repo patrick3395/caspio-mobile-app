@@ -90,9 +90,10 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
 
   /**
    * Render PayPal button for save-only mode (no payment, just vault)
+   * Uses server-side order creation with vault configuration
    */
   private renderVaultOnlyButton() {
-    console.log('Rendering vault-only PayPal button');
+    console.log('Rendering vault-only PayPal button (server-side vault method)');
 
     paypal.Buttons({
       style: {
@@ -103,36 +104,44 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
         height: 48
       },
 
-      // Create vault setup token (no payment)
-      createVaultSetupToken: async () => {
-        console.log('Creating vault setup token...');
+      // Create order server-side with vault configuration
+      createOrder: async () => {
+        console.log('Creating verification order via server...');
         try {
           const response = await firstValueFrom(
-            this.caspioService.createVaultSetupToken()
+            this.caspioService.createPayPalOrderWithVault(
+              '1.00',
+              'Payment Method Verification - LPS Foundations'
+            )
           );
-          console.log('Vault setup token created:', response.setupTokenId);
-          return response.setupTokenId;
+          console.log('Server created order:', response.orderId);
+          return response.orderId;
         } catch (error) {
-          console.error('Failed to create vault setup token:', error);
+          console.error('Failed to create order:', error);
           throw error;
         }
       },
 
-      // On vault approval
+      // On approval - capture via server to get vault token
       onApprove: async (data: any) => {
-        console.log('Vault approval received:', data);
+        console.log('Verification order approved:', data);
         this.isLoading = true;
 
         try {
-          // Create payment token from the approved setup token
-          const vaultSetupToken = data.vaultSetupToken;
-          console.log('Creating payment token from setup token:', vaultSetupToken);
-
-          const tokenResult = await firstValueFrom(
-            this.caspioService.createPaymentToken(vaultSetupToken)
+          // Capture order via server to get vault token
+          const captureResult = await firstValueFrom(
+            this.caspioService.capturePayPalOrder(data.orderID)
           );
+          console.log('Server capture result:', captureResult);
 
-          console.log('Payment token created:', tokenResult);
+          const vaultToken = captureResult.vaultToken;
+
+          if (!vaultToken) {
+            console.error('No vault token in capture response');
+            throw new Error('Failed to save payment method - no vault token received');
+          }
+
+          console.log('Vault token received:', vaultToken);
 
           // Save the payment method to the company record
           if (this.companyId) {
@@ -140,9 +149,9 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
               this.caspioService.put(
                 `/tables/LPS_Companies/records?q.where=CompanyID=${this.companyId}`,
                 {
-                  PayPalVaultToken: tokenResult.paymentTokenId,
-                  PayPalPayerID: tokenResult.payerId,
-                  PayPalPayerEmail: tokenResult.payerEmail
+                  PayPalVaultToken: vaultToken,
+                  PayPalPayerID: captureResult.payerId,
+                  PayPalPayerEmail: captureResult.payerEmail
                 }
               )
             );
@@ -153,20 +162,21 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
           this.isLoading = false;
 
           // Show success message
-          await this.showVaultSuccess(tokenResult.payerEmail);
+          await this.showVaultSuccess(captureResult.payerEmail || 'your PayPal account');
 
           // Return vault details to parent
           this.modalController.dismiss({
             success: true,
             savedPaymentMethod: true,
             paymentData: {
-              vaultToken: tokenResult.paymentTokenId,
-              payerID: tokenResult.payerId,
-              payerEmail: tokenResult.payerEmail
+              vaultToken: vaultToken,
+              payerID: captureResult.payerId,
+              payerEmail: captureResult.payerEmail,
+              verificationAmount: '1.00'
             }
           });
         } catch (error) {
-          console.error('Error creating payment token:', error);
+          console.error('Error during verification:', error);
           this.isLoading = false;
           this.showError('Failed to save payment method. Please try again.');
         }
@@ -174,13 +184,13 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
 
       // On cancel
       onCancel: (data: any) => {
-        console.log('Vault setup cancelled:', data);
+        console.log('Verification cancelled:', data);
         this.showCancelled();
       },
 
       // On error
       onError: (err: any) => {
-        console.error('PayPal vault error:', err);
+        console.error('PayPal verification error:', err);
         this.showError('An error occurred. Please try again.');
       }
     }).render(this.paypalButtonContainer.nativeElement);

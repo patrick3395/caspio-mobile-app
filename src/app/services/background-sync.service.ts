@@ -4512,12 +4512,12 @@ export class BackgroundSyncService {
           continue;
         }
 
-        // Purge all data for this service
+        // Purge synced data for this service (matches clearAllSyncedData behavior)
         await this.purgeServiceData(service.serviceId);
-        await this.serviceMetadata.setPurgeState(service.serviceId, 'ARCHIVED');
+        await this.serviceMetadata.setPurgeState(service.serviceId, 'PURGED');
         purged.push(service.serviceId);
 
-        console.log(`[BackgroundSync] ✅ Hard purged service: ${service.serviceId}`);
+        console.log(`[BackgroundSync] ✅ Auto-purged service: ${service.serviceId} (will rehydrate on next open)`);
       }
 
       console.log(`[BackgroundSync] hardPurgeInactiveServices complete: purged=${purged.length}, skipped=${skipped.length}`);
@@ -4529,8 +4529,13 @@ export class BackgroundSyncService {
   }
 
   /**
-   * Delete all local data for a service (full-res blobs, thumbnails, images, fields)
-   * Keeps metadata record for tracking purposes (marked as ARCHIVED)
+   * Clear synced blob data for a service (used by auto-purge)
+   * Matches clearAllSyncedData behavior for consistent rehydration:
+   * - Clears verified blobs (full-res and thumbnails)
+   * - KEEPS LocalImage records (with blobId set to null for S3 fallback)
+   * - Clears cachedPhotos
+   * - Does NOT delete field tables (rehydration will refresh them)
+   * - Service is marked as PURGED for rehydration trigger
    */
   private async purgeServiceData(serviceId: string): Promise<void> {
     try {
@@ -4538,23 +4543,18 @@ export class BackgroundSyncService {
 
       // Get all local images for this service
       const images = await this.indexedDb.getLocalImagesForService(serviceId);
+      const verifiedImages = images.filter(img => img.status === 'verified');
 
       // Count stats before purge
-      const visualFieldCount = await db.visualFields.where('serviceId').equals(serviceId).count();
-      const efeFieldCount = await db.efeFields.where('serviceId').equals(serviceId).count();
-      const hudFieldCount = await db.hudFields.where('serviceId').equals(serviceId).count();
-      const lbwFieldCount = await db.lbwFields.where('serviceId').equals(serviceId).count();
-      const dteFieldCount = await db.dteFields.where('serviceId').equals(serviceId).count();
       const cachedPhotoCount = await db.cachedPhotos.where('serviceId').equals(serviceId).count();
-      const pendingCaptionCount = await db.pendingCaptions.where('serviceId').equals(serviceId).count();
 
       // Calculate total blob bytes being purged
       let totalBlobBytes = 0;
       let fullResBlobCount = 0;
       let thumbBlobCount = 0;
 
-      // Delete all blobs (full-res and thumbnails) and image records
-      for (const image of images) {
+      // Delete blobs for VERIFIED images only, keep LocalImage records with S3 keys
+      for (const image of verifiedImages) {
         // Delete full-res blob if exists
         if (image.localBlobId) {
           const blob = await this.indexedDb.getLocalBlob(image.localBlobId);
@@ -4569,47 +4569,30 @@ export class BackgroundSyncService {
           await this.indexedDb.deleteLocalBlob(image.thumbBlobId);
           thumbBlobCount++;
         }
+        // Update LocalImage record - clear blob references but KEEP the record
+        // This allows immediate S3 fallback via getDisplayUrl()
+        await db.localImages.update(image.imageId, {
+          localBlobId: null,
+          thumbBlobId: null
+        });
       }
 
-      // Delete local image records
-      await db.localImages.where('serviceId').equals(serviceId).delete();
-
-      // Delete visual fields for this service
-      await db.visualFields.where('serviceId').equals(serviceId).delete();
-
-      // Delete EFE fields for this service
-      await db.efeFields.where('serviceId').equals(serviceId).delete();
-
-      // Delete HUD fields for this service (HUD-019)
-      await db.hudFields.where('serviceId').equals(serviceId).delete();
-
-      // Delete LBW fields for this service
-      await db.lbwFields.where('serviceId').equals(serviceId).delete();
-
-      // Delete DTE fields for this service
-      await db.dteFields.where('serviceId').equals(serviceId).delete();
-
-      // Delete cached photos for this service
+      // Delete cached photos for this service (annotated image cache)
       await db.cachedPhotos.where('serviceId').equals(serviceId).delete();
 
-      // Delete pending captions for this service
-      await db.pendingCaptions.where('serviceId').equals(serviceId).delete();
+      // NOTE: Field tables are NOT deleted - rehydration will refresh them from server
+      // This matches clearAllSyncedData behavior for consistent rehydration flow
 
       // Output detailed purge stats
       console.log(`[BackgroundSync] ═══════════════════════════════════════════════════`);
       console.log(`[BackgroundSync] 🗑️ PURGE COMPLETE for service: ${serviceId}`);
       console.log(`[BackgroundSync] ═══════════════════════════════════════════════════`);
-      console.log(`[BackgroundSync] 📸 Images cleared: ${images.length}`);
-      console.log(`[BackgroundSync]    - Full-res blobs: ${fullResBlobCount}`);
-      console.log(`[BackgroundSync]    - Thumbnail blobs: ${thumbBlobCount}`);
+      console.log(`[BackgroundSync] 📸 Verified images processed: ${verifiedImages.length} of ${images.length}`);
+      console.log(`[BackgroundSync]    - Full-res blobs freed: ${fullResBlobCount}`);
+      console.log(`[BackgroundSync]    - Thumbnail blobs freed: ${thumbBlobCount}`);
       console.log(`[BackgroundSync]    - Total bytes freed: ${(totalBlobBytes / 1024 / 1024).toFixed(2)} MB`);
-      console.log(`[BackgroundSync] 📝 Visual fields cleared: ${visualFieldCount}`);
-      console.log(`[BackgroundSync] 🏠 EFE fields cleared: ${efeFieldCount}`);
-      console.log(`[BackgroundSync] 🔧 HUD fields cleared: ${hudFieldCount}`);
-      console.log(`[BackgroundSync] 📋 LBW fields cleared: ${lbwFieldCount}`);
-      console.log(`[BackgroundSync] 📄 DTE fields cleared: ${dteFieldCount}`);
       console.log(`[BackgroundSync] 🖼️ Cached photos cleared: ${cachedPhotoCount}`);
-      console.log(`[BackgroundSync] ✏️ Pending captions cleared: ${pendingCaptionCount}`);
+      console.log(`[BackgroundSync] 📝 LocalImage records preserved with S3 keys for fallback`);
       console.log(`[BackgroundSync] ═══════════════════════════════════════════════════`);
     } catch (err) {
       console.warn(`[BackgroundSync] purgeServiceData error for ${serviceId}:`, err);

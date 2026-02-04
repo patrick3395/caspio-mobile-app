@@ -68,10 +68,7 @@ export class TemplateRehydrationService {
 
     const needsIt = metadata.purgeState === 'PURGED' || metadata.purgeState === 'ARCHIVED';
     if (needsIt) {
-      const reason = metadata.purgeState === 'PURGED'
-        ? 'manual storage clear'
-        : 'auto-purge timer (inactive service)';
-      console.log(`[TemplateRehydration] Service ${serviceId} needs rehydration (state: ${metadata.purgeState}, reason: ${reason})`);
+      console.log(`[TemplateRehydration] Service ${serviceId} needs rehydration (state: ${metadata.purgeState})`);
     }
     return needsIt;
   }

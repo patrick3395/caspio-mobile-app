@@ -6000,6 +6000,62 @@ export class CaspioService {
   }
 
   /**
+   * Create a PayPal order with vault configuration (server-side)
+   * @param amount Amount to charge
+   * @param description Order description
+   * @returns Order ID
+   */
+  createPayPalOrderWithVault(amount: string, description: string): Observable<{ orderId: string }> {
+    console.log('[PayPal] Creating order with vault:', amount);
+    return this.http.post<{ success: boolean; orderId: string }>(
+      `${environment.apiGatewayUrl}/api/paypal/create-order`,
+      { amount, description, returnUrl: window.location.href }
+    ).pipe(
+      tap(response => {
+        console.log('[PayPal] Order created:', response.orderId);
+      }),
+      catchError(error => {
+        console.error('[PayPal] Failed to create order:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * Capture a PayPal order and get vault token
+   * @param orderId Order ID to capture
+   * @returns Captured order with vault token
+   */
+  capturePayPalOrder(orderId: string): Observable<{
+    orderId: string;
+    status: string;
+    vaultToken: string | null;
+    payerId: string;
+    payerEmail: string;
+  }> {
+    console.log('[PayPal] Capturing order:', orderId);
+    return this.http.post<{
+      success: boolean;
+      orderId: string;
+      status: string;
+      vaultToken: string | null;
+      payerId: string;
+      payerEmail: string;
+    }>(
+      `${environment.apiGatewayUrl}/api/paypal/capture-order`,
+      { orderId }
+    ).pipe(
+      tap(response => {
+        console.log('[PayPal] Order captured:', response);
+      }),
+      catchError(error => {
+        console.error('[PayPal] Failed to capture order:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
    * Create a PayPal vault setup token for saving payment method without charge
    * @returns Setup token ID and approval URL
    */

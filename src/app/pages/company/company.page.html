@@ -1276,11 +1276,9 @@
         <div class="collapsible-header" (click)="paymentSettingsExpanded = !paymentSettingsExpanded">
           <div class="collapsible-title">
             <ion-icon [name]="paymentSettingsExpanded ? 'chevron-down' : 'chevron-forward'"></ion-icon>
-            <ion-icon name="card-outline" class="section-icon"></ion-icon>
             <h3>Payment Settings</h3>
           </div>
           <div class="header-balance" *ngIf="!outstandingInvoicesLoading">
-            <span class="balance-label">Balance:</span>
             <span class="balance-value" [class.has-balance]="outstandingBalance > 0">
               {{ outstandingBalance | currency:'USD':'symbol':'1.2-2' }}
             </span>
