@@ -1,0 +1,87 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <!-- Empty slot for symmetry -->
+    </ion-buttons>
+    <ion-title>Link Bank Account</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="cancel()" [disabled]="isLoading">
+        <ion-icon name="close" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <!-- Bank Linking Info Card -->
+  <ion-card *ngIf="!linkCompleted" class="link-method-card">
+    <ion-card-content>
+      <div class="link-method-info">
+        <div class="link-method-icon">
+          <ion-icon name="business-outline"></ion-icon>
+        </div>
+        <h2>Link Your Bank Account</h2>
+        <p>Connect your bank account for automatic ACH payments. This is a secure way to pay invoices directly from your bank.</p>
+
+        <div class="link-method-steps">
+          <div class="step">
+            <span class="step-number">1</span>
+            <span>Click "Link Bank Account" below</span>
+          </div>
+          <div class="step">
+            <span class="step-number">2</span>
+            <span>Select your bank and sign in</span>
+          </div>
+          <div class="step">
+            <span class="step-number">3</span>
+            <span>Choose the account to use for payments</span>
+          </div>
+        </div>
+
+        <div class="security-note">
+          <ion-icon name="shield-checkmark-outline"></ion-icon>
+          <span>Bank-level security via Stripe Financial Connections</span>
+        </div>
+      </div>
+
+      <!-- SDK Loading Spinner -->
+      <div *ngIf="sdkLoading" class="loading-overlay-inline">
+        <ion-spinner name="crescent"></ion-spinner>
+        <p>Loading secure connection...</p>
+      </div>
+
+      <!-- Error Message -->
+      <div *ngIf="errorMessage" class="error-message">
+        <ion-icon name="alert-circle-outline"></ion-icon>
+        <span>{{ errorMessage }}</span>
+      </div>
+
+      <!-- Link Button -->
+      <ion-button
+        *ngIf="!sdkLoading && !isLoading"
+        expand="block"
+        class="link-bank-button"
+        (click)="linkBankAccount()"
+        [disabled]="!!errorMessage">
+        <ion-icon name="link-outline" slot="start"></ion-icon>
+        Link Bank Account
+      </ion-button>
+
+      <!-- Processing Spinner -->
+      <div *ngIf="isLoading" class="loading-overlay-inline">
+        <ion-spinner name="crescent"></ion-spinner>
+        <p>Connecting to your bank...</p>
+      </div>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- Success Message -->
+  <ion-card *ngIf="linkCompleted" color="success">
+    <ion-card-content class="success-message">
+      <ion-icon name="checkmark-circle" size="large"></ion-icon>
+      <h2>Bank Account Linked!</h2>
+      <p>{{ bankName }} ****{{ bankLast4 }}</p>
+      <p class="success-hint">Your bank account has been saved for autopay.</p>
+    </ion-card-content>
+  </ion-card>
+</ion-content>

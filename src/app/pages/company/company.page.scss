@@ -2657,7 +2657,9 @@ ion-segment.filter-segment {
     }
 
     .payment-method-tag {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       padding: 3px 10px;
       border-radius: 4px;
       font-size: 0.8rem;
@@ -2668,6 +2670,15 @@ ion-segment.filter-segment {
       &.paypal {
         background: #0070ba;
         color: white;
+      }
+
+      &.stripe {
+        background: #635bff;
+        color: white;
+      }
+
+      ion-icon {
+        font-size: 1rem;
       }
     }
 
@@ -2740,6 +2751,20 @@ ion-segment.filter-segment {
 
             ion-icon {
               font-size: 1.2rem;
+            }
+
+            // PayPal styling
+            &.paypal {
+              background: #f0f7ff;
+              border-color: #0070ba;
+              color: #0070ba;
+            }
+
+            // Stripe styling
+            &.stripe {
+              background: #f6f5ff;
+              border-color: #635bff;
+              color: #635bff;
             }
           }
 
@@ -3647,9 +3672,36 @@ select.form-input {
     color: #003087;
   }
 
+  .stripe-icon {
+    font-size: 24px;
+    color: #635bff;
+  }
+
   span {
     flex: 1;
     font-size: 0.95rem;
+  }
+
+  .method-badge {
+    flex: 0;
+    padding: 2px 8px;
+    background: #635bff;
+    color: white;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
+  // PayPal-specific styling
+  &.paypal {
+    background: #f0f7ff;
+    border: 1px solid #e0f0ff;
+  }
+
+  // Stripe-specific styling
+  &.stripe {
+    background: #f6f5ff;
+    border: 1px solid #e8e6ff;
   }
 }
 

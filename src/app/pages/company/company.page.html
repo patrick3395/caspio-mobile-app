@@ -491,11 +491,18 @@
                   <div class="detail-col">
                     <label>Saved Payment Method</label>
                     <p>
-                      <span *ngIf="company.PayPalPayerEmail">
+                      <!-- Stripe Bank Account -->
+                      <span *ngIf="company.StripePaymentMethodID" class="payment-method-tag stripe">
+                        <ion-icon name="business-outline" style="color: #635bff;"></ion-icon>
+                        {{ company.StripeBankName || 'Bank' }} ****{{ company.StripeBankLast4 }}
+                      </span>
+                      <!-- PayPal Account -->
+                      <span *ngIf="company.PayPalPayerEmail && !company.StripePaymentMethodID" class="payment-method-tag paypal">
                         <ion-icon name="logo-paypal" style="color: #003087;"></ion-icon>
                         {{ company.PayPalPayerEmail }}
                       </span>
-                      <span *ngIf="!company.PayPalPayerEmail" class="no-payment-method">No payment method saved</span>
+                      <!-- No payment method -->
+                      <span *ngIf="!company.PayPalPayerEmail && !company.StripePaymentMethodID" class="no-payment-method">No payment method saved</span>
                     </p>
                   </div>
                   <div class="detail-col">
@@ -504,19 +511,19 @@
                       class="autopay-day-select"
                       [ngModel]="company.AutopayDay || 1"
                       (ngModelChange)="updateCompanyAutopayDay(company, $event)"
-                      [disabled]="!company.PayPalVaultToken">
+                      [disabled]="!company.PayPalVaultToken && !company.StripePaymentMethodID">
                       <option *ngFor="let day of getAutopayDayOptions()" [value]="day">
                         {{ formatAutopayDay(day) }}
                       </option>
                     </select>
-                    <small *ngIf="!company.PayPalVaultToken" class="autopay-hint">Save payment method first</small>
+                    <small *ngIf="!company.PayPalVaultToken && !company.StripePaymentMethodID" class="autopay-hint">Save payment method first</small>
                   </div>
                   <div class="detail-col">
                     <label>Action</label>
                     <button
                       class="manual-run-btn"
                       (click)="triggerAutopay(company)"
-                      [disabled]="!company.AutopayEnabled || !company.PayPalVaultToken || getCompanyOutstandingData(company.CompanyID).balance === 0">
+                      [disabled]="!company.AutopayEnabled || (!company.PayPalVaultToken && !company.StripePaymentMethodID) || getCompanyOutstandingData(company.CompanyID).balance === 0">
                       Manual Run
                     </button>
                   </div>
@@ -1512,7 +1519,7 @@
             <ion-toggle
               [ngModel]="clientCompany?.AutopayEnabled"
               (ngModelChange)="toggleAutopay($event)"
-              [disabled]="!clientCompany?.PayPalVaultToken">
+              [disabled]="!clientCompany?.PayPalVaultToken && !clientCompany?.StripePaymentMethodID">
             </ion-toggle>
           </div>
 
@@ -1525,7 +1532,7 @@
               class="autopay-day-select"
               [ngModel]="clientCompany?.AutopayDay || 1"
               (ngModelChange)="updateAutopayDay($event)"
-              [disabled]="!clientCompany?.PayPalVaultToken">
+              [disabled]="!clientCompany?.PayPalVaultToken && !clientCompany?.StripePaymentMethodID">
               <option *ngFor="let day of getAutopayDayOptions()" [value]="day">
                 {{ formatAutopayDay(day) }}
               </option>
@@ -1538,15 +1545,23 @@
               <span class="setting-description">Saved payment method for autopay</span>
             </div>
             <div class="payment-method-display">
-              <span *ngIf="clientCompany?.PayPalPayerEmail" class="saved-method">
+              <!-- Stripe Bank Account Display -->
+              <span *ngIf="clientCompany?.AutopayMethod === 'Stripe' && clientCompany?.StripeBankName" class="saved-method stripe">
+                <ion-icon name="business-outline"></ion-icon>
+                {{ clientCompany?.StripeBankName }} ****{{ clientCompany?.StripeBankLast4 }}
+              </span>
+              <!-- PayPal Display -->
+              <span *ngIf="clientCompany?.AutopayMethod !== 'Stripe' && clientCompany?.PayPalPayerEmail" class="saved-method paypal">
                 <ion-icon name="logo-paypal"></ion-icon>
                 {{ clientCompany?.PayPalPayerEmail }}
               </span>
-              <button *ngIf="!clientCompany?.PayPalVaultToken" class="add-payment-btn" (click)="openAddPaymentMethodModal()">
+              <!-- Add Payment Button (no payment method saved) -->
+              <button *ngIf="!clientCompany?.PayPalVaultToken && !clientCompany?.StripePaymentMethodID" class="add-payment-btn" (click)="openAddPaymentMethodModal()">
                 <ion-icon name="add-circle-outline"></ion-icon>
                 Add Payment Method
               </button>
-              <button *ngIf="clientCompany?.PayPalVaultToken" class="remove-payment-btn" (click)="removePaymentMethod()">
+              <!-- Remove Button (has payment method) -->
+              <button *ngIf="clientCompany?.PayPalVaultToken || clientCompany?.StripePaymentMethodID" class="remove-payment-btn" (click)="removePaymentMethod()">
                 <ion-icon name="trash-outline"></ion-icon>
               </button>
             </div>
@@ -1860,18 +1875,35 @@
             <div class="form-field">
               <label>Autopay</label>
               <ion-toggle [(ngModel)]="editingCompany.AutopayEnabled"
-                          [disabled]="!editingCompany.PayPalVaultToken">
+                          [disabled]="!editingCompany.PayPalVaultToken && !editingCompany.StripePaymentMethodID">
               </ion-toggle>
-              <small *ngIf="!editingCompany.PayPalVaultToken" class="hint-text">
+              <small *ngIf="!editingCompany.PayPalVaultToken && !editingCompany.StripePaymentMethodID" class="hint-text">
                 No payment method saved. Customer must save during payment.
               </small>
             </div>
           </div>
 
-          <div class="form-row" *ngIf="editingCompany.PayPalVaultToken">
+          <!-- Stripe Bank Account Display -->
+          <div class="form-row" *ngIf="editingCompany.StripePaymentMethodID">
             <div class="form-field full-width">
               <label>Saved Payment Method</label>
-              <div class="payment-method-info">
+              <div class="payment-method-info stripe">
+                <ion-icon name="business-outline" class="stripe-icon"></ion-icon>
+                <span>{{ editingCompany.StripeBankName || 'Bank' }} ****{{ editingCompany.StripeBankLast4 }}</span>
+                <span class="method-badge">ACH</span>
+                <button class="remove-payment-btn" (click)="removePaymentMethod()">
+                  <ion-icon name="trash-outline"></ion-icon>
+                  Remove
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- PayPal Display -->
+          <div class="form-row" *ngIf="editingCompany.PayPalVaultToken && !editingCompany.StripePaymentMethodID">
+            <div class="form-field full-width">
+              <label>Saved Payment Method</label>
+              <div class="payment-method-info paypal">
                 <ion-icon name="logo-paypal" class="paypal-icon"></ion-icon>
                 <span>PayPal - {{ editingCompany.PayPalPayerEmail }}</span>
                 <button class="remove-payment-btn" (click)="removePaymentMethod()">
@@ -1903,7 +1935,7 @@
             </div>
           </div>
 
-          <div class="form-row" *ngIf="editingCompany.AutopayEnabled && editingCompany.PayPalVaultToken">
+          <div class="form-row" *ngIf="editingCompany.AutopayEnabled && (editingCompany.PayPalVaultToken || editingCompany.StripePaymentMethodID)">
             <div class="form-field full-width">
               <button class="run-autopay-btn" (click)="triggerAutopay(editingCompany)">
                 <ion-icon name="card-outline"></ion-icon>

@@ -99,6 +99,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
   // ==================== UI State ====================
   loading: boolean = true;
+  isInitialDataLoaded: boolean = false;  // True after first liveQuery emission - prevents "No Items" flash
   isRefreshing: boolean = false;
   isRehydrating: boolean = false;  // True when restoring data from server after storage clear
   searchTerm: string = '';
@@ -440,6 +441,11 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     console.time('[GenericCategoryDetail] initializeVisualFields');
     this.logDebug('DEXIE', `Initializing visual fields (Dexie-first) for ${this.config.id}...`);
 
+    // Reset initial data flag when reinitializing (e.g., category change)
+    // This ensures skeleton is shown until new data loads
+    this.isInitialDataLoaded = false;
+    this.loading = true;
+
     // Resolve actualServiceId if needed (same as loadData)
     if (this.config.categoryDetailFeatures.hasActualServiceId) {
       await this.resolveActualServiceId();
@@ -458,10 +464,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     const isDexieFirstEnabled = this.genericFieldRepo.isDexieFirstEnabled(this.config);
 
     if (isDexieFirstEnabled) {
-      // DEXIE-FIRST: Show UI immediately - no loading screen!
-      // Data from Dexie is available instantly via liveQuery
-      this.loading = false;
-      this.changeDetectorRef.detectChanges();
+      // DEXIE-FIRST: Keep skeleton visible until liveQuery emits initial data
+      // This prevents the "No Items" flash before data populates
+      // loading will be set to false after first liveQuery emission
 
       // STEP 1: Subscribe to liveQuery FIRST for instant UI
       // This shows existing data immediately while background operations run
@@ -497,6 +502,14 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
           // Convert to organized data using unified method
           this.convertGenericFieldsToOrganizedData(fields);
+
+          // FIX: Only show UI after first liveQuery emission to prevent "No Items" flash
+          if (!this.isInitialDataLoaded) {
+            this.isInitialDataLoaded = true;
+            this.loading = false;
+            this.logDebug('DEXIE', 'Initial data loaded - showing UI');
+          }
+
           this.safeDetectChanges();
 
           // Suppress photo population during capture to prevent duplicates
@@ -515,6 +528,12 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         },
         error: (err: any) => {
           this.logDebug('ERROR', `Error in fields subscription: ${err}`);
+          // Ensure UI is shown even on error to prevent stuck loading state
+          if (!this.isInitialDataLoaded) {
+            this.isInitialDataLoaded = true;
+            this.loading = false;
+            this.safeDetectChanges();
+          }
         }
       });
 

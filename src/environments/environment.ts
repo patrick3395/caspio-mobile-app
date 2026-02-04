@@ -32,6 +32,9 @@ export const environment = {
   paypal: {
     clientId: 'Ab5YsZla-pIyZZmxfKgb3k0GwWe3NoCqxIcfwefzzbutjjRgD15vdDcIIIABkNpbuFxlwS6Huu9uZgMq',
     currency: 'USD'
+  },
+  stripe: {
+    publishableKey: 'pk_live_REPLACE_WITH_YOUR_STRIPE_PUBLISHABLE_KEY' // Replace with actual Stripe publishable key
   }
 };
 

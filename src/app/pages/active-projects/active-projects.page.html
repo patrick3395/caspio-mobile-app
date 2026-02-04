@@ -98,8 +98,8 @@
                          [class.loaded]="!isImageLoading(project)">
                   </div>
                   <div class="project-details">
-                    <div class="project-address">{{ project.Address }}</div>
                     <div class="project-company-name" *ngIf="isAdminView && getCompanyName(project)">{{ getCompanyName(project) }}</div>
+                    <div class="project-address">{{ project.Address }}</div>
                     <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
                     <div class="project-services-vertical">
                       <div *ngFor="let service of getProjectServicesArray(project); trackBy: trackByServiceCode" class="service-item">
@@ -141,8 +141,8 @@
                      [class.loaded]="platform.isWeb() && !isImageLoading(project)">
               </div>
               <div class="project-details">
-                <div class="project-address">{{ project.Address }}</div>
                 <div class="project-company-name" *ngIf="isAdminView && getCompanyName(project)">{{ getCompanyName(project) }}</div>
+                <div class="project-address">{{ project.Address }}</div>
                 <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
                 <div class="project-services-vertical">
                   <div *ngFor="let service of getProjectServicesArray(project); trackBy: trackByServiceCode" class="service-item">

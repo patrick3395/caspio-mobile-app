@@ -6309,4 +6309,117 @@ export class CaspioService {
       })
     );
   }
+
+  // ============================================
+  // STRIPE ACH METHODS
+  // ============================================
+
+  /**
+   * Create or get a Stripe customer for a company
+   * @param companyId Company ID
+   * @param companyName Company name
+   * @param email Optional email
+   * @returns Stripe customer ID
+   */
+  createStripeCustomer(companyId: number, companyName: string, email?: string): Observable<{
+    customerId: string;
+    email?: string;
+  }> {
+    console.log('[Stripe] Creating/getting customer for company:', companyId);
+    return this.http.post<{
+      success: boolean;
+      customerId: string;
+      email?: string;
+    }>(
+      `${environment.apiGatewayUrl}/api/stripe/customer`,
+      { companyId, companyName, email }
+    ).pipe(
+      tap(response => {
+        console.log('[Stripe] Customer ID:', response.customerId);
+      }),
+      catchError(error => {
+        console.error('[Stripe] Failed to create customer:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * Create a Financial Connections session for bank linking
+   * @param customerId Stripe customer ID
+   * @returns Client secret for FC modal
+   */
+  createFCSession(customerId: string): Observable<{
+    clientSecret: string;
+    sessionId: string;
+  }> {
+    console.log('[Stripe] Creating FC session for customer:', customerId);
+    return this.http.post<{
+      success: boolean;
+      clientSecret: string;
+      sessionId: string;
+    }>(
+      `${environment.apiGatewayUrl}/api/stripe/fc-session`,
+      { customerId }
+    ).pipe(
+      tap(response => {
+        console.log('[Stripe] FC session created:', response.sessionId);
+      }),
+      catchError(error => {
+        console.error('[Stripe] Failed to create FC session:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * Link a bank account from Financial Connections
+   * @param customerId Stripe customer ID
+   * @param accountId Linked account ID from FC
+   * @returns Payment method details
+   */
+  linkStripeBank(customerId: string, accountId: string): Observable<{
+    paymentMethodId: string;
+    bankName: string;
+    last4: string;
+  }> {
+    console.log('[Stripe] Linking bank account:', accountId);
+    return this.http.post<{
+      success: boolean;
+      paymentMethodId: string;
+      bankName: string;
+      last4: string;
+    }>(
+      `${environment.apiGatewayUrl}/api/stripe/link-bank`,
+      { customerId, accountId }
+    ).pipe(
+      tap(response => {
+        console.log('[Stripe] Bank linked:', response.bankName, '****' + response.last4);
+      }),
+      catchError(error => {
+        console.error('[Stripe] Failed to link bank:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * Remove a Stripe payment method
+   * @param paymentMethodId Payment method ID to remove
+   */
+  removeStripePaymentMethod(paymentMethodId: string): Observable<{ success: boolean }> {
+    console.log('[Stripe] Removing payment method:', paymentMethodId);
+    return this.http.post<{ success: boolean; message: string }>(
+      `${environment.apiGatewayUrl}/api/stripe/remove-payment-method`,
+      { paymentMethodId }
+    ).pipe(
+      tap(response => {
+        console.log('[Stripe] Payment method removed');
+      }),
+      catchError(error => {
+        console.error('[Stripe] Failed to remove payment method:', error);
+        return throwError(() => error);
+      })
+    );
+  }
 }

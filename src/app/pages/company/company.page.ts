@@ -54,9 +54,16 @@ interface CompanyRecord {
   Contract?: string;
   // Autopay fields
   AutopayEnabled?: boolean;
+  AutopayMethod?: string; // 'PayPal' or 'Stripe'
+  // PayPal fields
   PayPalVaultToken?: string;
   PayPalPayerID?: string;
   PayPalPayerEmail?: string;
+  // Stripe fields
+  StripeCustomerID?: string;
+  StripePaymentMethodID?: string;
+  StripeBankLast4?: string;
+  StripeBankName?: string;
   AutopayDay?: number;
   AutopayLastRun?: string;
   AutopayLastStatus?: string;
@@ -3235,7 +3242,9 @@ export class CompanyPage implements OnInit, OnDestroy {
   // ============================================
 
   async removePaymentMethod(): Promise<void> {
-    if (!this.editingCompany) {
+    // Can be called from client view (clientCompany) or CRM view (editingCompany)
+    const company = this.editingCompany || this.clientCompany;
+    if (!company) {
       return;
     }
 
@@ -3255,28 +3264,63 @@ export class CompanyPage implements OnInit, OnDestroy {
             await loading.present();
 
             try {
+              // If Stripe payment method exists, detach it from Stripe
+              if (company.StripePaymentMethodID) {
+                try {
+                  await firstValueFrom(
+                    this.caspioService.removeStripePaymentMethod(company.StripePaymentMethodID)
+                  );
+                } catch (stripeError) {
+                  console.warn('Failed to detach Stripe payment method:', stripeError);
+                  // Continue anyway to clear local record
+                }
+              }
+
+              // Clear all payment method fields in Caspio
               await firstValueFrom(
                 this.caspioService.put(
-                  `/tables/LPS_Companies/records?q.where=CompanyID=${this.editingCompany.CompanyID}`,
+                  `/tables/LPS_Companies/records?q.where=CompanyID=${company.CompanyID}`,
                   {
+                    AutopayMethod: null,
+                    // PayPal fields
                     PayPalVaultToken: null,
                     PayPalPayerID: null,
                     PayPalPayerEmail: null,
+                    // Stripe fields
+                    StripeCustomerID: null,
+                    StripePaymentMethodID: null,
+                    StripeBankLast4: null,
+                    StripeBankName: null,
                     AutopayEnabled: 0
                   }
                 )
               );
 
               // Update local state
-              this.editingCompany.PayPalVaultToken = null;
-              this.editingCompany.PayPalPayerID = null;
-              this.editingCompany.PayPalPayerEmail = null;
-              this.editingCompany.AutopayEnabled = false;
+              if (this.editingCompany) {
+                this.editingCompany.AutopayMethod = undefined;
+                this.editingCompany.PayPalVaultToken = undefined;
+                this.editingCompany.PayPalPayerID = undefined;
+                this.editingCompany.PayPalPayerEmail = undefined;
+                this.editingCompany.StripeCustomerID = undefined;
+                this.editingCompany.StripePaymentMethodID = undefined;
+                this.editingCompany.StripeBankLast4 = undefined;
+                this.editingCompany.StripeBankName = undefined;
+                this.editingCompany.AutopayEnabled = false;
+              }
 
               // Update company in the list
-              const index = this.companies.findIndex(c => c.CompanyID === this.editingCompany.CompanyID);
+              const index = this.companies.findIndex(c => c.CompanyID === company.CompanyID);
               if (index !== -1) {
-                this.companies[index] = { ...this.companies[index], ...this.editingCompany };
+                this.companies[index].AutopayMethod = undefined;
+                this.companies[index].PayPalVaultToken = undefined;
+                this.companies[index].PayPalPayerID = undefined;
+                this.companies[index].PayPalPayerEmail = undefined;
+                this.companies[index].StripeCustomerID = undefined;
+                this.companies[index].StripePaymentMethodID = undefined;
+                this.companies[index].StripeBankLast4 = undefined;
+                this.companies[index].StripeBankName = undefined;
+                this.companies[index].AutopayEnabled = false;
               }
 
               await this.showToast('Payment method removed', 'success');
@@ -3445,6 +3489,33 @@ export class CompanyPage implements OnInit, OnDestroy {
     const company = this.clientCompany;
     if (!company) return;
 
+    // Show choice between PayPal and Stripe ACH
+    const alert = await this.alertController.create({
+      header: 'Add Payment Method',
+      message: 'Choose how you want to pay:',
+      buttons: [
+        {
+          text: 'Bank Account (ACH)',
+          handler: () => {
+            this.openStripeAchModal(company);
+          }
+        },
+        {
+          text: 'PayPal',
+          handler: () => {
+            this.openPayPalModal(company);
+          }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  async openPayPalModal(company: CompanyRecord): Promise<void> {
     // Import the PayPal modal dynamically
     const { PaypalPaymentModalComponent } = await import('../../modals/paypal-payment-modal/paypal-payment-modal.component');
 
@@ -3479,6 +3550,7 @@ export class CompanyPage implements OnInit, OnDestroy {
         if (companyIndex !== -1) {
           this.companies[companyIndex].PayPalVaultToken = paymentData.vaultToken;
           this.companies[companyIndex].PayPalPayerEmail = paymentData.payerEmail;
+          this.companies[companyIndex].AutopayMethod = 'PayPal';
           this.companies[companyIndex].AutopayEnabled = true;
         }
         // Also update in stageGroups if present
@@ -3487,13 +3559,61 @@ export class CompanyPage implements OnInit, OnDestroy {
           if (stageCompanyIndex !== -1) {
             group.companies[stageCompanyIndex].PayPalVaultToken = paymentData.vaultToken;
             group.companies[stageCompanyIndex].PayPalPayerEmail = paymentData.payerEmail;
+            group.companies[stageCompanyIndex].AutopayMethod = 'PayPal';
             group.companies[stageCompanyIndex].AutopayEnabled = true;
           }
         }
       }
       // Also reload to ensure server data is synced
       await this.loadCurrentUserCompanyName();
-      await this.showToast('Payment method saved and autopay enabled!', 'success');
+      await this.showToast('PayPal account saved and autopay enabled!', 'success');
+    }
+  }
+
+  async openStripeAchModal(company: CompanyRecord): Promise<void> {
+    // Import the Stripe ACH modal dynamically
+    const { StripeAchModalComponent } = await import('../../modals/stripe-ach-modal/stripe-ach-modal.component');
+
+    const modal = await this.modalController.create({
+      component: StripeAchModalComponent,
+      componentProps: {
+        companyId: company.CompanyID,
+        companyName: company.CompanyName,
+        companyEmail: company.Email || ''
+      }
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onWillDismiss();
+
+    if (data?.success && data?.paymentData) {
+      // Update local company data with the new Stripe payment method info
+      const paymentData = data.paymentData;
+      const companyIndex = this.companies.findIndex(c => c.CompanyID === company.CompanyID);
+      if (companyIndex !== -1) {
+        this.companies[companyIndex].StripeCustomerID = paymentData.customerId;
+        this.companies[companyIndex].StripePaymentMethodID = paymentData.paymentMethodId;
+        this.companies[companyIndex].StripeBankName = paymentData.bankName;
+        this.companies[companyIndex].StripeBankLast4 = paymentData.last4;
+        this.companies[companyIndex].AutopayMethod = 'Stripe';
+        this.companies[companyIndex].AutopayEnabled = true;
+      }
+      // Also update in stageGroups if present
+      for (const group of this.stageGroups) {
+        const stageCompanyIndex = group.companies.findIndex(c => c.CompanyID === company.CompanyID);
+        if (stageCompanyIndex !== -1) {
+          group.companies[stageCompanyIndex].StripeCustomerID = paymentData.customerId;
+          group.companies[stageCompanyIndex].StripePaymentMethodID = paymentData.paymentMethodId;
+          group.companies[stageCompanyIndex].StripeBankName = paymentData.bankName;
+          group.companies[stageCompanyIndex].StripeBankLast4 = paymentData.last4;
+          group.companies[stageCompanyIndex].AutopayMethod = 'Stripe';
+          group.companies[stageCompanyIndex].AutopayEnabled = true;
+        }
+      }
+      // Reload to ensure server data is synced
+      await this.loadCurrentUserCompanyName();
+      await this.showToast('Bank account linked and autopay enabled!', 'success');
     }
   }
 
