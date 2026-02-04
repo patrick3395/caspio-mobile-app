@@ -3513,7 +3513,7 @@ export class CompanyPage implements OnInit, OnDestroy {
           cssClass: 'alert-button-cancel'
         }
       ],
-      cssClass: 'custom-document-alert'
+      cssClass: 'custom-document-alert payment-method-alert'
     });
     await alert.present();
   }

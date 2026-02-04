@@ -335,8 +335,13 @@
                     <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                   </button>
                 </div>
-                <!-- Measurement Photo Thumbnail - ALWAYS show if photo exists (matches structural-systems pattern) -->
-                <!-- NO skeleton loader - images should display from cache immediately -->
+                <!-- Skeleton loader while Measurement photo is loading -->
+                <div *ngIf="isPointPhotoLoading(point, 'Measurement') && !getPointPhotoByType(point, 'Measurement')" class="skeleton-loader"
+                     style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
+                  <div class="skeleton-image" style="width: 90px; height: 90px;"></div>
+                  <div class="skeleton-caption" style="width: 60px; height: 20px; margin-top: 4px;"></div>
+                </div>
+                <!-- Measurement Photo Thumbnail -->
                 <div *ngIf="getPointPhotoByType(point, 'Measurement')" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
                   <div class="image-preview fdf-photo-preview"
                        [class.uploading]="getPointPhotoByType(point, 'Measurement').uploading">
@@ -391,8 +396,13 @@
                     <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                   </button>
                 </div>
-                <!-- Location Photo Thumbnail - ALWAYS show if photo exists (matches structural-systems pattern) -->
-                <!-- NO skeleton loader - images should display from cache immediately -->
+                <!-- Skeleton loader while Location photo is loading -->
+                <div *ngIf="isPointPhotoLoading(point, 'Location') && !getPointPhotoByType(point, 'Location')" class="skeleton-loader"
+                     style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
+                  <div class="skeleton-image" style="width: 90px; height: 90px;"></div>
+                  <div class="skeleton-caption" style="width: 60px; height: 20px; margin-top: 4px;"></div>
+                </div>
+                <!-- Location Photo Thumbnail -->
                 <div *ngIf="getPointPhotoByType(point, 'Location')" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
                   <div class="image-preview fdf-photo-preview"
                        [class.uploading]="getPointPhotoByType(point, 'Location').uploading">

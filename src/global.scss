@@ -1326,6 +1326,33 @@ textarea.styled-input {
   }
 }
 
+// Payment Method Alert - Two buttons on top row, cancel full width below
+ion-alert.payment-method-alert {
+  .alert-wrapper {
+    min-width: min(440px, 90vw) !important;
+  }
+
+  .alert-button-group,
+  .alert-button-group.alert-button-group-vertical {
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    padding: 12px 24px 20px !important;
+    gap: 12px !important;
+  }
+
+  .alert-button-group .alert-button.alert-button-confirm {
+    flex: 1 1 40% !important;
+    letter-spacing: 0 !important;
+    font-size: 13px !important;
+    padding: 13px 8px !important;
+    text-align: center !important;
+  }
+
+  .alert-button-group .alert-button.alert-button-cancel {
+    flex: 0 0 100% !important;
+  }
+}
+
 // Global override - Disable ALL hover effects on alert buttons (webapp only)
 @media (hover: hover) {
   ion-alert .alert-button:hover {

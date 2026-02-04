@@ -98,6 +98,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
   // ===== DELETED PHOTO TRACKING (prevents re-adding deleted photos during sync) =====
   // Track deleted photo IDs so they don't reappear from preservation maps or LocalImages
   private deletedPointPhotoIds: Set<string> = new Set();
+  private deletedFdfPhotoTypes: Set<string> = new Set();
+
+  // ===== SKELETON LOADER TRACKING =====
+  pointPhotoLoadingMap: Map<string, boolean> = new Map();
 
   // ===== LIVE QUERY SUPPORT (matches structural-systems pattern) =====
   // This subscription keeps the UI updated when LocalImages change without requiring full reload
@@ -930,6 +934,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       }
 
       if (!photoKey) continue;  // Skip unknown photo types
+
+      // Skip if this photo type was deleted (prevents re-adding from LiveQuery)
+      if (this.deletedFdfPhotoTypes.has(photoKey)) continue;
 
       // DEXIE-FIRST: Always update the displayUrl from the LocalImage
       // The LocalImage blob is the source of truth - always use it if available
@@ -4605,6 +4612,16 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       return;
     }
 
+    // Clear deleted tracking so new capture of same type works
+    this.deletedFdfPhotoTypes.delete(photoType.toLowerCase());
+
+    // Show skeleton loader immediately
+    const photoKey = photoType.toLowerCase();
+    if (!this.roomData.fdfPhotos) this.roomData.fdfPhotos = {};
+    this.roomData.fdfPhotos[photoKey] = true;
+    this.roomData.fdfPhotos[`${photoKey}Loading`] = true;
+    this.changeDetectorRef.detectChanges();
+
     try {
       const config: PhotoCaptureConfig = {
         entityType: 'fdf',
@@ -4625,8 +4642,22 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         }
       };
 
-      await this.photoHandler.captureFromCamera(config);
+      const result = await this.photoHandler.captureFromCamera(config);
+      // If user cancelled, clear skeleton
+      if (!result) {
+        this.roomData.fdfPhotos[`${photoKey}Loading`] = false;
+        if (!this.roomData.fdfPhotos[`${photoKey}Url`]) {
+          this.roomData.fdfPhotos[photoKey] = false;
+        }
+        this.changeDetectorRef.detectChanges();
+      }
     } catch (error: any) {
+      // Clear skeleton on error
+      this.roomData.fdfPhotos[`${photoKey}Loading`] = false;
+      if (!this.roomData.fdfPhotos[`${photoKey}Url`]) {
+        this.roomData.fdfPhotos[photoKey] = false;
+      }
+      this.changeDetectorRef.detectChanges();
       const errorMessage = typeof error === 'string' ? error : error?.message || '';
       if (!errorMessage.includes('cancel') && !errorMessage.includes('Cancel') && !errorMessage.includes('User')) {
         console.error('Error taking FDF camera photo:', error);
@@ -4642,6 +4673,16 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       return;
     }
 
+    // Clear deleted tracking so new capture of same type works
+    this.deletedFdfPhotoTypes.delete(photoType.toLowerCase());
+
+    // Show skeleton loader immediately
+    const photoKey = photoType.toLowerCase();
+    if (!this.roomData.fdfPhotos) this.roomData.fdfPhotos = {};
+    this.roomData.fdfPhotos[photoKey] = true;
+    this.roomData.fdfPhotos[`${photoKey}Loading`] = true;
+    this.changeDetectorRef.detectChanges();
+
     try {
       const config: PhotoCaptureConfig = {
         entityType: 'fdf',
@@ -4662,8 +4703,22 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         }
       };
 
-      await this.photoHandler.captureFromGallery(config);
+      const result = await this.photoHandler.captureFromGallery(config);
+      // If user cancelled, clear skeleton
+      if (!result) {
+        this.roomData.fdfPhotos[`${photoKey}Loading`] = false;
+        if (!this.roomData.fdfPhotos[`${photoKey}Url`]) {
+          this.roomData.fdfPhotos[photoKey] = false;
+        }
+        this.changeDetectorRef.detectChanges();
+      }
     } catch (error: any) {
+      // Clear skeleton on error
+      this.roomData.fdfPhotos[`${photoKey}Loading`] = false;
+      if (!this.roomData.fdfPhotos[`${photoKey}Url`]) {
+        this.roomData.fdfPhotos[photoKey] = false;
+      }
+      this.changeDetectorRef.detectChanges();
       const errorMessage = typeof error === 'string' ? error : error?.message || '';
       if (!errorMessage.includes('cancel') && !errorMessage.includes('Cancel') && !errorMessage.includes('User')) {
         console.error('Error selecting FDF gallery photo:', error);
@@ -4674,6 +4729,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
   // FDF Photo Callback Handlers
   private handleFDFPhotoAdded(photo: StandardPhotoEntry, photoType: 'Top' | 'Bottom' | 'Threshold') {
     const photoKey = photoType.toLowerCase();
+
+    // Skip if this photo type was deleted (prevents re-adding from in-flight upload callbacks)
+    if (this.deletedFdfPhotoTypes.has(photoKey)) {
+      console.log(`[FDF Photo] Skipping add for deleted ${photoType} photo`);
+      return;
+    }
 
     // Initialize fdfPhotos structure if needed
     if (!this.roomData.fdfPhotos) {
@@ -4703,6 +4764,13 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
   private handleFDFUploadComplete(photo: StandardPhotoEntry, photoType: 'Top' | 'Bottom' | 'Threshold') {
     const photoKey = photoType.toLowerCase();
+
+    // Skip if this photo type was deleted (prevents re-adding from in-flight upload callbacks)
+    if (this.deletedFdfPhotoTypes.has(photoKey)) {
+      console.log(`[FDF Photo] Skipping upload complete for deleted ${photoType} photo`);
+      return;
+    }
+
     const fdfPhotos = this.roomData?.fdfPhotos;
 
     if (!fdfPhotos) return;
@@ -4724,6 +4792,13 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
   private handleFDFUploadFailed(tempId: string, photoType: 'Top' | 'Bottom' | 'Threshold', error: any) {
     const photoKey = photoType.toLowerCase();
+
+    // Skip if this photo type was deleted
+    if (this.deletedFdfPhotoTypes.has(photoKey)) {
+      console.log(`[FDF Photo] Skipping upload failed for deleted ${photoType} photo`);
+      return;
+    }
+
     const fdfPhotos = this.roomData?.fdfPhotos;
 
     if (!fdfPhotos) return;
@@ -4924,6 +4999,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             // 1. DEXIE-FIRST: Get the imageId before clearing local state
             const imageId = fdfPhotos[`${photoKey}ImageId`];
             console.log('[FDF Delete] Starting Dexie-first deletion for:', photoKey, 'imageId:', imageId);
+
+            // Track deleted FDF photo types to prevent re-addition from in-flight upload callbacks
+            this.deletedFdfPhotoTypes.add(photoKey);
+            console.log('[FDF Delete] Added to deletedFdfPhotoTypes:', photoKey);
 
             // 2. MOBILE: Delete from LocalImages table (source of truth)
             // Note: WEBAPP FDF photos are stored on the EFE record (not in a separate attach table)
@@ -5535,7 +5614,18 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     // TASK 1 FIX: Start cooldown to prevent cache invalidation during photo capture
     this.startLocalOperationCooldown();
 
+    // Clear deleted tracking for this point+photoType so new capture works
+    const pointIdForTracking = point.pointId || point.tempPointId;
+    if (pointIdForTracking) {
+      this.deletedPointPhotoIds.delete(`${pointIdForTracking}:${photoType}`);
+    }
+
     const pointId = String(point.pointId);
+
+    // Show skeleton loader immediately
+    const loadingKey = `${pointId}:${photoType}`;
+    this.pointPhotoLoadingMap.set(loadingKey, true);
+    this.changeDetectorRef.detectChanges();
 
     try {
       const config: PhotoCaptureConfig = {
@@ -5547,18 +5637,27 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         photoType: photoType,
         skipAnnotator: true,  // Elevation plot photos don't use annotator on capture
         onTempPhotoAdded: (photo: StandardPhotoEntry) => {
+          this.pointPhotoLoadingMap.delete(loadingKey);
           this.handlePointPhotoAdded(point, photo, photoType);
         },
         onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
           this.handlePointUploadComplete(point, photo, photoType, tempId);
         },
         onUploadFailed: (tempId: string, error: any) => {
+          this.pointPhotoLoadingMap.delete(loadingKey);
           this.handlePointUploadFailed(point, tempId, photoType, error);
         }
       };
 
-      await this.photoHandler.captureFromCamera(config);
+      const result = await this.photoHandler.captureFromCamera(config);
+      // If user cancelled, clear skeleton
+      if (!result) {
+        this.pointPhotoLoadingMap.delete(loadingKey);
+        this.changeDetectorRef.detectChanges();
+      }
     } catch (error: any) {
+      this.pointPhotoLoadingMap.delete(loadingKey);
+      this.changeDetectorRef.detectChanges();
       const errorMessage = typeof error === 'string' ? error : error?.message || '';
       if (!errorMessage.includes('cancel') && !errorMessage.includes('Cancel') && !errorMessage.includes('User')) {
         console.error('Error taking point camera photo:', error);
@@ -5572,7 +5671,18 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     // TASK 1 FIX: Start cooldown to prevent cache invalidation during photo capture
     this.startLocalOperationCooldown();
 
+    // Clear deleted tracking for this point+photoType so new capture works
+    const pointIdForTracking = point.pointId || point.tempPointId;
+    if (pointIdForTracking) {
+      this.deletedPointPhotoIds.delete(`${pointIdForTracking}:${photoType}`);
+    }
+
     const pointId = String(point.pointId);
+
+    // Show skeleton loader immediately
+    const loadingKey = `${pointId}:${photoType}`;
+    this.pointPhotoLoadingMap.set(loadingKey, true);
+    this.changeDetectorRef.detectChanges();
 
     try {
       const config: PhotoCaptureConfig = {
@@ -5584,18 +5694,27 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         photoType: photoType,
         skipAnnotator: true,  // Elevation plot photos don't use annotator on capture
         onTempPhotoAdded: (photo: StandardPhotoEntry) => {
+          this.pointPhotoLoadingMap.delete(loadingKey);
           this.handlePointPhotoAdded(point, photo, photoType);
         },
         onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
           this.handlePointUploadComplete(point, photo, photoType, tempId);
         },
         onUploadFailed: (tempId: string, error: any) => {
+          this.pointPhotoLoadingMap.delete(loadingKey);
           this.handlePointUploadFailed(point, tempId, photoType, error);
         }
       };
 
-      await this.photoHandler.captureFromGallery(config);
+      const result = await this.photoHandler.captureFromGallery(config);
+      // If user cancelled, clear skeleton
+      if (!result) {
+        this.pointPhotoLoadingMap.delete(loadingKey);
+        this.changeDetectorRef.detectChanges();
+      }
     } catch (error: any) {
+      this.pointPhotoLoadingMap.delete(loadingKey);
+      this.changeDetectorRef.detectChanges();
       const errorMessage = typeof error === 'string' ? error : error?.message || '';
       if (!errorMessage.includes('cancel') && !errorMessage.includes('Cancel') && !errorMessage.includes('User')) {
         console.error('Error selecting point gallery photo:', error);
@@ -5605,6 +5724,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
   // Point Photo Callback Handlers
   private handlePointPhotoAdded(point: any, photo: StandardPhotoEntry, photoType: 'Measurement' | 'Location') {
+    // Skip if this photo was deleted (prevents re-adding from in-flight upload callbacks)
+    if (photo.imageId && this.deletedPointPhotoIds.has(photo.imageId)) {
+      console.log(`[Point Photo] Skipping add for deleted photo: ${photo.imageId}`);
+      return;
+    }
+
     // Ensure photos array exists
     if (!point.photos) {
       point.photos = [];
@@ -5662,6 +5787,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
   private handlePointUploadComplete(point: any, photo: StandardPhotoEntry, photoType: 'Measurement' | 'Location', tempId: string) {
     if (!point.photos) return;
 
+    // Skip if this photo was deleted (prevents re-adding from in-flight upload callbacks)
+    if (this.deletedPointPhotoIds.has(tempId)) {
+      console.log(`[Point Photo] Skipping upload complete for deleted photo tempId: ${tempId}`);
+      return;
+    }
+
     // Find the photo by tempId or photoType
     const existingPhoto = point.photos.find((p: any) =>
       p._tempId === tempId || p.imageId === tempId || p.photoType === photoType
@@ -5690,6 +5821,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
   }
 
   private handlePointUploadFailed(point: any, tempId: string, photoType: 'Measurement' | 'Location', error: any) {
+    // Skip if this photo was deleted
+    if (this.deletedPointPhotoIds.has(tempId)) {
+      console.log(`[Point Photo] Skipping upload failed for deleted photo tempId: ${tempId}`);
+      return;
+    }
+
     console.error(`[Point Photo] Upload failed for ${photoType} on point ${point.pointName}:`, error);
 
     if (!point.photos) return;
@@ -6768,6 +6905,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
   getPointPhotoByType(point: any, photoType: string): any {
     return this.getPointPhoto(point, photoType);
+  }
+
+  isPointPhotoLoading(point: any, photoType: string): boolean {
+    const pointId = String(point.pointId || point.id);
+    return this.pointPhotoLoadingMap.has(`${pointId}:${photoType}`);
   }
 
   viewRoomPhoto(photo: any, point: any) {

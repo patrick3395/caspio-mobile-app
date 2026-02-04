@@ -2570,25 +2570,19 @@ ion-segment.filter-segment {
   .payments-section {
     background: #fff;
     border-radius: 12px;
-    padding: 20px;
+    padding: 16px 20px 20px 16px;
     margin-bottom: 20px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 
     .section-header-row {
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-start;
       align-items: center;
       margin-bottom: 16px;
 
       .section-title {
         display: flex;
         align-items: center;
-        gap: 10px;
-
-        ion-icon {
-          font-size: 1.4rem;
-          color: var(--noble-orange, #F15A27);
-        }
 
         h3 {
           margin: 0;
@@ -2599,6 +2593,7 @@ ion-segment.filter-segment {
       }
 
       .balance-total {
+        margin-left: auto;
         font-size: 1.5rem;
         font-weight: 700;
         color: #28a745;
