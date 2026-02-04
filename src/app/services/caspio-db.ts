@@ -795,6 +795,7 @@ export class CaspioDB extends Dexie {
     const query = liveQuery(async () => {
       const [
         pendingRequests,
+        syncingRequests,
         syncedRequests,
         failedRequests,
         uploadOutbox,
@@ -802,6 +803,7 @@ export class CaspioDB extends Dexie {
         failedCaptions
       ] = await Promise.all([
         this.pendingRequests.where('status').equals('pending').count(),
+        this.pendingRequests.where('status').equals('syncing').count(),
         this.pendingRequests.where('status').equals('synced').count(),
         this.pendingRequests.where('status').equals('failed').count(),
         this.uploadOutbox.count(),
@@ -809,12 +811,15 @@ export class CaspioDB extends Dexie {
         this.pendingCaptions.where('status').equals('failed').count()
       ]);
 
+      // FIX: Include BOTH 'pending' AND 'syncing' requests in the pending count
+      // Previously only counted 'pending', which caused items to disappear from
+      // sync widget as soon as sync started (status changed to 'syncing')
       return {
-        pending: pendingRequests + pendingCaptions + uploadOutbox,
+        pending: pendingRequests + syncingRequests + pendingCaptions + uploadOutbox,
         synced: syncedRequests,
         failed: failedRequests + failedCaptions,
         uploading: uploadOutbox,
-        total: pendingRequests + uploadOutbox + pendingCaptions + failedRequests + failedCaptions
+        total: pendingRequests + syncingRequests + uploadOutbox + pendingCaptions + failedRequests + failedCaptions
       };
     });
     return this.toRxObservable<{ pending: number; synced: number; failed: number; uploading: number; total: number }>(query);
@@ -827,6 +832,7 @@ export class CaspioDB extends Dexie {
   async getSyncStats(): Promise<{ pending: number; synced: number; failed: number; uploading: number; total: number }> {
     const [
       pendingRequests,
+      syncingRequests,
       syncedRequests,
       failedRequests,
       uploadOutbox,
@@ -834,6 +840,7 @@ export class CaspioDB extends Dexie {
       failedCaptions
     ] = await Promise.all([
       this.pendingRequests.where('status').equals('pending').count(),
+      this.pendingRequests.where('status').equals('syncing').count(),
       this.pendingRequests.where('status').equals('synced').count(),
       this.pendingRequests.where('status').equals('failed').count(),
       this.uploadOutbox.count(),
@@ -841,12 +848,13 @@ export class CaspioDB extends Dexie {
       this.pendingCaptions.where('status').equals('failed').count()
     ]);
 
+    // FIX: Include BOTH 'pending' AND 'syncing' requests in the pending count
     return {
-      pending: pendingRequests + pendingCaptions + uploadOutbox,
+      pending: pendingRequests + syncingRequests + pendingCaptions + uploadOutbox,
       synced: syncedRequests,
       failed: failedRequests + failedCaptions,
       uploading: uploadOutbox,
-      total: pendingRequests + uploadOutbox + pendingCaptions + failedRequests + failedCaptions
+      total: pendingRequests + syncingRequests + uploadOutbox + pendingCaptions + failedRequests + failedCaptions
     };
   }
 

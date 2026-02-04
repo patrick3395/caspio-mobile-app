@@ -334,11 +334,6 @@ export class PhotoHandlerService {
     const fileSizeMB = (compressedFile.size / (1024 * 1024)).toFixed(2);
     console.log(`[PhotoHandler] Processing photo: ${fileSizeMB}MB, type: ${config.entityType}`);
 
-    // DEBUG ALERT: Show which mode for photos
-    if (typeof window !== 'undefined' && (window as any).alert) {
-      (window as any).alert(`[PHOTO DEBUG] processPhoto called\nenvironment.isWeb = ${environment.isWeb}\nentityType = ${config.entityType}\nentityId = ${config.entityId}`);
-    }
-
     let result: StandardPhotoEntry | null = null;
 
     if (environment.isWeb) {
@@ -513,11 +508,6 @@ export class PhotoHandlerService {
 
     console.log('[PhotoHandler] MOBILE: Starting Dexie-first capture for', config.entityType);
 
-    // DEBUG ALERT: Mobile photo path
-    if (typeof window !== 'undefined' && (window as any).alert) {
-      (window as any).alert(`[PHOTO DEBUG] Using MOBILE path - Dexie-first\nentityType = ${config.entityType}\nWill queue to uploadOutbox`);
-    }
-
     try {
       // Create LocalImage with stable UUID (stores blob + creates outbox item)
       const localImage: LocalImage = await this.localImageService.captureImage(
@@ -530,11 +520,6 @@ export class PhotoHandlerService {
       );
 
       console.log('[PhotoHandler] MOBILE: LocalImage created:', localImage.imageId);
-
-      // DEBUG ALERT: Confirm photo queued
-      if (typeof window !== 'undefined' && (window as any).alert) {
-        (window as any).alert(`[PHOTO DEBUG] ✅ Photo queued to sync!\nimageId = ${localImage.imageId}\nCheck sync modal for pending photo`);
-      }
 
       // Get display URL from LocalImageService (uses local blob)
       let displayUrl = await this.localImageService.getDisplayUrl(localImage);

@@ -3737,11 +3737,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
       this.logDebug('CUSTOM', `Creating visual: ${JSON.stringify(visualData)}`);
 
-      // DEBUG ALERT: Show which data service will be called
-      if (typeof window !== 'undefined' && (window as any).alert) {
-        (window as any).alert(`[CATEGORY DETAIL DEBUG]\nCreating visual for template: ${this.config.id}\nenvironment.isWeb = ${environment.isWeb}\nServiceID = ${visualData.ServiceID}`);
-      }
-
       // Create the visual record using the appropriate data service
       let response: any;
       switch (this.config.id) {
@@ -3755,9 +3750,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           response = await this.lbwData.createVisual(visualData);
           break;
         case 'dte':
-          if (typeof window !== 'undefined' && (window as any).alert) {
-            (window as any).alert('[CATEGORY DETAIL DEBUG] Calling dteData.createVisual()');
-          }
           response = await this.dteData.createVisual(visualData);
           break;
         default:

@@ -264,7 +264,7 @@ export class IndexedDbService {
     };
 
     await db.pendingRequests.add(fullRequest);
-    console.log('[IndexedDB] Request added:', requestId);
+    console.log('[IndexedDB] Request added:', requestId, 'type:', request.type);
 
     // Emit sync queue change to reset rolling sync window
     this.emitSyncQueueChange(`pending_request:${request.type}`);

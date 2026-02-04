@@ -221,18 +221,9 @@ export class DteDataService {
 
   // Create DTE record - OFFLINE-FIRST with background sync (matching LBW pattern)
   async createVisual(dteData: any): Promise<any> {
-    // DEBUG ALERT: Show which mode we're in
-    if (typeof window !== 'undefined' && (window as any).alert) {
-      (window as any).alert(`[DTE DEBUG] createVisual called\nenvironment.isWeb = ${environment.isWeb}\nServiceID = ${dteData.ServiceID}`);
-    }
-
     // WEBAPP MODE: Create directly via API
     if (environment.isWeb) {
       console.log('[DTE Data] WEBAPP: Creating DTE record directly via API:', dteData);
-      // DEBUG ALERT: Webapp mode
-      if (typeof window !== 'undefined' && (window as any).alert) {
-        (window as any).alert('[DTE DEBUG] Using WEBAPP mode - direct API call');
-      }
       try {
         const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_DTE/records?response=rows`, {
           method: 'POST',
@@ -268,11 +259,6 @@ export class DteDataService {
     // MOBILE MODE: Offline-first with background sync
     console.log('[DTE Data] Creating new DTE record (OFFLINE-FIRST):', dteData);
 
-    // DEBUG ALERT: Mobile mode
-    if (typeof window !== 'undefined' && (window as any).alert) {
-      (window as any).alert('[DTE DEBUG] Using MOBILE mode - offline-first with sync queue');
-    }
-
     // Generate temporary ID (using 'dte' prefix for DTE records)
     const tempId = this.tempId.generateTempId('dte');
 
@@ -298,11 +284,6 @@ export class DteDataService {
       status: 'pending',
       priority: 'high',
     });
-
-    // DEBUG ALERT: Confirm pending request was added
-    if (typeof window !== 'undefined' && (window as any).alert) {
-      (window as any).alert(`[DTE DEBUG] ✅ Pending request ADDED to sync queue!\ntempId = ${tempId}\nCheck sync modal - should show pending item`);
-    }
 
     // CRITICAL: Cache placeholder to 'dte' cache for Dexie-first pattern
     const serviceIdStr = String(dteData.ServiceID);

@@ -56,6 +56,11 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
     this.backgroundSync.lbwSyncComplete$.subscribe(e => {
       this.syncComplete$.next({ serviceId: e.serviceId, reason: 'lbw_sync' });
     });
+
+    // Subscribe to DTE sync events
+    this.backgroundSync.dteSyncComplete$.subscribe(e => {
+      this.syncComplete$.next({ serviceId: e.serviceId, reason: 'dte_sync' });
+    });
   }
 
   // ==================== Visual Operations ====================
@@ -262,11 +267,6 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
   }
 
   async createVisual(config: TemplateConfig, visual: Partial<VisualRecord>): Promise<VisualRecord> {
-    // DEBUG ALERT: Confirm MobileDataProvider is being used
-    if (typeof window !== 'undefined' && (window as any).alert) {
-      (window as any).alert(`[MOBILE PROVIDER DEBUG] createVisual called\ntemplate: ${config.id}\ntableName: ${config.tableName}\nserviceId: ${visual.serviceId}`);
-    }
-
     const tempId = this.tempIdService.generateTempId(config.id);
 
     const record: VisualRecord = {
@@ -299,11 +299,6 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
       priority: 'high',
       serviceId: record.serviceId
     });
-
-    // DEBUG ALERT: Confirm pending request was added
-    if (typeof window !== 'undefined' && (window as any).alert) {
-      (window as any).alert(`[MOBILE PROVIDER DEBUG] ✅ Pending request ADDED!\ntempId: ${tempId}\nendpoint: ${endpoint}\nCheck sync modal!`);
-    }
 
     console.log('[MobileDataProvider] Created visual with temp ID:', tempId);
     return record;

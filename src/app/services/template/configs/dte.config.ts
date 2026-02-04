@@ -79,8 +79,8 @@ export const DTE_CONFIG: TemplateConfig = {
 
   // Sync Events
   syncEvents: {
-    photoUploadEvent: 'photoUploadComplete$',
-    syncCompleteEvent: null,
+    photoUploadEvent: 'dtePhotoUploadComplete$',
+    syncCompleteEvent: 'dteSyncComplete$',
   },
 
   // Route Parameters

@@ -26,13 +26,6 @@ export function templateDataProviderFactory(
   webappProvider: WebappTemplateDataProvider,
   mobileProvider: MobileTemplateDataProvider
 ): ITemplateDataProvider {
-  // DEBUG ALERT: Show which provider is being used (runs once at app startup)
-  if (typeof window !== 'undefined' && (window as any).alert) {
-    setTimeout(() => {
-      (window as any).alert(`[PROVIDER FACTORY DEBUG]\nenvironment.isWeb = ${environment.isWeb}\nUsing: ${environment.isWeb ? 'WEBAPP' : 'MOBILE'} provider`);
-    }, 2000);
-  }
-
   if (environment.isWeb) {
     console.log('[TemplateDataProvider] Using WebappTemplateDataProvider');
     return webappProvider;
