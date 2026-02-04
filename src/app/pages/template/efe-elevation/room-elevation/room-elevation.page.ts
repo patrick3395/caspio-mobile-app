@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule, ViewWillEnter } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AlertController, ToastController, ModalController } from '@ionic/angular';
-import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+// Camera import removed - PhotoHandlerService handles camera capture internally
 import { EngineersFoundationStateService } from '../../../engineers-foundation/services/engineers-foundation-state.service';
 import { EngineersFoundationDataService } from '../../../engineers-foundation/engineers-foundation-data.service';
 import { CaspioService } from '../../../../services/caspio.service';
@@ -16,6 +16,7 @@ import { OfflineService } from '../../../../services/offline.service';
 import { IndexedDbService, LocalImage } from '../../../../services/indexed-db.service';
 import { BackgroundSyncService } from '../../../../services/background-sync.service';
 import { LocalImageService } from '../../../../services/local-image.service';
+import { PhotoHandlerService, PhotoCaptureConfig, StandardPhotoEntry } from '../../../../services/photo-handler.service';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { compressAnnotationData, decompressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS } from '../../../../utils/annotation-utils';
 import { environment } from '../../../../../environments/environment';
@@ -137,6 +138,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     private indexedDb: IndexedDbService,
     private backgroundSync: BackgroundSyncService,
     private localImageService: LocalImageService,
+    private photoHandler: PhotoHandlerService,
     private ngZone: NgZone,
     private efeFieldRepo: EfeFieldRepoService,
     private serviceMetadata: ServiceMetadataService
@@ -2974,15 +2976,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           fdfPhotos[`${photoKey}Queued`] = true;  // Show queued badge instead of spinner
           fdfPhotos[`${photoKey}Uploading`] = false;  // CRITICAL: No spinner - photo appears instantly (offline-first)
           fdfPhotos[`${photoKey}Loading`] = false;  // CRITICAL: Clear loading to show the photo immediately
-          
+
           this.changeDetectorRef.detectChanges();
-          
-          // If online, trigger upload
-          if (this.offlineService.isOnline()) {
-            this.uploadFDFPhotoToS3(photoType, storedData.file, tempFileId).catch(err => {
-              console.error(`[FDF Restore] Failed to upload restored ${photoType} photo:`, err);
-            });
-          }
+
+          // Background sync will handle upload when online via LocalImageService
+          console.log(`[FDF Restore] Photo ${photoType} restored, background sync will handle upload`);
         }
       }
     } catch (error) {
@@ -4598,79 +4596,82 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     }
   }
 
-  // FDF Photo Methods
-  // Take FDF photo from camera - EXACT implementation from engineers-foundation
+  // FDF Photo Methods - Using PhotoHandlerService
   async takeFDFPhotoCamera(photoType: 'Top' | 'Bottom' | 'Threshold') {
     // TASK 1 FIX: Start cooldown to prevent cache invalidation during photo capture
     this.startLocalOperationCooldown();
 
     if (!this.roomId) {
-      // Toast removed per user request
-      // await this.showToast('Please save the room first', 'warning');
       return;
     }
 
     try {
-      const image = await Camera.getPhoto({
-        quality: 90,
-        allowEditing: false,
-        resultType: CameraResultType.Uri,
-        source: CameraSource.Camera
-      });
+      const config: PhotoCaptureConfig = {
+        entityType: 'fdf',
+        entityId: this.roomId,
+        serviceId: this.serviceId,
+        category: 'EFE',
+        itemId: this.roomId,
+        photoType: photoType,
+        onTempPhotoAdded: (photo: StandardPhotoEntry) => {
+          this.handleFDFPhotoAdded(photo, photoType);
+        },
+        onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
+          this.handleFDFUploadComplete(photo, photoType);
+        },
+        onUploadFailed: (tempId: string, error: any) => {
+          this.handleFDFUploadFailed(tempId, photoType, error);
+        }
+      };
 
-      if (image.webPath) {
-        const response = await fetch(image.webPath);
-        const blob = await response.blob();
-        const file = new File([blob], `fdf-${photoType.toLowerCase()}-${Date.now()}.jpg`, { type: 'image/jpeg' });
-
-        await this.processFDFPhoto(file, photoType);
-      }
-    } catch (error) {
-      if (error !== 'User cancelled photos app') {
-        console.error('Error taking camera photo:', error);
-        // Toast removed per user request
-        // await this.showToast('Failed to capture photo', 'danger');
+      await this.photoHandler.captureFromCamera(config);
+    } catch (error: any) {
+      const errorMessage = typeof error === 'string' ? error : error?.message || '';
+      if (!errorMessage.includes('cancel') && !errorMessage.includes('Cancel') && !errorMessage.includes('User')) {
+        console.error('Error taking FDF camera photo:', error);
       }
     }
   }
 
-  // Take FDF photo from gallery - EXACT implementation from engineers-foundation
   async takeFDFPhotoGallery(photoType: 'Top' | 'Bottom' | 'Threshold') {
     // TASK 1 FIX: Start cooldown to prevent cache invalidation during photo capture
     this.startLocalOperationCooldown();
 
     if (!this.roomId) {
-      // Toast removed per user request
-      // await this.showToast('Please save the room first', 'warning');
       return;
     }
 
     try {
-      const image = await Camera.getPhoto({
-        quality: 90,
-        allowEditing: false,
-        resultType: CameraResultType.Uri,
-        source: CameraSource.Photos
-      });
+      const config: PhotoCaptureConfig = {
+        entityType: 'fdf',
+        entityId: this.roomId,
+        serviceId: this.serviceId,
+        category: 'EFE',
+        itemId: this.roomId,
+        photoType: photoType,
+        skipAnnotator: false,  // FDF photos should still go through annotator for single selection
+        onTempPhotoAdded: (photo: StandardPhotoEntry) => {
+          this.handleFDFPhotoAdded(photo, photoType);
+        },
+        onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
+          this.handleFDFUploadComplete(photo, photoType);
+        },
+        onUploadFailed: (tempId: string, error: any) => {
+          this.handleFDFUploadFailed(tempId, photoType, error);
+        }
+      };
 
-      if (image.webPath) {
-        const response = await fetch(image.webPath);
-        const blob = await response.blob();
-        const file = new File([blob], `fdf-${photoType.toLowerCase()}-${Date.now()}.jpg`, { type: 'image/jpeg' });
-
-        await this.processFDFPhoto(file, photoType);
-      }
-    } catch (error) {
-      if (error !== 'User cancelled photos app') {
-        console.error('Error selecting gallery photo:', error);
-        // Toast removed per user request
-        // await this.showToast('Failed to select photo', 'danger');
+      await this.photoHandler.captureFromGallery(config);
+    } catch (error: any) {
+      const errorMessage = typeof error === 'string' ? error : error?.message || '';
+      if (!errorMessage.includes('cancel') && !errorMessage.includes('Cancel') && !errorMessage.includes('User')) {
+        console.error('Error selecting FDF gallery photo:', error);
       }
     }
   }
 
-  // Process FDF photo - WEBAPP uses direct API, MOBILE uses LocalImageService
-  private async processFDFPhoto(file: File, photoType: 'Top' | 'Bottom' | 'Threshold') {
+  // FDF Photo Callback Handlers
+  private handleFDFPhotoAdded(photo: StandardPhotoEntry, photoType: 'Top' | 'Bottom' | 'Threshold') {
     const photoKey = photoType.toLowerCase();
 
     // Initialize fdfPhotos structure if needed
@@ -4679,236 +4680,67 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     }
     const fdfPhotos = this.roomData.fdfPhotos;
 
-    console.log(`[FDF Upload] Processing photo: ${photoType} (${environment.isWeb ? 'WEBAPP - Direct API' : 'MOBILE - LocalImageService'})`);
+    // Update fdfPhotos structure with StandardPhotoEntry data
+    fdfPhotos[photoKey] = true;
+    fdfPhotos[`${photoKey}Url`] = photo.displayUrl;
+    fdfPhotos[`${photoKey}DisplayUrl`] = photo.displayUrl;
+    fdfPhotos[`${photoKey}OriginalUrl`] = photo.originalUrl;
+    fdfPhotos[`${photoKey}Caption`] = photo.caption || '';
+    fdfPhotos[`${photoKey}Drawings`] = photo.Drawings || '';
+    fdfPhotos[`${photoKey}HasAnnotations`] = photo.hasAnnotations;
+    fdfPhotos[`${photoKey}Loading`] = false;
+    fdfPhotos[`${photoKey}Uploading`] = photo.uploading;
+    fdfPhotos[`${photoKey}Queued`] = photo.queued || false;
+    fdfPhotos[`${photoKey}ImageId`] = photo.imageId;
+    fdfPhotos[`${photoKey}AttachId`] = photo.attachId;
+    fdfPhotos[`${photoKey}IsLocalFirst`] = photo.isLocalFirst || photo.isLocal;
+    fdfPhotos[`${photoKey}TempId`] = photo.imageId;
 
-    try {
-      // Compress the image
-      const compressedFile = await this.imageCompression.compressImage(file, {
-        maxSizeMB: 0.8,
-        maxWidthOrHeight: 1280,
-        useWebWorker: true
-      }) as File;
+    this.changeDetectorRef.detectChanges();
+    console.log(`[FDF Photo] Added ${photoType} photo:`, photo.imageId);
+  }
 
-      // WEBAPP MODE: Direct API upload to S3 and update EFE room record
-      if (environment.isWeb) {
-        console.log(`[FDF Upload] WEBAPP: Uploading directly to S3 and updating EFE record`);
+  private handleFDFUploadComplete(photo: StandardPhotoEntry, photoType: 'Top' | 'Bottom' | 'Threshold') {
+    const photoKey = photoType.toLowerCase();
+    const fdfPhotos = this.roomData?.fdfPhotos;
 
-        // Show immediate preview using local blob URL
-        const previewUrl = URL.createObjectURL(compressedFile);
-        fdfPhotos[photoKey] = true;
-        fdfPhotos[`${photoKey}Url`] = previewUrl;
-        fdfPhotos[`${photoKey}DisplayUrl`] = previewUrl;
-        fdfPhotos[`${photoKey}Caption`] = fdfPhotos[`${photoKey}Caption`] || '';
-        fdfPhotos[`${photoKey}Loading`] = false;
-        fdfPhotos[`${photoKey}Uploading`] = true;  // Show uploading state
-        this.changeDetectorRef.detectChanges();
+    if (!fdfPhotos) return;
 
-        // Generate unique filename for S3
-        const timestamp = Date.now();
-        const randomId = Math.random().toString(36).substring(2, 8);
-        const fileExt = compressedFile.name.split('.').pop() || 'jpg';
-        const uniqueFilename = `fdf_${photoType.toLowerCase()}_${this.roomId}_${timestamp}_${randomId}.${fileExt}`;
+    // Update with final uploaded data
+    fdfPhotos[`${photoKey}Url`] = photo.displayUrl;
+    fdfPhotos[`${photoKey}DisplayUrl`] = photo.displayUrl;
+    fdfPhotos[`${photoKey}OriginalUrl`] = photo.originalUrl;
+    fdfPhotos[`${photoKey}Uploading`] = false;
+    fdfPhotos[`${photoKey}Queued`] = false;
+    fdfPhotos[`${photoKey}ImageId`] = photo.imageId;
+    fdfPhotos[`${photoKey}AttachId`] = photo.attachId;
+    fdfPhotos[`${photoKey}IsLocalFirst`] = false;
+    delete fdfPhotos[`${photoKey}TempId`];
 
-        // Upload to S3 via API Gateway
-        const formData = new FormData();
-        formData.append('file', compressedFile, uniqueFilename);
-        formData.append('tableName', 'LPS_Services_EFE');
-        formData.append('attachId', this.roomId);
+    this.changeDetectorRef.detectChanges();
+    console.log(`[FDF Photo] Upload complete for ${photoType}:`, photo.imageId);
+  }
 
-        const uploadUrl = `${environment.apiGatewayUrl}/api/s3/upload`;
-        const uploadResponse = await fetch(uploadUrl, {
-          method: 'POST',
-          body: formData
-        });
+  private handleFDFUploadFailed(tempId: string, photoType: 'Top' | 'Bottom' | 'Threshold', error: any) {
+    const photoKey = photoType.toLowerCase();
+    const fdfPhotos = this.roomData?.fdfPhotos;
 
-        if (!uploadResponse.ok) {
-          const errorText = await uploadResponse.text();
-          throw new Error('Failed to upload FDF file to S3: ' + errorText);
-        }
+    if (!fdfPhotos) return;
 
-        const uploadResult = await uploadResponse.json();
-        const s3Key = uploadResult.s3Key;
-        console.log(`[FDF Upload] WEBAPP: ✅ Photo uploaded to S3:`, s3Key);
+    console.error(`[FDF Photo] Upload failed for ${photoType}:`, error);
 
-        // Update the EFE room record with S3 key
-        const attachmentColumnName = `FDFPhoto${photoType}Attachment`;
-        const updateData: any = {};
-        updateData[attachmentColumnName] = s3Key;
+    // Clear uploading state but keep photo if it was local-first
+    fdfPhotos[`${photoKey}Uploading`] = false;
+    fdfPhotos[`${photoKey}Queued`] = false;
 
-        console.log(`[FDF Upload] WEBAPP: Updating EFE record:`, {
-          roomId: this.roomId,
-          column: attachmentColumnName,
-          value: s3Key,
-          updateData: updateData
-        });
-
-        await firstValueFrom(this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData));
-        console.log(`[FDF Upload] WEBAPP: ✅ Updated EFE record with ${attachmentColumnName} = ${s3Key}`);
-
-        // Get signed URL for display
-        const s3Url = await this.caspioService.getS3FileUrl(s3Key);
-
-        // Update with server data
-        fdfPhotos[`${photoKey}Url`] = s3Url;
-        fdfPhotos[`${photoKey}DisplayUrl`] = s3Url;
-        fdfPhotos[`${photoKey}Attachment`] = s3Key;
-        fdfPhotos[`${photoKey}Uploading`] = false;
-        fdfPhotos[`${photoKey}IsLocalFirst`] = false;
-
-        // Revoke the temporary blob URL
-        URL.revokeObjectURL(previewUrl);
-
-        this.changeDetectorRef.detectChanges();
-        console.log(`[FDF Upload] WEBAPP: ✅ Photo synced successfully`);
-        return;
-      }
-
-      // MOBILE MODE: Use LocalImageService for offline-first handling
-      // CRITICAL: Pass photoType as the last parameter, NOT in caption
-      const localImage = await this.localImageService.captureImage(
-        compressedFile,
-        'fdf',                    // Entity type for FDF photos
-        this.roomId,              // Room ID as entity ID
-        this.serviceId,
-        '',                       // Caption (empty for FDF photos)
-        fdfPhotos[`${photoKey}Drawings`] || '',  // Drawings
-        photoType                 // photoType (Top/Bottom/Threshold) - stored in LocalImage.photoType
-      );
-
-      // Get display URL (local blob URL)
-      const displayUrl = await this.localImageService.getDisplayUrl(localImage);
-
-      // Update photo data immediately - SILENT SYNC (no uploading indicators)
-      fdfPhotos[photoKey] = true;
-      fdfPhotos[`${photoKey}Url`] = displayUrl;
-      fdfPhotos[`${photoKey}DisplayUrl`] = displayUrl;
-      fdfPhotos[`${photoKey}Caption`] = fdfPhotos[`${photoKey}Caption`] || '';
-      fdfPhotos[`${photoKey}Drawings`] = fdfPhotos[`${photoKey}Drawings`] || null;
-      fdfPhotos[`${photoKey}Loading`] = false;
-      fdfPhotos[`${photoKey}Uploading`] = false;  // SILENT SYNC: No spinner
-      fdfPhotos[`${photoKey}Queued`] = false;     // SILENT SYNC: No indicator
-      fdfPhotos[`${photoKey}ImageId`] = localImage.imageId;
-      fdfPhotos[`${photoKey}LocalBlobId`] = localImage.localBlobId;
-      fdfPhotos[`${photoKey}IsLocalFirst`] = true;
-
-      // Trigger change detection to show preview IMMEDIATELY
-      this.changeDetectorRef.detectChanges();
-      console.log(`[FDF Upload] MOBILE: ✅ Photo captured with LocalImageService:`, localImage.imageId);
-
-    } catch (error: any) {
-      console.error(`[FDF Upload] Error processing FDF ${photoType} photo:`, error);
-
-      // Clear photo on error
-      fdfPhotos[`${photoKey}Uploading`] = false;
-      fdfPhotos[`${photoKey}Queued`] = false;
+    // If we don't have a valid local image, clear the photo
+    if (!fdfPhotos[`${photoKey}IsLocalFirst`]) {
       delete fdfPhotos[photoKey];
       delete fdfPhotos[`${photoKey}Url`];
       delete fdfPhotos[`${photoKey}DisplayUrl`];
-
-      this.changeDetectorRef.detectChanges();
-    }
-  }
-
-  // Upload FDF photo to S3 - mirrors other photo uploads in the application
-  private async uploadFDFPhotoToS3(photoType: 'Top' | 'Bottom' | 'Threshold', file: File, tempId: string): Promise<any> {
-    console.log(`[FDF Upload S3] Starting S3 upload for ${photoType}`);
-
-    if (!this.roomId) {
-      throw new Error(`Room not ready for upload`);
     }
 
-    const photoKey = photoType.toLowerCase();
-    const fdfPhotos = this.roomData.fdfPhotos;
-
-    try {
-      // Compress the image
-      const compressedFile = await this.imageCompression.compressImage(file);
-      console.log(`[FDF Upload S3] Compressed ${photoType} image`);
-
-      // Generate unique filename for S3
-      const timestamp = Date.now();
-      const randomId = Math.random().toString(36).substring(2, 8);
-      const fileExt = file.name.split('.').pop() || 'jpg';
-      const uniqueFilename = `fdf_${photoType.toLowerCase()}_${this.roomId}_${timestamp}_${randomId}.${fileExt}`;
-
-      // Upload to S3 via API Gateway
-      const formData = new FormData();
-      formData.append('file', compressedFile, uniqueFilename);
-      formData.append('tableName', 'LPS_Services_EFE');
-      formData.append('attachId', this.roomId);
-
-      const uploadUrl = `${environment.apiGatewayUrl}/api/s3/upload`;
-      console.log(`[FDF Upload S3] Uploading to S3: ${uploadUrl}`);
-      
-      const uploadResponse = await fetch(uploadUrl, {
-        method: 'POST',
-        body: formData
-      });
-
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        console.error(`[FDF Upload S3] S3 upload failed:`, errorText);
-        throw new Error('Failed to upload file to S3: ' + errorText);
-      }
-
-      const uploadResult = await uploadResponse.json();
-      const s3Key = uploadResult.s3Key;
-      console.log(`[FDF Upload S3] Uploaded to S3 with key: ${s3Key}`);
-
-      // Update the room record with S3 key in the new Attachment column
-      const attachmentColumnName = `FDFPhoto${photoType}Attachment`;
-      const updateData: any = {};
-      updateData[attachmentColumnName] = s3Key;
-
-      // TASK 3 FIX: Add fallback to queue if direct API call fails
-      try {
-        await this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData).toPromise();
-        console.log(`[FDF Upload S3] Updated room record with S3 key in ${attachmentColumnName}`);
-      } catch (apiError) {
-        console.warn(`[FDF Upload S3] API update failed, queuing for sync:`, apiError);
-        await this.indexedDb.addPendingRequest({
-          type: 'UPDATE',
-          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${this.roomId}`,
-          method: 'PUT',
-          data: updateData,
-          dependencies: [],
-          status: 'pending',
-          priority: 'high',
-          serviceId: this.serviceId
-        });
-      }
-
-      // Update local state - clear uploading flags
-      fdfPhotos[`${photoKey}Uploading`] = false;
-      fdfPhotos[`${photoKey}Queued`] = false;
-      fdfPhotos[`${photoKey}Path`] = s3Key;
-      fdfPhotos[`${photoKey}Attachment`] = s3Key;
-      delete fdfPhotos[`${photoKey}TempId`];
-
-      // Remove from pending requests
-      const pendingRequests = await this.indexedDb.getPendingRequests();
-      for (const req of pendingRequests) {
-        if (req.type === 'UPLOAD_FILE' && req.data?.isFDFPhoto && req.data?.tempFileId === tempId) {
-          await this.indexedDb.removePendingRequest(req.requestId);
-          console.log(`[FDF Upload S3] Removed pending request for ${tempId}`);
-        }
-      }
-
-      // Note: Stored photo data in IndexedDB will be cleaned up automatically by storePhotoFile
-      // when overwritten, or can be cleaned up separately if needed
-      console.log(`[FDF Upload S3] Upload complete for ${tempId}`);
-
-      this.changeDetectorRef.detectChanges();
-      console.log(`[FDF Upload S3] Completed ${photoType}`);
-
-      return { s3Key, success: true };
-    } catch (error) {
-      console.error(`[FDF Upload S3] Error uploading ${photoType}:`, error);
-      // Don't clear the photo - it's still displayed and queued for retry
-      fdfPhotos[`${photoKey}Uploading`] = false;
-      this.changeDetectorRef.detectChanges();
-      throw error;
-    }
+    this.changeDetectorRef.detectChanges();
   }
 
   // Helper method to convert File or Blob to base64 string
@@ -5695,30 +5527,39 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     }
   }
 
-  // Point Photo Methods
+  // Point Photo Methods - Using PhotoHandlerService
   async capturePointPhotoCamera(point: any, photoType: 'Measurement' | 'Location', event: Event) {
     event.stopPropagation();
 
     // TASK 1 FIX: Start cooldown to prevent cache invalidation during photo capture
-    // This prevents images from disappearing when sync status changes
     this.startLocalOperationCooldown();
 
-    try {
-      const image = await Camera.getPhoto({
-        quality: 90,
-        allowEditing: false,
-        resultType: CameraResultType.Uri,
-        source: CameraSource.Camera
-      });
+    const pointId = String(point.pointId);
 
-      if (image.webPath) {
-        await this.processPointPhoto(image.webPath, point, photoType);
-      }
-    } catch (error) {
-      if (error !== 'User cancelled photos app') {
-        console.error('Error taking camera photo:', error);
-        // Toast removed per user request
-        // await this.showToast('Failed to capture photo', 'danger');
+    try {
+      const config: PhotoCaptureConfig = {
+        entityType: 'efe_point',
+        entityId: pointId,
+        serviceId: this.serviceId,
+        category: 'EFE',
+        itemId: pointId,
+        photoType: photoType,
+        onTempPhotoAdded: (photo: StandardPhotoEntry) => {
+          this.handlePointPhotoAdded(point, photo, photoType);
+        },
+        onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
+          this.handlePointUploadComplete(point, photo, photoType, tempId);
+        },
+        onUploadFailed: (tempId: string, error: any) => {
+          this.handlePointUploadFailed(point, tempId, photoType, error);
+        }
+      };
+
+      await this.photoHandler.captureFromCamera(config);
+    } catch (error: any) {
+      const errorMessage = typeof error === 'string' ? error : error?.message || '';
+      if (!errorMessage.includes('cancel') && !errorMessage.includes('Cancel') && !errorMessage.includes('User')) {
+        console.error('Error taking point camera photo:', error);
       }
     }
   }
@@ -5727,180 +5568,149 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     event.stopPropagation();
 
     // TASK 1 FIX: Start cooldown to prevent cache invalidation during photo capture
-    // This prevents images from disappearing when sync status changes
     this.startLocalOperationCooldown();
 
-    try {
-      const image = await Camera.getPhoto({
-        quality: 90,
-        allowEditing: false,
-        resultType: CameraResultType.Uri,
-        source: CameraSource.Photos
-      });
+    const pointId = String(point.pointId);
 
-      if (image.webPath) {
-        await this.processPointPhoto(image.webPath, point, photoType);
-      }
-    } catch (error) {
-      if (error !== 'User cancelled photos app') {
-        console.error('Error selecting gallery photo:', error);
-        // Toast removed per user request
-        // await this.showToast('Failed to select photo', 'danger');
+    try {
+      const config: PhotoCaptureConfig = {
+        entityType: 'efe_point',
+        entityId: pointId,
+        serviceId: this.serviceId,
+        category: 'EFE',
+        itemId: pointId,
+        photoType: photoType,
+        skipAnnotator: false,  // Point photos should still go through annotator for single selection
+        onTempPhotoAdded: (photo: StandardPhotoEntry) => {
+          this.handlePointPhotoAdded(point, photo, photoType);
+        },
+        onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
+          this.handlePointUploadComplete(point, photo, photoType, tempId);
+        },
+        onUploadFailed: (tempId: string, error: any) => {
+          this.handlePointUploadFailed(point, tempId, photoType, error);
+        }
+      };
+
+      await this.photoHandler.captureFromGallery(config);
+    } catch (error: any) {
+      const errorMessage = typeof error === 'string' ? error : error?.message || '';
+      if (!errorMessage.includes('cancel') && !errorMessage.includes('Cancel') && !errorMessage.includes('User')) {
+        console.error('Error selecting point gallery photo:', error);
       }
     }
   }
 
-  private async processPointPhoto(webPath: string, point: any, photoType: 'Measurement' | 'Location') {
-    try {
-      // Convert to File
-      const response = await fetch(webPath);
-      const blob = await response.blob();
-      const file = new File([blob], `point-${photoType.toLowerCase()}-${Date.now()}.jpg`, { type: 'image/jpeg' });
+  // Point Photo Callback Handlers
+  private handlePointPhotoAdded(point: any, photo: StandardPhotoEntry, photoType: 'Measurement' | 'Location') {
+    // Ensure photos array exists
+    if (!point.photos) {
+      point.photos = [];
+    }
 
-      // Check actual offline status
-      const isActuallyOffline = !this.offlineService.isOnline();
-      const isPointTempId = String(point.pointId).startsWith('temp_');
-      const isOfflineMode = isActuallyOffline || isPointTempId;
+    // Find existing photo with same type or create new one
+    let existingPhoto = point.photos.find((p: any) => p.photoType === photoType);
 
-      console.log(`[Point Photo] isActuallyOffline: ${isActuallyOffline}, isOfflineMode: ${isOfflineMode}`);
+    if (existingPhoto) {
+      // Update existing photo
+      existingPhoto.url = photo.displayUrl;
+      existingPhoto.displayUrl = photo.displayUrl;
+      existingPhoto.originalUrl = photo.originalUrl;
+      existingPhoto.caption = photo.caption || '';
+      existingPhoto.Annotation = photo.annotation || '';
+      existingPhoto.Drawings = photo.Drawings || '';
+      existingPhoto.hasAnnotations = photo.hasAnnotations;
+      existingPhoto.uploading = photo.uploading;
+      existingPhoto.queued = photo.queued || false;
+      existingPhoto.imageId = photo.imageId;
+      existingPhoto.localImageId = photo.imageId;
+      existingPhoto.AttachID = photo.AttachID;
+      existingPhoto.attachId = photo.attachId;
+      existingPhoto._tempId = photo.imageId;
+      existingPhoto.isLocalFirst = photo.isLocalFirst || photo.isLocal;
+      existingPhoto.isPending = photo.isPending;
+    } else {
+      // Add new photo
+      const newPhoto = {
+        photoType: photoType,
+        url: photo.displayUrl,
+        displayUrl: photo.displayUrl,
+        originalUrl: photo.originalUrl,
+        caption: photo.caption || '',
+        Annotation: photo.annotation || '',
+        Drawings: photo.Drawings || '',
+        hasAnnotations: photo.hasAnnotations,
+        uploading: photo.uploading,
+        queued: photo.queued || false,
+        imageId: photo.imageId,
+        localImageId: photo.imageId,
+        AttachID: photo.AttachID,
+        attachId: photo.attachId,
+        _tempId: photo.imageId,
+        isLocalFirst: photo.isLocalFirst || photo.isLocal,
+        isPending: photo.isPending
+      };
+      point.photos.push(newPhoto);
+    }
 
-      // Find existing photo or create new one
-      let existingPhoto = point.photos.find((p: any) => p.photoType === photoType);
+    this.changeDetectorRef.detectChanges();
+    console.log(`[Point Photo] Added ${photoType} photo for point ${point.pointName}:`, photo.imageId);
+  }
 
-      // Generate temp ID for tracking
-      const tempPhotoId = `temp_efe_photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  private handlePointUploadComplete(point: any, photo: StandardPhotoEntry, photoType: 'Measurement' | 'Location', tempId: string) {
+    if (!point.photos) return;
 
-      if (existingPhoto) {
-        // Update existing photo - NEVER show spinner, photo appears immediately
-        existingPhoto.uploading = false;
-        existingPhoto.queued = isOfflineMode;
-        existingPhoto._backgroundSync = true;  // Silent background sync
-        existingPhoto.url = webPath;
-        existingPhoto.displayUrl = webPath;
-        existingPhoto.originalUrl = webPath;
-        // CRITICAL: Set all ID fields for annotation lookups
-        existingPhoto.AttachID = tempPhotoId;
-        existingPhoto.attachId = tempPhotoId;
-        existingPhoto._pendingFileId = tempPhotoId;
-        existingPhoto._tempId = tempPhotoId;
-        existingPhoto.isPending = true;
-      } else {
-        // Add new photo placeholder - NEVER show spinner, photo appears immediately
-        // CRITICAL: Include ALL required fields for annotation save to work
-        existingPhoto = {
-          photoType: photoType,
-          uploading: false,  // NEVER show spinner
-          queued: isOfflineMode,  // Show queued badge if offline
-          _backgroundSync: true,  // Silent background sync
-          url: webPath,
-          displayUrl: webPath,
-          originalUrl: webPath,
-          caption: '',
-          Annotation: '',
-          drawings: null,
-          Drawings: '',
-          hasAnnotations: false,
-          // CRITICAL: All ID fields for annotation lookups
-          AttachID: tempPhotoId,
-          attachId: tempPhotoId,
-          _pendingFileId: tempPhotoId,
-          _tempId: tempPhotoId,
-          isPending: true
-        };
-        point.photos.push(existingPhoto);
-      }
+    // Find the photo by tempId or photoType
+    const existingPhoto = point.photos.find((p: any) =>
+      p._tempId === tempId || p.imageId === tempId || p.photoType === photoType
+    );
 
-      this.changeDetectorRef.detectChanges();
+    if (existingPhoto) {
+      // Update with final uploaded data
+      existingPhoto.url = photo.displayUrl;
+      existingPhoto.displayUrl = photo.displayUrl;
+      existingPhoto.originalUrl = photo.originalUrl;
+      existingPhoto.uploading = false;
+      existingPhoto.queued = false;
+      existingPhoto.imageId = photo.imageId;
+      existingPhoto.AttachID = photo.AttachID;
+      existingPhoto.attachId = photo.attachId;
+      existingPhoto.isLocalFirst = false;
+      existingPhoto.isPending = false;
+      delete existingPhoto._tempId;
 
-      // Compress image before storing/uploading
-      const originalSize = file.size;
-      const compressedFile = await this.imageCompression.compressImage(file, {
-        maxSizeMB: 0.4,
-        maxWidthOrHeight: 1024,
-        useWebWorker: true
-      }) as File;
-      const compressedSize = compressedFile.size;
-
-      // OFFLINE-FIRST: Use foundationData.uploadEFEPointPhoto which handles both
-      // online (immediate upload) and offline (IndexedDB queue) scenarios
-      // TASK 1 FIX: Pass serviceId so LocalImages can be found by getImagesForService()
-      // Without serviceId, photos would be stored with serviceId='' but queried with actual serviceId
-      const result = await this.foundationData.uploadEFEPointPhoto(
-        point.pointId,
-        compressedFile,
-        photoType,
-        '', // No drawings initially
-        this.serviceId  // CRITICAL: Pass serviceId for LocalImage lookup
-      );
-
-      console.log(`[Point Photo] Photo ${photoType} processed for point ${point.pointName}:`, result);
-
-      // Update local state with result
-      if (result) {
-        // CRITICAL: Set imageId and localImageId for LocalImage system matching
-        // These are the stable UUIDs that never change - essential for refreshPhotosFromLocalImages()
-        existingPhoto.imageId = result.imageId;
-        existingPhoto.localImageId = result.imageId;
-
-        // CRITICAL: Preserve all ID fields for annotation lookups
-        existingPhoto.AttachID = result.AttachID || result._tempId || tempPhotoId;
-        existingPhoto.attachId = result.attachId || result.AttachID || result._tempId || tempPhotoId;
-        existingPhoto._tempId = result._tempId || tempPhotoId;
-        existingPhoto._pendingFileId = result._pendingFileId || result._tempId || tempPhotoId;
-        existingPhoto.isPending = !!result._syncing || !!result.isPending;
-
-        // CRITICAL: Update displayUrl to use persisted blob URL from IndexedDB
-        // This URL survives page reload unlike the temporary webPath from camera
-        const persistedUrl = result.url || result.Photo;
-        if (persistedUrl) {
-          existingPhoto.url = persistedUrl;
-          existingPhoto.displayUrl = persistedUrl;
-        }
-
-        // Check if this is a local-first photo (not yet synced to server)
-        // Local-first photos have status='local_only' or isLocalFirst=true
-        const isLocalFirstPhoto = result.isLocalFirst || result.status === 'local_only' || result._syncing;
-
-        if (isLocalFirstPhoto) {
-          // Local-first: photo is stored locally and queued for background sync
-          existingPhoto.uploading = false;
-          existingPhoto.queued = true;
-          // Display URL is already set from the blob stored in IndexedDB
-          console.log(`[Point Photo] Photo stored locally for background sync, imageId:`, existingPhoto.imageId);
-        } else {
-          // Online upload completed - photo was synced immediately
-          existingPhoto.uploading = false;
-          existingPhoto.queued = false;
-
-          // Load the uploaded photo URL from server
-          if (result.Photo && !result.Photo.startsWith('blob:')) {
-            existingPhoto.path = result.Photo;
-            const imageData = await this.foundationData.getImage(result.Photo);
-            if (imageData) {
-              existingPhoto.url = imageData;
-              existingPhoto.displayUrl = imageData;
-            }
-          }
-        }
-        
-        // Clear cache to ensure fresh data
-        this.foundationData.clearEFEAttachmentsCache();
-      }
+      // Clear cache to ensure fresh data
+      this.foundationData.clearEFEAttachmentsCache();
 
       this.changeDetectorRef.detectChanges();
-      console.log(`[Point Photo] Photo ${photoType} for point ${point.pointName} processed successfully`);
+      console.log(`[Point Photo] Upload complete for ${photoType} on point ${point.pointName}:`, photo.imageId);
+    }
+  }
 
-    } catch (error: any) {
-      console.error('Error processing point photo:', error);
+  private handlePointUploadFailed(point: any, tempId: string, photoType: 'Measurement' | 'Location', error: any) {
+    console.error(`[Point Photo] Upload failed for ${photoType} on point ${point.pointName}:`, error);
 
-      // Remove uploading/queued state on error
-      const existingPhoto = point.photos.find((p: any) => p.photoType === photoType);
-      if (existingPhoto) {
-        existingPhoto.uploading = false;
-        existingPhoto.queued = false;
-        existingPhoto._backgroundSync = false;
-        existingPhoto.uploadFailed = true;
+    if (!point.photos) return;
+
+    // Find the photo
+    const existingPhoto = point.photos.find((p: any) =>
+      p._tempId === tempId || p.imageId === tempId || p.photoType === photoType
+    );
+
+    if (existingPhoto) {
+      // Clear uploading state but keep photo if it was local-first
+      existingPhoto.uploading = false;
+      existingPhoto.queued = false;
+      existingPhoto.uploadFailed = true;
+
+      // If not local-first, remove the failed photo
+      if (!existingPhoto.isLocalFirst) {
+        const index = point.photos.indexOf(existingPhoto);
+        if (index >= 0) {
+          point.photos.splice(index, 1);
+        }
       }
+
       this.changeDetectorRef.detectChanges();
     }
   }

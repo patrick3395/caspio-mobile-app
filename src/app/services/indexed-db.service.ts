@@ -2993,7 +2993,8 @@ export class IndexedDbService {
       .equals([entityType, entityId])
       .toArray();
 
-    images.sort((a, b) => b.createdAt - a.createdAt);
+    // Sort ASCENDING (oldest first) - consistent with category-detail and visual-detail pages
+    images.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
     return images;
   }
 

@@ -34,7 +34,7 @@ export const environment = {
     currency: 'USD'
   },
   stripe: {
-    publishableKey: 'pk_live_REPLACE_WITH_YOUR_STRIPE_PUBLISHABLE_KEY' // Replace with actual Stripe publishable key
+    publishableKey: 'pk_live_51PLTqgFeRJdYiXMWA0EFdZGARdKBsNmnZnhBRQMVQk3CrCxz8L6nDvGRrkjntzYecZs7unJCZVoFDFutx4QqoazX00q6sH3pes'
   }
 };
 

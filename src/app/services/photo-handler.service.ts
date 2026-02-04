@@ -20,6 +20,9 @@ export interface PhotoCaptureConfig {
   category: string;
   itemId: string | number;
 
+  // Photo type for FDF ('Top'|'Bottom'|'Threshold') and EFE points ('Measurement'|'Location')
+  photoType?: string;
+
   // Callbacks for UI updates
   onTempPhotoAdded?: (photo: StandardPhotoEntry) => void;
   onUploadComplete?: (photo: StandardPhotoEntry, tempId: string) => void;
@@ -55,6 +58,9 @@ export interface StandardPhotoEntry {
   Annotation: string;
   Drawings: string;
   hasAnnotations: boolean;
+
+  // Photo type for FDF ('Top'|'Bottom'|'Threshold') and EFE points ('Measurement'|'Location')
+  photoType?: string;
 
   // Status
   status: 'uploading' | 'local_only' | 'queued' | 'uploaded' | 'verified' | 'failed';
@@ -407,6 +413,7 @@ export class PhotoHandlerService {
       Annotation: caption || '',
       Drawings: compressedDrawings,
       hasAnnotations,
+      photoType: config.photoType,
       status: 'uploading',
       isLocal: false,
       uploading: true,
@@ -433,7 +440,8 @@ export class PhotoHandlerService {
         config.entityId,
         config.serviceId,
         caption,
-        compressedDrawings
+        compressedDrawings,
+        config.photoType || null
       );
 
       console.log('[PhotoHandler] WEBAPP: Upload complete, AttachID:', uploadResult.attachId);
@@ -516,7 +524,8 @@ export class PhotoHandlerService {
         config.entityId,
         config.serviceId,
         caption,
-        compressedDrawings
+        compressedDrawings,
+        config.photoType || null
       );
 
       console.log('[PhotoHandler] MOBILE: LocalImage created:', localImage.imageId);
@@ -563,6 +572,7 @@ export class PhotoHandlerService {
         Annotation: caption || '',
         Drawings: compressedDrawings,
         hasAnnotations,
+        photoType: config.photoType,
         status: localImage.status as any,
         isLocal: true,
         isLocalFirst: true,

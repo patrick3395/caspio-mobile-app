@@ -2951,6 +2951,13 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         });
       }
 
+      // Sort by AttachID (oldest/lowest first) for consistent order
+      photos.sort((a, b) => {
+        const idA = parseInt(a.AttachID) || 0;
+        const idB = parseInt(b.AttachID) || 0;
+        return idA - idB;
+      });
+
       this.visualPhotos[key] = photos;
       this.photoCountsByKey[key] = photos.length;
       this.logDebug('PHOTO', `Processed ${photos.length} photos for ${key}`);

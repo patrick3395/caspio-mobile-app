@@ -918,6 +918,13 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         attachId: attachId
       });
     }
+
+    // Sort by AttachID (oldest/lowest first) for consistent order with category-detail
+    this.photos.sort((a, b) => {
+      const idA = parseInt(a.attachId || a.id) || 0;
+      const idB = parseInt(b.attachId || b.id) || 0;
+      return idA - idB;
+    });
   }
 
   /**
