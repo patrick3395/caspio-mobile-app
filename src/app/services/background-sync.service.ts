@@ -1245,6 +1245,25 @@ export class BackgroundSyncService {
 
               await this.indexedDb.cacheServiceData(serviceId, 'lbw_records', updatedLbw);
               console.log(`[BackgroundSync] ✅ Updated LBW cache for service ${serviceId}: temp ${request.tempId} -> real ${realId}`);
+
+              // CRITICAL FIX: Update lbwFields table to replace tempLbwId with real lbwId
+              // Without this, subsequent changes still use temp ID and fail to create UPDATE requests
+              try {
+                const lbwFieldRecord = await db.lbwFields
+                  .where('tempLbwId')
+                  .equals(request.tempId)
+                  .first();
+                if (lbwFieldRecord) {
+                  await db.lbwFields.update(lbwFieldRecord.id!, {
+                    lbwId: String(realId),
+                    tempLbwId: null,
+                    dirty: false
+                  });
+                  console.log(`[BackgroundSync] ✅ Updated lbwFields: temp ${request.tempId} -> real ${realId}`);
+                }
+              } catch (err) {
+                console.warn('[BackgroundSync] Failed to update lbwFields after sync:', err);
+              }
             }
 
             // Emit sync complete event for LBW
@@ -1304,6 +1323,25 @@ export class BackgroundSyncService {
 
               await this.indexedDb.cacheServiceData(serviceId, 'dte', updatedDte);
               console.log(`[BackgroundSync] ✅ Updated DTE cache for service ${serviceId}: temp ${request.tempId} -> real ${realId}`);
+
+              // CRITICAL FIX: Update dteFields table to replace tempDteId with real dteId
+              // Without this, subsequent changes still use temp ID and fail to create UPDATE requests
+              try {
+                const dteFieldRecord = await db.dteFields
+                  .where('tempDteId')
+                  .equals(request.tempId)
+                  .first();
+                if (dteFieldRecord) {
+                  await db.dteFields.update(dteFieldRecord.id!, {
+                    dteId: String(realId),
+                    tempDteId: null,
+                    dirty: false
+                  });
+                  console.log(`[BackgroundSync] ✅ Updated dteFields: temp ${request.tempId} -> real ${realId}`);
+                }
+              } catch (err) {
+                console.warn('[BackgroundSync] Failed to update dteFields after sync:', err);
+              }
             }
 
             // Emit sync complete event for DTE
@@ -1366,6 +1404,25 @@ export class BackgroundSyncService {
 
               await this.indexedDb.cacheServiceData(serviceId, 'csa_records', updatedCsa);
               console.log(`[BackgroundSync] ✅ Updated CSA cache for service ${serviceId}: temp ${request.tempId} -> real ${realId}`);
+
+              // CRITICAL FIX: Update csaFields table to replace tempCsaId with real csaId
+              // Without this, subsequent changes still use temp ID and fail to create UPDATE requests
+              try {
+                const csaFieldRecord = await db.csaFields
+                  .where('tempCsaId')
+                  .equals(request.tempId)
+                  .first();
+                if (csaFieldRecord) {
+                  await db.csaFields.update(csaFieldRecord.id!, {
+                    csaId: String(realId),
+                    tempCsaId: null,
+                    dirty: false
+                  });
+                  console.log(`[BackgroundSync] ✅ Updated csaFields: temp ${request.tempId} -> real ${realId}`);
+                }
+              } catch (err) {
+                console.warn('[BackgroundSync] Failed to update csaFields after sync:', err);
+              }
             }
 
             // Emit sync complete event for CSA

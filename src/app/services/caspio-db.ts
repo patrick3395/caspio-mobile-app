@@ -640,6 +640,52 @@ export class CaspioDB extends Dexie {
       csaFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt'
     });
 
+    // Version 14: Add tempId indexes for faster field table lookups after sync
+    this.version(14).stores({
+      // Local-first image system
+      localImages: 'imageId, entityType, entityId, serviceId, status, attachId, createdAt, [entityType+entityId], [serviceId+entityType]',
+      localBlobs: 'blobId, createdAt',
+      uploadOutbox: 'opId, imageId, nextRetryAt, createdAt',
+
+      // Core sync system
+      pendingRequests: 'requestId, timestamp, status, priority, tempId',
+      tempIdMappings: 'tempId, realId, type',
+
+      // Caching
+      cachedServiceData: 'cacheKey, serviceId, dataType, lastUpdated',
+      cachedTemplates: 'cacheKey, type, lastUpdated',
+      cachedPhotos: 'photoKey, attachId, serviceId, cachedAt',
+
+      // Pending data
+      pendingCaptions: 'captionId, attachId, attachType, status, serviceId, createdAt',
+      pendingEFEData: 'tempId, serviceId, type, parentId',
+      pendingImages: 'imageId, requestId, status, serviceId, visualId',
+
+      // Operations queue
+      operationsQueue: 'id, type, status, createdAt, dedupeKey',
+
+      // Visual fields - EFE visuals
+      visualFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt',
+
+      // EFE fields - elevation plot rooms
+      efeFields: '++id, key, serviceId, roomName, [serviceId+roomName], efeId, tempEfeId, dirty, updatedAt',
+
+      // Service metadata
+      serviceMetadata: 'serviceId, lastTouchedAt, purgeState, [purgeState+lastTouchedAt]',
+
+      // HUD fields - HUD visuals
+      hudFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt',
+
+      // LBW fields - with tempLbwId index for sync lookups
+      lbwFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt, tempLbwId',
+
+      // DTE fields - with tempDteId index for sync lookups
+      dteFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt, tempDteId',
+
+      // CSA fields - with tempCsaId index for sync lookups
+      csaFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt, tempCsaId'
+    });
+
     // Log successful database open
     this.on('ready', () => {
       console.log('[CaspioDB] Database initialized successfully with Dexie');
