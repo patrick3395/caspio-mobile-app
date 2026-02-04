@@ -3145,9 +3145,29 @@ export class CompanyPage implements OnInit, OnDestroy {
     const { data } = await modal.onWillDismiss();
 
     if (data?.success && (data?.savedPaymentMethod || data?.paymentData?.savedForAutopay)) {
-      // Reload company data to get the new payment method
+      // Update local company data with the new payment method info
+      const paymentData = data.paymentData;
+      if (paymentData) {
+        // Update the company in the companies array (for CRM view)
+        const companyIndex = this.companies.findIndex(c => c.CompanyID === company.CompanyID);
+        if (companyIndex !== -1) {
+          this.companies[companyIndex].PayPalVaultToken = paymentData.vaultToken;
+          this.companies[companyIndex].PayPalPayerEmail = paymentData.payerEmail;
+          this.companies[companyIndex].AutopayEnabled = true;
+        }
+        // Also update in stageGroups if present
+        for (const group of this.stageGroups) {
+          const stageCompanyIndex = group.companies.findIndex(c => c.CompanyID === company.CompanyID);
+          if (stageCompanyIndex !== -1) {
+            group.companies[stageCompanyIndex].PayPalVaultToken = paymentData.vaultToken;
+            group.companies[stageCompanyIndex].PayPalPayerEmail = paymentData.payerEmail;
+            group.companies[stageCompanyIndex].AutopayEnabled = true;
+          }
+        }
+      }
+      // Also reload to ensure server data is synced
       await this.loadCurrentUserCompanyName();
-      await this.showToast('Payment method saved successfully!', 'success');
+      await this.showToast('Payment method saved and autopay enabled!', 'success');
     }
   }
 
@@ -4422,6 +4442,16 @@ export class CompanyPage implements OnInit, OnDestroy {
       return '$0.00';
     }
     return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(amount);
+  }
+
+  getOrdinalSuffix(day: number): string {
+    if (day > 3 && day < 21) return 'th';
+    switch (day % 10) {
+      case 1: return 'st';
+      case 2: return 'nd';
+      case 3: return 'rd';
+      default: return 'th';
+    }
   }
 
   formatPhone(phone?: string): string {

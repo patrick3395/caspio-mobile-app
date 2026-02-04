@@ -143,7 +143,7 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
 
           console.log('Vault token received:', vaultToken);
 
-          // Save the payment method to the company record
+          // Save the payment method to the company record and enable autopay
           if (this.companyId) {
             await firstValueFrom(
               this.caspioService.put(
@@ -151,11 +151,12 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
                 {
                   PayPalVaultToken: vaultToken,
                   PayPalPayerID: captureResult.payerId,
-                  PayPalPayerEmail: captureResult.payerEmail
+                  PayPalPayerEmail: captureResult.payerEmail,
+                  AutopayEnabled: true
                 }
               )
             );
-            console.log('Payment method saved for company:', this.companyId);
+            console.log('Payment method saved and autopay enabled for company:', this.companyId);
           }
 
           this.paymentCompleted = true;

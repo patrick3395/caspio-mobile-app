@@ -2193,6 +2193,43 @@ ion-segment.filter-segment {
   }
 }
 
+// Autopay status styling
+.autopay-status-row {
+  background: #f8f9fa;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.autopay-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  font-weight: 500;
+
+  ion-icon {
+    font-size: 1rem;
+  }
+
+  &.enabled {
+    background: #d4edda;
+    color: #155724;
+  }
+
+  &.disabled {
+    background: #f8d7da;
+    color: #721c24;
+  }
+}
+
+.no-payment-method {
+  color: #6c757d;
+  font-style: italic;
+}
+
 .rollup-actions {
   display: flex;
   gap: 8px;

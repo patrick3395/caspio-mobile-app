@@ -468,6 +468,33 @@
                     <p class="wrap-text">{{ company.Notes || 'No notes' }}</p>
                   </div>
                 </div>
+                <div class="detail-row autopay-status-row">
+                  <div class="detail-col">
+                    <label>Autopay Status</label>
+                    <p>
+                      <span *ngIf="company.AutopayEnabled" class="autopay-badge enabled">
+                        <ion-icon name="checkmark-circle"></ion-icon> Enabled
+                      </span>
+                      <span *ngIf="!company.AutopayEnabled" class="autopay-badge disabled">
+                        <ion-icon name="close-circle"></ion-icon> Disabled
+                      </span>
+                    </p>
+                  </div>
+                  <div class="detail-col">
+                    <label>Saved Payment Method</label>
+                    <p>
+                      <span *ngIf="company.PayPalPayerEmail">
+                        <ion-icon name="logo-paypal" style="color: #003087;"></ion-icon>
+                        {{ company.PayPalPayerEmail }}
+                      </span>
+                      <span *ngIf="!company.PayPalPayerEmail" class="no-payment-method">No payment method saved</span>
+                    </p>
+                  </div>
+                  <div class="detail-col">
+                    <label>Autopay Day</label>
+                    <p>{{ company.AutopayDay ? (company.AutopayDay + getOrdinalSuffix(company.AutopayDay) + ' of each month') : 'Not set' }}</p>
+                  </div>
+                </div>
                 <div class="detail-row">
                   <div class="detail-col" style="grid-column: 1 / -1;">
                     <label>Services Offered</label>
