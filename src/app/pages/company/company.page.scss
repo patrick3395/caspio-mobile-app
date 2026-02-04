@@ -133,6 +133,91 @@ ion-content {
   flex-shrink: 0;
 }
 
+// Admin Main Tabs (Company vs Partners)
+.admin-main-tabs {
+  display: flex;
+  gap: 0;
+  background: #f5f5f5;
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 16px;
+}
+
+.admin-main-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 24px;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  ion-icon {
+    font-size: 22px;
+  }
+
+  &:hover {
+    color: #333;
+    background: rgba(255, 255, 255, 0.5);
+  }
+
+  &.active {
+    background: #ffffff;
+    color: #f15a27;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+}
+
+.admin-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sub-tab-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+}
+
+.sub-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  ion-icon {
+    font-size: 18px;
+  }
+
+  &:hover {
+    border-color: #f15a27;
+    color: #f15a27;
+  }
+
+  &.active {
+    background: #f15a27;
+    border-color: #f15a27;
+    color: #ffffff;
+  }
+}
+
 // Global Company Filter Styling
 .global-company-filter {
   background: linear-gradient(135deg, #f8f9fa, #ffffff);

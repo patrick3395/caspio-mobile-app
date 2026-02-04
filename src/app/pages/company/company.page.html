@@ -32,95 +32,103 @@
 
   <!-- CRM View for Company ID 1 -->
   <div *ngIf="isCompanyOne" class="page-shell">
-    <!-- Global Company Filter -->
-    <div class="global-company-filter">
-      <div class="filter-header">
-        <h3>Filter by Company</h3>
-        <button *ngIf="globalCompanyFilterId" (click)="clearGlobalCompanyFilter()" class="clear-filter-btn">
-          <ion-icon name="close-circle"></ion-icon>
-          Clear Filter
+    <!-- Main Tab Bar -->
+    <div class="admin-main-tabs">
+      <button class="admin-main-tab" [class.active]="adminMainTab === 'company'" (click)="selectAdminMainTab('company')">
+        <ion-icon name="business"></ion-icon>
+        <span>Company</span>
+      </button>
+      <button class="admin-main-tab" [class.active]="adminMainTab === 'partners'" (click)="selectAdminMainTab('partners')">
+        <ion-icon name="people"></ion-icon>
+        <span>Partners</span>
+      </button>
+    </div>
+
+    <!-- Company Main Tab Content -->
+    <div *ngIf="adminMainTab === 'company'" class="admin-tab-content">
+      <div class="sub-tab-bar">
+        <button class="sub-tab" [class.active]="selectedTab === 'users'" (click)="selectTab('users')">
+          <ion-icon name="people"></ion-icon>
+          <span>Users</span>
         </button>
-      </div>
-
-      <div class="search-container">
-        <ion-searchbar
-          [(ngModel)]="globalCompanySearchTerm"
-          (ionInput)="onGlobalCompanySearch($event.detail.value)"
-          (ionFocus)="showCompanySuggestions = true"
-          placeholder="Search companies"
-          [class.has-selection]="globalCompanyFilterId !== null">
-        </ion-searchbar>
-
-        <!-- Autocomplete dropdown -->
-        <div class="company-suggestions" *ngIf="showCompanySuggestions && filteredCompanySuggestions.length > 0 && !globalCompanyFilterId">
-          <div
-            *ngFor="let company of filteredCompanySuggestions"
-            class="suggestion-item"
-            (click)="selectGlobalCompany(company.CompanyID, company.CompanyName)">
-            <div class="company-info">
-              <strong>{{ company.CompanyName }}</strong>
-              <span class="company-location">{{ buildCompanyAddress(company) }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Active filter indicator -->
-      <div class="active-filter-badge" *ngIf="globalCompanyFilterId">
-        <ion-icon name="filter"></ion-icon>
-        <span>Showing data for: <strong>{{ globalCompanySearchTerm }}</strong></span>
+        <button class="sub-tab" [class.active]="selectedTab === 'company'" (click)="selectTab('company')">
+          <ion-icon name="business"></ion-icon>
+          <span>Company</span>
+        </button>
       </div>
     </div>
 
-    <div class="tab-sections-container">
-      <!-- Company Section -->
-      <div class="tab-section">
-        <h3 class="tab-section-header">Company</h3>
-        <div class="tab-button-grid">
-          <button class="tab-button" [class.active]="selectedTab === 'users'" (click)="selectTab('users')">
-            <ion-icon name="people"></ion-icon>
-            <span>Users</span>
+    <!-- Partners Main Tab Content -->
+    <div *ngIf="adminMainTab === 'partners'" class="admin-tab-content">
+      <!-- Global Company Filter -->
+      <div class="global-company-filter">
+        <div class="filter-header">
+          <h3>Filter by Company</h3>
+          <button *ngIf="globalCompanyFilterId" (click)="clearGlobalCompanyFilter()" class="clear-filter-btn">
+            <ion-icon name="close-circle"></ion-icon>
+            Clear Filter
           </button>
-          <button class="tab-button" [class.active]="selectedTab === 'company'" (click)="selectTab('company')">
-            <ion-icon name="business"></ion-icon>
-            <span>Company</span>
-          </button>
+        </div>
+
+        <div class="search-container">
+          <ion-searchbar
+            [(ngModel)]="globalCompanySearchTerm"
+            (ionInput)="onGlobalCompanySearch($event.detail.value)"
+            (ionFocus)="showCompanySuggestions = true"
+            placeholder="Search companies"
+            [class.has-selection]="globalCompanyFilterId !== null">
+          </ion-searchbar>
+
+          <!-- Autocomplete dropdown -->
+          <div class="company-suggestions" *ngIf="showCompanySuggestions && filteredCompanySuggestions.length > 0 && !globalCompanyFilterId">
+            <div
+              *ngFor="let company of filteredCompanySuggestions"
+              class="suggestion-item"
+              (click)="selectGlobalCompany(company.CompanyID, company.CompanyName)">
+              <div class="company-info">
+                <strong>{{ company.CompanyName }}</strong>
+                <span class="company-location">{{ buildCompanyAddress(company) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active filter indicator -->
+        <div class="active-filter-badge" *ngIf="globalCompanyFilterId">
+          <ion-icon name="filter"></ion-icon>
+          <span>Showing data for: <strong>{{ globalCompanySearchTerm }}</strong></span>
         </div>
       </div>
 
-      <!-- Partners Section -->
-      <div class="tab-section">
-        <h3 class="tab-section-header">Partners</h3>
-        <div class="tab-button-grid">
-          <button class="tab-button" [class.active]="selectedTab === 'companies'" (click)="selectTab('companies')">
-            <ion-icon name="business-outline"></ion-icon>
-            <span>Companies</span>
-          </button>
-          <button class="tab-button" [class.active]="selectedTab === 'contacts'" (click)="selectTab('contacts')">
-            <ion-icon name="people-outline"></ion-icon>
-            <span>Contacts</span>
-          </button>
-          <button class="tab-button" [class.active]="selectedTab === 'tasks'" (click)="selectTab('tasks')">
-            <ion-icon name="checkbox-outline"></ion-icon>
-            <span>Tasks</span>
-          </button>
-          <button class="tab-button" [class.active]="selectedTab === 'meetings'" (click)="selectTab('meetings')">
-            <ion-icon name="calendar-outline"></ion-icon>
-            <span>Meetings</span>
-          </button>
-          <button class="tab-button" [class.active]="selectedTab === 'communications'" (click)="selectTab('communications')">
-            <ion-icon name="chatbubbles-outline"></ion-icon>
-            <span>Communication</span>
-          </button>
-          <button class="tab-button" [class.active]="selectedTab === 'invoices'" (click)="selectTab('invoices')">
-            <ion-icon name="receipt-outline"></ion-icon>
-            <span>Invoices</span>
-          </button>
-          <button class="tab-button" [class.active]="selectedTab === 'metrics'" (click)="selectTab('metrics')">
-            <ion-icon name="analytics-outline"></ion-icon>
-            <span>Metrics</span>
-          </button>
-        </div>
+      <div class="sub-tab-bar">
+        <button class="sub-tab" [class.active]="selectedTab === 'companies'" (click)="selectTab('companies')">
+          <ion-icon name="business-outline"></ion-icon>
+          <span>Companies</span>
+        </button>
+        <button class="sub-tab" [class.active]="selectedTab === 'contacts'" (click)="selectTab('contacts')">
+          <ion-icon name="people-outline"></ion-icon>
+          <span>Contacts</span>
+        </button>
+        <button class="sub-tab" [class.active]="selectedTab === 'tasks'" (click)="selectTab('tasks')">
+          <ion-icon name="checkbox-outline"></ion-icon>
+          <span>Tasks</span>
+        </button>
+        <button class="sub-tab" [class.active]="selectedTab === 'meetings'" (click)="selectTab('meetings')">
+          <ion-icon name="calendar-outline"></ion-icon>
+          <span>Meetings</span>
+        </button>
+        <button class="sub-tab" [class.active]="selectedTab === 'communications'" (click)="selectTab('communications')">
+          <ion-icon name="chatbubbles-outline"></ion-icon>
+          <span>Comms</span>
+        </button>
+        <button class="sub-tab" [class.active]="selectedTab === 'invoices'" (click)="selectTab('invoices')">
+          <ion-icon name="receipt-outline"></ion-icon>
+          <span>Invoices</span>
+        </button>
+        <button class="sub-tab" [class.active]="selectedTab === 'metrics'" (click)="selectTab('metrics')">
+          <ion-icon name="analytics-outline"></ion-icon>
+          <span>Metrics</span>
+        </button>
       </div>
     </div>
     <div *ngIf="selectedTab === 'company'" class="tab-content company-tab">

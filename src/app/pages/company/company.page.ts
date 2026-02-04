@@ -227,6 +227,8 @@ export class CompanyPage implements OnInit, OnDestroy {
   currentUserCompanyName: string = '';
   organizationUsers: any[] = [];
 
+  // Admin CRM main tab (Company vs Partners)
+  adminMainTab: 'company' | 'partners' = 'company';
   selectedTab: 'company' | 'companies' | 'contacts' | 'tasks' | 'meetings' | 'communications' | 'invoices' | 'metrics' | 'users' = 'users';
 
   // Client-only tabs (for non-CompanyID 1 users)
@@ -3726,6 +3728,16 @@ export class CompanyPage implements OnInit, OnDestroy {
     if (!this.tabDataLoaded[tab]) {
       this.loadTabData(tab);
       this.tabDataLoaded[tab] = true;
+    }
+  }
+
+  selectAdminMainTab(tab: 'company' | 'partners') {
+    this.adminMainTab = tab;
+    // Auto-select first sub-tab when switching main tabs
+    if (tab === 'company') {
+      this.selectTab('users');
+    } else {
+      this.selectTab('companies');
     }
   }
 

@@ -1064,6 +1064,14 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
       typeLabel = 'Elevation';
     } else if (caption.attachType === 'fdf') {
       typeLabel = 'FDF';
+    } else if (caption.attachType === 'hud') {
+      typeLabel = 'HUD';
+    } else if (caption.attachType === 'lbw') {
+      typeLabel = 'LBW';
+    } else if (caption.attachType === 'dte') {
+      typeLabel = 'DTE';
+    } else if (caption.attachType === 'csa') {
+      typeLabel = 'CSA';
     }
     
     // Calculate age for debugging

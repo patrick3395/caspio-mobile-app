@@ -1318,10 +1318,6 @@ export class BackgroundSyncService {
         } else if (request.endpoint.includes('Services_CSA') && !request.endpoint.includes('Attach')) {
           // For CSA records, use CSAID (or PK_ID as fallback)
           console.log('[BackgroundSync] CSA record sync - processing result');
-          // DEBUG ALERT
-          if (typeof alert !== 'undefined') {
-            alert(`[CSA SYNC DEBUG] CSA record created - processing result: ${JSON.stringify(result)?.substring(0, 100)}`);
-          }
 
           if (result && result.CSAID) {
             realId = result.CSAID;
@@ -1335,10 +1331,6 @@ export class BackgroundSyncService {
           if (realId) {
             const serviceId = String(request.data?.ServiceID || '');
             console.log(`[BackgroundSync] CSA record synced - realId: ${realId}, serviceId: ${serviceId}`);
-            // DEBUG ALERT
-            if (typeof alert !== 'undefined') {
-              alert(`[CSA SYNC DEBUG] CSA record synced - realId: ${realId}, serviceId: ${serviceId}`);
-            }
 
             // Update the IndexedDB cache to replace temp ID with real CSA data
             if (serviceId) {
@@ -1679,10 +1671,6 @@ export class BackgroundSyncService {
             break;
           case 'csa':
             console.log('[BackgroundSync] CSA caption sync - AttachID:', resolvedAttachId);
-            // DEBUG ALERT
-            if (typeof alert !== 'undefined') {
-              alert(`[CSA SYNC DEBUG] Caption sync starting - AttachID: ${resolvedAttachId}`);
-            }
             endpoint = `/api/caspio-proxy/tables/LPS_Services_CSA_Attach/records?q.where=AttachID=${resolvedAttachId}`;
             break;
           case 'fdf':
@@ -2995,11 +2983,6 @@ export class BackgroundSyncService {
         // CSA: Update csa_attachments cache and localImages
         let foundInCache = false;
 
-        // DEBUG ALERT
-        if (typeof alert !== 'undefined') {
-          alert(`[CSA SYNC DEBUG] updateSyncedCacheWithCaption - attachId: ${caption.attachId}`);
-        }
-
         // Update localImages table (MOBILE mode source of truth)
         try {
           // First try to find by imageId matching attachId
@@ -4047,10 +4030,6 @@ export class BackgroundSyncService {
         case 'csa':
           // CSA photos are stored in LPS_Services_CSA_Attach table
           console.log('[BackgroundSync] CSA photo upload starting:', item.imageId, 'csaId:', entityId);
-          // DEBUG ALERT
-          if (typeof alert !== 'undefined') {
-            alert(`[CSA SYNC DEBUG] Starting photo upload - imageId: ${item.imageId}, csaId: ${entityId}`);
-          }
           result = await uploadWithTimeout(
             this.caspioService.createServicesCSAAttachWithFile(
               parseInt(entityId),
@@ -4061,10 +4040,6 @@ export class BackgroundSyncService {
             `csa upload for ${item.imageId}`
           );
           console.log('[BackgroundSync] CSA photo upload completed:', item.imageId, 'result:', result);
-          // DEBUG ALERT
-          if (typeof alert !== 'undefined') {
-            alert(`[CSA SYNC DEBUG] Photo upload completed - imageId: ${item.imageId}, result: ${JSON.stringify(result)?.substring(0, 100)}`);
-          }
           break;
         default:
           throw new Error(`Unsupported entity type: ${image.entityType}`);
@@ -4148,10 +4123,6 @@ export class BackgroundSyncService {
       });
     } else if (image.entityType === 'csa') {
       console.log('[BackgroundSync] Emitting csaPhotoUploadComplete$ event');
-      // DEBUG ALERT
-      if (typeof alert !== 'undefined') {
-        alert(`[CSA SYNC DEBUG] Emitting csaPhotoUploadComplete$ - imageId: ${item.imageId}, attachId: ${attachId}, csaId: ${entityId}`);
-      }
       this.ngZone.run(() => {
         this.csaPhotoUploadComplete$.next({
           imageId: item.imageId,
