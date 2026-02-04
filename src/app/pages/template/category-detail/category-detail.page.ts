@@ -2583,8 +2583,19 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     item.answer = selectedOptions.join(', ');
     this.logDebug('OPTION', `Options for ${key}: ${item.answer}`);
 
-    // Save to backend
-    await this.saveMultiSelectAnswer(item, selectedOptions.length > 0);
+    // Update UI immediately before async save
+    this.changeDetectorRef.detectChanges();
+
+    // Save to backend with error handling
+    try {
+      await this.saveMultiSelectAnswer(item, selectedOptions.length > 0);
+      this.logDebug('OPTION', `Successfully saved option toggle to sync queue`);
+    } catch (error) {
+      console.error('[OPTION] Failed to save option toggle:', error);
+      await this.showToast('Failed to save selection', 'warning');
+    }
+
+    // Final change detection
     this.changeDetectorRef.detectChanges();
   }
 
@@ -2633,6 +2644,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
       // Select the new custom value
       selectedOptions.push(customValue);
+
+      // ANGULAR FIX: Force new array reference to trigger change detection for dropdown options
+      this.visualDropdownOptions[item.templateId] = [...options];
     }
 
     // Update the answer
@@ -2646,8 +2660,20 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
     this.logDebug('OTHER', `Added custom value: ${customValue}, answer: ${item.answer}`);
 
-    // Save to backend
-    await this.saveMultiSelectAnswer(item, true);
+    // ANGULAR FIX: Trigger change detection BEFORE async call to show UI changes immediately
+    this.changeDetectorRef.detectChanges();
+
+    // Save to backend with error handling
+    try {
+      await this.saveMultiSelectAnswer(item, true);
+      this.logDebug('OTHER', `Successfully saved custom value to sync queue`);
+    } catch (error) {
+      console.error('[OTHER] Failed to save custom value:', error);
+      // Show toast but don't revert - the value is still visible locally
+      await this.showToast('Failed to save custom option', 'warning');
+    }
+
+    // Final change detection
     this.changeDetectorRef.detectChanges();
   }
 

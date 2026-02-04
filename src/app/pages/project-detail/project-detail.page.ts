@@ -237,11 +237,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // Recalculate showDeliverablesTable based on restored services (for safety)
       if (this.isCompanyOne) {
+        // Admins: Always show the table if there are services
         this.showDeliverablesTable = this.selectedServices.length > 0;
       } else {
-        this.showDeliverablesTable = this.selectedServices.some(s =>
-          s.Status === 'Report Finalized' || s.ReportFinalized === true
-        );
+        // Clients: Only show if at least one service has StatusID = 5 (Complete)
+        this.showDeliverablesTable = this.selectedServices.some(s => s.StatusID === 5);
       }
 
       this.loading = false;
@@ -810,13 +810,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // Determine if we should show the Deliverables table
       if (this.isCompanyOne) {
-        // CompanyID = 1: Always show the table if there are services
+        // Admins: Always show the table if there are services
         this.showDeliverablesTable = this.selectedServices.length > 0;
       } else {
-        // Other companies: Only show if at least one service has "Report Finalized" status
-        this.showDeliverablesTable = this.selectedServices.some(s =>
-          s.Status === 'Report Finalized' || s.ReportFinalized === true
-        );
+        // Clients: Only show if at least one service has StatusID = 5 (Complete)
+        this.showDeliverablesTable = this.selectedServices.some(s => s.StatusID === 5);
       }
 
       // Load icon images AFTER selectedServices is populated (don't await - let it run async)
@@ -912,13 +910,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         // Determine if we should show the Deliverables table after services are loaded
         if (this.isCompanyOne) {
-          // CompanyID = 1: Always show the table if there are services
+          // Admins: Always show the table if there are services
           this.showDeliverablesTable = this.selectedServices.length > 0;
         } else {
-          // Other companies: Only show if at least one service has "Report Finalized" status
-          this.showDeliverablesTable = this.selectedServices.some(s =>
-            s.Status === 'Report Finalized' || s.ReportFinalized === true
-          );
+          // Clients: Only show if at least one service has StatusID = 5 (Complete)
+          this.showDeliverablesTable = this.selectedServices.some(s => s.StatusID === 5);
         }
 
         // Load icon images AFTER selectedServices is populated (don't await - let it run async)
@@ -2042,13 +2038,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   getDeliverablesServices(): ServiceSelection[] {
     if (this.isCompanyOne) {
-      // CompanyID = 1: Show all services
+      // CompanyID = 1 (Admins): Show all services at all stages
       return this.selectedServices;
     } else {
-      // Other companies: Only show services with "Report Finalized" status
-      return this.selectedServices.filter(s =>
-        s.Status === 'Report Finalized' || s.ReportFinalized === true
-      );
+      // Other companies (Clients): Only show services with StatusID = 5 (Complete)
+      return this.selectedServices.filter(s => s.StatusID === 5);
     }
   }
 

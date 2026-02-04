@@ -40,6 +40,7 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
   // Services cache - now stores array of service objects with status
   private servicesCache: { [projectId: string]: Array<{shortCode: string, status: string}> } = {};
   private serviceTypes: any[] = [];
+  private statusOptions: any[] = []; // LPS_Status records for StatusID -> Status_Client lookup
   private mutationSubscription?: Subscription;
 
   // WEBAPP: Track which project is being navigated to for loading feedback
@@ -211,12 +212,17 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
         });
         console.log('📦 Loaded projects:', this.projects.length);
         
-        // Load service types and then services
-        this.projectsService.getServiceTypes().subscribe({
-          next: (serviceTypes) => {
-            this.serviceTypes = serviceTypes || [];
+        // Load service types and status options in parallel, then services
+        forkJoin({
+          serviceTypes: this.projectsService.getServiceTypes(),
+          statusOptions: this.caspioService.get<any>('/tables/LPS_Status/records')
+        }).subscribe({
+          next: (results) => {
+            this.serviceTypes = results.serviceTypes || [];
+            this.statusOptions = results.statusOptions?.Result || [];
             console.log('📦 Loaded service types:', this.serviceTypes.length);
-            
+            console.log('📦 Loaded status options:', this.statusOptions.length);
+
             // Simple services loading for each project
             this.loadServicesSimple();
 
@@ -231,7 +237,7 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
             console.log(`🏁 Total loading time: ${elapsed.toFixed(2)}ms`);
           },
           error: (typeError) => {
-            console.error('Error loading service types:', typeError);
+            console.error('Error loading service types or status options:', typeError);
             this.loading = false;
             this.error = 'Failed to load service types';
             this.cdr.markForCheck();
@@ -318,7 +324,8 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
             const serviceObjects = projectServices.map((service: any) => {
               const serviceType = this.serviceTypes.find(t => t.TypeID === service.TypeID);
               const shortCode = serviceType?.TypeShort || serviceType?.TypeName || 'Unknown';
-              const status = service.Status || 'Not Started';
+              // Use StatusID to look up Status_Client for client-facing display
+              const status = this.getStatusClientById(service.StatusID) || service.Status || 'Not Started';
               return { shortCode, status };
             }).filter(obj => obj.shortCode && obj.shortCode !== 'Unknown');
 
@@ -379,6 +386,22 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     }
     
     return services.map(s => s.shortCode).join(', ');
+  }
+
+  /**
+   * Get Status_Client value by StatusID lookup (for client-facing display)
+   */
+  private getStatusClientById(statusId: number | undefined): string {
+    if (!statusId && statusId !== 0) {
+      return '';
+    }
+    // Use string comparison to handle potential type mismatches from Caspio API
+    const statusIdStr = String(statusId);
+    const statusRecord = this.statusOptions.find(s => String(s.StatusID) === statusIdStr);
+    if (statusRecord && statusRecord.Status_Client) {
+      return statusRecord.Status_Client;
+    }
+    return '';
   }
 
   getProjectImage(project: Project): string {

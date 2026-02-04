@@ -8002,7 +8002,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       const updateData: any = {
         StatusDateTime: currentDateTime,  // Always update timestamp to track when report was last modified
-        Status: statusAdminValue  // Use StatusAdmin value from Status table
+        Status: statusAdminValue,  // Use StatusAdmin value from Status table
+        StatusID: 8  // FK to LPS_Status.StatusID - 8 = Submitted (client sees "Under Review")
         // NOTE: StatusEng is NOT updated - it remains as "Created" (set when service was first created)
       };
 
