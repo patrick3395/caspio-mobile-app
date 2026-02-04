@@ -4,6 +4,7 @@ import { IonicModule } from '@ionic/angular';
 import { RouterModule, Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { DteStateService } from '../services/dte-state.service';
 import { DtePdfService } from '../services/dte-pdf.service';
+import { SyncStatusWidgetComponent } from '../../../components/sync-status-widget/sync-status-widget.component';
 import { OfflineDataCacheService } from '../../../services/offline-data-cache.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { OfflineService } from '../../../services/offline.service';
@@ -23,7 +24,7 @@ interface Breadcrumb {
   templateUrl: './dte-container.page.html',
   styleUrls: ['./dte-container.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, RouterModule]
+  imports: [CommonModule, IonicModule, RouterModule, SyncStatusWidgetComponent]
 })
 export class DteContainerPage implements OnInit {
   projectId: string = '';

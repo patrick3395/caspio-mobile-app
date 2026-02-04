@@ -492,7 +492,16 @@
                   </div>
                   <div class="detail-col">
                     <label>Autopay Day</label>
-                    <p>{{ company.AutopayDay ? (company.AutopayDay + getOrdinalSuffix(company.AutopayDay) + ' of each month') : 'Not set' }}</p>
+                    <select
+                      class="autopay-day-select"
+                      [ngModel]="company.AutopayDay || 1"
+                      (ngModelChange)="updateCompanyAutopayDay(company, $event)"
+                      [disabled]="!company.PayPalVaultToken">
+                      <option *ngFor="let day of getAutopayDayOptions()" [value]="day">
+                        {{ formatAutopayDay(day) }}
+                      </option>
+                    </select>
+                    <small *ngIf="!company.PayPalVaultToken" class="autopay-hint">Save payment method first</small>
                   </div>
                 </div>
                 <div class="detail-row">

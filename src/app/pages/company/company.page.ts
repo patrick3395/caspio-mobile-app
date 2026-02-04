@@ -3094,24 +3094,38 @@ export class CompanyPage implements OnInit, OnDestroy {
   async updateAutopayDay(day: number): Promise<void> {
     const company = this.clientCompany;
     if (!company) return;
+    await this.updateCompanyAutopayDay(company, day);
+  }
+
+  async updateCompanyAutopayDay(company: CompanyRecord, day: number): Promise<void> {
+    if (!company) return;
 
     try {
       await firstValueFrom(
         this.caspioService.put(
           `/tables/LPS_Companies/records?q.where=CompanyID=${company.CompanyID}`,
-          { AutopayDay: day }
+          { AutpayDay: day }
         )
       );
 
-      // Update local state
-      if (this.companies.length > 0) {
-        this.companies[0].AutopayDay = day;
+      // Update local state in companies array
+      const companyIndex = this.companies.findIndex(c => c.CompanyID === company.CompanyID);
+      if (companyIndex !== -1) {
+        this.companies[companyIndex].AutopayDay = day;
       }
 
-      await this.showToast('Payment day updated', 'success');
+      // Update in stageGroups if present
+      for (const group of this.stageGroups) {
+        const stageCompanyIndex = group.companies.findIndex(c => c.CompanyID === company.CompanyID);
+        if (stageCompanyIndex !== -1) {
+          group.companies[stageCompanyIndex].AutopayDay = day;
+        }
+      }
+
+      await this.showToast('Autopay day updated', 'success');
     } catch (error: any) {
       console.error('Error updating autopay day:', error);
-      await this.showToast('Failed to update payment day', 'danger');
+      await this.showToast('Failed to update autopay day', 'danger');
     }
   }
 
@@ -5046,7 +5060,7 @@ export class CompanyPage implements OnInit, OnDestroy {
         payload.AutopayEnabled = this.editingCompany.AutopayEnabled ? 1 : 0;
       }
       if (this.editingCompany.AutopayDay !== undefined && this.editingCompany.AutopayDay !== null) {
-        payload.AutopayDay = this.editingCompany.AutopayDay;
+        payload.AutpayDay = this.editingCompany.AutopayDay;
       }
 
       console.log('=== Company Update Debug Info ===');
@@ -5760,7 +5774,13 @@ export class CompanyPage implements OnInit, OnDestroy {
       Notes: raw.Notes ?? '',
       Franchise: Boolean(raw.Franchise),
       DateOnboarded: raw.DateOnboarded ?? '',
-      CCEmail: raw.CC_Email ?? raw.CCEmail ?? ''
+      CCEmail: raw.CC_Email ?? raw.CCEmail ?? '',
+      // Autopay fields (Caspio Yes/No fields return "Yes"/"No" or 1/0)
+      AutopayEnabled: raw.AutopayEnabled === true || raw.AutopayEnabled === 1 || raw.AutopayEnabled === 'Yes',
+      PayPalVaultToken: raw.PayPalVaultToken || undefined,
+      PayPalPayerID: raw.PayPalPayerID || undefined,
+      PayPalPayerEmail: raw.PayPalPayerEmail || undefined,
+      AutopayDay: raw.AutpayDay ? Number(raw.AutpayDay) : undefined
     };
   }
 

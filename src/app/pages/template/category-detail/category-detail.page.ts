@@ -3572,16 +3572,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     try {
       this.logDebug('VISUAL', `Creating visual record for ${category}_${itemId}`);
 
-      // DEBUG ALERT: Verify ensureVisualRecordExists is called for DTE
-      if (typeof window !== 'undefined' && (window as any).alert) {
-        (window as any).alert(`[ENSURE VISUAL DEBUG]
-template: ${this.config?.id}
-category: ${category}
-itemId: ${itemId}
-effectiveServiceId: ${this.actualServiceId || this.serviceId}
-config.tableName: ${this.config?.tableName}`);
-      }
-
       // Create visual record using template-specific data service
       // IMPORTANT: Use actualServiceId (the ServiceID field) for HUD/EFE, not route serviceId (which is PK_ID)
       const effectiveServiceId = this.actualServiceId || this.serviceId;
