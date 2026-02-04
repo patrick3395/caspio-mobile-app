@@ -1,6 +1,12 @@
 import { Injectable } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subject, Subscription } from 'rxjs';
 import { CaspioService } from '../../services/caspio.service';
+import { IndexedDbService } from '../../services/indexed-db.service';
+import { TempIdService } from '../../services/temp-id.service';
+import { BackgroundSyncService } from '../../services/background-sync.service';
+import { OfflineTemplateService } from '../../services/offline-template.service';
+import { OfflineService } from '../../services/offline.service';
+import { environment } from '../../../environments/environment';
 
 interface CacheEntry<T> {
   value: Promise<T>;
@@ -18,7 +24,35 @@ export class DteDataService {
   private hudCache = new Map<string, CacheEntry<any[]>>();
   private hudAttachmentsCache = new Map<string, CacheEntry<any[]>>();
 
-  constructor(private readonly caspioService: CaspioService) {}
+  // Event emitted when caches are invalidated - pages should reload their data
+  public cacheInvalidated$ = new Subject<{ serviceId?: string; reason: string }>();
+
+  private syncSubscriptions: Subscription[] = [];
+
+  constructor(
+    private readonly caspioService: CaspioService,
+    private readonly indexedDb: IndexedDbService,
+    private readonly tempId: TempIdService,
+    private readonly backgroundSync: BackgroundSyncService,
+    private readonly offlineTemplate: OfflineTemplateService,
+    private readonly offlineService: OfflineService
+  ) {
+    this.subscribeToSyncEvents();
+  }
+
+  /**
+   * Subscribe to BackgroundSyncService events and auto-invalidate caches
+   */
+  private subscribeToSyncEvents(): void {
+    // Subscribe to DTE-specific sync events
+    this.syncSubscriptions.push(
+      this.backgroundSync.dteSyncComplete$.subscribe(event => {
+        console.log('[DTE DataService] DTE synced, invalidating caches for service:', event.serviceId);
+        this.hudCache.clear();
+        this.cacheInvalidated$.next({ serviceId: event.serviceId, reason: 'dte_sync' });
+      })
+    );
+  }
 
   async getProject(projectId: string | null | undefined): Promise<any> {
     if (!projectId) {
@@ -185,34 +219,186 @@ export class DteDataService {
     return result;
   }
 
-  // Create HUD record (matching createVisual from foundation service)
-  async createVisual(hudData: any): Promise<any> {
-    console.log('[DTE Data] Creating HUD record:', hudData);
-    const result = await firstValueFrom(
-      this.caspioService.createServicesDTE(hudData)
-    );
+  // Create DTE record - OFFLINE-FIRST with background sync (matching LBW pattern)
+  async createVisual(dteData: any): Promise<any> {
+    // WEBAPP MODE: Create directly via API
+    if (environment.isWeb) {
+      console.log('[DTE Data] WEBAPP: Creating DTE record directly via API:', dteData);
+      try {
+        const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_DTE/records?response=rows`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(dteData)
+        });
 
-    // Clear cache for this service
-    if (hudData.ServiceID) {
-      this.hudCache.delete(String(hudData.ServiceID));
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to create DTE record: ${errorText}`);
+        }
+
+        const result = await response.json();
+        console.log('[DTE Data] WEBAPP: DTE record created:', result);
+
+        // Clear in-memory cache
+        if (dteData.ServiceID) {
+          this.hudCache.delete(String(dteData.ServiceID));
+        }
+
+        return {
+          ...dteData,
+          DTEID: result.Result?.[0]?.DTEID || result.Result?.[0]?.PK_ID,
+          PK_ID: result.Result?.[0]?.PK_ID || result.Result?.[0]?.DTEID,
+          ...result.Result?.[0]
+        };
+      } catch (error: any) {
+        console.error('[DTE Data] WEBAPP: ❌ Error creating DTE record:', error?.message || error);
+        throw error;
+      }
     }
 
-    return result;
+    // MOBILE MODE: Offline-first with background sync
+    console.log('[DTE Data] Creating new DTE record (OFFLINE-FIRST):', dteData);
+
+    // Generate temporary ID (using 'dte' prefix for DTE records)
+    const tempId = this.tempId.generateTempId('dte');
+
+    // Create placeholder for immediate UI
+    const placeholder = {
+      ...dteData,
+      DTEID: tempId,
+      PK_ID: tempId,
+      _tempId: tempId,
+      _localOnly: true,
+      _syncing: true,
+      _createdAt: Date.now(),
+    };
+
+    // Store in IndexedDB for background sync
+    await this.indexedDb.addPendingRequest({
+      type: 'CREATE',
+      tempId: tempId,
+      endpoint: '/api/caspio-proxy/tables/LPS_Services_DTE/records?response=rows',
+      method: 'POST',
+      data: dteData,
+      dependencies: [],
+      status: 'pending',
+      priority: 'high',
+    });
+
+    // CRITICAL: Cache placeholder to 'dte' cache for Dexie-first pattern
+    const serviceIdStr = String(dteData.ServiceID);
+    const existingDteRecords = await this.indexedDb.getCachedServiceData(serviceIdStr, 'dte') || [];
+    await this.indexedDb.cacheServiceData(serviceIdStr, 'dte', [...existingDteRecords, placeholder]);
+    console.log('[DTE Data] ✅ Cached DTE placeholder to Dexie:', tempId);
+
+    // Clear in-memory cache
+    if (dteData.ServiceID) {
+      this.hudCache.delete(String(dteData.ServiceID));
+    }
+
+    // Trigger sync on interval (batched sync)
+    console.log('[DTE Data] ✅ DTE record queued for sync with tempId:', tempId);
+
+    return placeholder;
   }
 
-  // Update HUD record (for hiding/unhiding without deleting)
-  async updateVisual(DTEID: string, updateData: any): Promise<any> {
-    console.log('[DTE Data] Updating HUD record:', DTEID, 'Data:', updateData);
-    const result = await firstValueFrom(
-      this.caspioService.updateServicesDTE(DTEID, updateData)
-    );
+  // Update DTE record - OFFLINE-FIRST with background sync
+  async updateVisual(dteId: string, updateData: any, serviceId?: string): Promise<any> {
+    // WEBAPP MODE: Update directly via API
+    if (environment.isWeb) {
+      console.log('[DTE Data] WEBAPP: Updating DTE record directly via API:', dteId, updateData);
 
-    // CRITICAL: Clear BOTH caches to ensure fresh data on next load
-    // The hudCache stores DTE records by ServiceID - must be cleared when any record is updated
+      try {
+        const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_DTE/records?q.where=DTEID=${dteId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updateData)
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to update DTE record: ${errorText}`);
+        }
+
+        console.log('[DTE Data] WEBAPP: DTE record updated:', dteId);
+
+        // Clear in-memory cache
+        this.hudCache.clear();
+
+        return { success: true, dteId, ...updateData };
+      } catch (error: any) {
+        console.error('[DTE Data] WEBAPP: Error updating DTE record:', error?.message || error);
+        throw error;
+      }
+    }
+
+    // MOBILE MODE: Offline-first
+    console.log('[DTE Data] Updating DTE record (OFFLINE-FIRST):', dteId, updateData);
+
+    const isTempId = String(dteId).startsWith('temp_');
+
+    // OFFLINE-FIRST: Update 'dte' cache immediately, queue for sync
+    if (serviceId) {
+      if (isTempId) {
+        // Update pending request data
+        await this.indexedDb.updatePendingRequestData(dteId, updateData);
+        console.log('[DTE Data] Updated pending request:', dteId);
+      } else {
+        // Queue update for sync
+        await this.indexedDb.addPendingRequest({
+          type: 'UPDATE',
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_DTE/records?q.where=DTEID=${dteId}`,
+          method: 'PUT',
+          data: updateData,
+          dependencies: [],
+          status: 'pending',
+          priority: 'normal',
+        });
+        console.log('[DTE Data] Queued update for sync:', dteId);
+      }
+
+      // Update 'dte' cache with _localUpdate flag to preserve during background refresh
+      const existingDteRecords = await this.indexedDb.getCachedServiceData(serviceId, 'dte') || [];
+      let matchFound = false;
+      const updatedRecords = existingDteRecords.map((v: any) => {
+        // Check BOTH PK_ID, DTEID, and _tempId since API may return any of these
+        const vId = String(v.DTEID || v.PK_ID || v._tempId || '');
+        if (vId === dteId) {
+          matchFound = true;
+          return { ...v, ...updateData, _localUpdate: true };
+        }
+        return v;
+      });
+
+      if (!matchFound && isTempId) {
+        // For temp IDs not in cache, add a new record
+        updatedRecords.push({ ...updateData, _tempId: dteId, PK_ID: dteId, DTEID: dteId, _localUpdate: true });
+        console.log('[DTE Data] Added temp record to dte cache:', dteId);
+      }
+
+      await this.indexedDb.cacheServiceData(serviceId, 'dte', updatedRecords);
+      console.log(`[DTE Data] Updated 'dte' cache, matchFound=${matchFound}:`, dteId);
+    } else {
+      // If no serviceId, still queue for sync but skip cache update
+      if (!isTempId) {
+        await this.indexedDb.addPendingRequest({
+          type: 'UPDATE',
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_DTE/records?q.where=DTEID=${dteId}`,
+          method: 'PUT',
+          data: updateData,
+          dependencies: [],
+          status: 'pending',
+          priority: 'normal',
+        });
+        console.log('[DTE Data] Queued update for sync (no serviceId):', dteId);
+      }
+    }
+
+    // Clear in-memory cache
     this.hudCache.clear();
     this.hudAttachmentsCache.clear();
     console.log('[DTE Data] Cleared hudCache and hudAttachmentsCache after update');
 
-    return result;
+    return { success: true, dteId, ...updateData };
   }
 }

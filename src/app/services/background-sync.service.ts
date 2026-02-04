@@ -78,6 +78,19 @@ export interface LbwSyncComplete {
   operation: 'create' | 'update' | 'delete';
 }
 
+export interface DtePhotoUploadComplete {
+  imageId: string;
+  attachId: string;
+  s3Key: string;
+  dteId: string;
+}
+
+export interface DteSyncComplete {
+  serviceId: string;
+  dteId: string;
+  operation: 'create' | 'update' | 'delete';
+}
+
 export interface SyncStatus {
   isSyncing: boolean;
   pendingCount: number;
@@ -150,6 +163,10 @@ export class BackgroundSyncService {
   // LBW sync events - pages can subscribe to update UI when LBW data syncs
   public lbwSyncComplete$ = new Subject<LbwSyncComplete>();
   public lbwPhotoUploadComplete$ = new Subject<LbwPhotoUploadComplete>();
+
+  // DTE sync events - pages can subscribe to update UI when DTE data syncs
+  public dteSyncComplete$ = new Subject<DteSyncComplete>();
+  public dtePhotoUploadComplete$ = new Subject<DtePhotoUploadComplete>();
 
   // ==========================================================================
   // HUD SERVICES - Lazy loaded to avoid circular dependencies
@@ -1222,6 +1239,65 @@ export class BackgroundSyncService {
               });
             });
           }
+        } else if (request.endpoint.includes('Services_DTE') && !request.endpoint.includes('Attach')) {
+          // For DTE records, use DTEID (or PK_ID as fallback)
+          if (result && result.DTEID) {
+            realId = result.DTEID;
+          } else if (result && result.PK_ID) {
+            realId = result.PK_ID;
+          } else if (result && result.Result && result.Result[0]) {
+            realId = result.Result[0].DTEID || result.Result[0].PK_ID;
+          }
+
+          // Update IndexedDB 'dte' cache and emit sync complete event
+          if (realId) {
+            const serviceId = String(request.data?.ServiceID || '');
+
+            // Update the IndexedDB cache to replace temp ID with real DTE data
+            if (serviceId) {
+              const existingDte = await this.indexedDb.getCachedServiceData(serviceId, 'dte') || [];
+              const dteData = result.Result?.[0] || result;
+
+              // Find and update the DTE record with temp ID, or add new if not found
+              let dteUpdated = false;
+              const updatedDte = existingDte.map((d: any) => {
+                if (d._tempId === request.tempId || d.DTEID === request.tempId || d.PK_ID === request.tempId) {
+                  dteUpdated = true;
+                  return {
+                    ...d,
+                    ...dteData,
+                    DTEID: realId,
+                    PK_ID: realId,
+                    _tempId: undefined,
+                    _localOnly: undefined,
+                    _syncing: undefined
+                  };
+                }
+                return d;
+              });
+
+              // If DTE record wasn't in cache (shouldn't happen but just in case), add it
+              if (!dteUpdated && dteData) {
+                updatedDte.push({
+                  ...dteData,
+                  DTEID: realId,
+                  PK_ID: realId
+                });
+              }
+
+              await this.indexedDb.cacheServiceData(serviceId, 'dte', updatedDte);
+              console.log(`[BackgroundSync] ✅ Updated DTE cache for service ${serviceId}: temp ${request.tempId} -> real ${realId}`);
+            }
+
+            // Emit sync complete event for DTE
+            this.ngZone.run(() => {
+              this.dteSyncComplete$.next({
+                serviceId: String(request.data?.ServiceID || ''),
+                dteId: String(realId),
+                operation: 'create'
+              });
+            });
+          }
         } else {
           // For other tables, use PK_ID
           if (result && result.PK_ID) {
@@ -1312,6 +1388,15 @@ export class BackgroundSyncService {
               const serviceId = request.data?.ServiceID;
               console.log(`[BackgroundSync] LBW UPDATE synced for LBWID ${lbwId}, clearing _localUpdate flag`);
               await this.clearLbwLocalUpdateFlag(lbwId, serviceId);
+            }
+          } else if (request.endpoint.includes('LPS_Services_DTE/records') && !request.endpoint.includes('Attach')) {
+            // Clear _localUpdate flag from DTE cache after successful update
+            const dteMatch = request.endpoint.match(/DTEID=(\d+)/);
+            if (dteMatch) {
+              const dteId = dteMatch[1];
+              const serviceId = request.data?.ServiceID;
+              console.log(`[BackgroundSync] DTE UPDATE synced for DTEID ${dteId}, clearing _localUpdate flag`);
+              await this.clearDteLocalUpdateFlag(dteId, serviceId);
             }
           }
         }
@@ -3034,6 +3119,64 @@ export class BackgroundSyncService {
       console.log(`[BackgroundSync] LBW ${lbwId} not found in any cache (may already be cleared)`);
     } catch (error) {
       console.warn(`[BackgroundSync] Error clearing _localUpdate flag for LBW ${lbwId}:`, error);
+    }
+  }
+
+  private async clearDteLocalUpdateFlag(dteId: string, serviceId?: string): Promise<void> {
+    try {
+      // Helper to check if DTE record matches by DTEID or PK_ID
+      const matchesDte = (d: any) => {
+        return (String(d.DTEID) === String(dteId) || String(d.PK_ID) === String(dteId)) && d._localUpdate;
+      };
+
+      // If we have the serviceId, update directly
+      if (serviceId) {
+        const dteRecords = await this.indexedDb.getCachedServiceData(String(serviceId), 'dte') || [];
+        let found = false;
+
+        const updatedDte = dteRecords.map((d: any) => {
+          if (matchesDte(d)) {
+            found = true;
+            // Remove the _localUpdate flag - the data is now synced
+            const { _localUpdate, ...rest } = d;
+            return rest;
+          }
+          return d;
+        });
+
+        if (found) {
+          await this.indexedDb.cacheServiceData(String(serviceId), 'dte', updatedDte);
+          console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for DTE ${dteId} in service ${serviceId}`);
+          return;
+        }
+      }
+
+      // Otherwise search all services for this DTE record
+      const allCaches = await this.indexedDb.getAllCachedServiceData('dte');
+
+      for (const cache of allCaches) {
+        const dteRecords = cache.data || [];
+        let found = false;
+
+        const updatedDte = dteRecords.map((d: any) => {
+          if (matchesDte(d)) {
+            found = true;
+            const { _localUpdate, ...rest } = d;
+            return rest;
+          }
+          return d;
+        });
+
+        if (found) {
+          await this.indexedDb.cacheServiceData(cache.serviceId, 'dte', updatedDte);
+          console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for DTE ${dteId} in ${cache.serviceId}`);
+          return;
+        }
+      }
+
+      console.log(`[BackgroundSync] DTE ${dteId} not found in any cache (may already be cleared)`);
+    } catch (error) {
+      console.warn(`[BackgroundSync] Error clearing _localUpdate flag for DTE ${dteId}:`, error);
     }
   }
 

@@ -283,7 +283,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     // or: template/:projectId/:serviceId/structural/category/:category (for EFE)
 
     const currentParams = this.route.snapshot?.params || {};
-    this.categoryName = currentParams['category'] || '';
+    // CRITICAL: Decode URL-encoded category names for proper display and matching
+    const rawCategory = currentParams['category'] || '';
+    this.categoryName = rawCategory ? decodeURIComponent(rawCategory) : '';
 
     // Traverse up to find projectId and serviceId
     let currentRoute = this.route.snapshot;

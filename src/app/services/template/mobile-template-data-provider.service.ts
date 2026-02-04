@@ -121,8 +121,10 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
           records = fields.map(f => this.mapDteFieldToVisualRecord(f));
           hasPending = fields.some(f => !!f.tempDteId && !f.dteId);
         } else {
-          const cached = await this.indexedDb.getCachedServiceData(serviceId, 'dte');
-          records = (cached || []).map(r => this.mapToVisualRecord(config, r));
+          // Use getDteByService to include pending records from sync queue
+          const dteRecords = await this.offlineTemplate.getDteByService(serviceId);
+          records = dteRecords.map(r => this.mapToVisualRecord(config, r));
+          hasPending = dteRecords.some(r => r._localOnly);
         }
         break;
     }
