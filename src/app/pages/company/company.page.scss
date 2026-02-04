@@ -832,28 +832,28 @@ ion-content {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 12px 20px;
-      background: linear-gradient(135deg, #f15a27 0%, #e04d1a 100%);
-      color: white;
-      border: none;
-      border-radius: 10px;
+      padding: 10px 16px;
+      background: transparent;
+      color: #333;
+      border: 1px solid #ddd;
+      border-radius: 8px;
       font-size: 0.9rem;
-      font-weight: 600;
+      font-weight: 500;
       cursor: pointer;
       transition: all 0.2s ease;
-      box-shadow: 0 2px 8px rgba(241, 90, 39, 0.3);
 
       ion-icon {
-        font-size: 20px;
+        font-size: 18px;
+        color: #666;
       }
 
       &:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 16px rgba(241, 90, 39, 0.4);
+        background: #f5f5f5;
+        border-color: #ccc;
       }
 
       &:active {
-        transform: translateY(0);
+        background: #eee;
       }
     }
   }

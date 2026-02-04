@@ -266,6 +266,18 @@ export class IndexedDbService {
     await db.pendingRequests.add(fullRequest);
     console.log('[IndexedDB] Request added:', requestId, 'type:', request.type);
 
+    // DEBUG ALERT: Verify requests are actually added to Dexie
+    const pendingCount = await db.pendingRequests.where('status').equals('pending').count();
+    const syncingCount = await db.pendingRequests.where('status').equals('syncing').count();
+    if (typeof window !== 'undefined' && (window as any).alert) {
+      (window as any).alert(`[INDEXED DB addPendingRequest]
+requestId: ${requestId}
+type: ${request.type}
+endpoint: ${request.endpoint?.substring(0, 60)}
+AFTER ADD - pending: ${pendingCount}, syncing: ${syncingCount}
+Total in queue: ${pendingCount + syncingCount}`);
+    }
+
     // Emit sync queue change to reset rolling sync window
     this.emitSyncQueueChange(`pending_request:${request.type}`);
 

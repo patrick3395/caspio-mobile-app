@@ -62,6 +62,15 @@ export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
     this.liveQuerySubscription = db.liveSyncStats$().pipe(
       debounceTime(300) // Prevent rapid-fire updates
     ).subscribe(stats => {
+      // DEBUG ALERT: Verify sync widget receives the data
+      if (typeof window !== 'undefined' && (window as any).alert && stats.pending > 0) {
+        (window as any).alert(`[SYNC WIDGET received]
+pending: ${stats.pending}
+failed: ${stats.failed}
+synced: ${stats.synced}
+Widget SHOULD update now!`);
+      }
+
       this.ngZone.run(() => {
         // Only update if different to avoid unnecessary change detection
         if (this.syncStatus.pendingCount !== stats.pending ||

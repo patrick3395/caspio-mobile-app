@@ -811,6 +811,15 @@ export class CaspioDB extends Dexie {
         this.pendingCaptions.where('status').equals('failed').count()
       ]);
 
+      // DEBUG LOG: Verify liveQuery is returning correct counts
+      console.log('[LIVE SYNC STATS]', {
+        pendingRequests,
+        syncingRequests,
+        uploadOutbox,
+        pendingCaptions,
+        total: pendingRequests + syncingRequests + pendingCaptions + uploadOutbox
+      });
+
       // FIX: Include BOTH 'pending' AND 'syncing' requests in the pending count
       // Previously only counted 'pending', which caused items to disappear from
       // sync widget as soon as sync started (status changed to 'syncing')

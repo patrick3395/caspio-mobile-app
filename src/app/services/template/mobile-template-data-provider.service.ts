@@ -267,6 +267,15 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
   }
 
   async createVisual(config: TemplateConfig, visual: Partial<VisualRecord>): Promise<VisualRecord> {
+    // DEBUG ALERT: Verify MobileTemplateDataProvider receives DTE requests
+    if (typeof window !== 'undefined' && (window as any).alert) {
+      (window as any).alert(`[MOBILE PROVIDER createVisual]
+config.id: ${config.id}
+config.tableName: ${config.tableName}
+visual.serviceId: ${visual.serviceId}
+About to call addPendingRequest...`);
+    }
+
     const tempId = this.tempIdService.generateTempId(config.id);
 
     const record: VisualRecord = {
