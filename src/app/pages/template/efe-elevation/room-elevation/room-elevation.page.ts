@@ -4661,6 +4661,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         itemId: this.roomId,
         photoType: photoType,
         skipAnnotator: true,  // Elevation plot photos don't use annotator on capture
+        galleryLimit: 1,      // Only allow one photo per FDF slot
         onTempPhotoAdded: (photo: StandardPhotoEntry) => {
           this.handleFDFPhotoAdded(photo, photoType);
         },
@@ -5643,6 +5644,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         itemId: pointId,
         photoType: photoType,
         skipAnnotator: true,  // Elevation plot photos don't use annotator on capture
+        galleryLimit: 1,      // Only allow one photo per point photo slot
         onTempPhotoAdded: (photo: StandardPhotoEntry) => {
           this.handlePointPhotoAdded(point, photo, photoType);
         },

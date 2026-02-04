@@ -31,6 +31,9 @@ export interface PhotoCaptureConfig {
   // Optional: Skip annotator for gallery multi-select
   skipAnnotator?: boolean;
 
+  // Optional: Limit gallery selection to N photos (0 = unlimited, default)
+  galleryLimit?: number;
+
   // Optional: Pre-expand photos section
   onExpandPhotos?: () => void;
 }
@@ -227,7 +230,7 @@ export class PhotoHandlerService {
       // 1. Pick images from gallery
       const images = await Camera.pickImages({
         quality: 85,  // Match camera quality for consistency
-        limit: 0      // No limit on number of photos
+        limit: config.galleryLimit || 0  // 0 = unlimited
       });
 
       if (!images.photos || images.photos.length === 0) {

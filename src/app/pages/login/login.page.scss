@@ -149,11 +149,19 @@
     --color: #333;
     caret-color: #000 !important;
     --background: transparent;
-    --highlight-color: transparent !important;
     --highlight-color-focused: transparent !important;
     --highlight-color-valid: transparent !important;
     --highlight-color-invalid: transparent !important;
     --highlight-height: 0 !important;
+
+    // Kill the orange outline from the global [tabindex]:focus-visible rule
+    outline: none !important;
+
+    &:focus,
+    &:focus-within,
+    &:focus-visible {
+      outline: none !important;
+    }
   }
 
   // CRITICAL: Override all browser autofill styling
@@ -295,39 +303,3 @@
   }
 }
 
-// Force-remove Ionic's orange highlight bars inside Shadow DOM
-:host ::ng-deep {
-  .input-item ion-input {
-    --highlight-color: transparent !important;
-    --highlight-color-focused: transparent !important;
-    --highlight-color-valid: transparent !important;
-    --highlight-color-invalid: transparent !important;
-    --highlight-height: 0px !important;
-
-    .input-highlight {
-      display: none !important;
-    }
-
-    .input-bottom {
-      display: none !important;
-    }
-
-    .native-input {
-      caret-color: #000 !important;
-    }
-  }
-
-  .input-item {
-    --highlight-color-focused: transparent !important;
-    --highlight-color-valid: transparent !important;
-    --highlight-color-invalid: transparent !important;
-    --highlight-height: 0px !important;
-    --show-full-highlight: 0 !important;
-    --show-inset-highlight: 0 !important;
-
-    .item-highlight,
-    .item-inner-highlight {
-      display: none !important;
-    }
-  }
-}

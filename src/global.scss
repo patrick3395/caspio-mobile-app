@@ -3477,9 +3477,11 @@ body.dark-theme {
     outline-offset: 2px !important;
   }
 
-  /* Inputs have no focus outline */
+  /* Inputs have no focus outline - includes ion-input host which has tabindex for keyboard nav */
   input:focus-visible,
-  textarea:focus-visible {
+  textarea:focus-visible,
+  ion-input:focus-visible,
+  ion-textarea:focus-visible {
     outline: none !important;
   }
 
@@ -3517,38 +3519,9 @@ body.dark-theme {
     --highlight-color: transparent;
   }
 
-  /* Login page: Remove all highlight bars - uses border-color change instead */
-  .login-content ion-input:focus-within,
-  .login-content ion-input {
-    --highlight-color: transparent !important;
-    --highlight-color-focused: transparent !important;
-    --highlight-color-valid: transparent !important;
-    --highlight-color-invalid: transparent !important;
-    --highlight-height: 0 !important;
-  }
-
   ion-input.has-focus,
   ion-textarea.has-focus {
     outline: none !important;
-  }
-
-  /* Login page: No outline on inputs - uses container border instead */
-  .login-content ion-input.has-focus {
-    outline: none !important;
-  }
-
-  /* Login page: Hide the actual highlight bar DOM elements */
-  .login-content .input-highlight,
-  .login-content .input-bottom,
-  .login-content ion-input .input-highlight,
-  .login-content ion-input .input-bottom,
-  .login-content .native-wrapper::after,
-  .login-content .native-wrapper::before {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    height: 0 !important;
-    background: transparent !important;
   }
 
   /* Card and list items that are interactive */
@@ -3638,24 +3611,10 @@ body.dark-theme {
   }
 }
 
-/* Login page: Kill all Ionic orange highlight bars on inputs */
-.login-content ion-item,
-.login-content ion-item.input-item,
-.login-content ion-item.item-interactive {
+/* Login page: Remove focus outline from inputs (highlight vars handled in component) */
+.login-content ion-input {
+  outline: none !important;
   --highlight-color-focused: transparent !important;
-  --highlight-color-valid: transparent !important;
-  --highlight-color-invalid: transparent !important;
-  --highlight-height: 0px !important;
-  --show-full-highlight: 0 !important;
-  --show-inset-highlight: 0 !important;
-}
-
-.login-content ion-input,
-.login-content ion-input.has-focus {
-  --highlight-color: transparent !important;
-  --highlight-color-focused: transparent !important;
-  --highlight-color-valid: transparent !important;
-  --highlight-color-invalid: transparent !important;
   --highlight-height: 0px !important;
 }
 
