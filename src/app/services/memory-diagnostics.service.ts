@@ -34,8 +34,8 @@ interface StorageStats {
 }
 
 // Storage thresholds for mobile devices
-const STORAGE_WARNING_MB = 45;   // Show warning at 45MB (TEST)
-const STORAGE_CRITICAL_MB = 150; // Critical warning at 150MB
+const STORAGE_WARNING_MB = 1000;  // Show warning at 1 GB
+const STORAGE_CRITICAL_MB = 2000; // Critical warning at 2 GB
 
 /**
  * Memory Diagnostics Service

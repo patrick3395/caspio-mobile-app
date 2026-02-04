@@ -4493,7 +4493,7 @@ export class BackgroundSyncService {
    * @returns Object with arrays of purged and skipped service IDs
    */
   async hardPurgeInactiveServices(): Promise<{ purged: string[]; skipped: string[] }> {
-    const PURGE_AFTER_MS = 1 * 60 * 60 * 1000; // 1 hour - TESTING (was 2 days)
+    const PURGE_AFTER_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
     const cutoff = Date.now() - PURGE_AFTER_MS;
 
     const purged: string[] = [];
