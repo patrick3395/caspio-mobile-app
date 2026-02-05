@@ -2,7 +2,7 @@ import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 
 // Eager load all components for offline support (no lazy loading = no ChunkLoadError offline)
-import { LbwContainerPage } from './lbw-container/lbw-container.page';
+import { LbwContainerPage } from '../template/containers/lbw-container/lbw-container.page';
 import { LbwMainPage } from './lbw-main/lbw-main.page';
 import { LbwProjectDetailsPage } from './lbw-project-details/lbw-project-details.page';
 import { LbwCategoriesPage } from './lbw-categories/lbw-categories.page';

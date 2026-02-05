@@ -1,11 +1,13 @@
-import { Component, OnInit, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
-import { Router, ActivatedRoute } from '@angular/router';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
+import { Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
 import { AlertController } from '@ionic/angular';
 import { environment } from '../../../environments/environment';
 import { PlatformDetectionService } from '../../services/platform-detection.service';
 import { PageTitleService } from '../../services/page-title.service';
+import { Subscription } from 'rxjs';
+import { filter } from 'rxjs/operators';
 
 /**
  * G2-PERF-003: OnPush change detection for performance optimization (web only)
@@ -19,7 +21,7 @@ import { PageTitleService } from '../../services/page-title.service';
   standalone: false,
   changeDetection: environment.isWeb ? ChangeDetectionStrategy.OnPush : ChangeDetectionStrategy.Default
 })
-export class AllProjectsPage implements OnInit {
+export class AllProjectsPage implements OnInit, OnDestroy {
   projects: Project[] = [];
   filteredProjects: Project[] = [];
   completedProjects: Project[] = [];
@@ -38,6 +40,7 @@ export class AllProjectsPage implements OnInit {
   // Services cache
   private servicesCache: { [projectId: string]: string } = {};
   private serviceTypes: any[] = [];
+  private routerSubscription?: Subscription;
 
   // Get current user info
   getUserInfo(): string {
@@ -71,8 +74,26 @@ export class AllProjectsPage implements OnInit {
         console.error('Error parsing user data:', e);
       }
     }
-    
+
+    // WEBAPP: Router events as reliable reload trigger (ionViewWillEnter may not fire
+    // when returning from outside-tabs routes back into the tabs context)
+    if (environment.isWeb) {
+      this.routerSubscription = this.router.events.pipe(
+        filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+        filter(event => event.urlAfterRedirects.includes('/tabs/all-projects'))
+      ).subscribe(() => {
+        this.selectingProjectId = null;
+        this.checkAuthAndLoadProjects();
+      });
+    }
+
     this.checkAuthAndLoadProjects();
+  }
+
+  ngOnDestroy() {
+    if (this.routerSubscription) {
+      this.routerSubscription.unsubscribe();
+    }
   }
 
   ionViewWillEnter() {

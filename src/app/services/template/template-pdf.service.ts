@@ -177,6 +177,8 @@ export class TemplatePdfService {
           recordsData = results[1];
           elevationData = config.features.hasElevationPlot ? results[2] : [];
 
+          console.log(`[PDF DEBUG] After Promise.all - projectInfo exists: ${!!projectInfo}, recordsData length: ${recordsData?.length ?? 'null'}, elevationData length: ${elevationData?.length ?? 'null'}`);
+
           // Cache for faster subsequent loads
           this.cache.set(cacheKey, {
             recordsData, elevationData, projectInfo
@@ -209,6 +211,11 @@ export class TemplatePdfService {
       updateProgress(85, 'Preparing PDF document...');
 
       const serviceName = this.serviceDisplayNames[config.id] || config.displayName;
+
+      console.log(`[PDF DEBUG] Creating modal with: structuralData=${recordsData?.length ?? 'null'} items, elevationData=${elevationData?.length ?? 'null'} items, serviceName="${serviceName}"`);
+      if (recordsData && recordsData.length > 0) {
+        console.log(`[PDF DEBUG] First category: name="${recordsData[0].name}", comments=${recordsData[0].comments?.length}, limitations=${recordsData[0].limitations?.length}, deficiencies=${recordsData[0].deficiencies?.length}`);
+      }
 
       const modal = await this.modalController.create({
         component: PdfPreviewComponent,
@@ -351,10 +358,19 @@ export class TemplatePdfService {
   private async prepareRecordsData(config: TemplateConfig, serviceId: string): Promise<any[]> {
     const result: any[] = [];
 
+    console.log(`[PDF DEBUG] prepareRecordsData called - config.id: ${config.id}, serviceId: ${serviceId}, idFieldName: ${config.idFieldName}`);
+
     // Get all records for this service, bypassing cache for fresh data
     const allRecords = await this.getRecords(config, serviceId);
 
+    console.log(`[PDF DEBUG] getRecords returned ${allRecords?.length ?? 'null/undefined'} records`);
+    if (allRecords && allRecords.length > 0) {
+      console.log(`[PDF DEBUG] First record keys:`, Object.keys(allRecords[0]));
+      console.log(`[PDF DEBUG] First record Category: "${allRecords[0].Category}", Kind: "${allRecords[0].Kind}", Name: "${allRecords[0].Name}"`);
+    }
+
     if (!allRecords || allRecords.length === 0) {
+      console.warn(`[PDF DEBUG] No records found! Returning empty array.`);
       return result;
     }
 
@@ -625,18 +641,35 @@ export class TemplatePdfService {
   // ─── Data Dispatchers ──────────────────────────────────────────────
 
   private async getRecords(config: TemplateConfig, serviceId: string): Promise<any[]> {
-    switch (config.id) {
-      case 'hud':
-        return this.hudData.getHudByService(serviceId);
-      case 'efe':
-        return this.efeData.getVisualsByService(serviceId);
-      case 'dte':
-        return this.dteData.getVisualsByService(serviceId, true);
-      case 'lbw':
-        return this.lbwData.getVisualsByService(serviceId, true);
-      default:
-        console.warn(`[PDF] Unknown template: ${config.id}`);
-        return [];
+    console.log(`[PDF DEBUG] getRecords dispatching for config.id="${config.id}", serviceId="${serviceId}"`);
+    try {
+      let records: any[];
+      switch (config.id) {
+        case 'hud':
+          console.log(`[PDF DEBUG] Calling hudData.getHudByService(${serviceId})`);
+          records = await this.hudData.getHudByService(serviceId);
+          break;
+        case 'efe':
+          console.log(`[PDF DEBUG] Calling efeData.getVisualsByService(${serviceId})`);
+          records = await this.efeData.getVisualsByService(serviceId);
+          break;
+        case 'dte':
+          console.log(`[PDF DEBUG] Calling dteData.getVisualsByService(${serviceId}, true)`);
+          records = await this.dteData.getVisualsByService(serviceId, true);
+          break;
+        case 'lbw':
+          console.log(`[PDF DEBUG] Calling lbwData.getVisualsByService(${serviceId}, true)`);
+          records = await this.lbwData.getVisualsByService(serviceId, true);
+          break;
+        default:
+          console.warn(`[PDF] Unknown template: ${config.id}`);
+          return [];
+      }
+      console.log(`[PDF DEBUG] Data service returned ${records?.length ?? 'null/undefined'} records`);
+      return records;
+    } catch (error) {
+      console.error(`[PDF DEBUG] getRecords ERROR for ${config.id}:`, error);
+      throw error;
     }
   }
 

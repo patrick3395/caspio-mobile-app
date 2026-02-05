@@ -2,7 +2,7 @@ import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 
 // Eager load all components for offline support (no lazy loading = no ChunkLoadError offline)
-import { HudContainerPage } from './hud-container/hud-container.page';
+import { HudContainerPage } from '../template/containers/hud-container/hud-container.page';
 import { HudMainPage } from './hud-main/hud-main.page';
 import { HudProjectDetailsPage } from './hud-project-details/hud-project-details.page';
 // Use generic category-detail page (Dexie-first consolidation)

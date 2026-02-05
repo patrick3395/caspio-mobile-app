@@ -132,6 +132,34 @@
       </div>
     </div>
     <div *ngIf="selectedTab === 'company'" class="tab-content company-tab">
+
+      <!-- Phone Settings (mobile only) -->
+      <div *ngIf="!isWeb" class="collapsible-section phone-settings-section" style="margin-bottom: 16px;">
+        <div class="collapsible-header" (click)="phoneSettingsExpanded = !phoneSettingsExpanded">
+          <div class="collapsible-title">
+            <ion-icon [name]="phoneSettingsExpanded ? 'chevron-down' : 'chevron-forward'"></ion-icon>
+            <ion-icon name="phone-portrait-outline" class="section-icon"></ion-icon>
+            <h3>Phone Settings</h3>
+          </div>
+        </div>
+        <div class="collapsible-content" [class.expanded]="phoneSettingsExpanded">
+          <div class="phone-setting-row">
+            <div class="phone-setting-info">
+              <ion-icon name="images-outline"></ion-icon>
+              <div>
+                <span class="phone-setting-label">Save to Camera Roll</span>
+                <span class="phone-setting-desc">Save a backup copy of captured photos to your device gallery</span>
+              </div>
+            </div>
+            <ion-toggle
+              [checked]="saveToGalleryEnabled"
+              (ionChange)="toggleSaveToGallery()"
+              mode="ios">
+            </ion-toggle>
+          </div>
+        </div>
+      </div>
+
       <div class="section-header">
         <div>
           <h3>Company Information</h3>

@@ -1994,6 +1994,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // Update local service object
       service.Deliverable = filePath;
+      this.changeDetectorRef.markForCheck();
 
       await this.showToast('Deliverable uploaded successfully', 'success');
     } catch (error) {
@@ -2005,6 +2006,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       }
       // Clear file input
       event.target.value = '';
+      this.changeDetectorRef.markForCheck();
     }
   }
 

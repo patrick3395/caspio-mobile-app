@@ -2,7 +2,7 @@ import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 
 // Eager load all components for offline support (no lazy loading = no ChunkLoadError offline)
-import { EngineersFoundationContainerPage } from './engineers-foundation-container/engineers-foundation-container.page';
+import { EngineersFoundationContainerPage } from '../template/containers/efe-container/engineers-foundation-container.page';
 import { EngineersFoundationMainPage } from './engineers-foundation-main/engineers-foundation-main.page';
 import { ProjectDetailsPage } from './project-details/project-details.page';
 import { StructuralSystemsHubPage } from './structural-systems/structural-systems-hub/structural-systems-hub.page';

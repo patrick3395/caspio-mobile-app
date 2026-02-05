@@ -2,15 +2,15 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { RouterModule, Router, ActivatedRoute, NavigationEnd } from '@angular/router';
-import { SyncStatusWidgetComponent } from '../../../components/sync-status-widget/sync-status-widget.component';
-import { OfflineDataCacheService } from '../../../services/offline-data-cache.service';
-import { OfflineTemplateService } from '../../../services/offline-template.service';
-import { OfflineService } from '../../../services/offline.service';
-import { NavigationHistoryService } from '../../../services/navigation-history.service';
-import { PageTitleService } from '../../../services/page-title.service';
-import { TemplateConfigService } from '../../../services/template/template-config.service';
+import { SyncStatusWidgetComponent } from '../../../../components/sync-status-widget/sync-status-widget.component';
+import { OfflineDataCacheService } from '../../../../services/offline-data-cache.service';
+import { OfflineTemplateService } from '../../../../services/offline-template.service';
+import { OfflineService } from '../../../../services/offline.service';
+import { NavigationHistoryService } from '../../../../services/navigation-history.service';
+import { PageTitleService } from '../../../../services/page-title.service';
+import { TemplateConfigService } from '../../../../services/template/template-config.service';
 import { filter } from 'rxjs/operators';
-import { environment } from '../../../../environments/environment';
+import { environment } from '../../../../../environments/environment';
 
 interface Breadcrumb {
   label: string;

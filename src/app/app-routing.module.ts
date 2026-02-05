@@ -9,23 +9,16 @@ import { LoginPage } from './pages/login/login.page';
 import { NewProjectPage } from './pages/new-project/new-project.page';
 import { HudTemplatePage } from './pages/hud-template/hud-template.page';
 
-// Eager load Engineers Foundation components for offline support
-import { EngineersFoundationContainerPage } from './pages/engineers-foundation/engineers-foundation-container/engineers-foundation-container.page';
+// Template container pages (all moved to pages/template/containers/)
+import { EngineersFoundationContainerPage } from './pages/template/containers/efe-container/engineers-foundation-container.page';
+import { HudContainerPage } from './pages/template/containers/hud-container/hud-container.page';
+import { LbwContainerPage } from './pages/template/containers/lbw-container/lbw-container.page';
+import { DteContainerPage } from './pages/template/containers/dte-container/dte-container.page';
+import { CsaContainerPage } from './pages/template/containers/csa-container/csa-container.page';
+
 // EFE-specific elevation pages (not generalized - only used by EFE template)
 import { ElevationPlotHubPage } from './pages/template/efe-elevation/elevation-plot-hub/elevation-plot-hub.page';
 import { RoomElevationPage } from './pages/template/efe-elevation/room-elevation/room-elevation.page';
-
-// Eager load HUD components for offline support
-import { HudContainerPage } from './pages/hud/hud-container/hud-container.page';
-
-// Eager load LBW components for offline support
-import { LbwContainerPage } from './pages/lbw/lbw-container/lbw-container.page';
-
-// Eager load DTE components for offline support
-import { DteContainerPage } from './pages/dte/dte-container/dte-container.page';
-
-// Eager load CSA components for offline support
-import { CsaContainerPage } from './pages/csa/csa-container/csa-container.page';
 
 // Generic visual-detail page (consolidation - replaces template-specific pages)
 import { GenericVisualDetailPage } from './pages/template/visual-detail/visual-detail.page';

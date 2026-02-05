@@ -12,6 +12,9 @@ ion-content {
 
 // Header styling to match project-detail page
 ion-header ion-toolbar {
+  --background: #333333;
+  --color: white;
+
   ion-title {
     text-align: center;
     left: 0;
@@ -43,10 +46,10 @@ ion-header ion-toolbar {
   // Back button styling to match project-detail page
   ion-buttons[slot="start"] ion-button {
     --color: white !important;
-    --background: var(--noble-orange, #F15A27) !important;
-    --background-hover: var(--noble-orange, #F15A27) !important;
-    --background-activated: var(--noble-orange, #F15A27) !important;
-    --background-focused: var(--noble-orange, #F15A27) !important;
+    --background: #333333 !important;
+    --background-hover: #333333 !important;
+    --background-activated: #333333 !important;
+    --background-focused: #333333 !important;
     --padding-start: 0 !important;
     --padding-end: 0 !important;
     --padding-top: 0 !important;
@@ -57,8 +60,8 @@ ion-header ion-toolbar {
     height: 40px !important;
     min-width: 40px !important;
     min-height: 40px !important;
-    box-shadow: 0 2px 8px rgba(241, 90, 39, 0.3) !important;
-    background: var(--noble-orange, #F15A27) !important;
+    box-shadow: none !important;
+    background: #333333 !important;
     margin: 0 !important;
     display: flex !important;
     align-items: center !important;

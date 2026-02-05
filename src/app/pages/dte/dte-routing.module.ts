@@ -2,7 +2,7 @@ import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 
 // Eager load all components for offline support (no lazy loading = no ChunkLoadError offline)
-import { DteContainerPage } from './dte-container/dte-container.page';
+import { DteContainerPage } from '../template/containers/dte-container/dte-container.page';
 import { DteMainPage } from './dte-main/dte-main.page';
 import { DteProjectDetailsPage } from './dte-project-details/dte-project-details.page';
 import { DteCategoriesPage } from './dte-categories/dte-categories.page';

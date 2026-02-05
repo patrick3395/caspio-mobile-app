@@ -1632,6 +1632,13 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
           ion-icon {
             font-size: 20px;
           }
+
+          // Upload button has text — don't constrain width
+          &[title="Upload"] {
+            width: auto;
+            --padding-start: 8px;
+            --padding-end: 12px;
+          }
         }
       }
     }

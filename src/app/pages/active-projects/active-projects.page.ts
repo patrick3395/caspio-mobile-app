@@ -1,5 +1,5 @@
 import { Component, OnInit, ChangeDetectorRef, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
-import { Router, ActivatedRoute } from '@angular/router';
+import { Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
 import { IonicDeployService } from '../../services/ionic-deploy.service';
@@ -9,6 +9,7 @@ import { PlatformDetectionService } from '../../services/platform-detection.serv
 import { MutationTrackingService, EntityType, Mutation } from '../../services/mutation-tracking.service';
 import { PageTitleService } from '../../services/page-title.service';
 import { forkJoin, Subscription } from 'rxjs';
+import { filter } from 'rxjs/operators';
 
 /**
  * G2-PERF-003: OnPush change detection for performance optimization (web only)
@@ -42,6 +43,7 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
   private serviceTypes: any[] = [];
   private statusOptions: any[] = []; // LPS_Status records for StatusID -> Status_Client lookup
   private mutationSubscription?: Subscription;
+  private routerSubscription?: Subscription;
 
   // Admin company name lookup (only used when CompanyID = 1)
   isAdminView = false;
@@ -105,13 +107,31 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
         this.checkAuthAndLoadProjects();
       }
     });
+
+    // WEBAPP: Subscribe to router NavigationEnd events to detect when this page becomes active.
+    // ionViewWillEnter does NOT reliably fire when returning from outside-tabs routes
+    // (e.g. /project/:id) back into the tabs context (/tabs/active-projects) due to
+    // nested ion-router-outlet inside ion-tabs not propagating lifecycle events.
+    if (environment.isWeb) {
+      this.routerSubscription = this.router.events.pipe(
+        filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+        filter(event => event.urlAfterRedirects.includes('/tabs/active-projects'))
+      ).subscribe(() => {
+        this.selectingProjectId = null;
+        this.checkAuthAndLoadProjects();
+      });
+    }
+
     this.checkAuthAndLoadProjects();
   }
 
   ngOnDestroy() {
-    // Clean up subscription
+    // Clean up subscriptions
     if (this.mutationSubscription) {
       this.mutationSubscription.unsubscribe();
+    }
+    if (this.routerSubscription) {
+      this.routerSubscription.unsubscribe();
     }
   }
 
