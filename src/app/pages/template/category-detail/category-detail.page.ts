@@ -135,6 +135,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   private isMultiImageUploadInProgress = false;
   private _pendingDetect = false;
   private liveQueryDebounceTimer: any = null;
+  private lastSelectionInteractionTime = 0;
   private initialLoadComplete: boolean = false;
   private lastLoadedServiceId: string = '';
   private lastLoadedCategoryName: string = '';
@@ -517,29 +518,38 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
             console.log(`[LIVEQUERY-DEBUG] Fields with record IDs:`, recordIdsDebug);
           }
 
-          // Convert to organized data using unified method
-          this.convertGenericFieldsToOrganizedData(fields);
-
           // FIX: Only show UI after first liveQuery emission to prevent "No Items" flash
           if (!this.isInitialDataLoaded) {
+            this.convertGenericFieldsToOrganizedData(fields);
             this.isInitialDataLoaded = true;
             this.loading = false;
             this.logDebug('DEXIE', 'Initial data loaded - showing UI');
-          }
+            this.safeDetectChanges();
 
-          this.scheduleDetectChanges();
-
-          // Suppress photo population during capture to prevent duplicates
-          if (this.isCameraCaptureInProgress || this.isMultiImageUploadInProgress) {
-            this.logDebug('DEXIE', 'Suppressing photo population - capture in progress');
+            // Populate photos on initial load
+            this.populateGenericPhotosFromDexie(fields).then(() => {
+              if (!this.isDestroyed) {
+                this.safeDetectChanges();
+              }
+            });
             return;
           }
+
+          // Suppress ALL liveQuery processing during capture to eliminate scroll lag
+          if (this.isCameraCaptureInProgress || this.isMultiImageUploadInProgress) {
+            this.logDebug('DEXIE', 'Suppressing liveQuery processing - capture in progress');
+            return;
+          }
+
+          // Convert to organized data using unified method
+          this.convertGenericFieldsToOrganizedData(fields);
+          this.safeDetectChanges();
 
           // Populate photos in background (non-blocking)
           this.populateGenericPhotosFromDexie(fields).then(() => {
             // Guard again after async operation
             if (!this.isDestroyed) {
-              this.scheduleDetectChanges();
+              this.safeDetectChanges();
             }
           });
         },
@@ -775,7 +785,16 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           return;
         }
 
-        this.scheduleDetectChanges();
+        // Debounce change detection to avoid rapid-fire updates
+        if (this.liveQueryDebounceTimer) {
+          clearTimeout(this.liveQueryDebounceTimer);
+        }
+        this.liveQueryDebounceTimer = setTimeout(() => {
+          if (!this.isDestroyed) {
+            this.safeDetectChanges();
+          }
+          this.liveQueryDebounceTimer = null;
+        }, 100);
       },
       (error) => {
         this.logDebug('ERROR', `Error in LocalImages subscription: ${error}`);
@@ -1423,6 +1442,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     // Store reference for reactive photo updates
     this.lastConvertedFields = fields;
 
+    const withinSelectionGuard = (Date.now() - this.lastSelectionInteractionTime) < 500;
+
     const comments: VisualItem[] = [];
     const limitations: VisualItem[] = [];
     const deficiencies: VisualItem[] = [];
@@ -1451,7 +1472,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       if (field.visualId || field.tempVisualId) {
         this.visualRecordIds[selectionKey] = field.visualId || field.tempVisualId || '';
       }
-      this.selectedItems[selectionKey] = field.isSelected;
+      if (!withinSelectionGuard) {
+        this.selectedItems[selectionKey] = field.isSelected;
+      }
       this.photoCountsByKey[selectionKey] = field.photoCount;
 
       // Populate dropdown options if available
@@ -1487,6 +1510,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     // Store reference for reactive photo updates
     this.lastConvertedHudFields = fields;
 
+    const withinSelectionGuard = (Date.now() - this.lastSelectionInteractionTime) < 500;
+
     const comments: VisualItem[] = [];
     const limitations: VisualItem[] = [];
     const deficiencies: VisualItem[] = [];
@@ -1515,7 +1540,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       if (field.hudId || field.tempHudId) {
         this.visualRecordIds[selectionKey] = field.hudId || field.tempHudId || '';
       }
-      this.selectedItems[selectionKey] = field.isSelected;
+      if (!withinSelectionGuard) {
+        this.selectedItems[selectionKey] = field.isSelected;
+      }
       this.photoCountsByKey[selectionKey] = field.photoCount;
 
       // Populate dropdown options if available
@@ -1554,6 +1581,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     // Store reference for reactive photo updates
     this.lastConvertedGenericFields = fields;
 
+    const withinSelectionGuard = (Date.now() - this.lastSelectionInteractionTime) < 500;
+
     const comments: VisualItem[] = [];
     const limitations: VisualItem[] = [];
     const deficiencies: VisualItem[] = [];
@@ -1586,13 +1615,15 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         this.visualRecordIds[selectionKey] = recordId;
       }
 
-      // On mobile: always sync from Dexie (selections/counts are persisted there).
+      // On mobile: sync from Dexie unless user just interacted (selection guard).
       // On web: only set during initial load. After that, local state is the source
       // of truth because web doesn't persist selections or photo counts to Dexie.
       // Without this guard, every liveQuery emission overwrites local state with
       // stale data, causing selections to flash off and photo counts to reset.
       if (!environment.isWeb || !this.isInitialDataLoaded) {
-        this.selectedItems[selectionKey] = field.isSelected;
+        if (!withinSelectionGuard) {
+          this.selectedItems[selectionKey] = field.isSelected;
+        }
         this.photoCountsByKey[selectionKey] = field.photoCount;
       }
 
@@ -2480,6 +2511,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   }
 
   async toggleItemSelection(category: string, itemId: string | number): Promise<void> {
+    this.lastSelectionInteractionTime = Date.now();
     const key = `${category}_${itemId}`;
     const newState = !this.selectedItems[key];
     this.selectedItems[key] = newState;
@@ -2537,6 +2569,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   // ==================== Answer Handling ====================
 
   async onAnswerChange(category: string, item: VisualItem): Promise<void> {
+    this.lastSelectionInteractionTime = Date.now();
     const key = `${category}_${item.templateId}`;
     this.logDebug('ANSWER', `Answer changed for ${key}: ${item.answer}`);
 
