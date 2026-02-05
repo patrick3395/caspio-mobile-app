@@ -1388,12 +1388,23 @@
                 <tr>
                   <th>Service</th>
                   <th class="text-right">Fee</th>
+                  <th class="text-right">My Fee</th>
                 </tr>
               </thead>
               <tbody>
                 <tr *ngFor="let offer of clientOffers">
                   <td>{{ offer.typeName }}</td>
                   <td class="text-right">{{ offer.ServiceFee ? ('$' + offer.ServiceFee) : '—' }}</td>
+                  <td class="text-right">
+                    <div class="fee-input-wrapper">
+                      <span class="fee-prefix">$</span>
+                      <input type="number" class="fee-input"
+                             [(ngModel)]="offer.ClientFee"
+                             (blur)="saveClientFee(offer)"
+                             placeholder="0.00"
+                             step="0.01" min="0">
+                    </div>
+                  </td>
                 </tr>
               </tbody>
             </table>

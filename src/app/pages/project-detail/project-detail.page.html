@@ -1,4 +1,4 @@
-<ion-header>
+<ion-header class="page-header">
   <ion-toolbar>
     <ion-buttons slot="start">
       <ion-button (click)="goBack()" fill="clear">
@@ -286,7 +286,28 @@
 
     <!-- Reports Section -->
     <div class="info-section" *ngIf="getServicesForTemplates().length > 0">
-      <h2 class="section-title">Reports</h2>
+      <div class="reports-header">
+        <h2 class="section-title">Reports</h2>
+        <!-- Sync/Save Buttons (mobile only) -->
+        <div class="sync-save-buttons" *ngIf="!isWeb">
+          <button class="sync-btn"
+                  (click)="syncFromCloud(); $event.stopPropagation()"
+                  [disabled]="isSyncing"
+                  title="Pull fresh data from cloud">
+            <ion-icon [name]="isSyncing ? 'sync' : 'cloud-download-outline'"
+                      [class.spinning]="isSyncing"></ion-icon>
+            <span class="btn-text">Sync</span>
+          </button>
+          <button class="save-btn"
+                  (click)="saveToCloud(); $event.stopPropagation()"
+                  [disabled]="isSaving"
+                  title="Push pending changes to cloud">
+            <ion-icon [name]="isSaving ? 'sync' : 'cloud-upload-outline'"
+                      [class.spinning]="isSaving"></ion-icon>
+            <span class="btn-text">Save</span>
+          </button>
+        </div>
+      </div>
 
       <div class="templates-container">
       <div *ngFor="let service of getServicesForTemplates(); trackBy: trackTemplateService"
@@ -337,26 +358,6 @@
         <div *ngIf="selectedServices.length > 0" class="header-total-with-button">
           <div class="header-total">
             ${{ calculateServicesTotal() | number:'1.2-2' }}
-          </div>
-
-          <!-- Sync/Save Buttons (mobile only) -->
-          <div class="sync-save-buttons" *ngIf="!isWeb">
-            <button class="sync-btn"
-                    (click)="syncFromCloud()"
-                    [disabled]="isSyncing"
-                    title="Pull fresh data from cloud">
-              <ion-icon [name]="isSyncing ? 'sync' : 'cloud-download-outline'"
-                        [class.spinning]="isSyncing"></ion-icon>
-              <span class="btn-text">Sync</span>
-            </button>
-            <button class="save-btn"
-                    (click)="saveToCloud()"
-                    [disabled]="isSaving"
-                    title="Push pending changes to cloud">
-              <ion-icon [name]="isSaving ? 'sync' : 'cloud-upload-outline'"
-                        [class.spinning]="isSaving"></ion-icon>
-              <span class="btn-text">Save</span>
-            </button>
           </div>
 
           <button class="pay-now-btn" (click)="openPaymentModal()" *ngIf="calculateServicesTotal() > 0 && !isReadOnly">
@@ -578,8 +579,8 @@
 <ion-modal #optionalDocsModal>
   <ng-template>
     <ion-header>
-      <ion-toolbar>
-        <ion-title style="text-align: center;">Add Document</ion-title>
+      <ion-toolbar class="centered-title-toolbar">
+        <ion-title>Add Document</ion-title>
         <ion-buttons slot="end">
           <ion-button (click)="closeOptionalDocsModal()" style="--color: #F15A27;">
             <ion-icon name="close" slot="icon-only" style="color: #F15A27;"></ion-icon>

@@ -1052,6 +1052,24 @@ export class CompanyPage implements OnInit, OnDestroy {
     }
   }
 
+  async saveClientFee(offer: any): Promise<void> {
+    const offerId = offer.OffersID || offer.PK_ID;
+    if (!offerId) {
+      console.warn('Offer missing ID, skipping save:', offer);
+      return;
+    }
+
+    try {
+      await firstValueFrom(
+        this.caspioService.put(`/tables/LPS_Offers/records?q.where=OffersID=${offerId}`, {
+          ClientFee: offer.ClientFee || 0
+        })
+      );
+    } catch (error) {
+      console.error(`Error saving ClientFee for offer ${offerId}:`, error);
+    }
+  }
+
   async loadCompanyData(showSpinner: boolean = true) {
     // Use skeleton loaders for both web and mobile for consistent UX
     this.isLoading = true;

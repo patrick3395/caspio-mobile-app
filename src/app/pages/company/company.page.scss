@@ -1863,6 +1863,38 @@ ion-segment.filter-segment {
   background: rgba(15, 57, 116, 0.05);
 }
 
+.fee-input-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+
+  .fee-prefix {
+    color: #6c757d;
+    font-size: 0.9rem;
+  }
+
+  .fee-input {
+    width: 80px;
+    padding: 4px 6px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    text-align: right;
+    background: transparent;
+
+    &::placeholder {
+      color: #adb5bd;
+    }
+
+    &::-webkit-inner-spin-button,
+    &::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    -moz-appearance: textfield;
+  }
+}
+
 .responsive-table.dark-outline {
   border: 2px solid var(--ion-color-dark-shade);
   box-shadow: none;

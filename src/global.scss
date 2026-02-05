@@ -943,12 +943,9 @@ body.dark-theme .popover-content ion-label {
   border-radius: 8px;
   font-size: 15px;
   background: white;
-  transition: all 0.3s ease;
 
   &:focus {
     outline: none;
-    border-color: var(--noble-orange, #F15A27);
-    box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.1);
   }
 
   &::placeholder {
@@ -3471,15 +3468,15 @@ body.dark-theme {
   a:focus-visible,
   button:focus-visible,
   [role="button"]:focus-visible,
-  select:focus-visible,
   [tabindex]:not([tabindex="-1"]):not(ion-input):not(ion-textarea):not(input):not(textarea):not(select):focus-visible {
     outline: 3px solid var(--noble-orange, #F15A27) !important;
     outline-offset: 2px !important;
   }
 
-  /* Inputs have no focus outline */
+  /* Inputs and selects have no focus outline */
   input:focus-visible,
   textarea:focus-visible,
+  select:focus-visible,
   ion-input:focus-visible,
   ion-textarea:focus-visible {
     outline: none !important;
@@ -3493,7 +3490,6 @@ body.dark-theme {
   ion-item:focus-visible,
   ion-checkbox:focus-visible,
   ion-toggle:focus-visible,
-  ion-select:focus-visible,
   ion-segment-button:focus-visible {
     outline: 3px solid var(--noble-orange, #F15A27) !important;
     outline-offset: 2px !important;

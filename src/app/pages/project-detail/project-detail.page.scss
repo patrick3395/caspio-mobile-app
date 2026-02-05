@@ -30,7 +30,8 @@ $white: var(--ion-card-background, #FFFFFF);
 }
 
 // Header styling with transparent background and orange back button
-ion-header {
+// Scoped to .page-header to avoid leaking into modal headers
+ion-header.page-header {
   position: absolute;
   top: 0;
   left: 0;
@@ -38,7 +39,7 @@ ion-header {
   z-index: 10;
   background: transparent !important;
   box-shadow: none !important;
-  
+
   &::after {
     display: none !important;
   }
@@ -60,7 +61,7 @@ ion-header {
     box-shadow: none !important;
     background: transparent !important;
     border: none !important;
-    
+
     &::after {
       display: none !important;
     }
@@ -116,12 +117,11 @@ ion-header {
         background: $orange !important;
       }
     }
-    
-    // Ensure modal close buttons and other buttons remain unaffected
+
     ion-button[slot="end"] {
       --background: transparent;
       --color: $dark;
-      
+
       ion-icon {
         color: $dark;
         font-size: 24px;
@@ -315,11 +315,24 @@ ion-button{--padding-start:12px;--padding-end:12px;font-size:14px}}
   }
 }
 
+// Reports header with sync/save buttons
+.reports-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  .section-title {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    border-bottom: none !important;
+    flex: 1;
+  }
+}
+
 // Sync/Save buttons
 .sync-save-buttons {
   display: flex;
   gap: 8px;
-  margin-right: 12px;
 }
 
 .sync-btn,
@@ -368,16 +381,11 @@ ion-button{--padding-start:12px;--padding-end:12px;font-size:14px}}
 @media (max-width: 480px) {
   .sync-save-buttons {
     gap: 4px;
-    margin-right: 6px;
   }
 
   .sync-btn,
   .save-btn {
     padding: 4px 8px;
-
-    .btn-text {
-      display: none;
-    }
 
     ion-icon {
       font-size: 18px;
@@ -612,10 +620,9 @@ h3 {
             background: $white;
             height: 40px;
             box-sizing: border-box;
-            
+
             &:focus {
               outline: none;
-              border-color: $orange;
             }
             
             &:disabled, &:read-only {
@@ -730,13 +737,21 @@ ion-modal {
   ion-header ion-toolbar {
     --background: var(--noble-light-gray, #F5F5F5);
     --color: var(--noble-dark-gray, #333333);
-    
+
+    &.centered-title-toolbar ion-title {
+      position: absolute;
+      left: 0;
+      right: 0;
+      text-align: center;
+      pointer-events: none;
+    }
+
     ion-title {
       color: var(--noble-dark-gray, #333333);
       font-weight: 600;
       font-size: 18px;
     }
-    
+
     ion-button {
       --color: var(--noble-dark-gray, #333333);
     }
@@ -1316,11 +1331,9 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
     resize: vertical;
     background: $white;
     color: $dark;
-    transition: border-color 0.2s ease;
 
     &:focus {
       outline: none;
-      border-color: $orange;
     }
 
     &:disabled, &:read-only {
@@ -1476,12 +1489,9 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
       background: $white;
       color: $dark;
       font-family: inherit;
-      transition: border-color 0.2s ease;
 
       &:focus {
         outline: none;
-        border-color: $orange;
-        box-shadow: 0 0 0 2px rgba(241, 90, 39, 0.1);
       }
 
       &:disabled, &:read-only {
@@ -1504,14 +1514,11 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
       background: $white;
       color: $dark;
       font-family: inherit;
-      transition: border-color 0.2s ease;
       cursor: pointer;
       text-align: center;
 
       &:focus {
         outline: none;
-        border-color: $orange;
-        box-shadow: 0 0 0 2px rgba(241, 90, 39, 0.1);
       }
 
       &:disabled {
@@ -1537,12 +1544,9 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
       font-family: inherit;
       line-height: 1.4;
       resize: vertical;
-      transition: border-color 0.2s ease;
 
       &:focus {
         outline: none;
-        border-color: $orange;
-        box-shadow: 0 0 0 2px rgba(241, 90, 39, 0.1);
       }
 
       &:disabled, &:read-only {
