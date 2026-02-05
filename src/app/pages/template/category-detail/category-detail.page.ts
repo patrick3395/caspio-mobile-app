@@ -526,7 +526,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
             this.logDebug('DEXIE', 'Initial data loaded - showing UI');
           }
 
-          this.safeDetectChanges();
+          this.scheduleDetectChanges();
 
           // Suppress photo population during capture to prevent duplicates
           if (this.isCameraCaptureInProgress || this.isMultiImageUploadInProgress) {
@@ -538,7 +538,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           this.populateGenericPhotosFromDexie(fields).then(() => {
             // Guard again after async operation
             if (!this.isDestroyed) {
-              this.safeDetectChanges();
+              this.scheduleDetectChanges();
             }
           });
         },
@@ -779,16 +779,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           return;
         }
 
-        // Debounce change detection
-        if (this.liveQueryDebounceTimer) {
-          clearTimeout(this.liveQueryDebounceTimer);
-        }
-        this.liveQueryDebounceTimer = setTimeout(() => {
-          if (!this.isDestroyed) {
-            this.safeDetectChanges();
-          }
-          this.liveQueryDebounceTimer = null;
-        }, 100);
+        this.scheduleDetectChanges();
       },
       (error) => {
         this.logDebug('ERROR', `Error in LocalImages subscription: ${error}`);
@@ -1944,15 +1935,15 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       // This prevents "raw HTML showing" when returning from visual-detail
       this.convertGenericFieldsToOrganizedData(this.lastConvertedGenericFields);
       await this.populateGenericPhotosFromDexie(this.lastConvertedGenericFields);
-      this.changeDetectorRef.detectChanges();
+      this.scheduleDetectChanges();
     } else if (this.config?.id === 'efe' && this.lastConvertedFields && this.lastConvertedFields.length > 0) {
       // Legacy fallback for EFE
       await this.populatePhotosFromDexie(this.lastConvertedFields);
-      this.changeDetectorRef.detectChanges();
+      this.scheduleDetectChanges();
     } else if (this.config?.id === 'hud' && this.lastConvertedHudFields && this.lastConvertedHudFields.length > 0) {
       // Legacy fallback for HUD
       await this.populateHudPhotosFromDexie(this.lastConvertedHudFields);
-      this.changeDetectorRef.detectChanges();
+      this.scheduleDetectChanges();
     }
 
     // Merge any pending captions from IndexedDB
@@ -1991,7 +1982,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         }
       }
 
-      this.changeDetectorRef.detectChanges();
+      this.scheduleDetectChanges();
     } catch (error) {
       this.logDebug('WARN', `Failed to merge pending captions: ${error}`);
     }
