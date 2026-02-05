@@ -1705,9 +1705,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       let photosAddedCount = 0;
       let fieldsProcessed = 0;
 
-      // Collect photoCount updates for batched Dexie write after the loop
-      const photoCountUpdates: { category: string; templateId: number; count: number }[] = [];
-
       for (const field of fields) {
         // Use GenericFieldRepoService to get IDs in a template-agnostic way
         const realId = this.genericFieldRepo.getRecordId(this.config, field);
@@ -1933,17 +1930,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           photosAddedCount++;
         }
 
-        // Update in-memory photo count immediately
+        // Update in-memory photo count immediately (no Dexie write — avoids liveQuery feedback loop)
         this.photoCountsByKey[key] = this.visualPhotos[key].length;
-
-        // Collect for batched Dexie write (avoid per-field writes that starve main thread)
-        if (field.templateId) {
-          photoCountUpdates.push({
-            category: field.category,
-            templateId: field.templateId,
-            count: this.visualPhotos[key].length
-          });
-        }
 
         // Yield to browser every 5 fields so it can process scroll events and paint
         fieldsProcessed++;
@@ -1955,16 +1943,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       }
 
       this.logDebug('DEXIE', `Photos populated: ${photosAddedCount} new photos added`);
-
-      // Batch all photoCount writes after the loop to avoid per-field Dexie transactions
-      // Each individual write would trigger IDB callbacks on the main thread
-      for (const update of photoCountUpdates) {
-        this.genericFieldRepo.setField(this.config, this.serviceId, update.category, update.templateId, {
-          photoCount: update.count
-        }).catch((err: any) => {
-          this.logDebug('WARN', `Failed to save photoCount: ${err}`);
-        });
-      }
     } finally {
       this.isPopulatingPhotos = false;
     }
