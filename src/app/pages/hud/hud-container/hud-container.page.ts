@@ -1170,18 +1170,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
 
   // Ensure buttons are not stuck in disabled state
   ensureButtonsEnabled() {
-    // Reset PDF generation flag
     this.isPDFGenerating = false;
-
-    // Enable PDF button after a brief delay to ensure DOM is ready
-    setTimeout(() => {
-      const pdfButton = document.querySelector('.pdf-header-button') as HTMLButtonElement;
-      if (pdfButton) {
-        pdfButton.disabled = false;
-        pdfButton.style.pointerEvents = 'auto';
-        pdfButton.style.opacity = '1';
-      }
-    }, 100);
   }
   
   // Page re-entry - photos now use base64 URLs so no refresh needed
@@ -8282,170 +8271,65 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
     event.stopPropagation();
   }
 
-  // v1.4.389 - Simple test method for PDF button
-  async testPDFButton() {
-    try {
-      // Show multiple alerts to ensure something happens
-
-      // Show debug info
-      const debugInfo = `
-        Service ID: ${this.serviceId || 'MISSING'}
-        Project ID: ${this.projectId || 'MISSING'}
-        Has Loading Controller: ${!!this.loadingController}
-        Has Modal Controller: ${!!this.modalController}
-      `;
-      alert(debugInfo);
-
-      // Try to call generatePDF
-      await this.generatePDF();
-    } catch (error) {
-      console.error('[v1.4.389] Error in testPDFButton:', error);
-      alert(`Error: ${error}`);
-    }
-  }
-
-  // v1.4.389 - Ensure PDF button is properly wired up
-  ensurePDFButtonWorks() {
-    const pdfButton = document.querySelector('.pdf-header-button') as HTMLButtonElement;
-    if (pdfButton) {
-
-      // Remove any existing listeners first
-      const newButton = pdfButton.cloneNode(true) as HTMLButtonElement;
-      pdfButton.parentNode?.replaceChild(newButton, pdfButton);
-
-      // Add direct event listener
-      newButton.addEventListener('click', async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        // Show immediate feedback
-        try {
-          await this.generatePDF();
-        } catch (error) {
-          console.error('[v1.4.389] Error in direct listener:', error);
-          await this.showToast(`Error: ${error}`, 'danger');
-        }
-      });
-
-      // Also add touch listener for mobile
-      newButton.addEventListener('touchend', async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      });
-    } else {
-      console.error('[v1.4.389] PDF button not found in DOM!');
-
-      // Try to find it by other means
-      const allButtons = document.querySelectorAll('button');
-      allButtons.forEach((btn, index) => {
-        if (btn.textContent?.includes('PDF')) {
-        }
-      });
-    }
-  }
-
-  // Add ionViewDidEnter hook to ensure button is ready
-  ionViewDidEnter() {
-    setTimeout(() => {
-      this.ensurePDFButtonWorks();
-    }, 500);
-  }
-
-  // New handler for PDF button click
-  async handlePDFClick(event: Event) {
-
-    // Add comprehensive debugging
-    try {
-
-      // Prevent all default behaviors immediately
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-
-      // Call the actual PDF generation directly
-      await this.generatePDF();
-    } catch (error) {
-      console.error('[v1.4.388] Error in handlePDFClick:', error);
-      console.error('[v1.4.402] PDF Click Error:', error);
-    }
-  }
+  // PDF button is managed via Angular's [disabled]="isGeneratingPDF" binding — no DOM selectors needed
 
   async generatePDF(event?: Event) {
-
-    // CRITICAL: Prevent any default behavior that might cause reload
     if (event) {
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
-
-      // Additional prevention for touch events
-      if (event instanceof TouchEvent) {
-        event.preventDefault();
-      }
-
-      // Prevent any form submission if button is inside a form
-      const target = event.target as HTMLElement;
-      const form = target.closest('form');
-      if (form) {
-        form.onsubmit = (e) => { e.preventDefault(); return false; };
-      }
     }
 
-    // Prevent multiple simultaneous PDF generation attempts
     if (this.isPDFGenerating) {
       return;
     }
-    
-    // Set flag immediately to prevent any double clicks
+
     this.isPDFGenerating = true;
-
-    // Disable the PDF button visually - check for both possible button selectors
-    const pdfButton = (document.querySelector('.pdf-header-button') || document.querySelector('.pdf-fab')) as HTMLElement;
-    if (pdfButton) {
-      if (pdfButton instanceof HTMLButtonElement) {
-        pdfButton.disabled = true;
-      }
-      pdfButton.style.pointerEvents = 'none';
-      pdfButton.style.opacity = '0.6';
-    } else {
-    }
-
-    // Track generation attempts for debugging
     this.pdfGenerationAttempts++;
-    
-    try {
-      // CRITICAL FIX: Ensure we have our IDs before proceeding
-      if (!this.serviceId || !this.projectId) {
-        console.error('[v1.4.390] Missing service/project ID, attempting recovery');
 
-        // Try to recover IDs from route if possible
+    let loading: any = null;
+    let cancelRequested = false;
+
+    // Helper to update progress
+    const updateProgress = (percent: number, step: string) => {
+      if (loading && environment.isWeb) {
+        const percentEl = document.querySelector('.progress-percentage');
+        const barEl = document.querySelector('.progress-bar-fill') as HTMLElement;
+        const stepEl = document.querySelector('.progress-step');
+        if (percentEl) percentEl.textContent = `${percent}%`;
+        if (barEl) barEl.style.width = `${percent}%`;
+        if (stepEl) stepEl.textContent = step;
+      } else if (loading) {
+        loading.message = step;
+      }
+    };
+
+    // Helper: race a promise against a timeout
+    const withTimeout = <T>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
+      return Promise.race([
+        promise,
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms)
+        )
+      ]);
+    };
+
+    try {
+      // Ensure we have our IDs before proceeding
+      if (!this.serviceId || !this.projectId) {
         const routeServiceId = this.route.snapshot.paramMap.get('serviceId');
         const routeProjectId = this.route.snapshot.paramMap.get('projectId');
-
         if (routeServiceId && routeProjectId) {
           this.serviceId = routeServiceId;
           this.projectId = routeProjectId;
         } else {
-          console.error('[v1.4.390] ERROR: No service/project IDs available!');
+          console.error('[PDF] No service/project IDs available');
           this.isPDFGenerating = false;
-          if (pdfButton) {
-            if (pdfButton instanceof HTMLButtonElement) {
-              pdfButton.disabled = false;
-            }
-            pdfButton.style.pointerEvents = 'auto';
-            pdfButton.style.opacity = '1';
-          }
           return;
         }
-      } else {
       }
 
-    let loading: any = null;
-    try {
-      // CRITICAL FIX: Wait for photo hydration and pending saves before generating PDF
-      // This ensures all images are loaded and form data is synchronized
-
-      // Step 1: Wait for photo hydration if in progress
+      // Wait for photo hydration if in progress
       if (this.photoHydrationPromise) {
         console.log('[PDF] Waiting for photo hydration to complete...');
         loading = await this.alertController.create({
@@ -8457,21 +8341,19 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
         await loading.present();
 
         try {
-          await this.photoHydrationPromise;
-          console.log('[PDF] Photo hydration completed');
+          await withTimeout(this.photoHydrationPromise, 15000, 'Photo hydration');
         } catch (error) {
           console.error('[PDF] Photo hydration error:', error);
-          // Continue anyway - we'll handle missing photos gracefully
         }
 
         await loading.dismiss();
         loading = null;
       }
 
-      // Step 2: Wait for any pending saves to complete
+      // Wait for any pending saves to complete
       const savingKeys = Object.keys(this.savingItems).filter(key => this.savingItems[key]);
       if (savingKeys.length > 0) {
-        console.log('[PDF] Waiting for pending saves to complete:', savingKeys);
+        console.log('[PDF] Waiting for pending saves:', savingKeys);
         loading = await this.alertController.create({
           header: 'Saving Changes',
           message: ' ',
@@ -8480,7 +8362,6 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
         });
         await loading.present();
 
-        // Wait up to 5 seconds for saves to complete
         const maxWait = 5000;
         const startTime = Date.now();
         while (Object.keys(this.savingItems).some(key => this.savingItems[key])) {
@@ -8490,13 +8371,12 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
           }
           await new Promise(resolve => setTimeout(resolve, 100));
         }
-        console.log('[PDF] Pending saves completed or timed out');
 
         await loading.dismiss();
         loading = null;
       }
 
-      // Step 3: Process any pending visual creations and photo uploads
+      // Process any pending visual creations and photo uploads
       const hasPendingVisuals = Object.keys(this.pendingVisualCreates).length > 0;
       const hasPendingPhotos = Object.keys(this.pendingPhotoUploads).length > 0;
 
@@ -8511,118 +8391,116 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
         await loading.present();
 
         try {
-          await this.processAllPendingVisuals();
-          console.log('[PDF] Pending items processed');
+          await withTimeout(this.processAllPendingVisuals(), 10000, 'Pending visuals');
         } catch (error) {
           console.error('[PDF] Error processing pending items:', error);
-          // Continue anyway
         }
 
         await loading.dismiss();
         loading = null;
       }
 
-      // Now show the main loading indicator for PDF preparation
+      // Show the main loading indicator with Cancel button
       loading = await this.alertController.create({
         header: 'Loading Report',
-        message: ' ',
+        message: environment.isWeb ? '' : 'Pulling project information...',
         buttons: [
           {
             text: 'Cancel',
             role: 'cancel',
             handler: () => {
+              cancelRequested = true;
               this.isPDFGenerating = false;
+              console.log('[PDF] User cancelled PDF generation');
               return true;
             }
           }
         ],
         backdropDismiss: false,
-        cssClass: 'template-loading-alert'
+        cssClass: environment.isWeb ? 'progress-loading-alert' : 'template-loading-alert'
       });
       await loading.present();
-      
-      // CRITICAL: Check if user clicked cancel before continuing
-      const { role } = await loading.onDidDismiss();
-      if (role === 'cancel') {
-        console.log('[PDF] User cancelled PDF generation');
-        this.isPDFGenerating = false;
-        // Re-enable the PDF button
-        const pdfBtn = (document.querySelector('.pdf-header-button') || document.querySelector('.pdf-fab')) as HTMLElement;
-        if (pdfBtn) {
-          if (pdfBtn instanceof HTMLButtonElement) {
-            pdfBtn.disabled = false;
-          }
-          pdfBtn.style.pointerEvents = 'auto';
-          pdfBtn.style.opacity = '1';
-        }
-        return; // Exit early - don't generate PDF
-      }
-    } catch (loadingError) {
-      console.error('[v1.4.390] Error creating/presenting loading:', loadingError);
-      // Continue without loading indicator
-    }
 
-    try {
-      // Check if we have cached PDF data (valid for 5 minutes)
+      // Inject HTML progress bar on web
+      if (environment.isWeb) {
+        const alertEl = document.querySelector('.progress-loading-alert');
+        const alertMessage = alertEl?.querySelector('.alert-message');
+        if (alertMessage) {
+          alertMessage.innerHTML = `
+            <div class="progress-container">
+              <div class="progress-percentage">0%</div>
+              <div class="progress-bar-wrapper">
+                <div class="progress-bar-fill" style="width: 0%"></div>
+              </div>
+              <div class="progress-step">Pulling project information...</div>
+            </div>`;
+        }
+      }
+
+      // DO NOT await loading.onDidDismiss() — that blocks forever!
+      // Instead use cancelRequested flag checked between steps.
+
+      if (cancelRequested) return;
+
+      // Load PDF data
+      console.log('[PDF] Step 1: Loading data...');
+      updateProgress(10, 'Loading project information...');
+
       const cacheKey = this.cache.getApiCacheKey('pdf_data', {
         serviceId: this.serviceId,
-        timestamp: Math.floor(Date.now() / 300000) // 5-minute blocks
+        timestamp: Math.floor(Date.now() / 300000)
       });
 
-      // PERFORMANCE OPTIMIZED: Use cache on all platforms for much faster loading
-      // Cache is invalidated every 5 minutes and contains base64 data that works everywhere
-      const isMobile = this.platformIonic.is('ios') || this.platformIonic.is('android');
-
       let structuralSystemsData, elevationPlotData, projectInfo;
-      const cachedData = this.cache.get(cacheKey); // Use cache on all platforms
+      const cachedData = this.cache.get(cacheKey);
 
       if (cachedData) {
-        console.log('[PDF Data] ⚡ Using cached PDF data - fast path!');
+        console.log('[PDF] Using cached data');
+        updateProgress(50, 'Loading from cache...');
         ({ structuralSystemsData, elevationPlotData, projectInfo } = cachedData);
       } else {
-        console.log('[PDF Data] Loading fresh PDF data...');
-        const startTime = Date.now();
-        
         try {
-          // Wrap data preparation in try-catch to prevent any reload on error
-          // Execute all data fetching in parallel with individual error handling
-          const [projectData, structuralData, elevationData] = await Promise.all([
-            this.prepareProjectInfo().catch(err => {
-              console.error('[v1.4.338] Error in prepareProjectInfo:', err);
-              // Return minimal valid data structure
-              return {
-                projectId: this.projectId,
-                serviceId: this.serviceId,
-                address: this.projectData?.Address || '',
-                clientName: this.projectData?.ClientName || '',
-                projectData: this.projectData,
-                serviceData: this.serviceData
-              };
-            }),
-            this.prepareStructuralSystemsData().catch(err => {
-              console.error('[v1.4.338] Error in prepareStructuralSystemsData:', err);
-              return []; // Return empty array instead of failing
-            }),
-            this.prepareElevationPlotData().catch(err => {
-              console.error('[v1.4.338] Error in prepareElevationPlotData:', err);
-              return []; // Return empty array instead of failing
-            })
-          ]);
-          
+          const [projectData, structuralData, elevationData] = await withTimeout(
+            Promise.all([
+              this.prepareProjectInfo().catch(err => {
+                console.error('[PDF] Error in prepareProjectInfo:', err);
+                return {
+                  projectId: this.projectId,
+                  serviceId: this.serviceId,
+                  address: this.projectData?.Address || '',
+                  clientName: this.projectData?.ClientName || '',
+                  projectData: this.projectData,
+                  serviceData: this.serviceData
+                };
+              }),
+              withTimeout(this.prepareStructuralSystemsData(), 45000, 'Structural data').catch(err => {
+                console.error('[PDF] Error in prepareStructuralSystemsData:', err);
+                return [];
+              }),
+              withTimeout(this.prepareElevationPlotData(), 45000, 'Elevation data').catch(err => {
+                console.error('[PDF] Error in prepareElevationPlotData:', err);
+                return [];
+              })
+            ]),
+            60000,
+            'PDF data loading'
+          );
+
+          console.log('[PDF] Step 1 complete: structural=%d, elevation=%d',
+            structuralData?.length || 0, elevationData?.length || 0);
+
+          updateProgress(40, 'Processing data...');
           projectInfo = projectData;
           structuralSystemsData = structuralData;
           elevationPlotData = elevationData;
 
-          // Cache the prepared data on all platforms for faster subsequent loads
           this.cache.set(cacheKey, {
             structuralSystemsData,
             elevationPlotData,
             projectInfo
           }, this.cache.CACHE_TIMES.MEDIUM);
-          console.log('[PDF Data] Cached PDF data for reuse (5 min expiry)');
         } catch (dataError) {
-          console.error('[v1.4.338] Fatal error loading PDF data:', dataError);
-          // Use fallback empty data to prevent reload
+          console.error('[PDF] Fatal error loading PDF data:', dataError);
           projectInfo = {
             projectId: this.projectId,
             serviceId: this.serviceId,
@@ -8636,199 +8514,135 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
         }
       }
 
-      // PERFORMANCE OPTIMIZED: Load cover photo and PDF component in parallel
-      const [PdfPreviewComponent] = await Promise.all([
-        this.loadPdfPreview(),
-        // Load primary photo (cover photo) in parallel
-        (async () => {
-          if (projectInfo?.primaryPhoto && typeof projectInfo.primaryPhoto === 'string') {
-            console.log('[PDF] Primary photo field value:', projectInfo.primaryPhoto.substring(0, 100));
+      if (cancelRequested) return;
 
-            let convertedPhotoData: string | null = null;
+      // Load PDF preview component
+      console.log('[PDF] Step 2: Loading PDF preview component...');
+      updateProgress(55, 'Loading PDF preview...');
+      const PdfPreviewComponent = await withTimeout(this.loadPdfPreview(), 15000, 'PDF preview component');
 
-            if (projectInfo.primaryPhoto.startsWith('/')) {
-              // Caspio file path - convert to base64
-              try {
-                console.log('[PDF] Converting primary photo from Caspio path to base64...');
-                const imageData = await this.caspioService.getImageFromFilesAPI(projectInfo.primaryPhoto).toPromise();
-                if (imageData && typeof imageData === 'string' && imageData.startsWith('data:')) {
-                  convertedPhotoData = imageData;
-                  console.log('[PDF] Primary photo converted successfully (size:', Math.round(imageData.length / 1024), 'KB)');
-                } else {
-                  console.error('[PDF] Primary photo conversion failed - invalid data returned:', typeof imageData);
-                }
-              } catch (error) {
-                console.error('[PDF] Error converting primary photo:', error);
-              }
-            } else if (projectInfo.primaryPhoto.startsWith('data:')) {
-              console.log('[PDF] Primary photo is already base64, using directly');
-              convertedPhotoData = projectInfo.primaryPhoto;
-            } else if (projectInfo.primaryPhoto.startsWith('blob:')) {
-              console.log('[PDF] Primary photo is blob URL, attempting to convert...');
-              try {
-                const response = await fetch(projectInfo.primaryPhoto);
+      if (!PdfPreviewComponent) {
+        throw new Error('PdfPreviewComponent not available');
+      }
+
+      if (cancelRequested) return;
+
+      // Process cover photo
+      console.log('[PDF] Step 3: Processing cover photo...');
+      updateProgress(70, 'Processing cover photo...');
+      if (projectInfo?.primaryPhoto && typeof projectInfo.primaryPhoto === 'string') {
+        try {
+          let convertedData: string | null = null;
+          const photo = projectInfo.primaryPhoto;
+
+          if (photo.startsWith('data:')) {
+            convertedData = photo;
+          } else if (photo.startsWith('blob:')) {
+            const response = await withTimeout(fetch(photo), 10000, 'Blob photo fetch');
+            const blob = await response.blob();
+            const reader = new FileReader();
+            convertedData = await new Promise<string>((resolve, reject) => {
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            });
+          } else if (this.caspioService.isS3Key(photo)) {
+            // S3 key — get presigned URL, download, convert to base64
+            const s3Url = await withTimeout(this.caspioService.getS3FileUrl(photo), 10000, 'S3 URL fetch');
+            if (s3Url) {
+              const response = await withTimeout(fetch(s3Url), 15000, 'S3 photo download');
+              if (response.ok) {
                 const blob = await response.blob();
                 const reader = new FileReader();
-                const base64 = await new Promise<string>((resolve, reject) => {
+                convertedData = await new Promise<string>((resolve, reject) => {
                   reader.onloadend = () => resolve(reader.result as string);
                   reader.onerror = reject;
                   reader.readAsDataURL(blob);
                 });
-                convertedPhotoData = base64;
-                console.log('[PDF] Primary photo blob converted successfully');
-              } catch (error) {
-                console.error('[PDF] Error converting blob URL:', error);
               }
-            } else if (projectInfo.primaryPhoto.startsWith('http')) {
-              console.warn('[PDF] Primary photo is HTTP URL (may not work on mobile):', projectInfo.primaryPhoto);
-              convertedPhotoData = projectInfo.primaryPhoto;
-            } else {
-              console.warn('[PDF] Primary photo has unknown format:', projectInfo.primaryPhoto.substring(0, 50));
             }
-
-            // Set both fields so PDF component can use either one
-            if (convertedPhotoData) {
-              projectInfo.primaryPhotoBase64 = convertedPhotoData;
-              projectInfo.primaryPhoto = convertedPhotoData;
-              console.log('[PDF] Primary photo ready for PDF rendering');
-            } else {
-              console.warn('[PDF] Primary photo conversion resulted in null - photo will not appear in PDF');
+          } else if (photo.startsWith('/')) {
+            const imageData = await withTimeout(
+              this.caspioService.getImageFromFilesAPI(photo).toPromise(),
+              10000,
+              'Caspio photo fetch'
+            );
+            if (imageData && typeof imageData === 'string' && imageData.startsWith('data:')) {
+              convertedData = imageData;
             }
-          } else {
-            console.log('[PDF] No primary photo available for this project');
           }
-        })()
-      ]);
 
-      // Check if PdfPreviewComponent is available
-      if (!PdfPreviewComponent) {
-        console.error('[v1.4.390] PdfPreviewComponent is not available!');
-        throw new Error('PdfPreviewComponent not available');
+          if (convertedData) {
+            projectInfo.primaryPhotoBase64 = convertedData;
+            projectInfo.primaryPhoto = convertedData;
+            console.log('[PDF] Primary photo ready');
+          }
+        } catch (error) {
+          console.error('[PDF] Error preloading primary photo (continuing without it):', error);
+        }
       }
 
-      let modal;
-      try {
+      if (cancelRequested) return;
 
-        modal = await this.modalController.create({
-          component: PdfPreviewComponent,
-          componentProps: {
-            projectData: projectInfo,
-            structuralData: structuralSystemsData,
-            elevationData: elevationPlotData,
-            serviceData: {
-              ...this.serviceData,
-              serviceName: 'EFE - Engineer\'s Foundation Evaluation' // Override with EFE prefix for webapp
-            }
-          },
-          cssClass: 'fullscreen-modal',
-          animated: this.pdfGenerationAttempts > 1, // Disable animation on first attempt
-          mode: 'ios', // Force iOS mode for consistency
-          backdropDismiss: false // Prevent accidental dismissal
-        });
-      } catch (modalCreateError) {
-        console.error('[v1.4.390] Error creating modal:', modalCreateError);
-        throw modalCreateError;
-      }
+      // Create and present PDF modal
+      console.log('[PDF] Step 4: Creating PDF modal...');
+      updateProgress(85, 'Preparing PDF document...');
 
-      // PERFORMANCE OPTIMIZED: Present modal immediately (no delay needed)
-      // Present the modal with error handling
-      try {
-        await modal.present();
-
-        // Dismiss loading immediately after modal is presented
-        setTimeout(async () => {
-          try {
-            if (loading) await loading.dismiss();
-          } catch (dismissError) {
+      const modal = await this.modalController.create({
+        component: PdfPreviewComponent,
+        componentProps: {
+          projectData: projectInfo,
+          structuralData: structuralSystemsData,
+          elevationData: elevationPlotData,
+          serviceData: {
+            ...this.serviceData,
+            serviceName: 'EFE - Engineer\'s Foundation Evaluation'
           }
-        }, 100); // Reduced from 300ms to 100ms
-        
-      } catch (modalError) {
-        console.error('[v1.4.338] Error presenting modal:', modalError);
-        // Try to dismiss loading on error
+        },
+        cssClass: 'fullscreen-modal',
+        animated: this.pdfGenerationAttempts > 1,
+        mode: 'ios',
+        backdropDismiss: false
+      });
+
+      if (cancelRequested) return;
+
+      console.log('[PDF] Step 5: Presenting PDF modal...');
+      updateProgress(95, 'Opening PDF...');
+      await modal.present();
+
+      // Dismiss loading after modal is presented
+      setTimeout(async () => {
         try {
           if (loading) await loading.dismiss();
         } catch (dismissError) {
+          // Ignore
         }
-        throw modalError;
-      }
-      
-      // Wait for modal to be dismissed before re-enabling button
+      }, 100);
+
+      // Reset state when modal is dismissed
       modal.onDidDismiss().then(() => {
-        // Re-enable the PDF button
-        const pdfBtn = (document.querySelector('.pdf-header-button') || document.querySelector('.pdf-fab')) as HTMLElement;
-        if (pdfBtn) {
-          if (pdfBtn instanceof HTMLButtonElement) {
-            pdfBtn.disabled = false;
-          }
-          pdfBtn.style.pointerEvents = 'auto';
-          pdfBtn.style.opacity = '1';
-        }
-        // Reset the generation flag after modal is dismissed
         this.isPDFGenerating = false;
       });
-      
+
     } catch (error) {
-      console.error('[v1.4.388] Error preparing preview:', error);
+      console.error('[PDF] Error generating PDF:', error);
+      this.isPDFGenerating = false;
 
-      // Show detailed error with stack trace in alert
-      const errorDetails = error instanceof Error ?
-        `Message: ${error.message}\n\nStack: ${error.stack}` :
-        `Error: ${JSON.stringify(error)}`;
-
+      const errorDetails = error instanceof Error ? error.message : JSON.stringify(error);
       const alert = await this.alertController.create({
         header: 'PDF Generation Error',
-        message: `
-          <div style="font-family: monospace; font-size: 12px;">
-            <p style="color: red; font-weight: bold;">Failed to generate PDF</p>
-            <textarea
-              style="width: 100%; height: 200px; font-size: 10px; margin-top: 10px;"
-              readonly>${errorDetails}</textarea>
-          </div>
-        `,
+        message: `Failed to generate PDF: ${errorDetails}`,
         buttons: ['OK']
       });
       await alert.present();
-
-      // Reset the generation flag on error
-      this.isPDFGenerating = false;
-
-      // Re-enable the PDF button - check for both possible button selectors
-      const pdfButton = (document.querySelector('.pdf-header-button') || document.querySelector('.pdf-fab')) as HTMLElement;
-      if (pdfButton) {
-        if (pdfButton instanceof HTMLButtonElement) {
-          pdfButton.disabled = false;
-        }
-        pdfButton.style.pointerEvents = 'auto';
-        pdfButton.style.opacity = '1';
-      }
-
+    } finally {
+      // ALWAYS dismiss loading alert as safety net
       try {
         if (loading) await loading.dismiss();
       } catch (e) {
+        // Already dismissed
       }
-
-      // Show more detailed error message
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      await this.showToast(`Failed to prepare preview: ${errorMessage}`, 'danger');
-    }
-  } catch (error) {
-    // Outer catch for the main try block
-    console.error('[v1.4.338] Outer error in generatePDF:', error);
-    this.isPDFGenerating = false;
-    
-    // Re-enable the PDF button - check for both possible button selectors
-    const pdfButton = (document.querySelector('.pdf-header-button') || document.querySelector('.pdf-fab')) as HTMLElement;
-    if (pdfButton) {
-      if (pdfButton instanceof HTMLButtonElement) {
-        pdfButton.disabled = false;
-      }
-      pdfButton.style.pointerEvents = 'auto';
-      pdfButton.style.opacity = '1';
-    }
-    
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[v1.4.402] Failed to generate PDF:', errorMessage);
     }
   }
   
@@ -15423,62 +15237,81 @@ Stack: ${error?.stack}`;
 
             // Process each FDF photo type with new annotation fields
             const fdfPhotoTypes = [
-              { field: 'FDFPhotoTop', key: 'top', annotationField: 'FDFTopAnnotation', drawingsField: 'FDFTopDrawings' },
-              { field: 'FDFPhotoBottom', key: 'bottom', annotationField: 'FDFBottomAnnotation', drawingsField: 'FDFBottomDrawings' },
-              { field: 'FDFPhotoThreshold', key: 'threshold', annotationField: 'FDFThresholdAnnotation', drawingsField: 'FDFThresholdDrawings' }
+              { field: 'FDFPhotoTop', attachmentField: 'FDFPhotoTopAttachment', key: 'top', annotationField: 'FDFTopAnnotation', drawingsField: 'FDFTopDrawings' },
+              { field: 'FDFPhotoBottom', attachmentField: 'FDFPhotoBottomAttachment', key: 'bottom', annotationField: 'FDFBottomAnnotation', drawingsField: 'FDFBottomDrawings' },
+              { field: 'FDFPhotoThreshold', attachmentField: 'FDFPhotoThresholdAttachment', key: 'threshold', annotationField: 'FDFThresholdAnnotation', drawingsField: 'FDFThresholdDrawings' }
             ];
-            
+
             for (const photoType of fdfPhotoTypes) {
-              const photoPath = roomRecord[photoType.field];
+              // Check Attachment field first (S3 key from web uploads), then legacy field
+              const photoPath = roomRecord[photoType.attachmentField] || roomRecord[photoType.field];
 
               if (photoPath) {
-                // Convert Caspio file path to base64
-                if (photoPath.startsWith('/')) {
-                  try {
+                try {
+                  let finalUrl: string | null = null;
 
+                  // Handle S3 key format (from web uploads)
+                  if (this.caspioService.isS3Key(photoPath)) {
+                    const s3Url = await this.caspioService.getS3FileUrl(photoPath);
+                    if (s3Url) {
+                      const response = await fetch(s3Url);
+                      if (response.ok) {
+                        const blob = await response.blob();
+                        const reader = new FileReader();
+                        finalUrl = await new Promise<string>((resolve, reject) => {
+                          reader.onloadend = () => resolve(reader.result as string);
+                          reader.onerror = reject;
+                          reader.readAsDataURL(blob);
+                        });
+                      }
+                    }
+                  } else if (photoPath.startsWith('data:')) {
+                    finalUrl = photoPath;
+                  } else if (photoPath.startsWith('/')) {
+                    // Caspio file path - convert to base64
                     const base64Data = await this.caspioService.getImageFromFilesAPI(photoPath).toPromise();
                     if (base64Data && base64Data.startsWith('data:')) {
-                      let finalUrl = base64Data;
-
-                      // Load caption and drawings from new fields (following measurement photo pattern)
-                      const caption = roomRecord[photoType.annotationField] || '';
-                      const drawingsData = roomRecord[photoType.drawingsField] || null;
-
-                      // CRITICAL FIX: Render annotations if Drawings data exists
-                      if (drawingsData) {
-                        try {
-                          const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawingsData, { quality: 0.9, format: 'jpeg', fabric });
-                          if (annotatedUrl && annotatedUrl !== finalUrl) {
-                            finalUrl = annotatedUrl;
-                          }
-                        } catch (renderError) {
-                          console.error(`[FDF Photos] Error rendering annotations for ${photoType.key}:`, renderError);
-                          // Continue with original photo if rendering fails
-                        }
-                      }
-
-                      fdfPhotosData[photoType.key] = true;
-                      fdfPhotosData[`${photoType.key}Url`] = finalUrl;
-                      fdfPhotosData[`${photoType.key}Caption`] = caption;
-                      fdfPhotosData[`${photoType.key}Drawings`] = drawingsData;
-                    } else {
-                      console.error(`[FDF Photos v1.4.327] Invalid base64 data for ${photoType.key}`);
+                      finalUrl = base64Data;
                     }
-                  } catch (error) {
-                    console.error(`[FDF Photos v1.4.327] Failed to convert FDF ${photoType.key} photo:`, error);
+                  }
 
-                    // Try to use token-based URL as fallback
+                  if (finalUrl) {
+                    // Load caption and drawings
+                    const caption = roomRecord[photoType.annotationField] || '';
+                    const drawingsData = roomRecord[photoType.drawingsField] || null;
+
+                    // Render annotations if Drawings data exists
+                    if (drawingsData) {
+                      try {
+                        const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawingsData, { quality: 0.9, format: 'jpeg', fabric });
+                        if (annotatedUrl && annotatedUrl !== finalUrl) {
+                          finalUrl = annotatedUrl;
+                        }
+                      } catch (renderError) {
+                        console.error(`[FDF Photos] Error rendering annotations for ${photoType.key}:`, renderError);
+                      }
+                    }
+
+                    fdfPhotosData[photoType.key] = true;
+                    fdfPhotosData[`${photoType.key}Url`] = finalUrl;
+                    fdfPhotosData[`${photoType.key}Caption`] = caption;
+                    fdfPhotosData[`${photoType.key}Drawings`] = drawingsData;
+                  } else {
+                    console.error(`[FDF Photos] Could not load photo for ${photoType.key}`);
+                  }
+                } catch (error) {
+                  console.error(`[FDF Photos] Failed to convert FDF ${photoType.key} photo:`, error);
+
+                  // Try to use token-based URL as fallback (only for Caspio paths)
+                  if (photoPath.startsWith('/')) {
                     const token = await firstValueFrom(this.caspioService.getValidToken());
                     const account = this.caspioService.getAccountID();
                     fdfPhotosData[photoType.key] = true;
                     fdfPhotosData[`${photoType.key}Url`] = `https://${account}.caspio.com/rest/v2/files${photoPath}?access_token=${token}`;
-                    // Load caption and drawings even in fallback case
                     fdfPhotosData[`${photoType.key}Caption`] = roomRecord[photoType.annotationField] || '';
                     fdfPhotosData[`${photoType.key}Drawings`] = roomRecord[photoType.drawingsField] || null;
                   }
-                } else {
                 }
-              } else {
               }
             }
             

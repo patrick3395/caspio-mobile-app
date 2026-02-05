@@ -91,7 +91,7 @@
               <div class="skeleton-caption" style="width: 60px; height: 20px; margin-top: 4px;"></div>
             </div>
             <!-- Top Photo Thumbnail -->
-            <div *ngIf="fdfPhotos.top && (fdfPhotos.topDisplayUrl || fdfPhotos.topUrl)" class="image-preview fdf-photo-preview"
+            <div *ngIf="fdfPhotos.top && (fdfPhotos.topDisplayUrl || fdfPhotos.topUrl)" class="image-preview fdf-photo-preview fade-in"
                  [class.uploading]="fdfPhotos.topUploading"
                  style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
               <img [src]="fdfPhotos.topDisplayUrl || fdfPhotos.topUrl"
@@ -145,7 +145,7 @@
               <div class="skeleton-caption" style="width: 60px; height: 20px; margin-top: 4px;"></div>
             </div>
             <!-- Bottom Photo Thumbnail -->
-            <div *ngIf="fdfPhotos.bottom && (fdfPhotos.bottomDisplayUrl || fdfPhotos.bottomUrl)" class="image-preview fdf-photo-preview"
+            <div *ngIf="fdfPhotos.bottom && (fdfPhotos.bottomDisplayUrl || fdfPhotos.bottomUrl)" class="image-preview fdf-photo-preview fade-in"
                  [class.uploading]="fdfPhotos.bottomUploading"
                  style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
               <img [src]="fdfPhotos.bottomDisplayUrl || fdfPhotos.bottomUrl"
@@ -199,7 +199,7 @@
               <div class="skeleton-caption" style="width: 60px; height: 20px; margin-top: 4px;"></div>
             </div>
             <!-- Threshold Photo Thumbnail -->
-            <div *ngIf="fdfPhotos.threshold && (fdfPhotos.thresholdDisplayUrl || fdfPhotos.thresholdUrl)" class="image-preview fdf-photo-preview"
+            <div *ngIf="fdfPhotos.threshold && (fdfPhotos.thresholdDisplayUrl || fdfPhotos.thresholdUrl)" class="image-preview fdf-photo-preview fade-in"
                  [class.uploading]="fdfPhotos.thresholdUploading"
                  style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
               <img [src]="fdfPhotos.thresholdDisplayUrl || fdfPhotos.thresholdUrl"
@@ -344,7 +344,7 @@
                   </div>
                 </div>
                 <!-- Measurement Photo Thumbnail -->
-                <div *ngIf="getPointPhotoByType(point, 'Measurement') && !getPointPhotoByType(point, 'Measurement')?.isSkeleton && !getPointPhotoByType(point, 'Measurement')?.loading" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
+                <div *ngIf="getPointPhotoByType(point, 'Measurement') && !getPointPhotoByType(point, 'Measurement')?.isSkeleton && !getPointPhotoByType(point, 'Measurement')?.loading" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;" class="fade-in">
                   <div class="image-preview fdf-photo-preview"
                        [class.uploading]="getPointPhotoByType(point, 'Measurement').uploading">
                     <img [src]="getPointPhotoByType(point, 'Measurement').displayUrl || getPointPhotoByType(point, 'Measurement').thumbnailUrl || getPointPhotoByType(point, 'Measurement').url"
@@ -407,7 +407,7 @@
                   </div>
                 </div>
                 <!-- Location Photo Thumbnail -->
-                <div *ngIf="getPointPhotoByType(point, 'Location') && !getPointPhotoByType(point, 'Location')?.isSkeleton && !getPointPhotoByType(point, 'Location')?.loading" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
+                <div *ngIf="getPointPhotoByType(point, 'Location') && !getPointPhotoByType(point, 'Location')?.isSkeleton && !getPointPhotoByType(point, 'Location')?.loading" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;" class="fade-in">
                   <div class="image-preview fdf-photo-preview"
                        [class.uploading]="getPointPhotoByType(point, 'Location').uploading">
                     <img [src]="getPointPhotoByType(point, 'Location').displayUrl || getPointPhotoByType(point, 'Location').thumbnailUrl || getPointPhotoByType(point, 'Location').url"
