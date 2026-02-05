@@ -64,6 +64,8 @@ export class TemplatePdfService {
     const config = this.templateConfigService.requiredConfig;
     const logTag = `[${config.displayName} PDF]`;
 
+    console.log(`[PDF DEBUG] generatePDF called - projectId=${projectId}, serviceId=${serviceId}, config.id=${config.id}, config.idFieldName=${config.idFieldName}`);
+
     let loading: HTMLIonAlertElement | null = null;
     let cancelRequested = false;
 
@@ -125,7 +127,7 @@ export class TemplatePdfService {
         }
       }
 
-      // Check cache (5-minute blocks)
+      // DEBUG: Temporarily bypass cache to isolate data fetching issues
       const cacheKey = this.cache.getApiCacheKey('pdf_data', {
         serviceId: serviceId,
         templateId: config.id,
@@ -133,12 +135,10 @@ export class TemplatePdfService {
       });
 
       let recordsData: any[], elevationData: any[], projectInfo: any;
-      const cachedData = this.cache.get(cacheKey);
 
-      if (cachedData) {
-        updateProgress(50, 'Loading from cache...');
-        ({ recordsData, elevationData, projectInfo } = cachedData);
-      } else {
+      // DEBUG: Always fetch fresh data (skip cache)
+      console.log(`[PDF DEBUG] Bypassing cache, fetching fresh data for ${config.id} / serviceId=${serviceId}`);
+      {
         updateProgress(5, 'Loading project data...');
 
         if (cancelRequested) return;

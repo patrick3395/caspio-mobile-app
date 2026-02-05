@@ -526,63 +526,6 @@ ion-content {
   margin-top: 16px;
 }
 
-// Phone Settings Section (mobile only)
-.phone-settings-section {
-  .collapsible-title {
-    .section-icon {
-      font-size: 18px;
-      color: #666;
-    }
-  }
-
-  .phone-setting-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 0;
-
-    &:not(:last-child) {
-      border-bottom: 1px solid #f0f0f0;
-    }
-  }
-
-  .phone-setting-info {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex: 1;
-    min-width: 0;
-
-    > ion-icon {
-      font-size: 22px;
-      color: var(--noble-orange, #F15A27);
-      flex-shrink: 0;
-    }
-  }
-
-  .phone-setting-label {
-    display: block;
-    font-size: 14px;
-    font-weight: 500;
-    color: #333;
-  }
-
-  .phone-setting-desc {
-    display: block;
-    font-size: 12px;
-    color: #888;
-    margin-top: 2px;
-  }
-
-  ion-toggle {
-    flex-shrink: 0;
-    --track-background: #ccc;
-    --track-background-checked: var(--noble-orange, #F15A27);
-    --handle-background: #fff;
-    --handle-background-checked: #fff;
-  }
-}
-
 // Collapsible Section (matches Deliverables table on project-detail page)
 .collapsible-section {
   background: #ffffff;

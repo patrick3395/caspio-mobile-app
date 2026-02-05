@@ -52,6 +52,10 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
   // WEBAPP: Track which project is being navigated to for loading feedback
   selectingProjectId: string | number | null = null;
 
+  // Settings side pane
+  settingsPaneOpen = false;
+  saveToGalleryEnabled = true;
+
   // Force update timestamp
   getCurrentTimestamp(): string {
     return new Date().toLocaleString();
@@ -82,6 +86,9 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
   ngOnInit() {
     // G2-SEO-001: Set page title for active projects
     this.pageTitleService.setListTitle('Active Projects');
+
+    // Load phone settings
+    this.saveToGalleryEnabled = localStorage.getItem('save-to-camera-roll') !== 'false';
 
     // Load current user info
     const userStr = localStorage.getItem('currentUser');
@@ -133,6 +140,15 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     if (this.routerSubscription) {
       this.routerSubscription.unsubscribe();
     }
+  }
+
+  toggleSettingsPane() {
+    this.settingsPaneOpen = !this.settingsPaneOpen;
+  }
+
+  toggleSaveToGallery() {
+    this.saveToGalleryEnabled = !this.saveToGalleryEnabled;
+    localStorage.setItem('save-to-camera-roll', String(this.saveToGalleryEnabled));
   }
 
   // Track last load time for smart caching

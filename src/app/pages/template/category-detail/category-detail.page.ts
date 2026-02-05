@@ -136,6 +136,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   private _pendingDetect = false;
   private liveQueryDebounceTimer: any = null;
   private lastSelectionInteractionTime = 0;
+  private lastPhotoOperationTime: number = 0;
+  private lastFieldsFingerprint: string = '';
   private initialLoadComplete: boolean = false;
   private lastLoadedServiceId: string = '';
   private lastLoadedCategoryName: string = '';
@@ -520,6 +522,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           // FIX: Only show UI after first liveQuery emission to prevent "No Items" flash
           if (!this.isInitialDataLoaded) {
             this.convertGenericFieldsToOrganizedData(fields);
+            this.lastFieldsFingerprint = this.computeFieldsFingerprint(fields);
             this.isInitialDataLoaded = true;
             this.loading = false;
             this.logDebug('DEXIE', 'Initial data loaded - showing UI');
@@ -543,9 +546,16 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
             return;
           }
 
-          // Convert to organized data using unified method
-          this.convertGenericFieldsToOrganizedData(fields);
-          this.safeDetectChanges();
+          // Fingerprint check: skip redundant UI rebuild when fields haven't structurally changed
+          const newFingerprint = this.computeFieldsFingerprint(fields);
+          if (newFingerprint !== this.lastFieldsFingerprint) {
+            this.convertGenericFieldsToOrganizedData(fields);
+            this.lastFieldsFingerprint = newFingerprint;
+            this.safeDetectChanges();
+          } else {
+            // Fields unchanged structurally — just update reference for photo population
+            this.lastConvertedGenericFields = fields;
+          }
 
           // Populate photos in background (non-blocking)
           this.populateGenericPhotosFromDexie(fields).then(() => {
@@ -1573,6 +1583,14 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     this.logDebug('DEXIE', `HUD Organized: ${comments.length} comments, ${limitations.length} limitations, ${deficiencies.length} deficiencies`);
   }
 
+  private computeFieldsFingerprint(fields: any[]): string {
+    let hash = '';
+    for (const f of fields) {
+      hash += `${f.templateId}|${f.isSelected ? 1 : 0}|${f.answer || ''}|${f.kind}|${f.otherValue || ''}~`;
+    }
+    return hash;
+  }
+
   /**
    * UNIFIED: Convert generic fields to organized data structure (MOBILE ONLY - ALL TEMPLATES)
    * Uses GenericFieldRepoService to get IDs in a template-agnostic way
@@ -1626,7 +1644,10 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         if (!withinSelectionGuard) {
           this.selectedItems[selectionKey] = field.isSelected;
         }
-        this.photoCountsByKey[selectionKey] = field.photoCount;
+        const withinPhotoGuard = (Date.now() - this.lastPhotoOperationTime) < 5000;
+        if (!withinPhotoGuard) {
+          this.photoCountsByKey[selectionKey] = field.photoCount;
+        }
       }
 
       // Populate dropdown options if available
@@ -1674,6 +1695,15 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     this.isPopulatingPhotos = true;
 
     try {
+      // Skip heavy re-population for 3s after photo operations.
+      // During this window, visualPhotos is already correct from onTempPhotoAdded/onUploadComplete callbacks.
+      // The full populate still runs on page entry, navigation, deletion, annotation saves, etc.
+      const withinPhotoOpWindow = (Date.now() - this.lastPhotoOperationTime) < 3000;
+      if (withinPhotoOpWindow) {
+        this.logDebug('DEXIE', 'Skipping populate — within photo operation window');
+        return;
+      }
+
       this.logDebug('DEXIE', `Populating photos from Dexie for ${fields.length} fields (${this.config.id})...`);
 
       // Load annotated images in background if not loaded
@@ -1932,12 +1962,15 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         // Update in-memory photo count immediately (no Dexie write — avoids liveQuery feedback loop)
         this.photoCountsByKey[key] = this.visualPhotos[key].length;
 
-        // Yield to browser every 5 fields so it can process scroll events and paint
+        // Yield to browser every 2 fields so it can process scroll events and paint
         fieldsProcessed++;
-        if (fieldsProcessed % 5 === 0) {
+        if (fieldsProcessed % 2 === 0) {
           await new Promise<void>(resolve => setTimeout(resolve, 0));
-          // Abort if component was destroyed during yield
           if (this.isDestroyed) return;
+          if (this.isMultiImageUploadInProgress || this.isCameraCaptureInProgress) {
+            this.logDebug('DEXIE', 'Aborting populate — new photo operation started');
+            return;
+          }
         }
       }
 
@@ -3177,6 +3210,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     };
 
     // Set guard flag to suppress liveQuery during capture
+    this.lastPhotoOperationTime = Date.now();
     this.isCameraCaptureInProgress = true;
     try {
       await this.photoHandler.captureFromCamera(captureConfig);
@@ -3259,6 +3293,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     };
 
     // Set guard flag to suppress liveQuery during gallery upload
+    this.lastPhotoOperationTime = Date.now();
     this.isMultiImageUploadInProgress = true;
     try {
       await this.photoHandler.captureFromGallery(captureConfig);

@@ -1,5 +1,15 @@
 <ion-header class="custom-header">
   <ion-toolbar class="action-toolbar" [class.web-centered]="platform.isWeb()">
+    <ion-buttons slot="start" *ngIf="!platform.isWeb()">
+      <button
+        type="button"
+        class="toolbar-btn menu-btn"
+        (click)="toggleSettingsPane()"
+        aria-label="Settings"
+      >
+        <ion-icon name="menu-outline"></ion-icon>
+      </button>
+    </ion-buttons>
     <ion-title>Active Projects</ion-title>
     <ion-buttons slot="end" [class.web-actions]="platform.isWeb()">
       <button
@@ -22,6 +32,39 @@
     </ion-buttons>
   </ion-toolbar>
 </ion-header>
+
+<!-- Settings Side Pane (mobile only) -->
+<div class="settings-overlay" [class.open]="settingsPaneOpen" (click)="toggleSettingsPane()"></div>
+<div class="settings-pane" [class.open]="settingsPaneOpen">
+  <div class="settings-pane-header">
+    <h3>Settings</h3>
+    <button class="settings-close-btn" (click)="toggleSettingsPane()">
+      <ion-icon name="close"></ion-icon>
+    </button>
+  </div>
+  <div class="settings-pane-body">
+    <div class="settings-group">
+      <div class="settings-group-title">
+        <ion-icon name="phone-portrait-outline"></ion-icon>
+        <span>Phone</span>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row-info">
+          <ion-icon name="images-outline"></ion-icon>
+          <div>
+            <span class="settings-row-label">Save to Camera Roll</span>
+            <span class="settings-row-desc">Backup photos to device gallery</span>
+          </div>
+        </div>
+        <ion-toggle
+          [checked]="saveToGalleryEnabled"
+          (ionChange)="toggleSaveToGallery()"
+          mode="ios">
+        </ion-toggle>
+      </div>
+    </div>
+  </div>
+</div>
 
 <ion-content class="projects-content">
   <!-- Pull to refresh -->

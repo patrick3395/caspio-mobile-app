@@ -244,8 +244,6 @@ export class CompanyPage implements OnInit, OnDestroy {
   usersExpanded = true;
   servicesExpanded = true;
   paymentSettingsExpanded = true;
-  phoneSettingsExpanded = true;
-  saveToGalleryEnabled = true; // Default ON
   clientOffers: any[] = [];
   clientMetrics: { totalProjects: number; activeProjects: number; completedProjects: number } | null = null;
 
@@ -601,10 +599,6 @@ export class CompanyPage implements OnInit, OnDestroy {
         this.isCompanyOne = false;
       }
     }
-
-    // Load phone settings
-    const savedGallerySetting = localStorage.getItem('save-to-camera-roll');
-    this.saveToGalleryEnabled = savedGallerySetting !== 'false'; // Default ON
 
     // Load appropriate data based on company
     if (this.isCompanyOne) {
@@ -3660,11 +3654,6 @@ export class CompanyPage implements OnInit, OnDestroy {
       hasNotes: false
     };
     this.applyCompanyFilters();
-  }
-
-  toggleSaveToGallery() {
-    this.saveToGalleryEnabled = !this.saveToGalleryEnabled;
-    localStorage.setItem('save-to-camera-roll', String(this.saveToGalleryEnabled));
   }
 
   selectClientTab(tab: 'company' | 'payments' | 'metrics') {
