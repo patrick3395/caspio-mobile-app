@@ -480,12 +480,13 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     const isDexieFirstEnabled = this.genericFieldRepo.isDexieFirstEnabled(this.config);
 
     if (isDexieFirstEnabled) {
-      // DEXIE-FIRST: Keep skeleton visible until liveQuery emits initial data
-      // This prevents the "No Items" flash before data populates
-      // loading will be set to false after first liveQuery emission
+      // STEP 1: Ensure fields are seeded BEFORE subscribing to liveQuery
+      // This guarantees first liveQuery emission has data, preventing items from "popping" in
+      await this.ensureFieldsSeeded();
+      if (this.isDestroyed) return;
 
-      // STEP 1: Subscribe to liveQuery FIRST for instant UI
-      // This shows existing data immediately while background operations run
+      // STEP 2: Subscribe to liveQuery for instant UI
+      // Fields already exist in Dexie, so first emission will have data
       const fields$ = this.genericFieldRepo.getFieldsForCategory$(
         this.config,
         this.serviceId,
@@ -557,11 +558,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       if (!this.localImagesSubscription && this.serviceId) {
         this.subscribeToLocalImagesChanges();
       }
-
-      // STEP 2: Background seeding (non-blocking) - liveQuery will auto-update when data is added
-      this.ensureFieldsSeeded().catch(err => {
-        this.logDebug('ERROR', `Background seeding failed: ${err}`);
-      });
 
     } else {
       // Fallback for any template without Dexie-first (shouldn't happen with current config)
