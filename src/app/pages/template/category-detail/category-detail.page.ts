@@ -132,6 +132,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   private localOperationCooldown = false;
   private isCameraCaptureInProgress = false;
   private isMultiImageUploadInProgress = false;
+  private _pendingPhotoDetect = false;
   private liveQueryDebounceTimer: any = null;
   private initialLoadComplete: boolean = false;
   private lastLoadedServiceId: string = '';
@@ -1576,8 +1577,21 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       if (recordId) {
         this.visualRecordIds[selectionKey] = recordId;
       }
-      this.selectedItems[selectionKey] = field.isSelected;
-      this.photoCountsByKey[selectionKey] = field.photoCount;
+
+      // During photo operations, preserve local selection and count state.
+      // On web, selections aren't persisted to Dexie, so stale liveQuery data
+      // would reset the UI (deselecting items, hiding action buttons/photos).
+      if (this.isCameraCaptureInProgress || this.isMultiImageUploadInProgress) {
+        if (!this.selectedItems[selectionKey]) {
+          this.selectedItems[selectionKey] = field.isSelected;
+        }
+        if (field.photoCount > (this.photoCountsByKey[selectionKey] || 0)) {
+          this.photoCountsByKey[selectionKey] = field.photoCount;
+        }
+      } else {
+        this.selectedItems[selectionKey] = field.isSelected;
+        this.photoCountsByKey[selectionKey] = field.photoCount;
+      }
 
       // Populate dropdown options if available
       if (field.answerType === 2 && field.dropdownOptions) {
@@ -3185,7 +3199,15 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         if (this.photoHandler.photoExistsInArray(this.visualPhotos[key], photo.imageId)) return;
         this.visualPhotos[key].push(photo);
         this.photoCountsByKey[key] = this.visualPhotos[key].length;
-        this.changeDetectorRef.detectChanges();
+        // Debounce: coalesce rapid skeleton additions into single CD cycle
+        // (captureFromGallery fires onTempPhotoAdded synchronously for each skeleton)
+        if (!this._pendingPhotoDetect) {
+          this._pendingPhotoDetect = true;
+          requestAnimationFrame(() => {
+            this._pendingPhotoDetect = false;
+            this.changeDetectorRef.detectChanges();
+          });
+        }
       },
       onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
         this.logDebug('PHOTO', `Gallery upload complete: ${photo.imageId}`);

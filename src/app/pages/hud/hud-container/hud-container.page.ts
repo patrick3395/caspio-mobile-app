@@ -15519,265 +15519,122 @@ Stack: ${error?.stack}`;
   }
 
   async getVisualPhotos(visualId: string, category?: string, itemId?: string) {
-    // v1.4.390 - Fix: Use key-based photo retrieval to match storage method
-    // Try to get photos using the full key first (as per v1.4.386 fix)
-    let photos = [];
-
-    if (category && itemId) {
-      const fullKey = `${category}_${itemId}`;
-      photos = this.visualPhotos[fullKey] || [];
-    }
-
-    // Fallback to visualId if no photos found with key
-    if (photos.length === 0) {
-      photos = this.visualPhotos[visualId] || [];
-    }
-
-    // MOBILE FIX: Clear cache on mobile to ensure fresh base64 data
-    // Cache might contain old data with HTTP URLs instead of base64
-    const cacheKey = this.cache.getApiCacheKey('visual_photos', { visualId });
-    const isMobile = this.platformIonic.is('ios') || this.platformIonic.is('android');
-
-    // PERFORMANCE OPTIMIZED: Use cache on all platforms for faster loading
-    // Cache contains base64 data which works on both web and mobile
-    const cachedPhotos = this.cache.get(cacheKey);
-    if (cachedPhotos && cachedPhotos.length > 0) {
-      // Verify cached photos have proper base64 data
-      const allValid = cachedPhotos.every((p: any) =>
-        p.displayUrl && (p.displayUrl.startsWith('data:') || p.displayUrl.startsWith('blob:'))
-      );
-      if (allValid) {
-        console.log('[PDF Photos] Using cached photos for visualId:', visualId, '(', cachedPhotos.length, 'photos)');
-        return cachedPhotos;
-      } else {
-        console.log('[PDF Photos] Cache invalid, reloading photos');
-        this.cache.clear(cacheKey);
+    try {
+      // Check PDF photo cache first
+      const cacheKey = this.cache.getApiCacheKey('pdf_visual_photos', { visualId });
+      const cachedPhotos = this.cache.get(cacheKey);
+      if (cachedPhotos && cachedPhotos.length > 0) {
+        const allValid = cachedPhotos.every((p: any) =>
+          p.url && (p.url.startsWith('data:') || p.url.startsWith('blob:'))
+        );
+        if (allValid) {
+          console.log('[PDF Photos] Using cached photos for visual:', visualId, cachedPhotos.length);
+          return cachedPhotos;
+        }
       }
-    }
 
-    // Load Fabric.js once for all photos to avoid multiple parallel imports
-    console.log('[PDF Photos] Loading Fabric.js for annotation rendering...');
-    const fabric = await this.fabricService.getFabric();
-    console.log('[PDF Photos] Fabric.js loaded, processing', photos.length, 'photos for visual:', visualId);
+      // Fetch attachments from the API (same approach as EFE PDF service)
+      const attachments = await this.hudData.getVisualAttachments(visualId);
+      const photos: any[] = [];
 
-    // PERFORMANCE OPTIMIZED: Process photos in batches
-    // Increased batch sizes for faster PDF generation while maintaining stability
-    const BATCH_SIZE = isMobile ? 8 : 15; // Increased from 3/5 for better performance
-    const BATCH_DELAY = isMobile ? 50 : 25; // Reduced from 200/100 for faster processing
-    const processedPhotos: any[] = [];
-    let successCount = 0;
-    let failureCount = 0;
+      if (!attachments || attachments.length === 0) {
+        return photos;
+      }
 
-    for (let i = 0; i < photos.length; i += BATCH_SIZE) {
-      const batch = photos.slice(i, i + BATCH_SIZE);
-      console.log(`[PDF Photos] Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(photos.length / BATCH_SIZE)} (${batch.length} photos)`);
+      // Load Fabric.js once for annotation rendering
+      const fabric = await this.fabricService.getFabric();
+      console.log('[PDF Photos] Processing', attachments.length, 'attachments for visual:', visualId);
 
-      const batchPromises = batch.map(async (photo, batchIndex) => {
-      const photoIndex = i + batchIndex;
-      const photoName = photo.Annotation || photo.caption || `Photo ${photoIndex + 1}`;
+      for (const attachment of attachments) {
+        const attachId = attachment.AttachID || attachment.attachId || attachment.imageId || '';
+        const caption = attachment.Annotation || attachment.Caption || attachment.caption || '';
+        const drawings = attachment.Drawings || attachment.drawings || '';
 
-      // Prioritize displayUrl (annotated) over regular url
-      let photoUrl = photo.displayUrl || photo.Photo || photo.url || '';
-      let finalUrl = photoUrl;
-      let conversionSuccess = false;
-      let errorDetails = ''; // Store error info for debug popup
+        let finalUrl = '';
+        let conversionSuccess = false;
 
-      console.log(`[PDF Photos] [${photoIndex + 1}/${photos.length}] Processing "${photoName}"`);
-      console.log(`[PDF Photos]   - AttachID: ${photo.AttachID || 'none'}`);
-      console.log(`[PDF Photos]   - Photo URL: ${photoUrl?.substring(0, 100) || 'empty'}`);
-
-      // If it's a Caspio file path (starts with /), convert to base64
-      if (photoUrl && photoUrl.startsWith('/')) {
-        // Check individual photo cache first (skip on mobile)
-        const photoCacheKey = this.cache.getApiCacheKey('photo_base64', { path: photoUrl });
-        const cachedBase64 = !isMobile ? this.cache.get(photoCacheKey) : null;
-
-        if (cachedBase64) {
-          console.log(`[PDF Photos]   - Using cached base64`);
-          finalUrl = cachedBase64;
+        // Check if we already have a local data/blob URL
+        const existingUrl = attachment.displayUrl || attachment.url || '';
+        if (existingUrl && (existingUrl.startsWith('data:') || existingUrl.startsWith('blob:'))) {
+          finalUrl = existingUrl;
           conversionSuccess = true;
-        } else {
-          try {
-            console.log(`[PDF Photos]   - Converting to base64...`);
-            const startTime = Date.now();
-            const base64Data = await this.caspioService.getImageFromFilesAPI(photoUrl).toPromise();
-            const duration = Date.now() - startTime;
+        }
 
-            if (base64Data && base64Data.startsWith('data:')) {
-              finalUrl = base64Data;
-              conversionSuccess = true;
-              console.log(`[PDF Photos]   ✓ Converted successfully in ${duration}ms (${Math.round(base64Data.length / 1024)}KB)`);
-              // Cache individual photo for reuse (web only)
-              if (!isMobile) {
-                this.cache.set(photoCacheKey, base64Data, this.cache.CACHE_TIMES.LONG);
+        // If no local URL, fetch from server (S3 key or Caspio path)
+        if (!finalUrl) {
+          const serverPath = attachment.Attachment || attachment.Photo || attachment.PhotoPath || '';
+
+          if (serverPath) {
+            try {
+              if (this.caspioService.isS3Key(serverPath)) {
+                // S3 key — download and convert to base64
+                const s3Url = await this.caspioService.getS3FileUrl(serverPath);
+                if (s3Url) {
+                  const response = await fetch(s3Url);
+                  if (response.ok) {
+                    const blob = await response.blob();
+                    const reader = new FileReader();
+                    const base64 = await new Promise<string>((resolve, reject) => {
+                      reader.onloadend = () => resolve(reader.result as string);
+                      reader.onerror = reject;
+                      reader.readAsDataURL(blob);
+                    });
+                    if (base64) {
+                      finalUrl = base64;
+                      conversionSuccess = true;
+                    }
+                  }
+                }
+              } else if (serverPath.startsWith('/')) {
+                // Caspio file path — use Files API
+                const base64Data = await this.caspioService.getImageFromFilesAPI(serverPath).toPromise();
+                if (base64Data && base64Data.startsWith('data:')) {
+                  finalUrl = base64Data;
+                  conversionSuccess = true;
+                }
               }
-            } else {
-              console.error(`[PDF Photos]   ✗ Conversion failed: Invalid data returned`);
-              console.error(`[PDF Photos]     - Type: ${typeof base64Data}`);
-              console.error(`[PDF Photos]     - Length: ${base64Data?.length || 0}`);
-              console.error(`[PDF Photos]     - Preview: ${base64Data?.substring(0, 50) || 'empty'}`);
-              finalUrl = 'assets/img/photo-placeholder.svg';
-              conversionSuccess = false;
-              errorDetails = `Invalid data: ${typeof base64Data}, length: ${base64Data?.length || 0}`;
+            } catch (error) {
+              console.error(`[PDF Photos] Failed to load photo for attachment ${attachId}:`, error);
             }
-          } catch (error) {
-            const errorMsg = error instanceof Error ? error.message : String(error);
-            console.error(`[PDF Photos]   ✗ Error during base64 conversion:`, {
-              error: error,
-              message: errorMsg,
-              photoUrl: photoUrl,
-              attachId: photo.AttachID,
-              platform: isMobile ? 'mobile' : 'web'
-            });
-            finalUrl = 'assets/img/photo-placeholder.svg';
-            conversionSuccess = false;
-            errorDetails = errorMsg;
           }
         }
-      } else if (photoUrl && (photoUrl.startsWith('blob:') || photoUrl.startsWith('data:'))) {
-        console.log(`[PDF Photos]   - Already data/blob URL`);
-        finalUrl = photoUrl;
-        conversionSuccess = true;
-      } else if (photoUrl && photoUrl.startsWith('http')) {
-        console.log(`[PDF Photos]   - HTTP URL (may fail on mobile)`);
-        finalUrl = photoUrl;
-        conversionSuccess = true;
-      } else {
-        console.warn(`[PDF Photos]   - Unknown URL format or empty`);
-        finalUrl = 'assets/img/photo-placeholder.svg';
-        conversionSuccess = false;
-        errorDetails = 'Empty or unknown URL format';
-      }
 
-      // CRITICAL FIX: Render annotations if Drawings data exists
-      // Check both Drawings and rawDrawingsString (rawDrawingsString is from buildPhotoRecord)
-      const drawingsData = photo.Drawings || photo.rawDrawingsString;
-      if (drawingsData && finalUrl && !finalUrl.includes('placeholder')) {
-        console.log('[PDF Photos] Rendering annotations for photo:', {
-          photoUrl,
-          hasDrawings: !!drawingsData,
-          drawingsType: typeof drawingsData,
-          drawingsPreview: typeof drawingsData === 'string' ? drawingsData.substring(0, 200) : drawingsData,
-          photoHasDrawings: !!photo.Drawings,
-          photoHasRawDrawingsString: !!photo.rawDrawingsString
-        });
-        try {
-          // Check cache for annotated version
-          const annotatedCacheKey = this.cache.getApiCacheKey('photo_annotated', {
-            path: photoUrl,
-            drawings: drawingsData.substring(0, 50) // Use first 50 chars as cache key part
-          });
-          const cachedAnnotated = this.cache.get(annotatedCacheKey);
-
-          if (cachedAnnotated) {
-            console.log('[PDF Photos] Using cached annotated photo');
-            finalUrl = cachedAnnotated;
-          } else {
-            console.log('[PDF Photos] Rendering annotations with renderAnnotationsOnPhoto...');
-            // Render annotations onto the photo, passing the pre-loaded fabric instance
-            const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawingsData, { quality: 0.9, format: 'jpeg', fabric });
+        // Render annotations if we have a valid URL and drawings data
+        if (finalUrl && drawings) {
+          try {
+            const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawings, { quality: 0.9, format: 'jpeg', fabric });
             if (annotatedUrl && annotatedUrl !== finalUrl) {
-              console.log('[PDF Photos] Annotations rendered successfully');
               finalUrl = annotatedUrl;
-              // Cache the annotated version
-              this.cache.set(annotatedCacheKey, annotatedUrl, this.cache.CACHE_TIMES.LONG);
-            } else {
-              console.warn('[PDF Photos] renderAnnotationsOnPhoto returned same URL');
             }
+          } catch (renderError) {
+            console.error(`[PDF Photos] Error rendering annotations for ${attachId}:`, renderError);
           }
-        } catch (renderError) {
-          console.error(`[PDF Photos] Error rendering annotations:`, renderError);
-          // Continue with original photo if rendering fails
         }
-      } else {
-        if (!drawingsData) {
-          console.log('[PDF Photos] No drawings data for photo:', photoUrl);
+
+        if (finalUrl) {
+          photos.push({
+            url: finalUrl,
+            displayUrl: finalUrl,
+            caption: caption,
+            attachId: attachId,
+            hasAnnotations: !!drawings,
+            conversionSuccess: conversionSuccess
+          });
         }
       }
 
-        // Track success/failure
-        if (conversionSuccess) {
-          successCount++;
-        } else {
-          failureCount++;
-        }
+      console.log(`[PDF Photos] Visual ${visualId}: ${photos.length}/${attachments.length} photos loaded`);
 
-        // Return the photo object with the appropriate URLs
-        // If photo already has a displayUrl (annotated), it should be preserved as finalUrl
-        return {
-          url: photo.url || finalUrl, // Original URL
-          displayUrl: finalUrl, // This will be the annotated version with drawings rendered
-          caption: photo.Annotation || '',
-          attachId: photo.AttachID || photo.id || '',
-          hasAnnotations: !!drawingsData,
-          conversionSuccess: conversionSuccess, // Track if conversion succeeded
-          errorDetails: errorDetails // Error message if failed
-        };
-      });
-
-      // Wait for current batch to complete
-      const batchResults = await Promise.all(batchPromises);
-      processedPhotos.push(...batchResults);
-
-      console.log(`[PDF Photos] Batch complete: ${successCount} succeeded, ${failureCount} failed so far`);
-
-      // Small delay between batches to allow garbage collection
-      if (i + BATCH_SIZE < photos.length) {
-        await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
+      // Cache for reuse
+      if (photos.length > 0) {
+        this.cache.set(cacheKey, photos, this.cache.CACHE_TIMES.LONG);
       }
+
+      return photos;
+    } catch (error) {
+      console.error(`[PDF Photos] Error getting visual photos for ${visualId}:`, error);
+      return [];
     }
-
-    // Final summary
-    console.log(`[PDF Photos] ========== SUMMARY ==========`);
-    console.log(`[PDF Photos] Visual ID: ${visualId}`);
-    console.log(`[PDF Photos] Total photos: ${photos.length}`);
-    console.log(`[PDF Photos] Successful: ${successCount}`);
-    console.log(`[PDF Photos] Failed: ${failureCount}`);
-    console.log(`[PDF Photos] Success rate: ${photos.length > 0 ? Math.round((successCount / photos.length) * 100) : 0}%`);
-    console.log(`[PDF Photos] Platform: ${isMobile ? 'Mobile' : 'Web'}`);
-    console.log(`[PDF Photos] ============================`);
-
-    // Show debug popup on mobile if there were failures
-    if (isMobile && failureCount > 0) {
-      const failedPhotos = processedPhotos.filter(p => !p.conversionSuccess);
-      const failureDetails = failedPhotos.slice(0, 5).map((p, idx) => {
-        const caption = (p.caption || 'No caption').substring(0, 30);
-        const url = (p.url || 'No URL').substring(0, 40);
-        const error = (p.errorDetails || 'Unknown error').substring(0, 50);
-        return `${idx + 1}. ${caption}<br>   ${url}...<br>   <span style="color: red;">Error: ${error}</span>`;
-      }).join('<br>');
-
-      setTimeout(async () => {
-        const alert = await this.alertController.create({
-          header: '⚠️ Photo Failures',
-          message: `
-            <div style="font-family: monospace; font-size: 10px; text-align: left;">
-              <strong>Visual: ${category || 'Unknown'}</strong><br><br>
-
-              <strong style="color: ${failureCount > 0 ? 'red' : 'green'};">Status:</strong><br>
-              ✓ Success: ${successCount}<br>
-              ✗ Failed: ${failureCount}<br>
-              Total: ${photos.length}<br>
-              Rate: ${photos.length > 0 ? Math.round((successCount / photos.length) * 100) : 0}%<br><br>
-
-              ${failureCount > 0 ? `<strong style="color: red;">Failed Photos (first 5):</strong><br>${failureDetails}<br><br>${failureCount > 5 ? `...and ${failureCount - 5} more` : ''}` : ''}
-            </div>
-          `,
-          buttons: ['OK']
-        });
-        await alert.present();
-      }, 500);
-    }
-
-    // Cache the processed photos using the cache service (web only - mobile gets fresh data)
-    if (!isMobile) {
-      this.cache.set(cacheKey, processedPhotos, this.cache.CACHE_TIMES.LONG);
-      console.log('[PDF Photos] Cached processed photos for web use');
-    } else {
-      console.log('[PDF Photos] Skipping cache on mobile');
-    }
-
-    return processedPhotos;
   }
 
   async getRoomPhotos(roomId: string) {
