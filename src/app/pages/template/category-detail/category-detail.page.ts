@@ -38,6 +38,7 @@ import { renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
 interface VisualItem {
   id: string | number;
   templateId: number;
+  lookupId: string | number;
   name: string;
   text: string;
   originalText: string;
@@ -132,7 +133,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   private localOperationCooldown = false;
   private isCameraCaptureInProgress = false;
   private isMultiImageUploadInProgress = false;
-  private _pendingPhotoDetect = false;
+  private _pendingDetect = false;
   private liveQueryDebounceTimer: any = null;
   private initialLoadComplete: boolean = false;
   private lastLoadedServiceId: string = '';
@@ -185,6 +186,20 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     private templateRehydration: TemplateRehydrationService,
     @Inject(TEMPLATE_DATA_PROVIDER) private dataProvider: ITemplateDataProvider
   ) {}
+
+  // ==================== Change Detection Optimization ====================
+
+  private scheduleDetectChanges(): void {
+    if (!this._pendingDetect) {
+      this._pendingDetect = true;
+      requestAnimationFrame(() => {
+        this._pendingDetect = false;
+        if (!this.isDestroyed) {
+          this.changeDetectorRef.detectChanges();
+        }
+      });
+    }
+  }
 
   // ==================== Lifecycle ====================
 
@@ -850,7 +865,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       if (this.bulkAnnotatedImagesMap.size === 0) {
         this.indexedDb.getAllCachedAnnotatedImagesForService().then(annotatedImages => {
           this.bulkAnnotatedImagesMap = annotatedImages;
-          this.changeDetectorRef.detectChanges();
+          this.scheduleDetectChanges();
         });
       }
 
@@ -1146,7 +1161,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       if (this.bulkAnnotatedImagesMap.size === 0) {
         this.indexedDb.getAllCachedAnnotatedImagesForService().then(annotatedImages => {
           this.bulkAnnotatedImagesMap = annotatedImages;
-          this.changeDetectorRef.detectChanges();
+          this.scheduleDetectChanges();
         });
       }
 
@@ -1426,9 +1441,11 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     const deficiencies: VisualItem[] = [];
 
     for (const field of fields) {
+      const itemId = field.visualId || field.tempVisualId || field.templateId;
       const item: VisualItem = {
-        id: field.visualId || field.tempVisualId || field.templateId,
+        id: itemId,
         templateId: field.templateId,
+        lookupId: field.templateId === 0 ? itemId : field.templateId,
         name: field.templateName,
         text: field.answer || field.templateText,
         originalText: field.templateText,
@@ -1488,9 +1505,11 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     const deficiencies: VisualItem[] = [];
 
     for (const field of fields) {
+      const hudItemId = field.hudId || field.tempHudId || field.templateId;
       const item: VisualItem = {
-        id: field.hudId || field.tempHudId || field.templateId,
+        id: hudItemId,
         templateId: field.templateId,
+        lookupId: field.templateId === 0 ? hudItemId : field.templateId,
         name: field.templateName,
         text: field.answer || field.templateText,
         originalText: field.templateText,
@@ -1556,9 +1575,11 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       // Use GenericFieldRepoService to get the record ID in a template-agnostic way
       const recordId = this.genericFieldRepo.getRecordId(this.config, field);
 
+      const genericItemId = recordId || field.templateId;
       const item: VisualItem = {
-        id: recordId || field.templateId,
+        id: genericItemId,
         templateId: field.templateId,
+        lookupId: field.templateId === 0 ? genericItemId : field.templateId,
         name: field.templateName,
         text: field.answer || field.templateText,
         originalText: field.templateText,
@@ -1639,7 +1660,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       if (this.bulkAnnotatedImagesMap.size === 0) {
         this.indexedDb.getAllCachedAnnotatedImagesForService().then(annotatedImages => {
           this.bulkAnnotatedImagesMap = annotatedImages;
-          this.changeDetectorRef.detectChanges();
+          this.scheduleDetectChanges();
         });
       }
 
@@ -2182,9 +2203,11 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       const hasVisualWithAnswer = hasVisualRecord && (answerType === 0 || answerValue);
       const isSelected = hasVisualWithAnswer || this.selectedItems[key] || false;
 
+      const webItemId = visual ? (visual[this.config!.idFieldName] || visual.PK_ID) : templateId;
       const item: VisualItem = {
-        id: visual ? (visual[this.config!.idFieldName] || visual.PK_ID) : templateId,
+        id: webItemId,
         templateId: templateId,
+        lookupId: templateId === 0 ? webItemId : templateId,
         name: visual?.Name || template.Name || '',
         text: visual?.Text || template.Text || '',
         originalText: template.Text || '',
@@ -3114,7 +3137,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         if (this.photoHandler.photoExistsInArray(this.visualPhotos[key], photo.imageId)) return;
         this.visualPhotos[key].push(photo);
         this.photoCountsByKey[key] = this.visualPhotos[key].length;
-        this.changeDetectorRef.detectChanges();
+        this.scheduleDetectChanges();
       },
       onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
         this.logDebug('PHOTO', `Upload complete: ${photo.imageId}, was: ${tempId}`);
@@ -3125,7 +3148,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         if (photoIndex >= 0) {
           this.visualPhotos[key][photoIndex] = photo;
         }
-        this.changeDetectorRef.detectChanges();
+        this.scheduleDetectChanges();
       },
       onUploadFailed: (tempId: string, error: any) => {
         this.logDebug('ERROR', `Upload failed for ${tempId}: ${error}`);
@@ -3136,7 +3159,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         if (photoIndex >= 0) {
           this.visualPhotos[key][photoIndex].uploadFailed = true;
         }
-        this.changeDetectorRef.detectChanges();
+        this.scheduleDetectChanges();
       }
     };
 
@@ -3145,7 +3168,11 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     try {
       await this.photoHandler.captureFromCamera(captureConfig);
     } finally {
-      this.isCameraCaptureInProgress = false;
+      // Grace period: let UI settle before liveQuery cascade
+      setTimeout(() => {
+        this.isCameraCaptureInProgress = false;
+        this.scheduleDetectChanges();
+      }, 300);
     }
   }
 
@@ -3194,15 +3221,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         if (this.photoHandler.photoExistsInArray(this.visualPhotos[key], photo.imageId)) return;
         this.visualPhotos[key].push(photo);
         this.photoCountsByKey[key] = this.visualPhotos[key].length;
-        // Debounce: coalesce rapid skeleton additions into single CD cycle
-        // (captureFromGallery fires onTempPhotoAdded synchronously for each skeleton)
-        if (!this._pendingPhotoDetect) {
-          this._pendingPhotoDetect = true;
-          requestAnimationFrame(() => {
-            this._pendingPhotoDetect = false;
-            this.changeDetectorRef.detectChanges();
-          });
-        }
+        this.scheduleDetectChanges();
       },
       onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
         this.logDebug('PHOTO', `Gallery upload complete: ${photo.imageId}`);
@@ -3212,7 +3231,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         if (photoIndex >= 0) {
           this.visualPhotos[key][photoIndex] = photo;
         }
-        this.changeDetectorRef.detectChanges();
+        this.scheduleDetectChanges();
       },
       onUploadFailed: (tempId: string, error: any) => {
         this.logDebug('ERROR', `Gallery upload failed for ${tempId}: ${error}`);
@@ -3222,7 +3241,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         if (photoIndex >= 0) {
           this.visualPhotos[key][photoIndex].uploadFailed = true;
         }
-        this.changeDetectorRef.detectChanges();
+        this.scheduleDetectChanges();
       }
     };
 
@@ -3231,7 +3250,11 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     try {
       await this.photoHandler.captureFromGallery(captureConfig);
     } finally {
-      this.isMultiImageUploadInProgress = false;
+      // Grace period: let UI settle before liveQuery cascade
+      setTimeout(() => {
+        this.isMultiImageUploadInProgress = false;
+        this.scheduleDetectChanges();
+      }, 300);
     }
   }
 

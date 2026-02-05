@@ -136,15 +136,17 @@
     </div>
     <div class="simple-accordion-content" *ngIf="isSectionExpanded(sectionName)">
       <div class="type-section">
-        <div *ngIf="filterItems(items).length === 0 && !searchTerm" class="no-items-message">
-          No {{ sectionTitle.toLowerCase() }} yet.<br>Click + to add one.
-        </div>
-        <div *ngIf="filterItems(items).length === 0 && searchTerm" class="no-items-message">
-          No results found for "{{ searchTerm }}"
-        </div>
-        <div class="template-item" *ngFor="let item of filterItems(items); trackBy: trackByItemId">
-          <ng-container *ngTemplateOutlet="visualItemTemplate; context: { $implicit: item }"></ng-container>
-        </div>
+        <ng-container *ngIf="{ list: filterItems(items) } as filtered">
+          <div *ngIf="filtered.list.length === 0 && !searchTerm" class="no-items-message">
+            No {{ sectionTitle.toLowerCase() }} yet.<br>Click + to add one.
+          </div>
+          <div *ngIf="filtered.list.length === 0 && searchTerm" class="no-items-message">
+            No results found for "{{ searchTerm }}"
+          </div>
+          <div class="template-item" *ngFor="let item of filtered.list; trackBy: trackByItemId">
+            <ng-container *ngTemplateOutlet="visualItemTemplate; context: { $implicit: item }"></ng-container>
+          </div>
+        </ng-container>
       </div>
     </div>
   </div>
@@ -152,17 +154,17 @@
 
 <!-- Visual Item Template (DRY - used for each item in all sections) -->
 <ng-template #visualItemTemplate let-item>
-  <div class="visual-item-container" [class.selected]="isItemSelected(categoryName, getItemLookupId(item))">
+  <div class="visual-item-container" [class.selected]="isItemSelected(categoryName, item.lookupId)">
 
     <!-- Yes/No questions - answerType 1 -->
     <div class="answer-type-1-container" *ngIf="item.answerType === 1">
-      <div class="item-header" (click)="toggleItemSelection(categoryName, getItemLookupId(item)); $event.stopPropagation()">
+      <div class="item-header" (click)="toggleItemSelection(categoryName, item.lookupId); $event.stopPropagation()">
         <h3 class="item-name">
           <span [innerHTML]="highlightText(item.name)"></span>
           <span class="required-indicator" *ngIf="item.required">*</span>
         </h3>
       </div>
-      <div class="item-text-wrapper" (click)="toggleItemSelection(categoryName, getItemLookupId(item)); $event.stopPropagation()">
+      <div class="item-text-wrapper" (click)="toggleItemSelection(categoryName, item.lookupId); $event.stopPropagation()">
         <p class="item-text" [innerHTML]="highlightText(item.originalText)"></p>
       </div>
       <div class="dropdown-container" (click)="$event.stopPropagation()">
@@ -170,19 +172,19 @@
           [(ngModel)]="item.answer"
           (ngModelChange)="onAnswerChange(categoryName, item); $event?.stopPropagation()"
           (change)="$event.stopPropagation()"
-          [disabled]="isItemSaving(categoryName, getItemLookupId(item))"
+          [disabled]="isItemSaving(categoryName, item.lookupId)"
           class="styled-input">
           <option value="">-- Select --</option>
           <option value="Yes">Yes</option>
           <option value="No">No</option>
         </select>
-        <ion-spinner *ngIf="isItemSaving(categoryName, getItemLookupId(item))" name="crescent" class="saving-spinner"></ion-spinner>
+        <ion-spinner *ngIf="isItemSaving(categoryName, item.lookupId)" name="crescent" class="saving-spinner"></ion-spinner>
       </div>
     </div>
 
     <!-- Multi-select questions - answerType 2 -->
     <div class="multi-select-container" *ngIf="item.answerType === 2">
-      <div class="multi-select-header" [class.has-photos]="getPhotosForVisual(categoryName, getItemLookupId(item)).length > 0">
+      <div class="multi-select-header" [class.has-photos]="getPhotosForVisual(categoryName, item.lookupId).length > 0">
         <div class="multi-select-title">
           <h3>
             <span [innerHTML]="highlightText(item.name)"></span>
@@ -193,13 +195,13 @@
           </div>
         </div>
         <div class="multi-select-indicators">
-          <div class="item-photo-indicator" *ngIf="getTotalPhotoCount(categoryName, getItemLookupId(item)) > 0">
+          <div class="item-photo-indicator" *ngIf="getTotalPhotoCount(categoryName, item.lookupId) > 0">
             <span class="photo-count">
               <ion-icon name="images"></ion-icon>
-              {{ getTotalPhotoCount(categoryName, getItemLookupId(item)) }}
+              {{ getTotalPhotoCount(categoryName, item.lookupId) }}
             </span>
           </div>
-          <ion-spinner *ngIf="isItemSaving(categoryName, getItemLookupId(item))" name="crescent"></ion-spinner>
+          <ion-spinner *ngIf="isItemSaving(categoryName, item.lookupId)" name="crescent"></ion-spinner>
         </div>
       </div>
       <div class="multi-select-options" *ngIf="getDropdownOptions(item.templateId).length > 0">
@@ -229,9 +231,9 @@
       </div>
 
       <!-- Action button grid for multi-select -->
-      <ng-container *ngIf="isItemSelected(categoryName, getItemLookupId(item))">
+      <ng-container *ngIf="isItemSelected(categoryName, item.lookupId)">
         <ng-container *ngTemplateOutlet="actionButtonsTemplate; context: { $implicit: item }"></ng-container>
-        <ng-container *ngIf="isPhotosExpanded(categoryName, getItemLookupId(item))">
+        <ng-container *ngIf="isPhotosExpanded(categoryName, item.lookupId)">
           <ng-container *ngTemplateOutlet="photoPreviewTemplate; context: { $implicit: item }"></ng-container>
         </ng-container>
       </ng-container>
@@ -240,36 +242,36 @@
     <!-- Checkbox questions - answerType 0 or undefined -->
     <ion-item lines="none"
               class="checkbox-item with-camera"
-              [class.has-photos]="getPhotosForVisual(categoryName, getItemLookupId(item)).length > 0"
+              [class.has-photos]="getPhotosForVisual(categoryName, item.lookupId).length > 0"
               *ngIf="!item.answerType || item.answerType === 0">
       <ion-checkbox
         slot="start"
-        [checked]="isItemSelected(categoryName, getItemLookupId(item))"
-        [disabled]="isItemSaving(categoryName, getItemLookupId(item))"
-        (ionChange)="toggleItemSelection(categoryName, getItemLookupId(item)); $event.stopPropagation()">
+        [checked]="isItemSelected(categoryName, item.lookupId)"
+        [disabled]="isItemSaving(categoryName, item.lookupId)"
+        (ionChange)="toggleItemSelection(categoryName, item.lookupId); $event.stopPropagation()">
       </ion-checkbox>
       <div style="flex: 1; display: flex; align-items: center;">
-        <ion-label class="item-label" (click)="toggleItemSelection(categoryName, getItemLookupId(item)); $event.stopPropagation()" style="flex: 1;">
+        <ion-label class="item-label" (click)="toggleItemSelection(categoryName, item.lookupId); $event.stopPropagation()" style="flex: 1;">
           <h3>
             <span [innerHTML]="highlightText(item.name)"></span>
             <span class="required-indicator" *ngIf="item.required">*</span>
           </h3>
           <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
         </ion-label>
-        <div class="item-photo-indicator" *ngIf="getTotalPhotoCount(categoryName, getItemLookupId(item)) > 0">
+        <div class="item-photo-indicator" *ngIf="getTotalPhotoCount(categoryName, item.lookupId) > 0">
           <span class="photo-count">
             <ion-icon name="images"></ion-icon>
-            {{ getTotalPhotoCount(categoryName, getItemLookupId(item)) }}
+            {{ getTotalPhotoCount(categoryName, item.lookupId) }}
           </span>
         </div>
       </div>
-      <ion-spinner *ngIf="isItemSaving(categoryName, getItemLookupId(item))" name="crescent" slot="end"></ion-spinner>
+      <ion-spinner *ngIf="isItemSaving(categoryName, item.lookupId)" name="crescent" slot="end"></ion-spinner>
     </ion-item>
 
     <!-- Action buttons and photo preview for checkbox items -->
-    <ng-container *ngIf="isItemSelected(categoryName, getItemLookupId(item)) && (!item.answerType || item.answerType === 0)">
+    <ng-container *ngIf="isItemSelected(categoryName, item.lookupId) && (!item.answerType || item.answerType === 0)">
       <ng-container *ngTemplateOutlet="actionButtonsTemplate; context: { $implicit: item }"></ng-container>
-      <ng-container *ngIf="isPhotosExpanded(categoryName, getItemLookupId(item))">
+      <ng-container *ngIf="isPhotosExpanded(categoryName, item.lookupId)">
         <ng-container *ngTemplateOutlet="photoPreviewTemplate; context: { $implicit: item }"></ng-container>
       </ng-container>
     </ng-container>
@@ -279,19 +281,19 @@
 <!-- Action Buttons Template -->
 <ng-template #actionButtonsTemplate let-item>
   <div class="action-button-grid">
-    <button class="action-btn" *ngIf="!isWeb" (click)="addPhotoFromCamera(categoryName, getItemLookupId(item)); $event.stopPropagation()">
+    <button class="action-btn" *ngIf="!isWeb" (click)="addPhotoFromCamera(categoryName, item.lookupId); $event.stopPropagation()">
       <ion-icon name="camera"></ion-icon>
       <span>Camera</span>
     </button>
-    <button class="action-btn" (click)="addPhotoFromGallery(categoryName, getItemLookupId(item)); $event.stopPropagation()">
+    <button class="action-btn" (click)="addPhotoFromGallery(categoryName, item.lookupId); $event.stopPropagation()">
       <ion-icon name="images"></ion-icon>
       <span>Gallery</span>
     </button>
     <button class="action-btn secondary"
-            [disabled]="getTotalPhotoCount(categoryName, getItemLookupId(item)) === 0"
-            (click)="togglePhotoExpansion(categoryName, getItemLookupId(item)); $event.stopPropagation()">
-      <ion-icon [name]="isPhotosExpanded(categoryName, getItemLookupId(item)) ? 'chevron-up' : 'eye'"></ion-icon>
-      <span>View ({{ getTotalPhotoCount(categoryName, getItemLookupId(item)) }})</span>
+            [disabled]="getTotalPhotoCount(categoryName, item.lookupId) === 0"
+            (click)="togglePhotoExpansion(categoryName, item.lookupId); $event.stopPropagation()">
+      <ion-icon [name]="isPhotosExpanded(categoryName, item.lookupId) ? 'chevron-up' : 'eye'"></ion-icon>
+      <span>View ({{ getTotalPhotoCount(categoryName, item.lookupId) }})</span>
     </button>
     <button class="action-btn" (click)="openVisualDetail(categoryName, item); $event.stopPropagation()">
       <ion-icon name="arrow-forward"></ion-icon>
@@ -303,21 +305,21 @@
 <!-- Photo Preview Template -->
 <ng-template #photoPreviewTemplate let-item>
   <div class="image-preview-section" style="position: relative;">
-    <div class="upload-status" *ngIf="isUploadingPhotos(categoryName, getItemLookupId(item))">
+    <div class="upload-status" *ngIf="isUploadingPhotos(categoryName, item.lookupId)">
       <ion-spinner name="dots" color="primary"></ion-spinner>
-      <span>Uploading {{ getUploadingCount(categoryName, getItemLookupId(item)) }} photo(s)...</span>
+      <span>Uploading {{ getUploadingCount(categoryName, item.lookupId) }} photo(s)...</span>
     </div>
     <div class="image-preview-container">
       <!-- Skeleton loaders when photos are loading -->
-      <ng-container *ngIf="isLoadingPhotosForVisual(categoryName, getItemLookupId(item))">
-        <div class="image-preview structural-photo-preview skeleton-loader" *ngFor="let skeleton of getSkeletonArray(categoryName, getItemLookupId(item)); let i = index">
+      <ng-container *ngIf="isLoadingPhotosForVisual(categoryName, item.lookupId)">
+        <div class="image-preview structural-photo-preview skeleton-loader" *ngFor="let skeleton of getSkeletonArray(categoryName, item.lookupId); let i = index">
           <div class="skeleton-image"></div>
           <div class="skeleton-caption"></div>
         </div>
       </ng-container>
       <!-- Actual photos when loaded -->
-      <ng-container *ngIf="!isLoadingPhotosForVisual(categoryName, getItemLookupId(item))">
-        <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(categoryName, getItemLookupId(item)); trackBy: trackByPhotoId"
+      <ng-container *ngIf="!isLoadingPhotosForVisual(categoryName, item.lookupId)">
+        <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(categoryName, item.lookupId); trackBy: trackByPhotoId"
              [class.uploading]="photo.uploading"
              [class.loading-image]="photo.loading"
              [class.annotated]="photo.hasAnnotations"
@@ -330,19 +332,19 @@
             <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.svg'"
                  width="90" height="90"
                  [alt]="photo.name"
-                 (click)="viewPhoto(photo, categoryName, getItemLookupId(item), $event)"
+                 (click)="viewPhoto(photo, categoryName, item.lookupId, $event)"
                  (error)="handleImageError($event, photo)"
                  [class.has-annotations]="photo.hasAnnotations"
                  [class.loading]="photo.displayState === 'remote_loading' || photo.loading">
             <div class="upload-indicator" *ngIf="photo.uploading || photo.displayState === 'remote_loading'">
               <ion-spinner name="crescent" color="light"></ion-spinner>
             </div>
-            <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, categoryName, getItemLookupId(item)); $event.stopPropagation()" title="Delete">
+            <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, categoryName, item.lookupId); $event.stopPropagation()" title="Delete">
               <ion-icon name="close"></ion-icon>
             </button>
             <button
               class="room-photo-caption"
-              (click)="openCaptionPopup(photo, categoryName, getItemLookupId(item)); $event.stopPropagation()">
+              (click)="openCaptionPopup(photo, categoryName, item.lookupId); $event.stopPropagation()">
               {{ photo.caption || 'Caption' }}
             </button>
           </ng-container>
