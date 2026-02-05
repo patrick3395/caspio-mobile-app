@@ -2261,6 +2261,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       const customItem: VisualItem = {
         id: customItemId,
         templateId: 0,  // Custom visuals use templateId 0
+        lookupId: customItemId,
         name: visual.Name || 'Custom Item',
         text: visual.Text || visual.VisualText || '',
         originalText: visual.Text || visual.VisualText || '',
@@ -3938,6 +3939,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       const customItem: VisualItem = {
         id: customItemId,
         templateId: 0,  // Custom visuals always use templateId 0
+        lookupId: customItemId,
         name: name,
         text: text,
         originalText: text,
