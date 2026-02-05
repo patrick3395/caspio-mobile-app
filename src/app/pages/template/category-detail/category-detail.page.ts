@@ -1578,17 +1578,12 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         this.visualRecordIds[selectionKey] = recordId;
       }
 
-      // During photo operations, preserve local selection and count state.
-      // On web, selections aren't persisted to Dexie, so stale liveQuery data
-      // would reset the UI (deselecting items, hiding action buttons/photos).
-      if (this.isCameraCaptureInProgress || this.isMultiImageUploadInProgress) {
-        if (!this.selectedItems[selectionKey]) {
-          this.selectedItems[selectionKey] = field.isSelected;
-        }
-        if (field.photoCount > (this.photoCountsByKey[selectionKey] || 0)) {
-          this.photoCountsByKey[selectionKey] = field.photoCount;
-        }
-      } else {
+      // On mobile: always sync from Dexie (selections/counts are persisted there).
+      // On web: only set during initial load. After that, local state is the source
+      // of truth because web doesn't persist selections or photo counts to Dexie.
+      // Without this guard, every liveQuery emission overwrites local state with
+      // stale data, causing selections to flash off and photo counts to reset.
+      if (!environment.isWeb || !this.isInitialDataLoaded) {
         this.selectedItems[selectionKey] = field.isSelected;
         this.photoCountsByKey[selectionKey] = field.photoCount;
       }
