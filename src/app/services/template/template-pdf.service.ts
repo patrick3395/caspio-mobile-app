@@ -64,7 +64,7 @@ export class TemplatePdfService {
     const config = this.templateConfigService.requiredConfig;
     const logTag = `[${config.displayName} PDF]`;
 
-    console.log(`[PDF DEBUG] generatePDF called - projectId=${projectId}, serviceId=${serviceId}, config.id=${config.id}, config.idFieldName=${config.idFieldName}`);
+    console.log(`[PDF DEBUG] generatePDF called - projectId=${projectId}, serviceId=${serviceId}, config.id=${config.id}, config.idFieldName=${config.idFieldName}, currentUrl=${window.location.href}`);
 
     let loading: HTMLIonAlertElement | null = null;
     let cancelRequested = false;
@@ -642,6 +642,29 @@ export class TemplatePdfService {
 
   private async getRecords(config: TemplateConfig, serviceId: string): Promise<any[]> {
     console.log(`[PDF DEBUG] getRecords dispatching for config.id="${config.id}", serviceId="${serviceId}"`);
+
+    // DEBUG: Direct API test - bypass all data service layers
+    try {
+      const tableMap: Record<string, string> = {
+        hud: 'LPS_Services_HUD',
+        efe: 'LPS_Services_Visuals',
+        dte: 'LPS_Services_DTE',
+        lbw: 'LPS_Services_LBW'
+      };
+      const table = tableMap[config.id];
+      if (table) {
+        const directResult = await firstValueFrom(
+          this.caspioService.get<any>(`/tables/${table}/records?q.where=ServiceID=${serviceId}&q.limit=5`)
+        );
+        console.log(`[PDF DEBUG] DIRECT API test: ${table} returned`, directResult?.Result?.length ?? 'no Result', 'records. Raw keys:', directResult ? Object.keys(directResult) : 'null');
+        if (directResult?.Result?.[0]) {
+          console.log(`[PDF DEBUG] DIRECT API first record keys:`, Object.keys(directResult.Result[0]));
+        }
+      }
+    } catch (directErr) {
+      console.error(`[PDF DEBUG] DIRECT API test FAILED:`, directErr);
+    }
+
     try {
       let records: any[];
       switch (config.id) {
@@ -666,6 +689,9 @@ export class TemplatePdfService {
           return [];
       }
       console.log(`[PDF DEBUG] Data service returned ${records?.length ?? 'null/undefined'} records`);
+      if (records && records.length > 0) {
+        console.log(`[PDF DEBUG] First record sample:`, JSON.stringify(records[0]).substring(0, 300));
+      }
       return records;
     } catch (error) {
       console.error(`[PDF DEBUG] getRecords ERROR for ${config.id}:`, error);
