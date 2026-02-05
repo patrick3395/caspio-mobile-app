@@ -121,12 +121,6 @@
 
     <!-- STANDARDIZED LOADING STATES -->
 
-    <!-- Loading State - Mobile only (spinner) -->
-    <div class="loading-container" *ngIf="loading && !isWeb">
-      <ion-spinner name="crescent"></ion-spinner>
-      <p>Loading rooms...</p>
-    </div>
-
     <!-- WEBAPP: Skeleton loaders -->
     <div *ngIf="loading && isWeb" class="skeleton-rooms-container">
       <div class="skeleton-subsection">

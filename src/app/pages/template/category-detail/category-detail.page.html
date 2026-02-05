@@ -7,12 +7,6 @@
       <p class="rehydrating-subtitle">This may take a moment</p>
     </div>
 
-    <!-- Loading State - Mobile only (spinner) -->
-    <div *ngIf="loading && !isRehydrating && !isWeb" class="loading-container">
-      <ion-spinner name="crescent"></ion-spinner>
-      <p>Loading items...</p>
-    </div>
-
     <!-- WEBAPP: Skeleton loaders -->
     <div *ngIf="loading && isWeb" class="skeleton-category-container">
       <div class="skeleton-search-bar"></div>

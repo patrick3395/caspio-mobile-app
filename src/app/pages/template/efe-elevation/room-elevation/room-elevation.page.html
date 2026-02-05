@@ -1,11 +1,5 @@
 <div class="page-container">
   <div class="content-section" *ngIf="roomData">
-    <!-- Loading State - Mobile only (spinner) -->
-    <div *ngIf="loading && !isWeb" style="text-align: center; padding: 40px;">
-      <ion-spinner name="crescent"></ion-spinner>
-      <p style="margin-top: 12px; color: #666;">Loading room data...</p>
-    </div>
-
     <!-- WEBAPP: Skeleton loaders -->
     <div *ngIf="loading && isWeb" class="skeleton-room-container">
       <!-- FDF section skeleton -->
