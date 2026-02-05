@@ -2700,9 +2700,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         fdfPhotos.topImageId = preserved.topImageId;
         console.log('[RoomElevation] ✅ Restored preserved FDF top photo URL');
       } else {
-        fdfPhotos.topLoading = true; // Skeleton state
-        fdfPhotos.topUrl = 'assets/img/photo-placeholder.svg'; // Placeholder
-        fdfPhotos.topDisplayUrl = 'assets/img/photo-placeholder.svg';
+        // Don't set URL/DisplayUrl — null values trigger skeleton loader in HTML
+        fdfPhotos.topLoading = true;
 
         // Load actual image in background - PREFER S3 key
         const topPhotoSource = topS3Key || topLegacyPath;
@@ -2747,9 +2746,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         fdfPhotos.bottomImageId = preserved.bottomImageId;
         console.log('[RoomElevation] ✅ Restored preserved FDF bottom photo URL');
       } else {
-        fdfPhotos.bottomLoading = true; // Skeleton state
-        fdfPhotos.bottomUrl = 'assets/img/photo-placeholder.svg';
-        fdfPhotos.bottomDisplayUrl = 'assets/img/photo-placeholder.svg';
+        // Don't set URL/DisplayUrl — null values trigger skeleton loader in HTML
+        fdfPhotos.bottomLoading = true;
 
         // Load actual image in background - PREFER S3 key
         const bottomPhotoSource = bottomS3Key || bottomLegacyPath;
@@ -2794,9 +2792,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         fdfPhotos.thresholdImageId = preserved.thresholdImageId;
         console.log('[RoomElevation] ✅ Restored preserved FDF threshold photo URL');
       } else {
-        fdfPhotos.thresholdLoading = true; // Skeleton state
-        fdfPhotos.thresholdUrl = 'assets/img/photo-placeholder.svg';
-        fdfPhotos.thresholdDisplayUrl = 'assets/img/photo-placeholder.svg';
+        // Don't set URL/DisplayUrl — null values trigger skeleton loader in HTML
+        fdfPhotos.thresholdLoading = true;
 
         // Load actual image in background - PREFER S3 key
         const thresholdPhotoSource = thresholdS3Key || thresholdLegacyPath;

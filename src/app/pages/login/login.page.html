@@ -13,8 +13,8 @@
       <div class="section-title">Sign On</div>
       
       <div class="input-wrapper">
-        <ion-item lines="none" class="input-item" [class.input-error]="isWeb && shouldShowError('email')">
-          <ion-icon name="mail-outline" slot="start"></ion-icon>
+        <div class="input-item" [class.input-error]="isWeb && shouldShowError('email')">
+          <ion-icon name="mail-outline"></ion-icon>
           <ion-input
             data-testid="email-input"
             [(ngModel)]="credentials.email"
@@ -23,12 +23,11 @@
             autocomplete="username email"
             autocapitalize="off"
             inputmode="email"
-            [tabindex]="isWeb ? 1 : undefined"
             (ionBlur)="onFieldBlur('email')"
             (ionInput)="onFieldInput('email')"
             required>
           </ion-input>
-        </ion-item>
+        </div>
         <div class="validation-error" *ngIf="isWeb && shouldShowError('email')">
           <ion-icon name="alert-circle-outline"></ion-icon>
           {{ getFieldError('email') }}
@@ -36,15 +35,14 @@
       </div>
 
       <div class="input-wrapper">
-        <ion-item lines="none" class="input-item" [class.input-error]="isWeb && shouldShowError('password')">
-          <ion-icon name="lock-closed-outline" slot="start"></ion-icon>
+        <div class="input-item" [class.input-error]="isWeb && shouldShowError('password')">
+          <ion-icon name="lock-closed-outline"></ion-icon>
           <ion-input
             data-testid="password-input"
             [(ngModel)]="credentials.password"
             [type]="showPassword ? 'text' : 'password'"
             placeholder="Password"
             autocomplete="current-password"
-            [tabindex]="isWeb ? 2 : undefined"
             (ionBlur)="onFieldBlur('password')"
             (ionInput)="onFieldInput('password')"
             required>
@@ -52,12 +50,11 @@
           <ion-button
             data-testid="toggle-password-visibility"
             fill="clear"
-            slot="end"
             class="visibility-toggle"
             (click)="togglePasswordVisibility()">
             <ion-icon [name]="showPassword ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
           </ion-button>
-        </ion-item>
+        </div>
         <div class="validation-error" *ngIf="isWeb && shouldShowError('password')">
           <ion-icon name="alert-circle-outline"></ion-icon>
           {{ getFieldError('password') }}

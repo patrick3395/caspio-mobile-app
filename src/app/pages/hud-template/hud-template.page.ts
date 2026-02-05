@@ -3824,6 +3824,16 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         }
       }
 
+      // Helper: race a promise against a timeout
+      const withTimeout = <T>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
+        return Promise.race([
+          promise,
+          new Promise<T>((_, reject) =>
+            setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms)
+          )
+        ]);
+      };
+
       // Check cache first (5-minute cache)
       const cacheKey = this.cache.getApiCacheKey('pdf_data', {
         serviceId: this.serviceId,
@@ -3834,6 +3844,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       const cachedData = this.cache.get(cacheKey);
 
       if (cachedData) {
+        console.log('[PDF] Using cached data');
         updateProgress(50, 'Loading from cache...');
         ({ structuralSystemsData, elevationPlotData, projectInfo } = cachedData);
       } else {
@@ -3842,28 +3853,38 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         if (cancelRequested) return;
 
         try {
+          console.log('[PDF] Step 1: Loading data in parallel...');
           updateProgress(10, 'Loading project information...');
-          const [projectData, structuralData, elevationData] = await Promise.all([
-            this.prepareProjectInfo().catch(err => {
-              console.error('[PDF] Error in prepareProjectInfo:', err);
-              return {
-                projectId: this.projectId,
-                serviceId: this.serviceId,
-                address: this.projectData?.Address || '',
-                clientName: this.projectData?.ClientName || '',
-                projectData: this.projectData,
-                serviceData: this.serviceData
-              };
-            }),
-            this.prepareStructuralSystemsData().catch(err => {
-              console.error('[PDF] Error in prepareStructuralSystemsData:', err);
-              return [];
-            }),
-            this.prepareElevationPlotData().catch(err => {
-              console.error('[PDF] Error in prepareElevationPlotData:', err);
-              return [];
-            })
-          ]);
+
+          // Wrap each data prep in its own timeout to prevent infinite hangs
+          const [projectData, structuralData, elevationData] = await withTimeout(
+            Promise.all([
+              this.prepareProjectInfo().catch(err => {
+                console.error('[PDF] Error in prepareProjectInfo:', err);
+                return {
+                  projectId: this.projectId,
+                  serviceId: this.serviceId,
+                  address: this.projectData?.Address || '',
+                  clientName: this.projectData?.ClientName || '',
+                  projectData: this.projectData,
+                  serviceData: this.serviceData
+                };
+              }),
+              withTimeout(this.prepareStructuralSystemsData(), 45000, 'Structural data').catch(err => {
+                console.error('[PDF] Error in prepareStructuralSystemsData:', err);
+                return [];
+              }),
+              withTimeout(this.prepareElevationPlotData(), 45000, 'Elevation data').catch(err => {
+                console.error('[PDF] Error in prepareElevationPlotData:', err);
+                return [];
+              })
+            ]),
+            60000,
+            'PDF data loading'
+          );
+
+          console.log('[PDF] Step 1 complete: structural=%d categories, elevation=%d rooms',
+            structuralData?.length || 0, elevationData?.length || 0);
 
           updateProgress(40, 'Processing data...');
           projectInfo = projectData;
@@ -3892,8 +3913,9 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
       if (cancelRequested) return;
 
+      console.log('[PDF] Step 2: Loading PDF preview component...');
       updateProgress(55, 'Loading PDF preview...');
-      const PdfPreviewComponent = await this.loadPdfPreview();
+      const PdfPreviewComponent = await withTimeout(this.loadPdfPreview(), 15000, 'PDF preview component');
 
       if (!PdfPreviewComponent) {
         throw new Error('PdfPreviewComponent not available');
@@ -3901,15 +3923,17 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
       if (cancelRequested) return;
 
-      // Preload primary photo
+      // Preload primary photo (with timeout)
+      console.log('[PDF] Step 3: Processing cover photo...');
       updateProgress(70, 'Processing cover photo...');
       if (projectInfo?.primaryPhoto && typeof projectInfo.primaryPhoto === 'string') {
         try {
           let convertedData: string | null = null;
-          if (projectInfo.primaryPhoto.startsWith('data:')) {
-            convertedData = projectInfo.primaryPhoto;
-          } else if (projectInfo.primaryPhoto.startsWith('blob:')) {
-            const response = await fetch(projectInfo.primaryPhoto);
+          const photo = projectInfo.primaryPhoto;
+          if (photo.startsWith('data:')) {
+            convertedData = photo;
+          } else if (photo.startsWith('blob:')) {
+            const response = await withTimeout(fetch(photo), 10000, 'Blob photo fetch');
             const blob = await response.blob();
             const reader = new FileReader();
             convertedData = await new Promise<string>((resolve, reject) => {
@@ -3917,10 +3941,10 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
               reader.onerror = reject;
               reader.readAsDataURL(blob);
             });
-          } else if (this.caspioService.isS3Key(projectInfo.primaryPhoto)) {
-            const s3Url = await this.caspioService.getS3FileUrl(projectInfo.primaryPhoto);
+          } else if (this.caspioService.isS3Key(photo)) {
+            const s3Url = await withTimeout(this.caspioService.getS3FileUrl(photo), 10000, 'S3 URL fetch');
             if (s3Url) {
-              const response = await fetch(s3Url);
+              const response = await withTimeout(fetch(s3Url), 15000, 'S3 photo download');
               if (response.ok) {
                 const blob = await response.blob();
                 const reader = new FileReader();
@@ -3931,8 +3955,12 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
                 });
               }
             }
-          } else if (projectInfo.primaryPhoto.startsWith('/')) {
-            const imageData = await this.caspioService.getImageFromFilesAPI(projectInfo.primaryPhoto).toPromise();
+          } else if (photo.startsWith('/')) {
+            const imageData = await withTimeout(
+              this.caspioService.getImageFromFilesAPI(photo).toPromise(),
+              10000,
+              'Caspio photo fetch'
+            );
             if (imageData && imageData.startsWith('data:')) {
               convertedData = imageData;
             }
@@ -3942,12 +3970,13 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
             projectInfo.primaryPhoto = convertedData;
           }
         } catch (error) {
-          console.error('[PDF] Error preloading primary photo:', error);
+          console.error('[PDF] Error preloading primary photo (continuing without it):', error);
         }
       }
 
       if (cancelRequested) return;
 
+      console.log('[PDF] Step 4: Creating PDF modal...');
       updateProgress(85, 'Preparing PDF document...');
 
       const modal = await this.modalController.create({
@@ -3966,6 +3995,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
       if (cancelRequested) return;
 
+      console.log('[PDF] Step 5: Presenting PDF modal...');
       updateProgress(95, 'Opening PDF...');
       await modal.present();
 
@@ -3987,31 +4017,24 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       console.error('[PDF] Error generating PDF:', error);
       resetState();
 
-      // Dismiss loading if still showing
-      try {
-        if (loading) await loading.dismiss();
-      } catch (dismissError) {
-        // Ignore dismiss errors
-      }
-
-      // Show error alert
+      // Show error alert with details
       const errorDetails = error instanceof Error ?
-        `Message: ${error.message}\n\nStack: ${error.stack}` :
-        `Error: ${JSON.stringify(error)}`;
+        `${error.message}` :
+        `${JSON.stringify(error)}`;
 
       const alert = await this.alertController.create({
         header: 'PDF Generation Error',
-        message: `
-          <div style="font-family: monospace; font-size: 12px;">
-            <p style="color: red; font-weight: bold;">Failed to generate PDF</p>
-            <textarea
-              style="width: 100%; height: 200px; font-size: 10px; margin-top: 10px;"
-              readonly>${errorDetails}</textarea>
-          </div>
-        `,
+        message: `Failed to generate PDF: ${errorDetails}`,
         buttons: ['OK']
       });
       await alert.present();
+    } finally {
+      // ALWAYS dismiss loading alert as safety net (may already be dismissed)
+      try {
+        if (loading) await loading.dismiss();
+      } catch (e) {
+        // Ignore - already dismissed
+      }
     }
   }
   

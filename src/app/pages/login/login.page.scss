@@ -113,34 +113,32 @@
 }
 
 .input-item {
+  display: flex;
+  align-items: center;
   background: #f8f9fa;
   border-radius: 12px;
   margin-bottom: 15px;
-  --padding-start: 15px;
-  --padding-end: 10px;
-  --inner-padding-end: 0;
+  padding: 0 10px 0 15px;
   border: 1px solid #e0e0e0;
-  transition: all 0.3s ease;
-  --background: #f8f9fa;
-  --background-focused: #f8f9fa;
-  --background-hover: #f8f9fa;
+  transition: border-color 0.3s ease;
+  overflow: hidden;
 
   &:focus-within {
     border-color: #e0e0e0;
     box-shadow: none;
+    outline: none;
   }
 
-  ion-icon {
+  > ion-icon {
     color: #69635D;
     margin-right: 12px;
     font-size: 20px;
+    flex-shrink: 0;
   }
 
-  --highlight-color-focused: transparent !important;
-  --highlight-color-valid: transparent !important;
-  --highlight-color-invalid: transparent !important;
-
   ion-input {
+    flex: 1;
+    min-width: 0;
     --padding-top: 16px;
     --padding-bottom: 16px;
     font-size: 15px;
@@ -152,9 +150,9 @@
     --highlight-color-focused: transparent !important;
     --highlight-color-valid: transparent !important;
     --highlight-color-invalid: transparent !important;
+    --highlight-color: transparent !important;
     --highlight-height: 0 !important;
-
-    // Kill the orange outline from the global [tabindex]:focus-visible rule
+    --border-width: 0 !important;
     outline: none !important;
 
     &:focus,
@@ -164,51 +162,12 @@
     }
   }
 
-  // CRITICAL: Override all browser autofill styling
-  input:-webkit-autofill,
-  input:-webkit-autofill:hover,
-  input:-webkit-autofill:focus,
-  input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 1000px #f8f9fa inset !important;
-    -webkit-text-fill-color: #333 !important;
-    background-color: #f8f9fa !important;
-    caret-color: #000 !important;
-    transition: background-color 5000s ease-in-out 0s !important;
-  }
-
-  // Target native input element inside ion-input with ultra-high specificity
-  ion-input input,
-  ion-input input[type="text"],
-  ion-input input[type="email"],
-  ion-input input[type="password"] {
-    background-color: transparent !important;
-    background: transparent !important;
-    caret-color: #000 !important;
-    color: #333 !important;
-  }
-
-  ion-input input:-webkit-autofill,
-  ion-input input:-webkit-autofill:hover,
-  ion-input input:-webkit-autofill:focus,
-  ion-input input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 1000px #f8f9fa inset !important;
-    -webkit-text-fill-color: #333 !important;
-    background-color: #f8f9fa !important;
-    caret-color: #000 !important;
-    transition: background-color 5000s ease-in-out 0s !important;
-  }
-
-  // Target shadow DOM parts
-  ion-input::part(native) {
-    caret-color: #000 !important;
-    background-color: transparent !important;
-  }
-
   .visibility-toggle {
     --padding-start: 0;
     --padding-end: 0;
     margin: 0;
     height: 40px;
+    flex-shrink: 0;
 
     ion-icon {
       color: #69635D;

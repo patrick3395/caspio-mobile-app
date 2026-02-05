@@ -3105,7 +3105,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         if (this.photoHandler.photoExistsInArray(this.visualPhotos[key], photo.imageId)) return;
         this.visualPhotos[key].push(photo);
         this.photoCountsByKey[key] = this.visualPhotos[key].length;
-        this.expandedPhotos[key] = true;
         this.changeDetectorRef.detectChanges();
       },
       onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
@@ -3128,10 +3127,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         if (photoIndex >= 0) {
           this.visualPhotos[key][photoIndex].uploadFailed = true;
         }
-        this.changeDetectorRef.detectChanges();
-      },
-      onExpandPhotos: () => {
-        this.expandedPhotos[key] = true;
         this.changeDetectorRef.detectChanges();
       }
     };
@@ -3190,7 +3185,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         if (this.photoHandler.photoExistsInArray(this.visualPhotos[key], photo.imageId)) return;
         this.visualPhotos[key].push(photo);
         this.photoCountsByKey[key] = this.visualPhotos[key].length;
-        this.expandedPhotos[key] = true;
         this.changeDetectorRef.detectChanges();
       },
       onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
@@ -3211,10 +3205,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         if (photoIndex >= 0) {
           this.visualPhotos[key][photoIndex].uploadFailed = true;
         }
-        this.changeDetectorRef.detectChanges();
-      },
-      onExpandPhotos: () => {
-        this.expandedPhotos[key] = true;
         this.changeDetectorRef.detectChanges();
       }
     };
