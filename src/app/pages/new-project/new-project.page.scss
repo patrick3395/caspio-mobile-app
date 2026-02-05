@@ -1,19 +1,75 @@
 ion-content {
   --background: #f5f5f5;
+
+  // Center content like Active Projects page
+  &.ion-padding {
+    --padding-start: 16px;
+    --padding-end: 16px;
+    --padding-top: 16px;
+    --padding-bottom: 16px;
+  }
 }
 
-// Center title in toolbar
-ion-header ion-toolbar ion-title {
-  text-align: center;
-  left: 0;
-  right: 0;
-  pointer-events: none;
+// Header styling to match project-detail page
+ion-header ion-toolbar {
+  ion-title {
+    text-align: center;
+    left: 0;
+    right: 0;
+    pointer-events: none;
+  }
+
+  // Back button styling to match project-detail page
+  ion-buttons[slot="start"] ion-button {
+    --color: white !important;
+    --background: var(--noble-orange, #F15A27) !important;
+    --background-hover: var(--noble-orange, #F15A27) !important;
+    --background-activated: var(--noble-orange, #F15A27) !important;
+    --background-focused: var(--noble-orange, #F15A27) !important;
+    --padding-start: 0 !important;
+    --padding-end: 0 !important;
+    --padding-top: 0 !important;
+    --padding-bottom: 0 !important;
+    --ripple-color: transparent !important;
+    border-radius: 4px !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    box-shadow: 0 2px 8px rgba(241, 90, 39, 0.3) !important;
+    background: var(--noble-orange, #F15A27) !important;
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+
+    ion-icon {
+      color: white !important;
+      font-size: 24px !important;
+      margin: 0 !important;
+    }
+
+    &:active {
+      transform: none !important;
+      background: var(--noble-orange, #F15A27) !important;
+    }
+  }
+}
+
+// Match Active Projects container width
+form {
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 .form-section {
   background: white;
   margin-bottom: 12px;
   padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
   
   .section-title {
     font-size: 12px;
@@ -113,10 +169,16 @@ ion-grid {
   margin-top: 4px;
   background: white;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica", "Arial", sans-serif;
-  
+
   &:focus {
     outline: none;
   }
+}
+
+// Override styled-input to match native-input border color
+.styled-input {
+  border: 1px solid #ddd !important;
+  border-radius: 4px;
 }
 
 // Google Places Autocomplete dropdown styling

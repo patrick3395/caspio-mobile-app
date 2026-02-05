@@ -99,8 +99,13 @@
                   </div>
                   <div class="project-details">
                     <div class="project-company-name" *ngIf="isAdminView && getCompanyName(project)">{{ getCompanyName(project) }}</div>
-                    <div class="project-address">{{ project.Address }}</div>
-                    <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
+                    <!-- Web: Address on one line -->
+                    <div class="project-address" *ngIf="platform.isWeb()">{{ project.Address }}, {{ formatCityStateZip(project) }}</div>
+                    <!-- Mobile: Address and city on separate lines -->
+                    <ng-container *ngIf="!platform.isWeb()">
+                      <div class="project-address">{{ project.Address }}</div>
+                      <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
+                    </ng-container>
                     <div class="project-services-vertical">
                       <div *ngFor="let service of getProjectServicesArray(project); trackBy: trackByServiceCode" class="service-item">
                         {{ service.shortCode }}: {{ service.status }}
@@ -142,8 +147,13 @@
               </div>
               <div class="project-details">
                 <div class="project-company-name" *ngIf="isAdminView && getCompanyName(project)">{{ getCompanyName(project) }}</div>
-                <div class="project-address">{{ project.Address }}</div>
-                <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
+                <!-- Web: Address on one line -->
+                <div class="project-address" *ngIf="platform.isWeb()">{{ project.Address }}, {{ formatCityStateZip(project) }}</div>
+                <!-- Mobile: Address and city on separate lines -->
+                <ng-container *ngIf="!platform.isWeb()">
+                  <div class="project-address">{{ project.Address }}</div>
+                  <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
+                </ng-container>
                 <div class="project-services-vertical">
                   <div *ngFor="let service of getProjectServicesArray(project); trackBy: trackByServiceCode" class="service-item">
                     {{ service.shortCode }}: {{ service.status }}

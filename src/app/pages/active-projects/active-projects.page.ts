@@ -597,8 +597,11 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
   formatCityStateZip(project: Project): string {
     const parts = [];
     if (project.City) parts.push(project.City);
-    if (project.State) parts.push(project.State);
-    if (project.Zip) parts.push(project.Zip);
+    // Combine State (uppercase) and Zip together: "City, TX 75001"
+    const stateZip = [];
+    if (project.State) stateZip.push(project.State.toUpperCase());
+    if (project.Zip) stateZip.push(project.Zip);
+    if (stateZip.length > 0) parts.push(stateZip.join(' '));
     return parts.join(', ');
   }
 

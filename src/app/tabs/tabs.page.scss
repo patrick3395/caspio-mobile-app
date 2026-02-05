@@ -1,7 +1,7 @@
 .custom-tab-bar {
   --background: var(--noble-white);
   border-top: 1px solid var(--ion-color-tertiary-shade);
-  height: 60px;
+  height: 72px;
   padding-bottom: env(safe-area-inset-bottom);
 
   .tab-button {
@@ -9,22 +9,35 @@
     --color-selected: var(--noble-orange);
     --padding-end: 0;
     --padding-start: 0;
-    --padding-bottom: 0;
-    --padding-top: 0;
+    --padding-bottom: 4px;
+    --padding-top: 6px;
     --ripple-color: transparent;
-    min-height: 50px;
+    min-height: 60px;
+    flex-direction: column;
+    gap: 2px;
 
     .tab-icon {
-      font-size: 24px;
-      padding: 8px;
+      font-size: 29px;
+      padding: 6px;
       border-radius: 8px;
       transition: all 0.3s ease;
+    }
+
+    .tab-label {
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: none;
+      letter-spacing: 0.2px;
     }
 
     &.tab-selected {
       .tab-icon {
         color: var(--noble-orange);
         background-color: rgba(241, 90, 39, 0.1);
+      }
+
+      .tab-label {
+        color: var(--noble-orange);
       }
     }
   }

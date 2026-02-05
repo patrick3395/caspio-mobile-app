@@ -215,6 +215,12 @@ ion-content{--padding-start:0;--padding-end:0;--padding-top:0;--padding-bottom:0
 .street-view-header{width:100%;height:200px;overflow:hidden;background:$light-gray;padding-top:var(--ion-safe-area-top,0px);
 img{width:100%;height:100%;object-fit:cover}}
 
+// Project container - full width
+.project-container {
+  width: 100%;
+  padding: 0 16px;
+}
+
 .info-section{padding:20px;background:$white;margin-bottom:10px;border-bottom:1px solid $border;
 .section-title{font-size:18px;font-weight:600;color:$dark;margin:0 0 15px 0;padding-bottom:10px;border-bottom:2px solid $orange}
 .section-button-area{margin-bottom:15px;
@@ -1711,7 +1717,7 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
   display: flex;
   align-items: center;
   cursor: pointer;
-  color: var(--ion-color-primary);
+  color: #666;
   font-size: 14px;
   font-weight: 500;
   padding: 4px 8px;
@@ -1721,14 +1727,15 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
   // Only apply hover effects on devices with hover capability (desktop)
   @media (hover: hover) and (pointer: fine) {
     &:hover {
-      background-color: rgba(var(--ion-color-primary-rgb), 0.1);
+      background-color: rgba(0, 0, 0, 0.05);
+      color: #333;
     }
   }
 
   &.active {
-    color: #666;
+    color: #333;
     cursor: default;
-    font-weight: 600;
+    font-weight: 700;
 
     // Only apply hover effects on devices with hover capability (desktop)
     @media (hover: hover) and (pointer: fine) {
@@ -1768,6 +1775,77 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
 
     .breadcrumb-text-desktop {
       display: inline !important;
+    }
+  }
+}
+
+// Edit Address Alert styling
+::ng-deep .edit-address-alert {
+  .alert-head {
+    padding-bottom: 8px;
+  }
+
+  .alert-message {
+    padding-top: 16px !important;
+  }
+
+  .edit-address-form {
+    .form-field {
+      margin-bottom: 16px;
+
+      &:first-child {
+        margin-top: 16px;
+      }
+
+      label {
+        display: block;
+        text-align: left;
+        font-size: 13px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 6px;
+      }
+
+      input, select {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 14px;
+        background: #fff;
+        color: #333;
+        box-sizing: border-box;
+
+        &:focus {
+          outline: none;
+          border-color: $orange;
+        }
+
+        &::placeholder {
+          color: #999;
+        }
+      }
+
+      select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        padding-right: 36px;
+      }
+    }
+  }
+
+  .alert-button-group {
+    padding-top: 8px;
+
+    .alert-button {
+      background: #f5f5f5;
+      color: #333;
+      border: 2px solid $orange;
+      border-radius: 8px;
+      font-weight: 600;
+      text-transform: none;
     }
   }
 }

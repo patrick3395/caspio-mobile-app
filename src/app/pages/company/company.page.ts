@@ -2114,10 +2114,6 @@ export class CompanyPage implements OnInit, OnDestroy {
         payload.Phone = this.newUser.Phone.trim();
       }
 
-      if (this.newUser.Password && this.newUser.Password.trim() !== '') {
-        payload.Password = this.newUser.Password.trim();
-      }
-
       if (this.newUser.Title && this.newUser.Title.trim() !== '') {
         payload.Title = this.newUser.Title.trim();
       }
@@ -2135,11 +2131,25 @@ export class CompanyPage implements OnInit, OnDestroy {
         });
       }
 
-
-      // Create the user via Caspio API
-      const response = await firstValueFrom(
-        this.caspioService.post('/tables/LPS_Users/records', payload)
+      // Create the user via Caspio API (request response=rows to get the created record)
+      const response: any = await firstValueFrom(
+        this.caspioService.post('/tables/LPS_Users/records?response=rows', payload)
       );
+
+      // After successful creation, try to set the password via a separate PUT
+      if (this.newUser.Password && this.newUser.Password.trim() !== '') {
+        try {
+          const newUserRecord = response?.Result?.[0];
+          if (newUserRecord) {
+            const userId = newUserRecord.UserID || newUserRecord.PK_ID;
+            await firstValueFrom(
+              this.caspioService.put(`/tables/LPS_Users/records?q.where=PK_ID=${userId}`, { Password: this.newUser.Password.trim() })
+            );
+          }
+        } catch (pwError) {
+          console.warn('Password could not be set via API:', pwError);
+        }
+      }
 
 
       // Reload users data based on user type
@@ -5116,10 +5126,6 @@ export class CompanyPage implements OnInit, OnDestroy {
         payload.Phone = this.editingUser.Phone.trim();
       }
 
-      if (this.editingUser.Password && this.editingUser.Password.trim() !== '') {
-        payload.Password = this.editingUser.Password.trim();
-      }
-
       if (this.editingUser.Title && this.editingUser.Title.trim() !== '') {
         payload.Title = this.editingUser.Title.trim();
       }
@@ -5139,7 +5145,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Find the user's ID
       const userId = this.editingUser.UserID || this.editingUser.PK_ID;
-      
+
       if (!userId) {
         throw new Error('User ID not found');
       }
@@ -5148,6 +5154,17 @@ export class CompanyPage implements OnInit, OnDestroy {
       await firstValueFrom(
         this.caspioService.put(`/tables/LPS_Users/records?q.where=UserID=${userId}`, payload)
       );
+
+      // Try to set password separately (Caspio may restrict Password field writes)
+      if (this.editingUser.Password && this.editingUser.Password.trim() !== '') {
+        try {
+          await firstValueFrom(
+            this.caspioService.put(`/tables/LPS_Users/records?q.where=UserID=${userId}`, { Password: this.editingUser.Password.trim() })
+          );
+        } catch (pwError) {
+          console.warn('Password could not be updated via API:', pwError);
+        }
+      }
 
       // Update the user in the local array
       const userIndex = this.allUsers.findIndex(u => 

@@ -130,7 +130,7 @@ ion-content {
 }
 
 ion-toolbar {
-  --background: var(--ion-color-primary);
+  --background: #333333;
   --color: white;
   --min-height: 56px;
 
@@ -242,7 +242,7 @@ ion-toolbar {
   display: flex;
   align-items: center;
   cursor: pointer;
-  color: var(--ion-color-primary);
+  color: #666;
   font-size: 14px;
   font-weight: 500;
   padding: 4px 8px;
@@ -252,14 +252,15 @@ ion-toolbar {
   // Only apply hover effects on devices with hover capability (desktop)
   @media (hover: hover) and (pointer: fine) {
     &:hover {
-      background-color: rgba(var(--ion-color-primary-rgb), 0.1);
+      background-color: rgba(0, 0, 0, 0.05);
+      color: #333;
     }
   }
 
   &.active {
-    color: #666;
+    color: #333;
     cursor: default;
-    font-weight: 600;
+    font-weight: 700;
 
     // Only apply hover effects on devices with hover capability (desktop)
     @media (hover: hover) and (pointer: fine) {

@@ -36,6 +36,9 @@ export class LoginPage implements OnInit, OnDestroy {
     password: { required: true, minLength: 1 }
   };
 
+  // Dynamic year for copyright
+  currentYear = new Date().getFullYear();
+
   constructor(
     private router: Router,
     private caspioService: CaspioService,
@@ -237,8 +240,9 @@ export class LoginPage implements OnInit, OnDestroy {
   async forgotPassword() {
     const alert = await this.alertController.create({
       header: 'Reset Password',
-      message: 'Please contact your administrator to reset your password.',
-      buttons: ['OK']
+      message: 'Please contact the Admin team at 832-210-1319 or engineering@noble-pi.com',
+      buttons: ['OK'],
+      cssClass: 'custom-alert'
     });
     await alert.present();
   }
