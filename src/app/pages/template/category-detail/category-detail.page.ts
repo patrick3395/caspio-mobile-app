@@ -3101,6 +3101,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       itemId,
       onTempPhotoAdded: (photo: StandardPhotoEntry) => {
         this.logDebug('PHOTO', `Temp photo added: ${photo.imageId}`);
+        // Dedup guard: skip if photo with same ID already exists
+        if (this.photoHandler.photoExistsInArray(this.visualPhotos[key], photo.imageId)) return;
         this.visualPhotos[key].push(photo);
         this.photoCountsByKey[key] = this.visualPhotos[key].length;
         this.expandedPhotos[key] = true;
@@ -3184,6 +3186,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       skipAnnotator: true, // Gallery photos don't go through annotator by default
       onTempPhotoAdded: (photo: StandardPhotoEntry) => {
         this.logDebug('PHOTO', `Gallery photo added: ${photo.imageId}`);
+        // Dedup guard: skip if photo with same ID already exists
+        if (this.photoHandler.photoExistsInArray(this.visualPhotos[key], photo.imageId)) return;
         this.visualPhotos[key].push(photo);
         this.photoCountsByKey[key] = this.visualPhotos[key].length;
         this.expandedPhotos[key] = true;

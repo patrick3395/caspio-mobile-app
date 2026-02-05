@@ -1367,6 +1367,8 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         category: this.categoryName,
         itemId: this.templateId,
         onTempPhotoAdded: (photo: StandardPhotoEntry) => {
+          // Dedup guard: skip if photo with same ID already exists
+          if (this.photos.some(p => p.id === photo.imageId)) return;
           this.photos.unshift(this.convertStandardPhotoToPhotoItem(photo));
           this.changeDetectorRef.detectChanges();
         },
@@ -1413,6 +1415,8 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         itemId: this.templateId,
         skipAnnotator: true,
         onTempPhotoAdded: (photo: StandardPhotoEntry) => {
+          // Dedup guard: skip if photo with same ID already exists
+          if (this.photos.some(p => p.id === photo.imageId)) return;
           this.photos.unshift(this.convertStandardPhotoToPhotoItem(photo, true));
           this.changeDetectorRef.detectChanges();
         },

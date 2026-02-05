@@ -14,7 +14,8 @@ import { PhotoViewerComponent } from '../../components/photo-viewer/photo-viewer
 // import { PhotoAnnotatorComponent } from '../../components/photo-annotator/photo-annotator.component';
 import { FabricPhotoAnnotatorComponent } from '../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { PdfGeneratorService } from '../../services/pdf-generator.service';
-import { compressAnnotationData, decompressAnnotationData } from '../../utils/annotation-utils';
+import { compressAnnotationData, decompressAnnotationData, renderAnnotationsOnPhoto } from '../../utils/annotation-utils';
+import { FabricService } from '../../services/fabric.service';
 import { HelpModalComponent } from '../../components/help-modal/help-modal.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { environment } from '../../../environments/environment';
@@ -200,7 +201,8 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     private platform: Platform,
     private pdfGenerator: PdfGeneratorService,
     private cache: CacheService,
-    private backgroundUploadService: BackgroundPhotoUploadService
+    private backgroundUploadService: BackgroundPhotoUploadService,
+    private fabricService: FabricService
   ) {}
 
   async ngOnInit() {
@@ -319,7 +321,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
     // Enable PDF button after a brief delay to ensure DOM is ready
     setTimeout(() => {
-      const pdfButton = document.querySelector('.pdf-header-button') as HTMLButtonElement;
+      const pdfButton = document.getElementById('eng-pdf-btn') as HTMLButtonElement;
       if (pdfButton) {
         pdfButton.disabled = false;
         pdfButton.style.pointerEvents = 'auto';
@@ -3693,41 +3695,11 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
   // v1.4.389 - Ensure PDF button is properly wired up
   ensurePDFButtonWorks() {
-    const pdfButton = document.querySelector('.pdf-header-button') as HTMLButtonElement;
+    const pdfButton = document.getElementById('eng-pdf-btn') as HTMLButtonElement;
     if (pdfButton) {
-
-      // Remove any existing listeners first
-      const newButton = pdfButton.cloneNode(true) as HTMLButtonElement;
-      pdfButton.parentNode?.replaceChild(newButton, pdfButton);
-
-      // Add direct event listener
-      newButton.addEventListener('click', async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        // Show immediate feedback
-        try {
-          await this.generatePDF();
-        } catch (error) {
-          console.error('[v1.4.389] Error in direct listener:', error);
-          await this.showToast(`Error: ${error}`, 'danger');
-        }
-      });
-
-      // Also add touch listener for mobile
-      newButton.addEventListener('touchend', async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      });
+      // Button found by ID - Angular (click) binding handles it
     } else {
       console.error('[v1.4.389] PDF button not found in DOM!');
-
-      // Try to find it by other means
-      const allButtons = document.querySelectorAll('button');
-      allButtons.forEach((btn, index) => {
-        if (btn.textContent?.includes('PDF')) {
-        }
-      });
     }
   }
 
@@ -3740,128 +3712,140 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
   // New handler for PDF button click
   async handlePDFClick(event: Event) {
-
-    // Add comprehensive debugging
     try {
-
-      // Prevent all default behaviors immediately
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
-
-      // Call the actual PDF generation directly
       await this.generatePDF();
     } catch (error) {
       console.error('[v1.4.388] Error in handlePDFClick:', error);
-      console.error('[v1.4.402] PDF Click Error:', error);
     }
   }
 
   async generatePDF(event?: Event) {
-
-    // CRITICAL: Prevent any default behavior that might cause reload
     if (event) {
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
-
-      // Additional prevention for touch events
-      if (event instanceof TouchEvent) {
-        event.preventDefault();
-      }
-
-      // Prevent any form submission if button is inside a form
-      const target = event.target as HTMLElement;
-      const form = target.closest('form');
-      if (form) {
-        form.onsubmit = (e) => { e.preventDefault(); return false; };
-      }
     }
 
     // Prevent multiple simultaneous PDF generation attempts
     if (this.isPDFGenerating) {
       return;
     }
-    
-    // Set flag immediately to prevent any double clicks
-    this.isPDFGenerating = true;
 
-    // Disable the PDF button visually - check for both possible button selectors
-    const pdfButton = (document.querySelector('.pdf-header-button') || document.querySelector('.pdf-fab')) as HTMLElement;
+    this.isPDFGenerating = true;
+    this.pdfGenerationAttempts++;
+
+    // Disable the PDF button visually
+    const pdfButton = document.getElementById('eng-pdf-btn') as HTMLButtonElement;
     if (pdfButton) {
-      if (pdfButton instanceof HTMLButtonElement) {
-        pdfButton.disabled = true;
-      }
+      pdfButton.disabled = true;
       pdfButton.style.pointerEvents = 'none';
       pdfButton.style.opacity = '0.6';
-    } else {
     }
 
-    // Track generation attempts for debugging
-    this.pdfGenerationAttempts++;
-    
-    try {
-      // CRITICAL FIX: Ensure we have our IDs before proceeding
-      if (!this.serviceId || !this.projectId) {
-        console.error('[v1.4.390] Missing service/project ID, attempting recovery');
+    let loading: any = null;
+    let cancelRequested = false;
 
-        // Try to recover IDs from route if possible
+    // Helper to update progress
+    const updateProgress = (percent: number, step: string) => {
+      if (loading && environment.isWeb) {
+        const percentEl = document.querySelector('.progress-percentage');
+        const barEl = document.querySelector('.progress-bar-fill') as HTMLElement;
+        const stepEl = document.querySelector('.progress-step');
+        if (percentEl) percentEl.textContent = `${percent}%`;
+        if (barEl) barEl.style.width = `${percent}%`;
+        if (stepEl) stepEl.textContent = step;
+      } else if (loading) {
+        loading.message = step;
+      }
+    };
+
+    // Helper to re-enable button and reset state
+    const resetState = () => {
+      this.isPDFGenerating = false;
+      if (pdfButton) {
+        pdfButton.disabled = false;
+        pdfButton.style.pointerEvents = 'auto';
+        pdfButton.style.opacity = '1';
+      }
+    };
+
+    try {
+      // Ensure we have our IDs before proceeding
+      if (!this.serviceId || !this.projectId) {
         const routeServiceId = this.route.snapshot.paramMap.get('serviceId');
         const routeProjectId = this.route.snapshot.paramMap.get('projectId');
-
         if (routeServiceId && routeProjectId) {
           this.serviceId = routeServiceId;
           this.projectId = routeProjectId;
         } else {
-          console.error('[v1.4.390] ERROR: No service/project IDs available!');
-          this.isPDFGenerating = false;
-          if (pdfButton) {
-            if (pdfButton instanceof HTMLButtonElement) {
-              pdfButton.disabled = false;
-            }
-            pdfButton.style.pointerEvents = 'auto';
-            pdfButton.style.opacity = '1';
-          }
+          console.error('[PDF] No service/project IDs available');
+          resetState();
           return;
         }
-      } else {
       }
 
-    let loading: any = null;
-    try {
-      loading = await this.loadingController.create({
-        message: 'Loading PDF...',
-        spinner: 'crescent',
-        backdropDismiss: false
+      // Show loading alert with Cancel button and progress
+      loading = await this.alertController.create({
+        header: 'Loading Report',
+        message: environment.isWeb ? '' : 'Initializing...',
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            handler: () => {
+              cancelRequested = true;
+              resetState();
+              console.log('[PDF] User cancelled PDF generation');
+              return true;
+            }
+          }
+        ],
+        backdropDismiss: false,
+        cssClass: environment.isWeb ? 'progress-loading-alert' : 'template-loading-alert'
       });
       await loading.present();
-    } catch (loadingError) {
-      console.error('[v1.4.390] Error creating/presenting loading:', loadingError);
-      // Continue without loading indicator
-    }
 
-    try {
-      // Check if we have cached PDF data (valid for 5 minutes)
-      const cacheKey = this.cache.getApiCacheKey('pdf_data', { 
+      // Inject HTML progress bar on web
+      if (environment.isWeb) {
+        const alertEl = document.querySelector('.progress-loading-alert');
+        const alertMessage = alertEl?.querySelector('.alert-message');
+        if (alertMessage) {
+          alertMessage.innerHTML = `
+            <div class="progress-container">
+              <div class="progress-percentage">0%</div>
+              <div class="progress-bar-wrapper">
+                <div class="progress-bar-fill" style="width: 0%"></div>
+              </div>
+              <div class="progress-step">Initializing...</div>
+            </div>`;
+        }
+      }
+
+      // Check cache first (5-minute cache)
+      const cacheKey = this.cache.getApiCacheKey('pdf_data', {
         serviceId: this.serviceId,
-        timestamp: Math.floor(Date.now() / 300000) // 5-minute blocks
+        timestamp: Math.floor(Date.now() / 300000)
       });
-      
+
       let structuralSystemsData, elevationPlotData, projectInfo;
       const cachedData = this.cache.get(cacheKey);
-      
+
       if (cachedData) {
+        updateProgress(50, 'Loading from cache...');
         ({ structuralSystemsData, elevationPlotData, projectInfo } = cachedData);
       } else {
-        const startTime = Date.now();
-        
+        updateProgress(5, 'Loading project data...');
+
+        if (cancelRequested) return;
+
         try {
-          // Wrap data preparation in try-catch to prevent any reload on error
-          // Execute all data fetching in parallel with individual error handling
+          updateProgress(10, 'Loading project information...');
           const [projectData, structuralData, elevationData] = await Promise.all([
             this.prepareProjectInfo().catch(err => {
-              console.error('[v1.4.338] Error in prepareProjectInfo:', err);
-              // Return minimal valid data structure
+              console.error('[PDF] Error in prepareProjectInfo:', err);
               return {
                 projectId: this.projectId,
                 serviceId: this.serviceId,
@@ -3872,28 +3856,27 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
               };
             }),
             this.prepareStructuralSystemsData().catch(err => {
-              console.error('[v1.4.338] Error in prepareStructuralSystemsData:', err);
-              return []; // Return empty array instead of failing
+              console.error('[PDF] Error in prepareStructuralSystemsData:', err);
+              return [];
             }),
             this.prepareElevationPlotData().catch(err => {
-              console.error('[v1.4.338] Error in prepareElevationPlotData:', err);
-              return []; // Return empty array instead of failing
+              console.error('[PDF] Error in prepareElevationPlotData:', err);
+              return [];
             })
           ]);
-          
+
+          updateProgress(40, 'Processing data...');
           projectInfo = projectData;
           structuralSystemsData = structuralData;
           elevationPlotData = elevationData;
-          
-          // Cache the prepared data
+
           this.cache.set(cacheKey, {
             structuralSystemsData,
             elevationPlotData,
             projectInfo
           }, this.cache.CACHE_TIMES.MEDIUM);
         } catch (dataError) {
-          console.error('[v1.4.338] Fatal error loading PDF data:', dataError);
-          // Use fallback empty data to prevent reload
+          console.error('[PDF] Fatal error loading PDF data:', dataError);
           projectInfo = {
             projectId: this.projectId,
             serviceId: this.serviceId,
@@ -3906,94 +3889,112 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           elevationPlotData = [];
         }
       }
-      
-      // Preload primary photo if it exists (do this separately as it's optional)
-      if (projectInfo?.primaryPhoto && typeof projectInfo.primaryPhoto === 'string' && projectInfo.primaryPhoto.startsWith('/')) {
-        try {
-          const imageData = await this.caspioService.getImageFromFilesAPI(projectInfo.primaryPhoto).toPromise();
-          if (imageData && imageData.startsWith('data:')) {
-            projectInfo.primaryPhotoBase64 = imageData;
-          }
-        } catch (error) {
-          console.error('Error preloading primary photo:', error);
-          // Don't fail the whole PDF generation if photo fails
-        }
-      }
 
+      if (cancelRequested) return;
+
+      updateProgress(55, 'Loading PDF preview...');
       const PdfPreviewComponent = await this.loadPdfPreview();
 
-      // Check if PdfPreviewComponent is available
       if (!PdfPreviewComponent) {
-        console.error('[v1.4.390] PdfPreviewComponent is not available!');
         throw new Error('PdfPreviewComponent not available');
       }
 
-      let modal;
-      try {
+      if (cancelRequested) return;
 
-        modal = await this.modalController.create({
-          component: PdfPreviewComponent,
-          componentProps: {
-            projectData: projectInfo,
-            structuralData: structuralSystemsData,
-            elevationData: elevationPlotData,
-            serviceData: this.serviceData
-          },
-          cssClass: 'fullscreen-modal',
-          animated: this.pdfGenerationAttempts > 1, // Disable animation on first attempt
-          mode: 'ios', // Force iOS mode for consistency
-          backdropDismiss: false // Prevent accidental dismissal
-        });
-      } catch (modalCreateError) {
-        console.error('[v1.4.390] Error creating modal:', modalCreateError);
-        throw modalCreateError;
-      }
-      
-      // Wait a moment before presenting to ensure DOM is ready
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Present the modal with error handling
-      try {
-        await modal.present();
-        
-        // Dismiss loading after modal is presented
-        // Add a small delay to ensure smooth transition
-        setTimeout(async () => {
-          try {
-            if (loading) await loading.dismiss();
-          } catch (dismissError) {
+      // Preload primary photo
+      updateProgress(70, 'Processing cover photo...');
+      if (projectInfo?.primaryPhoto && typeof projectInfo.primaryPhoto === 'string') {
+        try {
+          let convertedData: string | null = null;
+          if (projectInfo.primaryPhoto.startsWith('data:')) {
+            convertedData = projectInfo.primaryPhoto;
+          } else if (projectInfo.primaryPhoto.startsWith('blob:')) {
+            const response = await fetch(projectInfo.primaryPhoto);
+            const blob = await response.blob();
+            const reader = new FileReader();
+            convertedData = await new Promise<string>((resolve, reject) => {
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            });
+          } else if (this.caspioService.isS3Key(projectInfo.primaryPhoto)) {
+            const s3Url = await this.caspioService.getS3FileUrl(projectInfo.primaryPhoto);
+            if (s3Url) {
+              const response = await fetch(s3Url);
+              if (response.ok) {
+                const blob = await response.blob();
+                const reader = new FileReader();
+                convertedData = await new Promise<string>((resolve, reject) => {
+                  reader.onloadend = () => resolve(reader.result as string);
+                  reader.onerror = reject;
+                  reader.readAsDataURL(blob);
+                });
+              }
+            }
+          } else if (projectInfo.primaryPhoto.startsWith('/')) {
+            const imageData = await this.caspioService.getImageFromFilesAPI(projectInfo.primaryPhoto).toPromise();
+            if (imageData && imageData.startsWith('data:')) {
+              convertedData = imageData;
+            }
           }
-        }, 300);
-        
-      } catch (modalError) {
-        console.error('[v1.4.338] Error presenting modal:', modalError);
-        // Try to dismiss loading on error
+          if (convertedData) {
+            projectInfo.primaryPhotoBase64 = convertedData;
+            projectInfo.primaryPhoto = convertedData;
+          }
+        } catch (error) {
+          console.error('[PDF] Error preloading primary photo:', error);
+        }
+      }
+
+      if (cancelRequested) return;
+
+      updateProgress(85, 'Preparing PDF document...');
+
+      const modal = await this.modalController.create({
+        component: PdfPreviewComponent,
+        componentProps: {
+          projectData: projectInfo,
+          structuralData: structuralSystemsData,
+          elevationData: elevationPlotData,
+          serviceData: this.serviceData
+        },
+        cssClass: 'fullscreen-modal',
+        animated: this.pdfGenerationAttempts > 1,
+        mode: 'ios',
+        backdropDismiss: false
+      });
+
+      if (cancelRequested) return;
+
+      updateProgress(95, 'Opening PDF...');
+      await modal.present();
+
+      // Dismiss loading after modal is presented
+      setTimeout(async () => {
         try {
           if (loading) await loading.dismiss();
         } catch (dismissError) {
+          // Ignore dismiss errors
         }
-        throw modalError;
-      }
-      
-      // Wait for modal to be dismissed before re-enabling button
-      modal.onDidDismiss().then(() => {
-        // Re-enable the PDF button
-        const pdfBtn = (document.querySelector('.pdf-header-button') || document.querySelector('.pdf-fab')) as HTMLElement;
-        if (pdfBtn) {
-          if (pdfBtn instanceof HTMLButtonElement) {
-            pdfBtn.disabled = false;
-          }
-          pdfBtn.style.pointerEvents = 'auto';
-          pdfBtn.style.opacity = '1';
-        }
-        // Reset the generation flag after modal is dismissed
-        this.isPDFGenerating = false;
-      });
-      
-    } catch (error) {
-      console.error('[v1.4.388] Error preparing preview:', error);
+      }, 100);
 
-      // Show detailed error with stack trace in alert
+      // Reset state when modal is dismissed
+      modal.onDidDismiss().then(() => {
+        resetState();
+      });
+
+    } catch (error) {
+      console.error('[PDF] Error generating PDF:', error);
+      resetState();
+
+      // Dismiss loading if still showing
+      try {
+        if (loading) await loading.dismiss();
+      } catch (dismissError) {
+        // Ignore dismiss errors
+      }
+
+      // Show error alert
       const errorDetails = error instanceof Error ?
         `Message: ${error.message}\n\nStack: ${error.stack}` :
         `Error: ${JSON.stringify(error)}`;
@@ -4011,46 +4012,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         buttons: ['OK']
       });
       await alert.present();
-
-      // Reset the generation flag on error
-      this.isPDFGenerating = false;
-
-      // Re-enable the PDF button - check for both possible button selectors
-      const pdfButton = (document.querySelector('.pdf-header-button') || document.querySelector('.pdf-fab')) as HTMLElement;
-      if (pdfButton) {
-        if (pdfButton instanceof HTMLButtonElement) {
-          pdfButton.disabled = false;
-        }
-        pdfButton.style.pointerEvents = 'auto';
-        pdfButton.style.opacity = '1';
-      }
-
-      try {
-        if (loading) await loading.dismiss();
-      } catch (e) {
-      }
-
-      // Show more detailed error message
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      await this.showToast(`Failed to prepare preview: ${errorMessage}`, 'danger');
-    }
-  } catch (error) {
-    // Outer catch for the main try block
-    console.error('[v1.4.338] Outer error in generatePDF:', error);
-    this.isPDFGenerating = false;
-    
-    // Re-enable the PDF button - check for both possible button selectors
-    const pdfButton = (document.querySelector('.pdf-header-button') || document.querySelector('.pdf-fab')) as HTMLElement;
-    if (pdfButton) {
-      if (pdfButton instanceof HTMLButtonElement) {
-        pdfButton.disabled = false;
-      }
-      pdfButton.style.pointerEvents = 'auto';
-      pdfButton.style.opacity = '1';
-    }
-    
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[v1.4.402] Failed to generate PDF:', errorMessage);
     }
   }
   
@@ -8243,29 +8204,38 @@ Stack: ${error?.stack}`;
               const photoPath = roomRecord[photoType.field];
 
               if (photoPath) {
-                // Convert Caspio file path to base64
-                if (photoPath.startsWith('/')) {
-                  try {
-                    
-                    const base64Data = await this.caspioService.getImageFromFilesAPI(photoPath).toPromise();
-                    if (base64Data && base64Data.startsWith('data:')) {
-                      fdfPhotosData[photoType.key] = true;
-                      fdfPhotosData[`${photoType.key}Url`] = base64Data;
-                    } else {
-                      console.error(`[FDF Photos v1.4.327] Invalid base64 data for ${photoType.key}`);
+                try {
+                  let base64Data: string | null = null;
+
+                  if (photoPath.startsWith('data:') || photoPath.startsWith('blob:')) {
+                    base64Data = photoPath;
+                  } else if (this.caspioService.isS3Key(photoPath)) {
+                    // S3 key - fetch from S3
+                    const s3Url = await this.caspioService.getS3FileUrl(photoPath);
+                    if (s3Url) {
+                      const response = await fetch(s3Url);
+                      if (response.ok) {
+                        const blob = await response.blob();
+                        const reader = new FileReader();
+                        base64Data = await new Promise<string>((resolve, reject) => {
+                          reader.onloadend = () => resolve(reader.result as string);
+                          reader.onerror = reject;
+                          reader.readAsDataURL(blob);
+                        });
+                      }
                     }
-                  } catch (error) {
-                    console.error(`[FDF Photos v1.4.327] Failed to convert FDF ${photoType.key} photo:`, error);
-                    
-                    // Try to use token-based URL as fallback
-                    const token = await this.caspioService.getValidToken();
-                    const account = this.caspioService.getAccountID();
-                    fdfPhotosData[photoType.key] = true;
-                    fdfPhotosData[`${photoType.key}Url`] = `https://${account}.caspio.com/rest/v2/files${photoPath}?access_token=${token}`;
+                  } else if (photoPath.startsWith('/')) {
+                    // Caspio file path
+                    base64Data = await this.caspioService.getImageFromFilesAPI(photoPath).toPromise() || null;
                   }
-                } else {
+
+                  if (base64Data && base64Data.startsWith('data:')) {
+                    fdfPhotosData[photoType.key] = true;
+                    fdfPhotosData[`${photoType.key}Url`] = base64Data;
+                  }
+                } catch (error) {
+                  console.error(`[FDF Photos] Failed to convert FDF ${photoType.key} photo:`, error);
                 }
-              } else {
               }
             }
             
@@ -8327,39 +8297,72 @@ Stack: ${error?.stack}`;
           for (const { pointId, attachments } of allAttachmentResults) {
             const pointData = pointDataMap.get(pointId);
             if (!pointData) continue;
-            
+
             for (const attachment of (attachments || [])) {
-              let photoUrl = attachment.Photo || '';
-              
-              // Convert Caspio file paths to base64
-              if (photoUrl && photoUrl.startsWith('/')) {
-                const mappingIndex = imagePromises.length;
-                imageMapping.push({
-                  pointData,
-                  attachment,
-                  mappingIndex
+              const serverPath = attachment.Photo || attachment.PhotoPath || attachment.Attachment || '';
+
+              if (!serverPath) continue;
+
+              // Already a local URL
+              if (serverPath.startsWith('data:') || serverPath.startsWith('blob:')) {
+                pointData.photos.push({
+                  url: serverPath,
+                  caption: attachment.Annotation || attachment.Caption || '',
+                  attachId: attachment.AttachID || attachment.PK_ID
                 });
-                
+                continue;
+              }
+
+              const mappingIndex = imagePromises.length;
+              imageMapping.push({
+                pointData,
+                attachment,
+                mappingIndex
+              });
+
+              if (this.caspioService.isS3Key(serverPath)) {
+                // S3 key - fetch from S3
                 imagePromises.push(
-                  this.caspioService.getImageFromFilesAPI(photoUrl).toPromise()
+                  (async () => {
+                    try {
+                      const s3Url = await this.caspioService.getS3FileUrl(serverPath);
+                      if (s3Url) {
+                        const response = await fetch(s3Url);
+                        if (response.ok) {
+                          const blob = await response.blob();
+                          return await new Promise<string>((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result as string);
+                            reader.onerror = reject;
+                            reader.readAsDataURL(blob);
+                          });
+                        }
+                      }
+                      return '';
+                    } catch (error) {
+                      console.error(`[PDF] Failed to convert S3 photo:`, error);
+                      return '';
+                    }
+                  })()
+                );
+              } else if (serverPath.startsWith('/')) {
+                // Caspio file path
+                imagePromises.push(
+                  this.caspioService.getImageFromFilesAPI(serverPath).toPromise()
                     .then(base64Data => {
                       if (base64Data && base64Data.startsWith('data:')) {
                         return base64Data;
                       }
-                      return photoUrl; // Fallback to original
+                      return '';
                     })
                     .catch(error => {
-                      console.error(`Failed to convert photo:`, error);
-                      return photoUrl; // Fallback to original
+                      console.error(`[PDF] Failed to convert photo:`, error);
+                      return '';
                     })
                 );
               } else {
-                // Non-Caspio URLs can be added directly
-                pointData.photos.push({
-                  url: photoUrl,
-                  annotation: attachment.Annotation || '',
-                  attachId: attachment.AttachID || attachment.PK_ID
-                });
+                // Unknown format - remove from mapping
+                imageMapping.pop();
               }
             }
           }
@@ -8450,49 +8453,92 @@ Stack: ${error?.stack}`;
       return cachedPhotos;
     }
     
+    // Load Fabric.js for annotation rendering
+    let fabric: any = null;
+    try {
+      fabric = await this.fabricService.getFabric();
+    } catch (e) {
+      console.warn('[PDF] Could not load Fabric.js for annotations:', e);
+    }
+
     // Convert all photos to base64 for PDF compatibility - in parallel
     const photoPromises = photos.map(async (photo) => {
-      // Prioritize displayUrl (annotated) over regular url
-      let photoUrl = photo.displayUrl || photo.Photo || photo.url || '';
-      let finalUrl = photoUrl;
-      
-      // If it's a Caspio file path (starts with /), convert to base64
-      if (photoUrl && photoUrl.startsWith('/')) {
-        // Check individual photo cache first
-        const photoCacheKey = this.cache.getApiCacheKey('photo_base64', { path: photoUrl });
-        const cachedBase64 = this.cache.get(photoCacheKey);
-        
-        if (cachedBase64) {
-          finalUrl = cachedBase64;
-        } else {
-          try {
-            const base64Data = await this.caspioService.getImageFromFilesAPI(photoUrl).toPromise();
-            
-            if (base64Data && base64Data.startsWith('data:')) {
-              finalUrl = base64Data;
-              // Cache individual photo for reuse
-              this.cache.set(photoCacheKey, base64Data, this.cache.CACHE_TIMES.LONG);
-            } else {
-              console.error(`Failed to convert photo to base64: ${photoUrl}`);
-              finalUrl = 'assets/img/photo-placeholder.svg';
+      let finalUrl: string | null = null;
+      const caption = photo.Annotation || photo.Caption || photo.caption || '';
+      const drawingsData = photo.Drawings || photo.drawings || null;
+
+      // Check for existing local/cached URL first
+      const existingUrl = photo.displayUrl || photo.url || '';
+      if (existingUrl && (existingUrl.startsWith('data:') || existingUrl.startsWith('blob:'))) {
+        finalUrl = existingUrl;
+      }
+
+      // Try server paths if no local URL
+      if (!finalUrl) {
+        const serverPath = photo.Photo || photo.PhotoPath || photo.Attachment || photo.displayUrl || photo.url || '';
+
+        if (serverPath) {
+          // Check individual photo cache first
+          const photoCacheKey = this.cache.getApiCacheKey('photo_base64', { path: serverPath });
+          const cachedBase64 = this.cache.get(photoCacheKey);
+
+          if (cachedBase64) {
+            finalUrl = cachedBase64;
+          } else {
+            try {
+              if (serverPath.startsWith('data:')) {
+                finalUrl = serverPath;
+              } else if (this.caspioService.isS3Key(serverPath)) {
+                // S3 key - fetch from S3
+                const s3Url = await this.caspioService.getS3FileUrl(serverPath);
+                if (s3Url) {
+                  const response = await fetch(s3Url);
+                  if (response.ok) {
+                    const blob = await response.blob();
+                    const reader = new FileReader();
+                    finalUrl = await new Promise<string>((resolve, reject) => {
+                      reader.onloadend = () => resolve(reader.result as string);
+                      reader.onerror = reject;
+                      reader.readAsDataURL(blob);
+                    });
+                    if (finalUrl) {
+                      this.cache.set(photoCacheKey, finalUrl, this.cache.CACHE_TIMES.LONG);
+                    }
+                  }
+                }
+              } else if (serverPath.startsWith('/')) {
+                // Caspio file path
+                const base64Data = await this.caspioService.getImageFromFilesAPI(serverPath).toPromise();
+                if (base64Data && base64Data.startsWith('data:')) {
+                  finalUrl = base64Data;
+                  this.cache.set(photoCacheKey, base64Data, this.cache.CACHE_TIMES.LONG);
+                }
+              }
+            } catch (error) {
+              console.error(`[PDF] Error converting photo for visual ${visualId}:`, error);
             }
-          } catch (error) {
-            console.error(`Error converting photo for visual ${visualId}:`, error);
-            finalUrl = 'assets/img/photo-placeholder.svg';
           }
         }
-      } else if (photoUrl && (photoUrl.startsWith('blob:') || photoUrl.startsWith('data:'))) {
-        finalUrl = photoUrl;
       }
-      
-      // Return the photo object with the appropriate URLs
-      // If photo already has a displayUrl (annotated), it should be preserved as finalUrl
+
+      // Render annotations if we have a valid URL and drawings data
+      if (finalUrl && finalUrl.startsWith('data:') && drawingsData && fabric) {
+        try {
+          const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawingsData, { quality: 0.9, format: 'jpeg', fabric });
+          if (annotatedUrl && annotatedUrl !== finalUrl) {
+            finalUrl = annotatedUrl;
+          }
+        } catch (renderError) {
+          console.error(`[PDF] Error rendering annotations for visual ${visualId}:`, renderError);
+        }
+      }
+
       return {
-        url: photo.url || finalUrl, // Original URL
-        displayUrl: finalUrl, // This will be the annotated version if it exists, otherwise the original
-        caption: photo.Annotation || '',
+        url: finalUrl || '',
+        displayUrl: finalUrl || '',
+        caption: caption,
         attachId: photo.AttachID || photo.id || '',
-        hasAnnotations: photo.hasAnnotations || false
+        conversionSuccess: !!finalUrl
       };
     });
     
@@ -8532,29 +8578,57 @@ Stack: ${error?.stack}`;
       
       // Format photos for display and convert to base64 for PDF
       const processedPhotos = [];
-      
+
+      // Load Fabric.js for annotation rendering
+      let fabric: any = null;
+      try {
+        fabric = await this.fabricService.getFabric();
+      } catch (e) {
+        console.warn('[PDF] Could not load Fabric.js for room photo annotations:', e);
+      }
+
       for (const attach of attachments) {
-        let photoUrl = attach.Photo || '';
-        let finalUrl = photoUrl;
-        
-        // Convert Caspio file paths to base64
-        if (photoUrl && photoUrl.startsWith('/')) {
+        const photoUrl = attach.Photo || attach.PhotoPath || attach.Attachment || '';
+        let finalUrl: string | null = null;
+
+        // Check for existing local/cached URL first
+        const existingUrl = attach.displayUrl || attach.url || '';
+        if (existingUrl && (existingUrl.startsWith('data:') || existingUrl.startsWith('blob:'))) {
+          finalUrl = existingUrl;
+        }
+
+        // Try server paths if no local URL
+        if (!finalUrl && photoUrl) {
           try {
-            const base64Data = await this.caspioService.getImageFromFilesAPI(photoUrl).toPromise();
-            
-            if (base64Data && base64Data.startsWith('data:')) {
-              finalUrl = base64Data;
-            } else {
-              console.error(`Failed to convert room photo to base64: ${photoUrl}`);
-              finalUrl = 'assets/img/photo-placeholder.svg';
+            if (photoUrl.startsWith('data:')) {
+              finalUrl = photoUrl;
+            } else if (photoUrl.startsWith('blob:')) {
+              finalUrl = photoUrl;
+            } else if (this.caspioService.isS3Key(photoUrl)) {
+              // S3 key - fetch from S3
+              const s3Url = await this.caspioService.getS3FileUrl(photoUrl);
+              if (s3Url) {
+                const response = await fetch(s3Url);
+                if (response.ok) {
+                  const blob = await response.blob();
+                  const reader = new FileReader();
+                  finalUrl = await new Promise<string>((resolve, reject) => {
+                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                  });
+                }
+              }
+            } else if (photoUrl.startsWith('/')) {
+              // Caspio file path
+              const base64Data = await this.caspioService.getImageFromFilesAPI(photoUrl).toPromise();
+              if (base64Data && base64Data.startsWith('data:')) {
+                finalUrl = base64Data;
+              }
             }
           } catch (error) {
-            console.error(`Error converting room photo:`, error);
-            finalUrl = 'assets/img/photo-placeholder.svg';
+            console.error(`[PDF] Error converting room photo:`, error);
           }
-        } else if (photoUrl && (photoUrl.startsWith('blob:') || photoUrl.startsWith('data:'))) {
-          // Keep blob and data URLs as-is
-          finalUrl = photoUrl;
         }
         
         // Find the corresponding point for this attachment
@@ -8562,25 +8636,31 @@ Stack: ${error?.stack}`;
           (p.PointID === attach.PointID) || (p.PK_ID === attach.PointID)
         );
         
-        // Load annotations from Drawings field
-        let annotationData = null;
-        if (attach.Drawings) {
+        // Render annotations from Drawings field onto the photo
+        const drawingsData = attach.Drawings || attach.drawings || null;
+        const caption = attach.Caption || attach.caption || '';
+
+        if (finalUrl && finalUrl.startsWith('data:') && drawingsData && fabric) {
           try {
-            annotationData = decompressAnnotationData(attach.Drawings);
-          } catch (e) {
+            const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawingsData, { quality: 0.9, format: 'jpeg', fabric });
+            if (annotatedUrl && annotatedUrl !== finalUrl) {
+              finalUrl = annotatedUrl;
+            }
+          } catch (renderError) {
+            console.error(`[PDF] Error rendering room photo annotation:`, renderError);
           }
         }
-        
-        processedPhotos.push({
-          url: finalUrl,
-          caption: '',  // Don't use Annotation field
-          annotations: annotationData,
-          rawDrawingsString: attach.Drawings,
-          hasAnnotations: !!annotationData,
-          pointName: point?.PointName || '',
-          pointValue: point?.PointValue || '',
-          attachId: attach.AttachID || attach.PK_ID
-        });
+
+        if (finalUrl) {
+          processedPhotos.push({
+            url: finalUrl,
+            caption: caption,
+            pointName: point?.PointName || '',
+            pointValue: point?.PointValue || '',
+            attachId: attach.AttachID || attach.PK_ID,
+            conversionSuccess: true
+          });
+        }
       }
       
       return processedPhotos;

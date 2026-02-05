@@ -3472,12 +3472,12 @@ body.dark-theme {
   button:focus-visible,
   [role="button"]:focus-visible,
   select:focus-visible,
-  [tabindex]:not([tabindex="-1"]):focus-visible {
+  [tabindex]:not([tabindex="-1"]):not(ion-input):not(ion-textarea):focus-visible {
     outline: 3px solid var(--noble-orange, #F15A27) !important;
     outline-offset: 2px !important;
   }
 
-  /* Inputs have no focus outline - includes ion-input host which has tabindex for keyboard nav */
+  /* Inputs have no focus outline */
   input:focus-visible,
   textarea:focus-visible,
   ion-input:focus-visible,
@@ -3611,11 +3611,35 @@ body.dark-theme {
   }
 }
 
-/* Login page: Remove focus outline from inputs (highlight vars handled in component) */
-.login-content ion-input {
+/* Login page: Kill ALL orange focus indicators on inputs.
+ * ion-input uses scoped encapsulation so its children (.input-highlight etc.) are in regular DOM.
+ * ion-item uses shadow DOM so we target it via CSS custom properties. */
+.login-content ion-input,
+.login-content ion-item.input-item {
   outline: none !important;
   --highlight-color-focused: transparent !important;
+  --highlight-color-valid: transparent !important;
+  --highlight-color-invalid: transparent !important;
+  --highlight-color: transparent !important;
   --highlight-height: 0px !important;
+}
+
+/* Target the scoped .input-highlight element inside ion-input (regular DOM, not shadow) */
+.login-content .input-highlight {
+  display: none !important;
+  height: 0 !important;
+  background: transparent !important;
+  transform: scale(0) !important;
+}
+
+/* Target ion-input's internal input-wrapper border */
+.login-content .input-wrapper {
+  border: none !important;
+}
+
+/* Target ion-input's input-bottom border */
+.login-content .input-bottom {
+  border-top-color: transparent !important;
 }
 
 /* ============================================================================

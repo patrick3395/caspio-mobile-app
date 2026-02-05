@@ -1044,6 +1044,22 @@ export class EngineersFoundationPdfService {
         } catch (error) {
           console.error('[PDF Service] ✗ Error converting blob URL:', error);
         }
+      } else if (this.caspioService.isS3Key(projectInfo.primaryPhoto)) {
+        // S3 key - fetch from S3
+        console.log('[PDF Service] Loading primary photo from S3:', projectInfo.primaryPhoto);
+        try {
+          const s3Url = await this.caspioService.getS3FileUrl(projectInfo.primaryPhoto);
+          if (s3Url) {
+            const response = await fetch(s3Url);
+            if (response.ok) {
+              const blob = await response.blob();
+              convertedPhotoData = await this.blobToBase64(blob);
+              console.log('[PDF Service] ✓ S3 primary photo converted, size:', Math.round((convertedPhotoData?.length || 0) / 1024), 'KB');
+            }
+          }
+        } catch (error) {
+          console.error('[PDF Service] ✗ Error loading primary photo from S3:', error);
+        }
       } else if (projectInfo.primaryPhoto.startsWith('/')) {
         // Caspio file path - DEXIE-FIRST approach
         const cacheKey = `primary_photo_${projectId}`;

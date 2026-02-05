@@ -862,6 +862,63 @@ export class PhotoHandlerService {
     return photos.filter(p => this.shouldPreservePhoto(p));
   }
 
+  /**
+   * Deduplicate a photo array in-place by removing entries with duplicate IDs.
+   * Keeps the FIRST occurrence of each ID. Checks imageId, AttachID, attachId, and id fields.
+   * Skeletons and temp uploads are always kept (they have unique temp IDs).
+   *
+   * @param photos - Array of photo objects to deduplicate
+   * @returns The same array reference, deduplicated
+   */
+  deduplicatePhotos(photos: any[]): any[] {
+    if (!photos || photos.length <= 1) return photos;
+
+    const seen = new Set<string>();
+    let i = 0;
+    while (i < photos.length) {
+      const p = photos[i];
+      const ids: string[] = [];
+      if (p.imageId) ids.push(String(p.imageId));
+      if (p.AttachID) ids.push(String(p.AttachID));
+      if (p.attachId) ids.push(String(p.attachId));
+      if (p.id) ids.push(String(p.id));
+
+      // Filter out temp/skeleton IDs from dedup check - they're always unique
+      const realIds = ids.filter(id =>
+        id && !id.startsWith('uploading_') && !id.startsWith('temp_skeleton_') && !id.startsWith('temp_')
+      );
+
+      // If no real IDs (skeleton/temp), always keep
+      if (realIds.length === 0) {
+        i++;
+        continue;
+      }
+
+      // Check if any real ID was already seen
+      const isDuplicate = realIds.some(id => seen.has(id));
+      if (isDuplicate) {
+        photos.splice(i, 1);
+      } else {
+        realIds.forEach(id => seen.add(id));
+        i++;
+      }
+    }
+
+    return photos;
+  }
+
+  /**
+   * Check if a photo with the given ID already exists in the array.
+   * Use this before pushing to prevent duplicates.
+   */
+  photoExistsInArray(photos: any[], photoId: string): boolean {
+    if (!photos || !photoId) return false;
+    return photos.some(p =>
+      p.imageId === photoId || String(p.AttachID) === photoId ||
+      p.attachId === photoId || p.id === photoId
+    );
+  }
+
   // ============================================================================
   // PUBLIC API: View/Edit Existing Photos (Standardized Annotation Handling)
   // ============================================================================

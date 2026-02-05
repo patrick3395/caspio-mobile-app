@@ -556,41 +556,71 @@ export class DtePdfService {
       const photos = [];
 
       for (const attachment of (attachments || [])) {
-        let photoUrl = attachment.Photo || attachment.PhotoPath || '';
+        const caption = attachment.Annotation || attachment.Caption || attachment.caption || '';
+        const drawingsData = attachment.Drawings || attachment.drawings || null;
+        let finalUrl: string | null = null;
 
-        if (photoUrl && photoUrl.startsWith('/')) {
-          try {
-            const base64Data = await firstValueFrom(this.caspioService.getImageFromFilesAPI(photoUrl));
-            if (base64Data && base64Data.startsWith('data:')) {
-              let finalUrl = base64Data;
+        // Check for existing local/cached URL first
+        const existingUrl = attachment.displayUrl || attachment.url || '';
+        if (existingUrl && (existingUrl.startsWith('data:') || existingUrl.startsWith('blob:'))) {
+          finalUrl = existingUrl;
+        }
 
-              // Render annotations if drawings exist
-              const drawingsData = attachment.Drawings || null;
-              if (drawingsData) {
-                try {
-                  const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawingsData, { quality: 0.9, format: 'jpeg', fabric });
-                  if (annotatedUrl && annotatedUrl !== finalUrl) {
-                    finalUrl = annotatedUrl;
+        // Try server paths if no local URL
+        if (!finalUrl) {
+          const serverPath = attachment.Photo || attachment.PhotoPath || attachment.Attachment || '';
+
+          if (serverPath) {
+            try {
+              if (serverPath.startsWith('data:')) {
+                finalUrl = serverPath;
+              } else if (this.caspioService.isS3Key(serverPath)) {
+                // S3 key - fetch from S3
+                const s3Url = await this.caspioService.getS3FileUrl(serverPath);
+                if (s3Url) {
+                  const response = await fetch(s3Url);
+                  if (response.ok) {
+                    const blob = await response.blob();
+                    finalUrl = await this.blobToBase64(blob);
                   }
-                } catch (renderError) {
-                  console.error(`[DTE PDF Service] Error rendering photo annotation:`, renderError);
+                }
+              } else if (serverPath.startsWith('/')) {
+                // Caspio file path
+                const base64Data = await firstValueFrom(this.caspioService.getImageFromFilesAPI(serverPath));
+                if (base64Data && base64Data.startsWith('data:')) {
+                  finalUrl = base64Data;
                 }
               }
-
-              photos.push({
-                url: finalUrl,
-                caption: attachment.Annotation || attachment.Caption || '',
-                conversionSuccess: true
-              });
+            } catch (error) {
+              console.error(`[DTE PDF Service] Failed to convert photo:`, error);
             }
-          } catch (error) {
-            console.error(`[DTE PDF Service] Failed to convert HUD photo:`, error);
-            photos.push({
-              url: '',
-              caption: attachment.Annotation || attachment.Caption || '',
-              conversionSuccess: false
-            });
           }
+        }
+
+        // Render annotations if we have a valid URL and drawings data
+        if (finalUrl && finalUrl.startsWith('data:') && drawingsData) {
+          try {
+            const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawingsData, { quality: 0.9, format: 'jpeg', fabric });
+            if (annotatedUrl && annotatedUrl !== finalUrl) {
+              finalUrl = annotatedUrl;
+            }
+          } catch (renderError) {
+            console.error(`[DTE PDF Service] Error rendering photo annotation:`, renderError);
+          }
+        }
+
+        if (finalUrl) {
+          photos.push({
+            url: finalUrl,
+            caption: caption,
+            conversionSuccess: true
+          });
+        } else if (attachment.Photo || attachment.PhotoPath || attachment.Attachment) {
+          photos.push({
+            url: '',
+            caption: caption,
+            conversionSuccess: false
+          });
         }
       }
 
@@ -614,7 +644,36 @@ export class DtePdfService {
     if (projectInfo?.primaryPhoto && typeof projectInfo.primaryPhoto === 'string') {
       let convertedPhotoData: string | null = null;
 
-      if (projectInfo.primaryPhoto.startsWith('/')) {
+      if (projectInfo.primaryPhoto.startsWith('data:')) {
+        console.log('[DTE PDF Service] Primary photo already base64');
+        convertedPhotoData = projectInfo.primaryPhoto;
+      } else if (projectInfo.primaryPhoto.startsWith('blob:')) {
+        console.log('[DTE PDF Service] Converting blob URL to base64');
+        try {
+          const response = await fetch(projectInfo.primaryPhoto);
+          const blob = await response.blob();
+          convertedPhotoData = await this.blobToBase64(blob);
+          console.log('[DTE PDF Service] ✓ Blob converted to base64');
+        } catch (error) {
+          console.error('[DTE PDF Service] ✗ Error converting blob URL:', error);
+        }
+      } else if (this.caspioService.isS3Key(projectInfo.primaryPhoto)) {
+        // S3 key - fetch from S3
+        console.log('[DTE PDF Service] Loading primary photo from S3:', projectInfo.primaryPhoto);
+        try {
+          const s3Url = await this.caspioService.getS3FileUrl(projectInfo.primaryPhoto);
+          if (s3Url) {
+            const response = await fetch(s3Url);
+            if (response.ok) {
+              const blob = await response.blob();
+              convertedPhotoData = await this.blobToBase64(blob);
+              console.log('[DTE PDF Service] ✓ S3 primary photo converted, size:', Math.round((convertedPhotoData?.length || 0) / 1024), 'KB');
+            }
+          }
+        } catch (error) {
+          console.error('[DTE PDF Service] ✗ Error loading primary photo from S3:', error);
+        }
+      } else if (projectInfo.primaryPhoto.startsWith('/')) {
         // Caspio file path - convert to base64
         console.log('[DTE PDF Service] Converting Caspio file path to base64:', projectInfo.primaryPhoto);
         try {
@@ -627,25 +686,6 @@ export class DtePdfService {
           }
         } catch (error) {
           console.error('[DTE PDF Service] ✗ Error converting primary photo:', error);
-        }
-      } else if (projectInfo.primaryPhoto.startsWith('data:')) {
-        console.log('[DTE PDF Service] Primary photo already base64');
-        convertedPhotoData = projectInfo.primaryPhoto;
-      } else if (projectInfo.primaryPhoto.startsWith('blob:')) {
-        console.log('[DTE PDF Service] Converting blob URL to base64');
-        try {
-          const response = await fetch(projectInfo.primaryPhoto);
-          const blob = await response.blob();
-          const reader = new FileReader();
-          const base64 = await new Promise<string>((resolve, reject) => {
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          });
-          convertedPhotoData = base64;
-          console.log('[DTE PDF Service] ✓ Blob converted to base64');
-        } catch (error) {
-          console.error('[DTE PDF Service] ✗ Error converting blob URL:', error);
         }
       } else {
         console.log('[DTE PDF Service] Primary photo has unknown format:', projectInfo.primaryPhoto.substring(0, 50));
@@ -694,5 +734,16 @@ export class DtePdfService {
 
   isGenerating(): boolean {
     return this.isPDFGenerating;
+  }
+
+  private blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        resolve(reader.result as string);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
   }
 }
