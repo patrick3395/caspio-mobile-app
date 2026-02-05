@@ -127,11 +127,13 @@ export class PhotoHandlerService {
 
     try {
       // 1. Capture photo with camera
+      const saveToGallery = localStorage.getItem('save-to-camera-roll') !== 'false';
       const image = await Camera.getPhoto({
         quality: 85,  // Balanced quality - compression handles the rest
         allowEditing: false,
         resultType: CameraResultType.Uri,
-        source: CameraSource.Camera
+        source: CameraSource.Camera,
+        saveToGallery
       });
 
       if (!image.webPath) {

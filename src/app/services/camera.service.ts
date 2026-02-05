@@ -24,12 +24,13 @@ export class CameraService {
       }
 
       // Take a photo
+      const saveToGallery = localStorage.getItem('save-to-camera-roll') !== 'false';
       const image = await Camera.getPhoto({
         quality: 90,
         allowEditing: false,
         resultType: CameraResultType.DataUrl, // Returns base64 data URL
         source: CameraSource.Camera,
-        saveToGallery: false, // Don't save to gallery for privacy
+        saveToGallery,
         promptLabelHeader: '',
         promptLabelPhoto: 'Use Photo',
         promptLabelPicture: 'Take Photo'

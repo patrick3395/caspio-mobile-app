@@ -526,6 +526,63 @@ ion-content {
   margin-top: 16px;
 }
 
+// Phone Settings Section (mobile only)
+.phone-settings-section {
+  .collapsible-title {
+    .section-icon {
+      font-size: 18px;
+      color: #666;
+    }
+  }
+
+  .phone-setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+
+    &:not(:last-child) {
+      border-bottom: 1px solid #f0f0f0;
+    }
+  }
+
+  .phone-setting-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+
+    > ion-icon {
+      font-size: 22px;
+      color: var(--noble-orange, #F15A27);
+      flex-shrink: 0;
+    }
+  }
+
+  .phone-setting-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+  }
+
+  .phone-setting-desc {
+    display: block;
+    font-size: 12px;
+    color: #888;
+    margin-top: 2px;
+  }
+
+  ion-toggle {
+    flex-shrink: 0;
+    --track-background: #ccc;
+    --track-background-checked: var(--noble-orange, #F15A27);
+    --handle-background: #fff;
+    --handle-background-checked: #fff;
+  }
+}
+
 // Collapsible Section (matches Deliverables table on project-detail page)
 .collapsible-section {
   background: #ffffff;
@@ -540,6 +597,8 @@ ion-content {
   justify-content: space-between;
   align-items: center;
   padding: 14px 12px;
+  min-height: 60px;
+  box-sizing: border-box;
   cursor: pointer;
   background: var(--ion-surface-muted-background, #F5F5F5);
   transition: background 0.2s ease;
@@ -638,6 +697,51 @@ ion-content {
 
     td {
       color: #69635d;
+    }
+  }
+
+  .services-list {
+    .services-list-header,
+    .services-list-row {
+      display: grid;
+      grid-template-columns: 1fr 100px 100px;
+      align-items: center;
+      padding: 10px 0;
+    }
+
+    .services-list-header {
+      font-size: 12px;
+      font-weight: 600;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 2px solid #e0e0e0;
+      padding-bottom: 8px;
+    }
+
+    .services-list-row {
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 14px;
+      color: #333;
+
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+
+    .sl-col-fee,
+    .sl-col-myfee {
+      text-align: right;
+    }
+
+    .sl-col-fee {
+      font-family: 'Courier New', monospace;
+    }
+
+    .sl-col-myfee {
+      .fee-value {
+        font-family: 'Courier New', monospace;
+      }
     }
   }
 
@@ -2404,6 +2508,13 @@ ion-segment.filter-segment {
     color: #999;
     cursor: not-allowed;
   }
+
+  &.approve-charge {
+    background: #28a745;
+    &:hover:not(:disabled) {
+      background: #218838;
+    }
+  }
 }
 
 .autopay-badge {
@@ -2427,6 +2538,11 @@ ion-segment.filter-segment {
   &.disabled {
     background: #f8d7da;
     color: #721c24;
+  }
+
+  &.review {
+    background: #fff3cd;
+    color: #856404;
   }
 }
 
@@ -2653,27 +2769,38 @@ ion-segment.filter-segment {
   padding: 16px;
 
   .payments-section {
-    background: #fff;
-    border-radius: 12px;
-    padding: 16px 20px 20px 16px;
-    margin-bottom: 20px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    background: #ffffff;
+    border-radius: 8px;
+    border: 1px solid var(--ion-border-color, #E0E0E0);
+    padding: 0;
+    margin-bottom: 10px;
+    overflow: hidden;
 
     .section-header-row {
       display: flex;
       justify-content: flex-start;
       align-items: center;
-      margin-bottom: 16px;
+      padding: 14px 12px;
+      min-height: 60px;
+      box-sizing: border-box;
+      background: var(--ion-surface-muted-background, #F5F5F5);
+      margin-bottom: 0;
 
       .section-title {
         display: flex;
         align-items: center;
+        gap: 8px;
+
+        ion-icon {
+          font-size: 18px;
+          color: var(--noble-orange, #F15A27);
+        }
 
         h3 {
           margin: 0;
-          font-size: 1.1rem;
+          font-size: 14px;
           font-weight: 600;
-          color: #212529;
+          color: #333333;
         }
       }
 
@@ -2699,6 +2826,11 @@ ion-segment.filter-segment {
       color: #dc3545;
     }
 
+    .unpaid-invoices-list,
+    .payment-history-list {
+      padding: 0 24px 24px;
+    }
+
     .no-balance-message,
     .no-payments-message {
       display: flex;
@@ -2708,8 +2840,6 @@ ion-segment.filter-segment {
       padding: 24px;
       color: #28a745;
       font-size: 1rem;
-      background: #f0fff4;
-      border-radius: 8px;
 
       ion-icon {
         font-size: 1.3rem;
@@ -2718,22 +2848,70 @@ ion-segment.filter-segment {
 
     .no-payments-message {
       color: #6c757d;
-      background: #f8f9fa;
     }
   }
 
-  .payment-history-table,
-  .unpaid-invoices-table {
+  // Shared lightweight list-table styling (matches Services list)
+  .list-table {
+    .list-table-header,
+    .list-table-row {
+      display: grid;
+      align-items: center;
+      padding: 10px 0;
+    }
+
+    .list-table-header {
+      font-size: 12px;
+      font-weight: 600;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 2px solid #e0e0e0;
+      padding-bottom: 8px;
+    }
+
+    .list-table-row {
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 14px;
+      color: #333;
+
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+
+    .lt-col-amount {
+      text-align: right;
+      font-family: 'Courier New', monospace;
+    }
+
+    .lt-col-action {
+      text-align: center;
+    }
+  }
+
+  // Outstanding Balance: 5 columns
+  .unpaid-invoices-list .list-table {
+    .list-table-header,
+    .list-table-row {
+      grid-template-columns: 2fr 1fr 100px 100px 100px;
+    }
+  }
+
+  // Payment History: 5 columns
+  .payment-history-list .list-table {
+    .list-table-header,
+    .list-table-row {
+      grid-template-columns: 100px 2fr 1fr 100px 60px;
+    }
+  }
+
+  .payment-history-list,
+  .unpaid-invoices-list {
     .truncate-cell {
-      max-width: 180px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-    }
-
-    .payment-amount-cell {
-      font-weight: 600;
-      color: #28a745;
     }
 
     .payment-method-tag {

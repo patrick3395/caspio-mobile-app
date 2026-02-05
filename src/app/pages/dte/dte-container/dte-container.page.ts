@@ -3,7 +3,7 @@ import { CommonModule, Location } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { RouterModule, Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { DteStateService } from '../services/dte-state.service';
-import { DtePdfService } from '../services/dte-pdf.service';
+import { TemplatePdfService } from '../../../services/template/template-pdf.service';
 import { SyncStatusWidgetComponent } from '../../../components/sync-status-widget/sync-status-widget.component';
 import { OfflineDataCacheService } from '../../../services/offline-data-cache.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
@@ -50,7 +50,7 @@ export class DteContainerPage implements OnInit {
     private router: Router,
     private route: ActivatedRoute,
     private stateService: DteStateService,
-    private pdfService: DtePdfService,
+    private pdfService: TemplatePdfService,
     private location: Location,
     private offlineCache: OfflineDataCacheService,
     private offlineTemplate: OfflineTemplateService,

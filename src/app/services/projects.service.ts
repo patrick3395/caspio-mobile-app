@@ -79,9 +79,9 @@ export class ProjectsService {
    * Clear all project-related cache entries
    */
   clearProjectCache(): void {
-    // Clear all project cache keys
-    this.cache.clear(this.cache.getApiCacheKey('projects_active', {}));
-    this.cache.clear(this.cache.getApiCacheKey('projects_active', { companyId: 1 }));
+    // Clear ALL project cache keys regardless of companyId variation
+    this.cache.clearByPattern('projects_active');
+    this.cache.clearByPattern('projects_all');
   }
 
   /**
@@ -95,13 +95,16 @@ export class ProjectsService {
   getActiveProjects(companyId?: number): Observable<Project[]> {
     // Build cache key
     const cacheKey = this.cache.getApiCacheKey('projects_active', { companyId });
-    
-    // Check cache first
-    const cached = this.cache.get(cacheKey);
-    if (cached) {
-      return of(cached);
+
+    // WEBAPP: Skip service-level cache — always fetch fresh from API
+    // CaspioService.get() already bypasses its own cache for web
+    if (!environment.isWeb) {
+      const cached = this.cache.get(cacheKey);
+      if (cached) {
+        return of(cached);
+      }
     }
-    
+
     // Build the where clause
     let whereClause = 'StatusID%3D7';
     if (companyId) {
@@ -112,8 +115,10 @@ export class ProjectsService {
     return this.caspioService.get<any>(`/tables/LPS_Projects/records?q.where=${whereClause}`).pipe(
       map(response => response.Result || []),
       tap(projects => {
-        // Cache the results for 5 minutes
-        this.cache.set(cacheKey, projects, this.cache.CACHE_TIMES.MEDIUM, true);
+        // Cache the results (only useful for mobile; web always fetches fresh)
+        if (!environment.isWeb) {
+          this.cache.set(cacheKey, projects, this.cache.CACHE_TIMES.MEDIUM, true);
+        }
       })
     );
   }
@@ -132,15 +137,19 @@ export class ProjectsService {
 
   getProjectById(projectId: string): Observable<Project> {
     const cacheKey = this.getProjectDetailCacheKey(projectId);
-    const cached = this.cache.get(cacheKey);
-    if (cached) {
-      return of(cached);
+
+    // WEBAPP: Skip service-level cache — always fetch fresh
+    if (!environment.isWeb) {
+      const cached = this.cache.get(cacheKey);
+      if (cached) {
+        return of(cached);
+      }
     }
 
     return this.caspioService.get<any>(`/tables/LPS_Projects/records?q.where=PK_ID%3D%27${projectId}%27`).pipe(
       map(response => response.Result && response.Result[0] || {}),
       tap(project => {
-        if (project && Object.keys(project).length > 0) {
+        if (!environment.isWeb && project && Object.keys(project).length > 0) {
           this.cache.set(cacheKey, project, this.cache.CACHE_TIMES.MEDIUM);
         }
       })

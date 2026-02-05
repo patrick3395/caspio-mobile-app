@@ -3,7 +3,7 @@ import { CommonModule, Location } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { RouterModule, Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { EngineersFoundationStateService } from '../services/engineers-foundation-state.service';
-import { EngineersFoundationPdfService } from '../services/engineers-foundation-pdf.service';
+import { TemplatePdfService } from '../../../services/template/template-pdf.service';
 import { EngineersFoundationDataService } from '../engineers-foundation-data.service';
 import { SyncStatusWidgetComponent } from '../../../components/sync-status-widget/sync-status-widget.component';
 import { OfflineDataCacheService } from '../../../services/offline-data-cache.service';
@@ -69,7 +69,7 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
     private router: Router,
     private route: ActivatedRoute,
     private stateService: EngineersFoundationStateService,
-    private pdfService: EngineersFoundationPdfService,
+    private pdfService: TemplatePdfService,
     private location: Location,
     private offlineCache: OfflineDataCacheService,
     private offlineTemplate: OfflineTemplateService,

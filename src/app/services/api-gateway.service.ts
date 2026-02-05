@@ -97,9 +97,12 @@ export class ApiGatewayService {
 
   /**
    * Make GET request to API Gateway
+   * Adds cache-busting param to bypass both browser and server-side caching
    */
   get<T>(endpoint: string, options?: { headers?: HttpHeaders }): Observable<T> {
-    const url = `${this.baseUrl}${endpoint}`;
+    // Cache-bust: append timestamp to prevent browser AND API Gateway cached responses
+    const separator = endpoint.includes('?') ? '&' : '?';
+    const url = `${this.baseUrl}${endpoint}${separator}_t=${Date.now()}`;
     return this.withRetry(this.http.get<T>(url, options), endpoint);
   }
 

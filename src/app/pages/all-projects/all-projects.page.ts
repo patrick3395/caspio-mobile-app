@@ -285,10 +285,18 @@ export class AllProjectsPage implements OnInit {
     return this.servicesCache[projectId] || '(No Services Selected)';
   }
   
+  private stateIDToAbbreviation: { [key: number]: string } = {
+    1: 'TX', 2: 'GA', 3: 'FL', 4: 'CO', 6: 'CA', 7: 'AZ', 8: 'SC', 9: 'TN'
+  };
+
   formatCityStateZip(project: Project): string {
     const parts = [];
     if (project.City) parts.push(project.City);
-    if (project.State) parts.push(project.State);
+    let stateAbbr = project.State;
+    if (!stateAbbr && project.StateID) {
+      stateAbbr = this.stateIDToAbbreviation[project.StateID];
+    }
+    if (stateAbbr) parts.push(stateAbbr.toUpperCase());
     if (project.Zip) parts.push(project.Zip);
     return parts.join(', ');
   }
@@ -340,7 +348,11 @@ export class AllProjectsPage implements OnInit {
     const parts = [];
     if (project.Address) parts.push(project.Address);
     if (project.City) parts.push(project.City);
-    if (project.State) parts.push(project.State);
+    let stateAbbr = project.State;
+    if (!stateAbbr && project.StateID) {
+      stateAbbr = this.stateIDToAbbreviation[project.StateID];
+    }
+    if (stateAbbr) parts.push(stateAbbr);
     return parts.join(', ') || 'No Address';
   }
 

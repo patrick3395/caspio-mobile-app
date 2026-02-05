@@ -737,6 +737,9 @@ ion-modal {
   ion-header ion-toolbar {
     --background: var(--noble-light-gray, #F5F5F5);
     --color: var(--noble-dark-gray, #333333);
+    --padding-top: 16px;
+    --padding-bottom: 16px;
+    --min-height: 64px;
 
     &.centered-title-toolbar ion-title {
       position: absolute;
@@ -1189,6 +1192,10 @@ ion-modal {
 .report-status-container{position:absolute;top:12px;right:20px;display:flex;flex-direction:column;align-items:flex-end;gap:3px;
 .report-status{font-weight:600;color:$orange;font-size:10px;white-space:nowrap;}
 .status-datetime{font-weight:500;color:$gray;font-size:8px;white-space:nowrap;text-align:right;}
+@media (hover: hover) and (pointer: fine) {
+  .report-status{font-size:15px;}
+  .status-datetime{font-size:12px;}
+}
 @media (max-width: 768px) {
   top:10px;
   right:16px;
@@ -1781,8 +1788,15 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
 
 // Edit Address Alert styling
 ::ng-deep .edit-address-alert {
+  .alert-wrapper {
+    padding-top: 0 !important;
+  }
+
   .alert-head {
-    padding-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 24px;
   }
 
   .alert-message {
@@ -1837,15 +1851,30 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
   }
 
   .alert-button-group {
-    padding-top: 8px;
+    padding: 12px 24px 20px;
+    gap: 12px;
+    display: flex;
+    justify-content: stretch;
 
     .alert-button {
+      flex: 1 1 0;
       background: #f5f5f5;
       color: #333;
       border: 2px solid $orange;
-      border-radius: 8px;
+      border-radius: 999px;
       font-weight: 600;
+      font-size: 14px;
+      padding: 13px 0;
       text-transform: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      .alert-button-inner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
     }
   }
 }

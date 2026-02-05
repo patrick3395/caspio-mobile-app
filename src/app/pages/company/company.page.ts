@@ -67,6 +67,7 @@ interface CompanyRecord {
   AutopayDay?: number;
   AutopayLastRun?: string;
   AutopayLastStatus?: string;
+  AutopayReviewRequired?: boolean;
 }
 
 interface InvoiceTotals {
@@ -243,6 +244,8 @@ export class CompanyPage implements OnInit, OnDestroy {
   usersExpanded = true;
   servicesExpanded = true;
   paymentSettingsExpanded = true;
+  phoneSettingsExpanded = true;
+  saveToGalleryEnabled = true; // Default ON
   clientOffers: any[] = [];
   clientMetrics: { totalProjects: number; activeProjects: number; completedProjects: number } | null = null;
 
@@ -598,6 +601,10 @@ export class CompanyPage implements OnInit, OnDestroy {
         this.isCompanyOne = false;
       }
     }
+
+    // Load phone settings
+    const savedGallerySetting = localStorage.getItem('save-to-camera-roll');
+    this.saveToGalleryEnabled = savedGallerySetting !== 'false'; // Default ON
 
     // Load appropriate data based on company
     if (this.isCompanyOne) {
@@ -3334,13 +3341,16 @@ export class CompanyPage implements OnInit, OnDestroy {
   }
 
   async triggerAutopay(company: CompanyViewModel): Promise<void> {
+    const isReview = company.AutopayReviewRequired;
     const alert = await this.alertController.create({
-      header: 'Trigger Autopay',
-      message: `Run autopay now for ${company.CompanyName}? This will charge their saved payment method for all unpaid invoices.`,
+      header: isReview ? 'Approve & Charge' : 'Trigger Autopay',
+      message: isReview
+        ? `Review complete for ${company.CompanyName}? This will approve and charge their saved payment method for all unpaid invoices.`
+        : `Run autopay now for ${company.CompanyName}? This will charge their saved payment method for all unpaid invoices.`,
       buttons: [
         { text: 'Cancel', role: 'cancel' },
         {
-          text: 'Run Autopay',
+          text: isReview ? 'Approve & Charge' : 'Run Autopay',
           handler: () => this.executeAutopay(company.CompanyID)
         }
       ]
@@ -3650,6 +3660,11 @@ export class CompanyPage implements OnInit, OnDestroy {
       hasNotes: false
     };
     this.applyCompanyFilters();
+  }
+
+  toggleSaveToGallery() {
+    this.saveToGalleryEnabled = !this.saveToGalleryEnabled;
+    localStorage.setItem('save-to-camera-roll', String(this.saveToGalleryEnabled));
   }
 
   selectClientTab(tab: 'company' | 'payments' | 'metrics') {
@@ -5406,7 +5421,8 @@ export class CompanyPage implements OnInit, OnDestroy {
       PayPalPayerEmail: company.PayPalPayerEmail || null,
       AutopayDay: company.AutopayDay || 1,
       AutopayLastRun: company.AutopayLastRun || null,
-      AutopayLastStatus: company.AutopayLastStatus || null
+      AutopayLastStatus: company.AutopayLastStatus || null,
+      AutopayReviewRequired: company.AutopayReviewRequired || false
     };
     this.editingCompanyContractFile = null;
     this.isEditModalOpen = true;
@@ -5529,6 +5545,9 @@ export class CompanyPage implements OnInit, OnDestroy {
       }
       if (this.editingCompany.AutopayDay !== undefined && this.editingCompany.AutopayDay !== null) {
         payload.AutpayDay = this.editingCompany.AutopayDay;
+      }
+      if (this.editingCompany.AutopayReviewRequired !== undefined) {
+        payload.AutopayReviewRequired = this.editingCompany.AutopayReviewRequired ? 1 : 0;
       }
 
 
@@ -6221,10 +6240,18 @@ export class CompanyPage implements OnInit, OnDestroy {
       CCEmail: raw.CC_Email ?? raw.CCEmail ?? '',
       // Autopay fields (Caspio Yes/No fields return "Yes"/"No" or 1/0)
       AutopayEnabled: raw.AutopayEnabled === true || raw.AutopayEnabled === 1 || raw.AutopayEnabled === 'Yes',
+      AutopayReviewRequired: raw.AutopayReviewRequired === true || raw.AutopayReviewRequired === 1 || raw.AutopayReviewRequired === 'Yes',
+      AutopayMethod: raw.AutopayMethod || undefined,
       PayPalVaultToken: raw.PayPalVaultToken || undefined,
       PayPalPayerID: raw.PayPalPayerID || undefined,
       PayPalPayerEmail: raw.PayPalPayerEmail || undefined,
-      AutopayDay: raw.AutpayDay ? Number(raw.AutpayDay) : undefined
+      StripeCustomerID: raw.StripeCustomerID || undefined,
+      StripePaymentMethodID: raw.StripePaymentMethodID || undefined,
+      StripeBankLast4: raw.StripeBankLast4 || undefined,
+      StripeBankName: raw.StripeBankName || undefined,
+      AutopayDay: raw.AutpayDay ? Number(raw.AutpayDay) : undefined,
+      AutopayLastRun: raw.AutopayLastRun || undefined,
+      AutopayLastStatus: raw.AutopayLastStatus || undefined
     };
   }
 

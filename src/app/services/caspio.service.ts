@@ -455,8 +455,8 @@ export class CaspioService {
               this.retryNotification.notifyRetrySuccess(endpoint, currentAttempt + 1);
             }
 
-            // Cache the response
-            if (useCache) {
+            // Cache the response (skip on web — web always fetches fresh)
+            if (effectiveUseCache) {
               const cacheStrategy = this.getCacheStrategy(endpoint);
               this.cache.setApiResponse(endpoint, null, data, cacheStrategy);
               if (this.debugMode) {

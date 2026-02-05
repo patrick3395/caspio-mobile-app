@@ -128,7 +128,14 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
       this.selectingProjectId = null;
     }
 
-    // OPTIMIZATION: Smart caching - only reload if data is stale or user made changes
+    // WEBAPP: Always reload to ensure fresh data (API calls are fast via gateway)
+    // Mobile: Use smart caching to reduce API calls
+    if (environment.isWeb) {
+      this.checkAuthAndLoadProjects();
+      return;
+    }
+
+    // Mobile: Smart caching - only reload if data is stale or user made changes
     const timeSinceLoad = Date.now() - this.lastLoadTime;
     const hasData = this.projects && this.projects.length > 0;
 
@@ -186,6 +193,7 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     const startTime = performance.now();
     this.loading = true;
     this.error = '';
+    this.servicesCache = {}; // Clear stale services data before reload
 
     // Get the current user's CompanyID from localStorage
     const userStr = localStorage.getItem('currentUser');
@@ -590,16 +598,28 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     const parts = [];
     if (project.Address) parts.push(project.Address);
     if (project.City) parts.push(project.City);
-    if (project.State) parts.push(project.State);
+    let stateAbbr = project.State;
+    if (!stateAbbr && project.StateID) {
+      stateAbbr = this.stateIDToAbbreviation[project.StateID];
+    }
+    if (stateAbbr) parts.push(stateAbbr);
     return parts.join(', ');
   }
+
+  private stateIDToAbbreviation: { [key: number]: string } = {
+    1: 'TX', 2: 'GA', 3: 'FL', 4: 'CO', 6: 'CA', 7: 'AZ', 8: 'SC', 9: 'TN'
+  };
 
   formatCityStateZip(project: Project): string {
     const parts = [];
     if (project.City) parts.push(project.City);
     // Combine State (uppercase) and Zip together: "City, TX 75001"
     const stateZip = [];
-    if (project.State) stateZip.push(project.State.toUpperCase());
+    let stateAbbr = project.State;
+    if (!stateAbbr && project.StateID) {
+      stateAbbr = this.stateIDToAbbreviation[project.StateID];
+    }
+    if (stateAbbr) stateZip.push(stateAbbr.toUpperCase());
     if (project.Zip) stateZip.push(project.Zip);
     if (stateZip.length > 0) parts.push(stateZip.join(' '));
     return parts.join(', ');

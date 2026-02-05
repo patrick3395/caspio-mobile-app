@@ -41,8 +41,13 @@
   }
 }
 
+.custom-header ion-toolbar.action-toolbar.web-centered {
+  --padding-start: 0;
+  --padding-end: 0;
+}
+
 .custom-header ion-toolbar.action-toolbar.web-centered::part(container) {
-  max-width: 832px; // 800px + 16px padding on each side to align with .projects-container
+  max-width: 800px;
   width: 100%;
   margin: 0 auto;
   padding: 0 16px;
@@ -54,14 +59,12 @@
 // Match larger padding on wider screens
 @media (hover: hover) and (pointer: fine) and (min-width: 1024px) {
   .custom-header ion-toolbar.action-toolbar.web-centered::part(container) {
-    max-width: 848px; // 800px + 24px padding on each side
     padding: 0 24px;
   }
 }
 
 @media (hover: hover) and (pointer: fine) and (min-width: 1200px) {
   .custom-header ion-toolbar.action-toolbar.web-centered::part(container) {
-    max-width: 864px; // 800px + 32px padding on each side
     padding: 0 32px;
   }
 }

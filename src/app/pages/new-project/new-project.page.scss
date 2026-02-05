@@ -19,6 +19,27 @@ ion-header ion-toolbar {
     pointer-events: none;
   }
 
+  // Web: align toolbar content with form container
+  @media (hover: hover) and (pointer: fine) {
+    --padding-start: 0;
+    --padding-end: 0;
+
+    &::part(container) {
+      max-width: 800px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 0;
+    }
+  }
+
+  // Web: remove default ion-buttons padding so arrow aligns with container
+  @media (hover: hover) and (pointer: fine) {
+    ion-buttons[slot="start"] {
+      margin-inline-start: 0 !important;
+      padding-inline-start: 0 !important;
+    }
+  }
+
   // Back button styling to match project-detail page
   ion-buttons[slot="start"] ion-button {
     --color: white !important;

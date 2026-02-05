@@ -3,7 +3,7 @@ import { CommonModule, Location } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { RouterModule, Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { LbwStateService } from '../services/lbw-state.service';
-import { LbwPdfService } from '../services/lbw-pdf.service';
+import { TemplatePdfService } from '../../../services/template/template-pdf.service';
 import { SyncStatusWidgetComponent } from '../../../components/sync-status-widget/sync-status-widget.component';
 import { OfflineDataCacheService } from '../../../services/offline-data-cache.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
@@ -54,7 +54,7 @@ export class LbwContainerPage implements OnInit, OnDestroy {
     private router: Router,
     private route: ActivatedRoute,
     private stateService: LbwStateService,
-    private pdfService: LbwPdfService,
+    private pdfService: TemplatePdfService,
     private location: Location,
     private offlineCache: OfflineDataCacheService,
     private offlineTemplate: OfflineTemplateService,
