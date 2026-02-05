@@ -337,8 +337,8 @@
             ${{ calculateServicesTotal() | number:'1.2-2' }}
           </div>
 
-          <!-- Sync/Save Buttons -->
-          <div class="sync-save-buttons">
+          <!-- Sync/Save Buttons (mobile only) -->
+          <div class="sync-save-buttons" *ngIf="!isWeb">
             <button class="sync-btn"
                     (click)="syncFromCloud()"
                     [disabled]="isSyncing"

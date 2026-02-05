@@ -325,10 +325,10 @@ ion-header {
 
 // Mobile header styles now handled by global.scss - no page-specific overrides needed
 
-// Back Button with Orange Circle and White Arrow
+// Back Button with Orange Square and White Arrow
 #eng-back-btn {
   background: var(--noble-orange) !important;
-  border-radius: 50% !important;
+  border-radius: 4px !important;
   width: 40px !important;
   height: 40px !important;
   display: flex !important;
@@ -336,7 +336,7 @@ ion-header {
   justify-content: center !important;
   padding: 0 !important;
   margin-left: 8px !important;
-  transition: all 0.3s ease !important;
+  transition: none !important;
   cursor: pointer !important;
   pointer-events: auto !important;
   position: relative !important;
@@ -344,6 +344,7 @@ ion-header {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
   border: none !important;
   outline: none !important;
+  -webkit-tap-highlight-color: transparent !important;
 
   ion-icon {
     color: white !important;
@@ -351,10 +352,8 @@ ion-header {
     pointer-events: none !important; // Prevent icon from blocking clicks
   }
 
-  // Hover effect removed for mobile optimization
-
   &:active {
-    transform: scale(0.95);
+    transform: none !important;
   }
 
   &:disabled {

@@ -422,7 +422,13 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
   }
 
   goBack() {
-    // Navigate up one level in the folder tree hierarchy (same behavior for web and mobile)
+    // Web: use browser history for proper back/forward support
+    if (environment.isWeb && this.navigationHistory.canGoBack()) {
+      this.navigationHistory.navigateBack();
+      return;
+    }
+
+    // Mobile fallback: Navigate up one level in the folder tree hierarchy
     const url = this.router.url;
 
     // Check if we're on a deep sub-page (visual detail, category detail, or room)

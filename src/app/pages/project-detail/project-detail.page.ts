@@ -4490,15 +4490,17 @@ Troubleshooting:
   private templateProgressCache: { [key: string]: { progress: number; timestamp: number } } = {};
   private readonly CACHE_DURATION = 60000; // 1 minute cache
 
+  private static iconCache: Map<string, string> = new Map();
+
   async loadIconImages() {
     // Get unique type IDs from selected services (normalize to strings for comparison)
     const selectedTypeIds = new Set(this.selectedServices.map(s => String(s.typeId)));
 
     // Filter for offers that: 1) have icons, 2) are actually used by selected services
     const offersWithIcons = this.availableOffers
-      .filter(offer => 
-        offer.TypeIcon && 
-        offer.TypeIcon.trim() !== '' && 
+      .filter(offer =>
+        offer.TypeIcon &&
+        offer.TypeIcon.trim() !== '' &&
         selectedTypeIds.has(String(offer.TypeID))
       );
 
@@ -4506,28 +4508,53 @@ Troubleshooting:
       return; // No icons to load
     }
 
+    const applyIcon = (offer: any, imageData: string) => {
+      offer.TypeIconUrl = imageData;
+      this.selectedServices.forEach(service => {
+        if (String(service.typeId) === String(offer.TypeID)) {
+          service.typeIconUrl = imageData;
+        }
+      });
+      // detectChanges() forces immediate re-render (markForCheck is insufficient
+      // with OnPush when fetch() resolves outside a zone-triggered CD cycle)
+      try { this.changeDetectorRef.detectChanges(); } catch {}
+    };
+
     const iconPromises = offersWithIcons.map(async (offer) => {
         if (!offer.TypePK_ID) {
           offer.TypeIconUrl = '';
           return;
         }
-        
+
+        const cacheKey = `icon_${offer.TypePK_ID}`;
+
+        // Check in-memory cache first (instant)
+        const memCached = ProjectDetailPage.iconCache.get(cacheKey);
+        if (memCached) {
+          applyIcon(offer, memCached);
+          return;
+        }
+
+        // Check localStorage cache (fast)
+        try {
+          const stored = localStorage.getItem(cacheKey);
+          if (stored) {
+            ProjectDetailPage.iconCache.set(cacheKey, stored);
+            applyIcon(offer, stored);
+            return;
+          }
+        } catch {}
+
         try {
           // Fetch icon from LPS_Type table attachment using the record's PK_ID
           const imageData = await this.caspioService.getTypeIconImage(offer.TypePK_ID, offer.TypeIcon).toPromise();
-          
-          if (imageData && imageData.startsWith('data:')) {
-            // Store the base64 data URL
-            offer.TypeIconUrl = imageData;
 
-            // Update any existing services that use this offer
-            let updatedCount = 0;
-            this.selectedServices.forEach(service => {
-              if (String(service.typeId) === String(offer.TypeID)) {
-                service.typeIconUrl = imageData;
-                updatedCount++;
-              }
-            });
+          if (imageData && imageData.startsWith('data:')) {
+            // Cache in memory and localStorage
+            ProjectDetailPage.iconCache.set(cacheKey, imageData);
+            try { localStorage.setItem(cacheKey, imageData); } catch {}
+
+            applyIcon(offer, imageData);
           } else {
             offer.TypeIconUrl = '';
           }
@@ -4538,9 +4565,6 @@ Troubleshooting:
 
     // Wait for all icons to load in parallel
     await Promise.all(iconPromises);
-
-    // Trigger change detection after icons load so they appear in the UI
-    this.changeDetectorRef.markForCheck();
   }
 
   getIconUrl(iconPath: string): string {

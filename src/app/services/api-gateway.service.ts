@@ -65,8 +65,8 @@ export class ApiGatewayService {
             const retryAttempt = index + 1;
             const maxRetries = 3;
 
-            // Don't retry on auth errors (401, 403) or client errors (400)
-            if (error.status === 401 || error.status === 403 || error.status === 400) {
+            // Don't retry on auth errors (401, 403), client errors (400), or not found (404)
+            if (error.status === 401 || error.status === 403 || error.status === 400 || error.status === 404) {
               return throwError(() => error);
             }
 

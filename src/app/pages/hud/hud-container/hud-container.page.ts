@@ -27,6 +27,7 @@ import { HudDataService } from '../hud-data.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { LocalImageService } from '../../../services/local-image.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
+import { NavigationHistoryService } from '../../../services/navigation-history.service';
 // STATIC import for offline support - prevents ChunkLoadError when offline
 import { AddCustomVisualModalComponent } from '../../../modals/add-custom-visual-modal/add-custom-visual-modal.component';
 import { SyncStatusWidgetComponent } from '../../../components/sync-status-widget/sync-status-widget.component';
@@ -518,7 +519,8 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
     private indexedDb: IndexedDbService,
     private offlineTemplate: OfflineTemplateService,
     private localImageService: LocalImageService,
-    private backgroundSync: BackgroundSyncService
+    private backgroundSync: BackgroundSyncService,
+    private navigationHistory: NavigationHistoryService
   ) {
     // CRITICAL FIX: Setup scroll lock mechanism on webapp only
     if (typeof window !== 'undefined') {
@@ -1419,32 +1421,29 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
       event.stopPropagation();
     }
 
-    // Navigate up one level in the URL hierarchy
+    // Web: use browser history for proper back/forward support
+    if (environment.isWeb && this.navigationHistory.canGoBack()) {
+      this.navigationHistory.navigateBack();
+      return;
+    }
+
+    // Mobile fallback: Navigate up one level in the folder tree hierarchy
     const url = this.router.url;
     console.log('[HUD Container] Current URL:', url);
 
     // IMPORTANT: Check for /visual/ first since it also contains /category/
     if (url.includes('/category/') && url.includes('/visual/')) {
-      // On visual-detail page - navigate back to category-detail page
       const categoryMatch = url.match(/\/category\/([^\/]+)/);
       if (categoryMatch) {
-        console.log('[HUD Container] On visual page, navigating to category:', categoryMatch[1]);
         this.router.navigate(['/hud', this.projectId, this.serviceId, 'category', categoryMatch[1]]);
       } else {
-        console.log('[HUD Container] On visual page, navigating to HUD main');
         this.router.navigate(['/hud', this.projectId, this.serviceId]);
       }
     } else if (url.includes('/category/')) {
-      // On category detail page - navigate to HUD main
-      console.log('[HUD Container] On category page, navigating to HUD main');
       this.router.navigate(['/hud', this.projectId, this.serviceId]);
     } else if (url.includes('/project-details')) {
-      // On project details page - navigate to HUD main
-      console.log('[HUD Container] On project-details, navigating to HUD main');
       this.router.navigate(['/hud', this.projectId, this.serviceId]);
     } else {
-      // On HUD main page - navigate to project detail
-      console.log('[HUD Container] On main page, navigating to project detail');
       this.navigateToHome();
     }
   }

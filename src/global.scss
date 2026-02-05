@@ -72,7 +72,7 @@ ion-header {
   }
 }
 
-// Back Button with Orange Circle - STATIC, no state changes
+// Back Button with Orange Square - STATIC, no state changes
 ion-back-button {
   --color: white !important;
   --background: var(--noble-orange) !important;
@@ -83,7 +83,7 @@ ion-back-button {
   --opacity-hover: 1 !important;
   --opacity-focused: 1 !important;
   --opacity-activated: 1 !important;
-  --border-radius: 50%;
+  --border-radius: 4px;
   --icon-margin-start: 0;
   --icon-margin-end: 0;
   --icon-padding-start: 0;
@@ -108,7 +108,7 @@ ion-back-button {
 
   &::part(native) {
     background: var(--noble-orange) !important;
-    border-radius: 50%;
+    border-radius: 4px;
     width: 40px;
     height: 40px;
     display: flex;
@@ -3472,7 +3472,7 @@ body.dark-theme {
   button:focus-visible,
   [role="button"]:focus-visible,
   select:focus-visible,
-  [tabindex]:not([tabindex="-1"]):not(ion-input):not(ion-textarea):focus-visible {
+  [tabindex]:not([tabindex="-1"]):not(ion-input):not(ion-textarea):not(input):not(textarea):not(select):focus-visible {
     outline: 3px solid var(--noble-orange, #F15A27) !important;
     outline-offset: 2px !important;
   }

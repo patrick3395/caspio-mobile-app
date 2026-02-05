@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule, LoadingController, AlertController } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { ProjectsService, ProjectCreationData } from '../../services/projects.service';
-import { ServiceEfeService } from '../../services/service-efe.service';
 import { GoogleMapsLoaderService } from '../../services/google-maps-loader.service';
 import { FormValidationService, FieldValidationState, ValidationRules } from '../../services/form-validation.service';
 import { FormAutosaveService } from '../../services/form-autosave.service';
@@ -68,7 +67,6 @@ export class NewProjectPage implements OnInit, OnDestroy {
   constructor(
     private router: Router,
     private projectsService: ProjectsService,
-    private serviceEfeService: ServiceEfeService,
     private loadingController: LoadingController,
     private alertController: AlertController,
     private changeDetectorRef: ChangeDetectorRef,
@@ -490,21 +488,6 @@ export class NewProjectPage implements OnInit, OnDestroy {
         // Clear autosave data on successful submit (web only)
         if (this.isWeb) {
           this.formAutosave.clearSavedData(this.FORM_ID);
-        }
-
-        // Create Service_EFE record for the new project
-        // Use ProjectID if available, otherwise use PK_ID (exact same as local server)
-        const projectData = result.projectData;
-        const projectIdForService = projectData?.ProjectID || projectData?.PK_ID || result.projectId;
-
-        if (projectIdForService && projectIdForService !== 'new') {
-          try {
-            await this.serviceEfeService.createServiceEFE(projectIdForService).toPromise();
-          } catch (error) {
-            console.error('❌ Failed to create Service_EFE record:', error);
-            // Don't fail the whole process if Service_EFE creation fails
-          }
-        } else {
         }
 
         await loading.dismiss();

@@ -83,14 +83,15 @@ ion-header {
     ion-buttons[slot="start"] ion-button {
       --color: white !important;
       --background: $orange !important;
-      --background-hover: rgba(241, 90, 39, 0.9) !important;
-      --background-activated: rgba(241, 90, 39, 0.8) !important;
+      --background-hover: $orange !important;
+      --background-activated: $orange !important;
       --background-focused: $orange !important;
       --padding-start: 0 !important;
       --padding-end: 0 !important;
       --padding-top: 0 !important;
       --padding-bottom: 0 !important;
-      border-radius: 50% !important;
+      --ripple-color: transparent !important;
+      border-radius: 4px !important;
       width: 40px !important;
       height: 40px !important;
       min-width: 40px !important;
@@ -101,6 +102,8 @@ ion-header {
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
+      transition: none !important;
+      -webkit-tap-highlight-color: transparent !important;
 
       ion-icon {
         color: white !important;
@@ -108,14 +111,9 @@ ion-header {
         margin: 0 !important;
       }
 
-      @media (hover: hover) and (pointer: fine) {
-        &:hover {
-          background: rgba(241, 90, 39, 0.9) !important;
-        }
-      }
-
       &:active {
-        background: rgba(241, 90, 39, 0.8) !important;
+        transform: none !important;
+        background: $orange !important;
       }
     }
     
@@ -1405,7 +1403,7 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
         font-weight: 600;
         font-size: 14px;
         color: $dark;
-        padding: 12px;
+        padding: 18px 12px;
         border-bottom: 1px solid $border;
 
         .service-header-content {
