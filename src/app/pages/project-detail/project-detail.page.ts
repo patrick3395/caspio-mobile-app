@@ -747,21 +747,26 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Process offers and types
       this.availableOffers = (offersData || []).map((offer: any) => {
         const type = (typesData || []).find((t: any) => t.PK_ID === offer.TypeID || t.TypeID === offer.TypeID);
-        
-        // DEBUG: Log the Icon field to see what format Caspio returns
-        if (type?.Icon) {
-          console.log(`🔍 [Icon Debug] Type "${type.TypeName}" Icon field:`, type.Icon);
-          console.log(`   Type of Icon:`, typeof type.Icon);
-          console.log(`   Icon value:`, JSON.stringify(type.Icon));
+        const typePkId = type?.PK_ID || null;
+
+        // Resolve cached icon synchronously so it's available before first render
+        let cachedIconUrl = '';
+        if (typePkId) {
+          const cacheKey = `icon_${typePkId}`;
+          cachedIconUrl = ProjectDetailPage.iconCache.get(cacheKey) || '';
+          if (!cachedIconUrl) {
+            try { cachedIconUrl = localStorage.getItem(cacheKey) || ''; } catch {}
+            if (cachedIconUrl) ProjectDetailPage.iconCache.set(cacheKey, cachedIconUrl);
+          }
         }
-        
+
         return {
           ...offer,
           TypeName: type?.TypeName || type?.Type || offer.Service_Name || offer.Description || 'Unknown Service',
           TypeShort: type?.TypeShort || '',
           TypeIcon: type?.Icon || '',
-          TypePK_ID: type?.PK_ID || null,  // Store the type's primary key for icon fetching
-          TypeIconUrl: ''  // Will be loaded asynchronously
+          TypePK_ID: typePkId,
+          TypeIconUrl: cachedIconUrl
         };
       });
 
@@ -1005,13 +1010,26 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Merge offer data with type names
       const processedOffers = (offers || []).map((offer: any) => {
         const type = (types || []).find((t: any) => t.PK_ID === offer.TypeID || t.TypeID === offer.TypeID);
+        const typePkId = type?.PK_ID || null;
+
+        // Resolve cached icon synchronously
+        let cachedIconUrl = '';
+        if (typePkId) {
+          const cacheKey = `icon_${typePkId}`;
+          cachedIconUrl = ProjectDetailPage.iconCache.get(cacheKey) || '';
+          if (!cachedIconUrl) {
+            try { cachedIconUrl = localStorage.getItem(cacheKey) || ''; } catch {}
+            if (cachedIconUrl) ProjectDetailPage.iconCache.set(cacheKey, cachedIconUrl);
+          }
+        }
+
         const result = {
           ...offer,
           TypeName: type?.TypeName || type?.Type || offer.Service_Name || offer.Description || 'Unknown Service',
           TypeShort: type?.TypeShort || '',
           TypeIcon: type?.Icon || '',
-          TypePK_ID: type?.PK_ID || null,  // Store the type's primary key for icon fetching
-          TypeIconUrl: ''  // Will be loaded by loadIconImages()
+          TypePK_ID: typePkId,
+          TypeIconUrl: cachedIconUrl
         };
         return result;
       });

@@ -935,12 +935,11 @@ export class CaspioService {
   getTypeIconImage(typeId: string | number, iconFileName?: string): Observable<string> {
     const API_BASE_URL = environment.caspio.apiBaseUrl;
 
+    // Table attachment API: single direct request (fast)
     const fetchFromTable$ = this.getValidToken().pipe(
       switchMap(accessToken => new Observable<string>(observer => {
-        // Construct URL to fetch the Icon attachment from the table record
         const url = `${API_BASE_URL}/tables/LPS_Type/records/${typeId}/files/Icon`;
-        console.log(`📥 [Type Icon] Fetching icon from table record: ${url}`);
-        
+
         fetch(url, {
           method: 'GET',
           headers: {
@@ -950,10 +949,8 @@ export class CaspioService {
         })
         .then(response => {
           if (!response.ok) {
-            console.warn(`⚠️ [Type Icon] Failed to fetch icon for TypeID ${typeId}: ${response.status}`);
             throw new Error(`Failed to fetch icon: ${response.status}`);
           }
-          console.log(`✅ [Type Icon] Successfully fetched icon for TypeID ${typeId}`);
           return response.blob();
         })
         .then(blob => this.convertBlobToDataUrl(blob))
@@ -962,7 +959,6 @@ export class CaspioService {
           observer.complete();
         })
         .catch(error => {
-          console.error(`❌ [Type Icon] Error fetching icon for TypeID ${typeId}:`, error);
           observer.error(error);
         });
       }))
@@ -970,15 +966,11 @@ export class CaspioService {
 
     const trimmedFileName = iconFileName?.trim();
 
+    // Try table attachment first (single fast request), fall back to Files API
     if (trimmedFileName) {
-      console.log(`🎨 [Type Icon] Attempting Files API fetch for "${trimmedFileName}"`);
-      return this.getImageFromFilesAPI(trimmedFileName).pipe(
-        tap(() => {
-          console.log(`✅ [Type Icon] Loaded icon via Files API: "${trimmedFileName}"`);
-        }),
-        catchError(error => {
-          console.warn(`⚠️ [Type Icon] Files API fetch failed for "${trimmedFileName}", falling back to table attachment.`, error?.message || error);
-          return fetchFromTable$;
+      return fetchFromTable$.pipe(
+        catchError(() => {
+          return this.getImageFromFilesAPI(trimmedFileName);
         })
       );
     }

@@ -833,7 +833,7 @@ ion-modal {
   td {
     border-right: 1px solid $border;
     border-bottom: 1px solid $border;
-    padding: 10px 12px;
+    padding: 12px;
     font-size: 14px;
     vertical-align: middle;
 
@@ -848,10 +848,11 @@ ion-modal {
 
   .service-header {
     background: $light-gray;
-    font-weight: 700;
+    font-weight: 600;
     color: $dark;
-    font-size: 15px;
-    
+    font-size: 14px;
+    padding: 18px 12px;
+
     .instance-number {
       margin-left: 8px;
       font-weight: 600;
@@ -1505,6 +1506,7 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
       font-family: inherit;
       transition: border-color 0.2s ease;
       cursor: pointer;
+      text-align: center;
 
       &:focus {
         outline: none;
