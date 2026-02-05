@@ -8217,14 +8217,16 @@ Stack: ${error?.stack}`;
             const fdfPhotosData: any = {};
 
             // Process each FDF photo type
+            // Check both legacy field (FDFPhotoTop) and new Attachment field (FDFPhotoTopAttachment)
             const fdfPhotoTypes = [
-              { field: 'FDFPhotoTop', key: 'top' },
-              { field: 'FDFPhotoBottom', key: 'bottom' },
-              { field: 'FDFPhotoThreshold', key: 'threshold' }
+              { field: 'FDFPhotoTop', attachmentField: 'FDFPhotoTopAttachment', key: 'top' },
+              { field: 'FDFPhotoBottom', attachmentField: 'FDFPhotoBottomAttachment', key: 'bottom' },
+              { field: 'FDFPhotoThreshold', attachmentField: 'FDFPhotoThresholdAttachment', key: 'threshold' }
             ];
-            
+
             for (const photoType of fdfPhotoTypes) {
-              const photoPath = roomRecord[photoType.field];
+              // Check Attachment field first (S3 key from web uploads), then legacy field
+              const photoPath = roomRecord[photoType.attachmentField] || roomRecord[photoType.field];
 
               if (photoPath) {
                 try {

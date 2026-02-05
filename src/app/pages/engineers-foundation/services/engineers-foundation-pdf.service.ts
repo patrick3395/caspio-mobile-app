@@ -642,16 +642,18 @@ export class EngineersFoundationPdfService {
       if (roomId) {
         try {
           // Process each FDF photo type with annotation fields
+          // Check both legacy field (FDFPhotoTop) and new Attachment field (FDFPhotoTopAttachment)
           const fdfPhotoTypes = [
-            { field: 'FDFPhotoTop', key: 'top', annotationField: 'FDFTopAnnotation', drawingsField: 'FDFTopDrawings' },
-            { field: 'FDFPhotoBottom', key: 'bottom', annotationField: 'FDFBottomAnnotation', drawingsField: 'FDFBottomDrawings' },
-            { field: 'FDFPhotoThreshold', key: 'threshold', annotationField: 'FDFThresholdAnnotation', drawingsField: 'FDFThresholdDrawings' }
+            { field: 'FDFPhotoTop', attachmentField: 'FDFPhotoTopAttachment', key: 'top', annotationField: 'FDFTopAnnotation', drawingsField: 'FDFTopDrawings' },
+            { field: 'FDFPhotoBottom', attachmentField: 'FDFPhotoBottomAttachment', key: 'bottom', annotationField: 'FDFBottomAnnotation', drawingsField: 'FDFBottomDrawings' },
+            { field: 'FDFPhotoThreshold', attachmentField: 'FDFPhotoThresholdAttachment', key: 'threshold', annotationField: 'FDFThresholdAnnotation', drawingsField: 'FDFThresholdDrawings' }
           ];
 
           const fdfPhotosData: any = {};
 
           for (const photoType of fdfPhotoTypes) {
-            const photoPath = roomRecord[photoType.field];
+            // Check Attachment field first (S3 key from web uploads), then legacy field
+            const photoPath = roomRecord[photoType.attachmentField] || roomRecord[photoType.field];
 
             if (photoPath) {
               try {
