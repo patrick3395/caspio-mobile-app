@@ -135,7 +135,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   private isMultiImageUploadInProgress = false;
   private _pendingDetect = false;
   private liveQueryDebounceTimer: any = null;
-  private fieldsDebounceTimer: any = null;
   private lastSelectionInteractionTime = 0;
   private initialLoadComplete: boolean = false;
   private lastLoadedServiceId: string = '';
@@ -269,10 +268,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     if (this.liveQueryDebounceTimer) {
       clearTimeout(this.liveQueryDebounceTimer);
       this.liveQueryDebounceTimer = null;
-    }
-    if (this.fieldsDebounceTimer) {
-      clearTimeout(this.fieldsDebounceTimer);
-      this.fieldsDebounceTimer = null;
     }
   }
 
@@ -540,33 +535,26 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
             return;
           }
 
-          // Suppress ALL liveQuery processing during capture to eliminate scroll lag
-          if (this.isCameraCaptureInProgress || this.isMultiImageUploadInProgress) {
-            this.logDebug('DEXIE', 'Suppressing liveQuery processing - capture in progress');
+          // Suppress ALL liveQuery processing during capture/populate to eliminate scroll lag.
+          // isPopulatingPhotos is critical: populateGenericPhotosFromDexie writes photoCount
+          // to Dexie for every field, and each write triggers a liveQuery emission. Without
+          // this guard, N fields = N × (convert + detectChanges) hammering the main thread.
+          if (this.isCameraCaptureInProgress || this.isMultiImageUploadInProgress || this.isPopulatingPhotos) {
+            this.logDebug('DEXIE', 'Suppressing liveQuery processing - operation in progress');
             return;
           }
 
-          // Debounce rapid liveQuery emissions (e.g., sync write-backs updating IDs)
-          // to coalesce into a single processing pass. 50ms is imperceptible but
-          // prevents multiple heavy convert+populate passes in rapid succession.
-          if (this.fieldsDebounceTimer) {
-            clearTimeout(this.fieldsDebounceTimer);
-          }
-          this.fieldsDebounceTimer = setTimeout(() => {
-            this.fieldsDebounceTimer = null;
-            if (this.isDestroyed) return;
+          // Convert to organized data using unified method
+          this.convertGenericFieldsToOrganizedData(fields);
+          this.safeDetectChanges();
 
-            // Convert to organized data using unified method
-            this.convertGenericFieldsToOrganizedData(fields);
-            this.safeDetectChanges();
-
-            // Populate photos in background (non-blocking)
-            this.populateGenericPhotosFromDexie(fields).then(() => {
-              if (!this.isDestroyed) {
-                this.safeDetectChanges();
-              }
-            });
-          }, 50);
+          // Populate photos in background (non-blocking)
+          this.populateGenericPhotosFromDexie(fields).then(() => {
+            // Guard again after async operation
+            if (!this.isDestroyed) {
+              this.safeDetectChanges();
+            }
+          });
         },
         error: (err: any) => {
           this.logDebug('ERROR', `Error in fields subscription: ${err}`);
@@ -1593,48 +1581,10 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   private convertGenericFieldsToOrganizedData(fields: any[]): void {
     if (!this.config) return;
 
-    const withinSelectionGuard = (Date.now() - this.lastSelectionInteractionTime) < 500;
-
-    // Fast structural diff — skip full organizedData rebuild if fields haven't changed.
-    // This is the common case during/after photo uploads and sync write-backs where
-    // Dexie field structure is identical but liveQuery re-emits. Skipping avoids
-    // ngTemplateOutlet re-instantiation which causes the blank-page flash.
-    if (this.lastConvertedGenericFields.length === fields.length && this.lastConvertedGenericFields.length > 0) {
-      let structurallyEqual = true;
-      for (let i = 0; i < fields.length; i++) {
-        const prev = this.lastConvertedGenericFields[i];
-        const curr = fields[i];
-        if (prev.templateId !== curr.templateId ||
-            prev.isSelected !== curr.isSelected ||
-            prev.answer !== curr.answer ||
-            prev.kind !== curr.kind) {
-          structurallyEqual = false;
-          break;
-        }
-      }
-      if (structurallyEqual) {
-        this.lastConvertedGenericFields = fields;
-        // Lightweight update: only record IDs and photo counts (no DOM rebuild)
-        for (const field of fields) {
-          const recordId = this.genericFieldRepo.getRecordId(this.config, field);
-          const selectionKey = `${field.category}_${field.templateId}`;
-          if (recordId) {
-            this.visualRecordIds[selectionKey] = recordId;
-          }
-          if (!environment.isWeb || !this.isInitialDataLoaded) {
-            if (!withinSelectionGuard) {
-              this.selectedItems[selectionKey] = field.isSelected;
-            }
-            this.photoCountsByKey[selectionKey] = field.photoCount;
-          }
-        }
-        this.logDebug('DEXIE', `Generic fields structurally unchanged — skipping full rebuild`);
-        return;
-      }
-    }
-
     // Store reference for reactive photo updates
     this.lastConvertedGenericFields = fields;
+
+    const withinSelectionGuard = (Date.now() - this.lastSelectionInteractionTime) < 500;
 
     const comments: VisualItem[] = [];
     const limitations: VisualItem[] = [];
