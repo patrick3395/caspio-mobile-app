@@ -39,7 +39,6 @@ export class UnsavedChangesGuard implements CanDeactivate<HasUnsavedChanges> {
     // Check if component has its own unsaved changes check
     if (component && typeof component.hasUnsavedChanges === 'function') {
       if (component.hasUnsavedChanges()) {
-        console.log('[UnsavedChangesGuard] Component reports unsaved changes');
         return this.unsavedChangesService.confirmNavigation();
       }
       return true;
@@ -47,7 +46,6 @@ export class UnsavedChangesGuard implements CanDeactivate<HasUnsavedChanges> {
 
     // Fall back to service-level dirty tracking
     if (this.unsavedChangesService.isDirty()) {
-      console.log('[UnsavedChangesGuard] Service reports unsaved changes');
       return this.unsavedChangesService.confirmNavigation();
     }
 

@@ -110,23 +110,12 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
   ) {}
 
   async ngOnInit() {
-    console.log('========================================');
-    console.log('[ElevationPlotHub] ngOnInit - Starting Route Debug');
-    console.log('========================================');
 
     // Debug route hierarchy
-    console.log('[ElevationPlotHub] Current route URL:', this.route.snapshot.url);
-    console.log('[ElevationPlotHub] Current route params:', this.route.snapshot.params);
 
     if (this.route.parent) {
-      console.log('[ElevationPlotHub] Parent route URL:', this.route.parent.snapshot.url);
-      console.log('[ElevationPlotHub] Parent route params:', this.route.parent.snapshot.params);
-      console.log('[ElevationPlotHub] Parent route paramMap keys:', Array.from(this.route.parent.snapshot.paramMap.keys));
 
       if (this.route.parent.parent) {
-        console.log('[ElevationPlotHub] Parent.Parent route URL:', this.route.parent.parent.snapshot.url);
-        console.log('[ElevationPlotHub] Parent.Parent route params:', this.route.parent.parent.snapshot.params);
-        console.log('[ElevationPlotHub] Parent.Parent route paramMap keys:', Array.from(this.route.parent.parent.snapshot.paramMap.keys));
       }
     }
 
@@ -136,7 +125,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     if (this.route.parent?.parent) {
       this.projectId = this.route.parent.parent.snapshot.paramMap.get('projectId') || '';
       this.serviceId = this.route.parent.parent.snapshot.paramMap.get('serviceId') || '';
-      console.log('[ElevationPlotHub] Retrieved from parent.parent snapshot - ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
     }
 
     // Fallback: try parent snapshot
@@ -144,7 +132,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       if (this.route.parent) {
         this.projectId = this.route.parent.snapshot.paramMap.get('projectId') || this.projectId;
         this.serviceId = this.route.parent.snapshot.paramMap.get('serviceId') || this.serviceId;
-        console.log('[ElevationPlotHub] Fallback to parent snapshot - ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
       }
     }
 
@@ -152,13 +139,8 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     if (!this.projectId || !this.serviceId) {
       this.projectId = this.route.snapshot.paramMap.get('projectId') || this.projectId;
       this.serviceId = this.route.snapshot.paramMap.get('serviceId') || this.serviceId;
-      console.log('[ElevationPlotHub] Fallback to direct snapshot - ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
     }
 
-    console.log('\n[ElevationPlotHub] FINAL VALUES:');
-    console.log('  - ProjectId:', this.projectId);
-    console.log('  - ServiceId:', this.serviceId);
-    console.log('========================================\n');
 
     if (!this.serviceId || !this.projectId) {
       console.error('[ElevationPlotHub] ERROR: Missing required IDs!');
@@ -203,11 +185,9 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
    */
   private async initializeEfeFields(): Promise<void> {
     console.time('[ElevationPlotHub] initializeEfeFields');
-    console.log('[ElevationPlotHub] Initializing EFE fields (Dexie-first)...');
 
     // WEBAPP MODE: Load from API to see synced data from mobile
     if (environment.isWeb) {
-      console.log('[ElevationPlotHub] WEBAPP MODE: Loading data from API');
       await this.loadDataFromAPI();
       console.timeEnd('[ElevationPlotHub] initializeEfeFields');
       return;
@@ -224,7 +204,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     const hasFields = await this.efeFieldRepo.hasFieldsForService(this.serviceId);
 
     if (!hasFields) {
-      console.log('[ElevationPlotHub] No fields found, seeding from templates...');
 
       // Get templates from cache
       const templates = await this.indexedDb.getCachedTemplates('efe') || [];
@@ -249,9 +228,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       const existingRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms') || [];
       await this.efeFieldRepo.mergeExistingRooms(this.serviceId, existingRooms as any[]);
 
-      console.log('[ElevationPlotHub] Seeding complete');
     } else {
-      console.log('[ElevationPlotHub] Fields already exist, using cached data');
       // Still need to load templates for add room dialog
       const templates = await this.indexedDb.getCachedTemplates('efe') || [];
       this.allRoomTemplates = templates.map((t: any) => ({ ...t }));
@@ -265,10 +242,8 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           // CRITICAL: Skip liveQuery updates while adding/creating a room
           // This prevents bouncing as organization numbers are updated in Dexie
           if (this.isAddingRoom) {
-            console.log(`[ElevationPlotHub] Skipping liveQuery (isAddingRoom=true) - ${fields.length} fields`);
             return;
           }
-          console.log(`[ElevationPlotHub] Received ${fields.length} fields from liveQuery`);
           this.convertFieldsToRoomTemplates(fields);
           this.loading = false;
           this.changeDetectorRef.detectChanges();
@@ -302,7 +277,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         this.foundationData.getEFEByService(this.serviceId)
       ]);
 
-      console.log(`[ElevationPlotHub] WEBAPP: Loaded ${templates?.length || 0} templates, ${existingRooms?.length || 0} existing rooms from API`);
 
       // Store templates for add room dialog
       this.allRoomTemplates = (templates || []).map((t: any) => ({ ...t }));
@@ -447,7 +421,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       this.hasPendingSync = false;
 
       const selectedCount = this.roomTemplates.filter(r => r.isSelected).length;
-      console.log(`[ElevationPlotHub] WEBAPP: ${this.roomTemplates.length} rooms loaded, ${selectedCount} selected`);
     } catch (error) {
       console.error('[ElevationPlotHub] WEBAPP: Error loading data:', error);
     } finally {
@@ -516,7 +489,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     // Update UI state flags
     this.isEmpty = this.roomTemplates.length === 0;
 
-    console.log(`[ElevationPlotHub] Converted ${this.roomTemplates.length} room templates`);
   }
 
   /**
@@ -541,12 +513,10 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     const sectionKey = `${this.serviceId}_elevation`;
     const isDirty = this.backgroundSync.isSectionDirty(sectionKey);
 
-    console.log(`[ElevationPlotHub] ionViewWillEnter - isDirty: ${isDirty}, efeFieldsSeeded: ${this.efeFieldsSeeded}`);
 
     // SYNC FIX: Check if efeFields was cleared by sync - if so, need to re-initialize
     const hasFields = await this.efeFieldRepo.hasFieldsForService(this.serviceId);
     if (this.efeFieldsSeeded && !hasFields) {
-      console.log('[ElevationPlotHub] efeFields was cleared (by sync), need to re-initialize');
       this.efeFieldsSeeded = false;
       // Unsubscribe from old subscription
       if (this.efeFieldsSubscription) {
@@ -560,7 +530,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     if (this.efeFieldsSeeded && this.efeFieldsSubscription) {
       // Only resync from cache if section is dirty (backend data changed)
       if (isDirty) {
-        console.log('[ElevationPlotHub] Section dirty, merging new data from cache...');
         const existingRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms') || [];
         await this.efeFieldRepo.mergeExistingRooms(this.serviceId, existingRooms as any[]);
         this.backgroundSync.clearSectionDirty(sectionKey);
@@ -569,7 +538,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       // The liveQuery won't emit again if data hasn't changed, so we must clear loading here
       this.loading = false;
       this.changeDetectorRef.detectChanges();
-      console.log('[ElevationPlotHub] Using reactive Dexie subscription - no reload needed');
       return;
     }
 
@@ -598,15 +566,12 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           const hasDataInMemory = this.roomTemplates && this.roomTemplates.length > 0;
           const isDirty = this.backgroundSync.isSectionDirty(sectionKey);
           
-          console.log(`[ElevationPlotHub] Router nav - hasData: ${hasDataInMemory}, isDirty: ${isDirty}`);
           
           // Only reload if data changed or not in memory
           if (!hasDataInMemory || isDirty) {
-            console.log('[ElevationPlotHub] Router navigation - reloading rooms');
             await this.loadRoomTemplates();
             this.backgroundSync.clearSectionDirty(sectionKey);
           } else {
-            console.log('[ElevationPlotHub] Router navigation - skipping reload');
             // CRITICAL: Ensure loading is false even when skipping reload
             this.loading = false;
             this.changeDetectorRef.detectChanges();
@@ -626,26 +591,21 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
   private async ensureEFEDataCached(): Promise<void> {
     if (!this.serviceId) return;
 
-    console.log('[ElevationPlotHub] ensureEFEDataCached() - Verifying cache...');
 
     // Step 1: Ensure EFE templates (room definitions) are cached
     const efeTemplates = await this.indexedDb.getCachedTemplates('efe');
     if (!efeTemplates || efeTemplates.length === 0) {
-      console.log('[ElevationPlotHub] EFE templates not cached, fetching...');
       await this.offlineTemplate.ensureEFETemplatesReady();
     } else {
-      console.log(`[ElevationPlotHub] ✅ EFE templates already cached: ${efeTemplates.length}`);
     }
 
     // Step 2: Ensure EFE rooms for this service are cached
     // getEFERooms already implements the cache-first pattern with blocking fetch
     const efeRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms');
     if (!efeRooms || efeRooms.length === 0) {
-      console.log('[ElevationPlotHub] EFE rooms not cached, will be fetched by loadRoomTemplates...');
       // Don't fetch here - let loadRoomTemplates handle it through getEFEByService
       // This avoids duplicate API calls
     } else {
-      console.log(`[ElevationPlotHub] ✅ EFE rooms already cached: ${efeRooms.length}`);
     }
 
     // Step 3: Check for pending sync items
@@ -654,7 +614,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       r.endpoint.includes('Services_EFE') && r.status === 'pending'
     );
     
-    console.log('[ElevationPlotHub] ensureEFEDataCached() complete');
   }
 
   /**
@@ -662,7 +621,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
    */
   private subscribeToSyncEvents(): void {
     this.roomSyncSubscription = this.backgroundSync.efeRoomSyncComplete$.subscribe(event => {
-      console.log('[ElevationPlotHub] Room sync complete event:', event);
 
       // Find the room with the temp ID and update with real ID
       const roomName = Object.keys(this.efeRecordIds).find(
@@ -670,7 +628,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       );
 
       if (roomName) {
-        console.log('[ElevationPlotHub] Updating room', roomName, 'with real ID:', event.realId);
 
         // Update with real ID
         this.efeRecordIds[roomName] = String(event.realId);
@@ -698,7 +655,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         
         // Debounce: wait 500ms before reloading to batch multiple rapid events
         this.cacheInvalidationDebounceTimer = setTimeout(() => {
-          console.log('[ElevationPlotHub] Cache invalidated (debounced), reloading room list...');
           this.reloadRoomsAfterSync();
         }, 500);
       }
@@ -708,7 +664,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     // This ensures UI updates when data is refreshed in the background
     this.backgroundRefreshSubscription = this.offlineTemplate.backgroundRefreshComplete$.subscribe(event => {
       if (event.serviceId === this.serviceId && event.dataType === 'efe_rooms') {
-        console.log('[ElevationPlotHub] Background refresh complete for EFE rooms, reloading...');
         // Debounce with same timer to prevent duplicate reloads
         if (this.cacheInvalidationDebounceTimer) {
           clearTimeout(this.cacheInvalidationDebounceTimer);
@@ -725,17 +680,14 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
    */
   private async reloadRoomsAfterSync(): Promise<void> {
     try {
-      console.log('[ElevationPlotHub] Reloading rooms after sync...');
 
       // Get fresh EFE rooms from IndexedDB (already updated by BackgroundSyncService)
       const existingRooms = await this.foundationData.getEFEByService(this.serviceId, true);
-      console.log('[ElevationPlotHub] Got', existingRooms?.length || 0, 'rooms from IndexedDB');
 
       // DEXIE-FIRST: Merge fresh server data into Dexie
       // The liveQuery subscription will automatically update the UI
       if (existingRooms && existingRooms.length > 0) {
         await this.efeFieldRepo.mergeExistingRooms(this.serviceId, existingRooms);
-        console.log('[ElevationPlotHub] ✅ Merged rooms into Dexie efeFields');
       }
 
       // Also update local state for immediate feedback (in case subscription is slow)
@@ -766,7 +718,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       // Without this, the hub hangs on loading spinner forever after sync completes
       this.loading = false;
       this.changeDetectorRef.detectChanges();
-      console.log('[ElevationPlotHub] Room reload complete');
 
     } catch (error) {
       console.error('[ElevationPlotHub] Error reloading rooms:', error);
@@ -810,10 +761,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   async navigateToRoom(room: RoomDisplayData, event?: Event) {
-    console.log('[ElevationPlotHub] navigateToRoom called for room:', room.RoomName);
-    console.log('  - Room isSelected:', room.isSelected);
-    console.log('  - Current ServiceId:', this.serviceId);
-    console.log('  - Current ProjectId:', this.projectId);
 
     if (event) {
       event.stopPropagation();
@@ -825,24 +772,17 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // If room is not selected, create it first
     if (!room.isSelected) {
-      console.log('[ElevationPlotHub] Room not selected, creating it first...');
       await this.createAndNavigateToRoom(room.RoomName);
     } else {
       // Room is already selected, just navigate
-      console.log('[ElevationPlotHub] Room already selected, navigating directly...');
       this.router.navigate(['room', room.RoomName], { relativeTo: this.route });
     }
   }
 
   private async createAndNavigateToRoom(roomName: string) {
-    console.log('[ElevationPlotHub] createAndNavigateToRoom called for room:', roomName);
-    console.log('  - Current ServiceId:', this.serviceId);
-    console.log('  - ServiceId type:', typeof this.serviceId);
 
     // Validate ServiceID
     const serviceIdNum = parseInt(this.serviceId, 10);
-    console.log('  - Parsed ServiceId as number:', serviceIdNum);
-    console.log('  - Is NaN?:', isNaN(serviceIdNum));
 
     if (!this.serviceId || isNaN(serviceIdNum)) {
       console.error('[ElevationPlotHub] ERROR: Invalid ServiceID!');
@@ -870,7 +810,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     const roomIndex = this.roomTemplates.findIndex(r => r.RoomName === roomName);
     const existingOrganization = roomIndex >= 0 ? (this.roomTemplates[roomIndex]['Organization'] ?? 999999) : 999999;
     roomData.Organization = existingOrganization;
-    console.log('[Create Room] Keeping original Organization:', existingOrganization, '(no reordering)');
 
     try {
       // OFFLINE-FIRST: Use foundationData.createEFERoom() which handles IndexedDB queuing
@@ -878,7 +817,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       // Response may contain temp ID (temp_efe_xxx) or real EFEID
       const roomId = response?.EFEID || response?._tempId || response?.PK_ID;
 
-      console.log('[Create Room] Room created with ID:', roomId, response._tempId ? '(temp)' : '(real)');
 
       // DEXIE-FIRST: Update Dexie immediately so liveQuery triggers UI update
       const elevationPoints: EfePoint[] = this.roomElevationData[roomName]?.elevationPoints?.map((p: any) => ({
@@ -892,17 +830,13 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // WEBAPP MODE: Create elevation points directly via API
       if (environment.isWeb && roomId && !String(roomId).startsWith('temp_')) {
-        console.log('[Create Room] WEBAPP: Creating elevation points for room EFEID:', roomId);
-        console.log('[Create Room] WEBAPP: Points to create:', elevationPoints.length, elevationPoints.map(ep => ep.name));
 
         for (const ep of elevationPoints) {
           try {
-            console.log('[Create Room] WEBAPP: Creating point:', ep.name);
             const pointResult = await this.foundationData.createEFEPoint({
               PointName: ep.name
             }, String(roomId));
             const pointId = pointResult?.PointID || pointResult?.PK_ID;
-            console.log('[Create Room] WEBAPP: ✅ Point created:', ep.name, 'with ID:', pointId);
             ep.pointId = pointId;
           } catch (pointError: any) {
             console.error('[Create Room] WEBAPP: ❌ Failed to create point:', ep.name, pointError?.message || pointError);
@@ -966,11 +900,9 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       event.preventDefault();
     }
 
-    console.log('[Rename Room] Starting rename for:', oldRoomName);
 
     // CRITICAL: Set flag to block checkbox toggles during rename
     this.renamingRooms[oldRoomName] = true;
-    console.log('[Rename Room] Set renamingRooms flag for:', oldRoomName);
 
     // Pre-check if room can be renamed (synchronous validation)
     const roomId = this.efeRecordIds[oldRoomName];
@@ -1039,30 +971,24 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       
       // DETACH change detection to prevent checkbox from firing during rename
       this.changeDetectorRef.detach();
-      console.log('[Rename Room] Detached change detection');
 
       try {
         if (isTempRoom) {
           // TEMP ROOM: Update Dexie and pending request data (no API call needed)
-          console.log('[Rename Room] Temp room - updating Dexie and pending request...');
 
           // Update pending request data with new room name
           await this.indexedDb.updatePendingRequestData(roomId, { RoomName: newRoomName });
-          console.log('[Rename Room] Updated pending request data');
 
           // Update pending EFE data
           await this.indexedDb.updatePendingEFE(roomId, { RoomName: newRoomName });
-          console.log('[Rename Room] Updated pending EFE data');
 
           // DEXIE-FIRST: Rename room in Dexie (liveQuery will update UI)
           await this.efeFieldRepo.renameRoom(this.serviceId, oldRoomName, newRoomName);
-          console.log('[Rename Room] Updated Dexie efeFields');
         } else {
           // REAL ROOM: Update in backend
 
           // WEBAPP MODE: Call API directly
           if (environment.isWeb) {
-            console.log('[Rename Room] WEBAPP: Calling API directly to rename room...');
             try {
               const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${roomId}`, {
                 method: 'PUT',
@@ -1075,14 +1001,12 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
                 throw new Error(`Failed to rename room: ${errorText}`);
               }
 
-              console.log('[Rename Room] WEBAPP: ✅ Room renamed successfully in database');
             } catch (apiError: any) {
               console.error('[Rename Room] WEBAPP: ❌ API call failed:', apiError?.message || apiError);
               throw apiError;
             }
           } else {
             // MOBILE MODE: Queue rename for background sync (offline-first pattern)
-            console.log('[Rename Room] Real room - queueing rename for sync...');
 
             // Queue the rename as a pending request
             await this.indexedDb.addPendingRequest({
@@ -1095,7 +1019,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
               priority: 'normal',
               serviceId: this.serviceId
             });
-            console.log('[Rename Room] Queued rename for sync');
 
             // Update IndexedDB cache for immediate persistence
             try {
@@ -1107,14 +1030,12 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
                 return room;
               });
               await this.indexedDb.cacheServiceData(this.serviceId, 'efe_rooms', updatedCachedRooms);
-              console.log('[Rename Room] Updated efe_rooms cache');
             } catch (cacheError) {
               console.warn('[Rename Room] Failed to update cache (non-fatal):', cacheError);
             }
 
             // DEXIE-FIRST: Rename room in Dexie (liveQuery will update UI)
             await this.efeFieldRepo.renameRoom(this.serviceId, oldRoomName, newRoomName);
-            console.log('[Rename Room] Updated Dexie efeFields');
 
             // Refresh sync status to show pending rename in UI
             await this.backgroundSync.refreshSyncStatus();
@@ -1122,7 +1043,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         }
 
         // ATOMIC UPDATE: Create all new dictionary entries FIRST, then delete old ones
-        console.log('[Rename Room] Updating all local state dictionaries atomically...');
 
         // CRITICAL: Set rename flag for new name too to block any checkbox events
         this.renamingRooms[newRoomName] = true;
@@ -1143,7 +1063,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           this.roomElevationData[newRoomName] = this.roomElevationData[oldRoomName];
         }
 
-        console.log('[Rename Room] Created new entries. selectedRooms:', Object.keys(this.selectedRooms));
 
         // Step 2: UPDATE the roomTemplates array (this is what Angular watches)
         if (roomIndex >= 0) {
@@ -1151,7 +1070,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
             ...this.roomTemplates[roomIndex],
             RoomName: newRoomName
           };
-          console.log('[Rename Room] Updated roomTemplates array with new object reference');
         }
 
         // Step 3: NOW delete old entries
@@ -1160,7 +1078,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           delete this.selectedRooms[oldRoomName];
           delete this.savingRooms[oldRoomName];
           delete this.roomElevationData[oldRoomName];
-          console.log('[Rename Room] Deleted old entries after timeout');
         }, 100);
 
         // Clear rename flag for both old and new names
@@ -1174,15 +1091,12 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     // CRITICAL: Clear rename flags and re-attach change detection after processing
     const allRoomNames = Object.keys(this.renamingRooms);
     allRoomNames.forEach(name => delete this.renamingRooms[name]);
-    console.log('[Rename Room] Cleared all renamingRooms flags:', allRoomNames);
 
     // Re-attach change detection
     try {
       this.changeDetectorRef.reattach();
       this.changeDetectorRef.detectChanges();
-      console.log('[Rename Room] Re-attached change detection after processing');
     } catch (e) {
-      console.log('[Rename Room] Change detection already attached');
     }
   }
 
@@ -1194,7 +1108,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       event.preventDefault();
     }
 
-    console.log('[Duplicate Room] Starting duplication for:', roomName);
 
     // Find the room template to duplicate
     const roomToDuplicate = this.roomTemplates.find(r => r.RoomName === roomName);
@@ -1207,7 +1120,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Generate a unique name with incremented number
     const newRoomName = this.generateUniqueDuplicateName(roomName);
-    console.log('[Duplicate Room] Generated new name:', newRoomName);
 
     // Validate ServiceID
     const serviceIdNum = parseInt(this.serviceId, 10);
@@ -1267,14 +1179,11 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         roomData.TemplateID = templateId;
       }
 
-      console.log('[Duplicate Room] Creating room via foundationData.createEFERoom (Dexie-first):', roomData);
-      console.log('[Duplicate Room] Original Organization:', originalRoomOrg, '→ New Organization:', newOrganization);
 
       // DEXIE-FIRST: Use foundationData.createEFERoom() to create room via pending request
       // This creates a pending request record that points can depend on for proper sync
       const roomResponse = await this.foundationData.createEFERoom(roomData);
       const tempEfeId = roomResponse._tempId || roomResponse.EFEID;
-      console.log('[Duplicate Room] Room queued with tempEfeId:', tempEfeId);
 
       // OPTIMISTIC UI: Add the new room to the list immediately right after the original
       const newRoom: RoomDisplayData = {
@@ -1320,7 +1229,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           tempEfeId,
           efePoints
         );
-        console.log('[Duplicate Room] Added room to Dexie with tempEfeId:', tempEfeId);
 
         // Create elevation points in Dexie - points depend on the room's pending request above
         await this.efeFieldRepo.createPointRecordsForRoom(
@@ -1329,14 +1237,12 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           tempEfeId,
           this.foundationData
         );
-        console.log('[Duplicate Room] Created elevation points with temp IDs');
       } catch (dexieError) {
         console.error('[Duplicate Room] Dexie update error (non-fatal):', dexieError);
       }
 
       // Room and points are now queued for background sync
       // No direct API call needed - BackgroundSyncService will handle it
-      console.log('[Duplicate Room] Room and points queued for sync:', newRoomName, 'tempEfeId:', tempEfeId);
 
       // CRITICAL: Clear flag after all updates complete (allows liveQuery to resume)
       this.isAddingRoom = false;
@@ -1457,7 +1363,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           this.caspioService.updateServicesEFEByEFEID(roomId, { Organization: room['Organization'] })
             .toPromise()
             .then(() => {
-              console.log(`[Organization] Shifted room "${room.RoomName}" from ${oldOrg} to ${room['Organization']}`);
             })
             .catch(err => {
               console.error(`[Organization] Failed to shift room "${room.RoomName}":`, err);
@@ -1475,7 +1380,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     // This ensures liveQuery won't fire with partial org updates
     if (dexieUpdates.length > 0) {
       await Promise.all(dexieUpdates);
-      console.log(`[Organization] All ${dexieUpdates.length} Dexie org updates complete`);
     }
 
     // New room goes at the top with Organization = 1
@@ -1506,7 +1410,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           this.caspioService.updateServicesEFEByEFEID(roomId, { Organization: room['Organization'] })
             .toPromise()
             .then(() => {
-              console.log(`[Organization] Shifted room "${room.RoomName}" from ${oldOrg} to ${room['Organization']}`);
             })
             .catch(err => {
               console.error(`[Organization] Failed to shift room "${room.RoomName}":`, err);
@@ -1523,7 +1426,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     // CRITICAL: Wait for ALL Dexie updates to complete before returning
     if (dexieUpdates.length > 0) {
       await Promise.all(dexieUpdates);
-      console.log(`[Organization] All ${dexieUpdates.length} Dexie org updates complete (insert after ${afterOrganization})`);
     }
 
     return newOrg;
@@ -1565,17 +1467,14 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   private async removeRoom(roomName: string) {
-    console.log('[ElevationPlotHub] removeRoom called for:', roomName);
     this.savingRooms[roomName] = true;
     const roomId = this.efeRecordIds[roomName];
     const roomIdStr = String(roomId || ''); // Convert to string for .startsWith() check
-    console.log('[ElevationPlotHub] EFEID:', roomId);
 
     if (roomId && roomId !== '__pending__' && !roomIdStr.startsWith('temp_')) {
       try {
         // WEBAPP MODE: Call API directly to delete room
         if (environment.isWeb) {
-          console.log('[ElevationPlotHub] WEBAPP: Deleting room via API...');
 
           const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${roomId}`, {
             method: 'DELETE',
@@ -1587,10 +1486,8 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
             throw new Error(`Failed to delete room: ${errorText}`);
           }
 
-          console.log('[ElevationPlotHub] WEBAPP: ✅ Room deleted successfully from database');
         } else {
           // MOBILE MODE: Queue the deletion as a pending request (offline-first pattern)
-          console.log('[ElevationPlotHub] Queueing room deletion for sync...');
 
           await this.indexedDb.addPendingRequest({
             type: 'DELETE',
@@ -1602,7 +1499,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
             priority: 'normal',
             serviceId: this.serviceId
           });
-          console.log('[ElevationPlotHub] Room deletion queued for sync');
 
           // Update IndexedDB cache to remove the deleted room immediately
           try {
@@ -1612,14 +1508,12 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
               return cachedRoomId !== String(roomId);
             });
             await this.indexedDb.cacheServiceData(this.serviceId, 'efe_rooms', updatedRooms);
-            console.log('[ElevationPlotHub] ✅ Updated IndexedDB cache - removed room from efe_rooms');
           } catch (cacheError) {
             console.warn('[ElevationPlotHub] Failed to update IndexedDB cache:', cacheError);
           }
 
           // DEXIE-FIRST: Mark room as deleted/unselected in Dexie (liveQuery will update UI)
           await this.efeFieldRepo.deleteRoom(this.serviceId, roomName);
-          console.log('[ElevationPlotHub] ✅ Updated Dexie efeFields - room unselected');
 
           // Refresh sync status to show pending deletion in UI
           await this.backgroundSync.refreshSyncStatus();
@@ -1635,7 +1529,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           this.roomTemplates[roomIndex].isSelected = false;
           this.roomTemplates[roomIndex].isSaving = false;
           this.roomTemplates[roomIndex].efeId = undefined;
-          console.log('[ElevationPlotHub] Marked room as unselected in UI');
         }
 
         // Clear room elevation data (reset to template defaults)
@@ -1652,7 +1545,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           this.roomElevationData[roomName].fdfPhotos = {};
         }
 
-        console.log('[ElevationPlotHub] Local state updated');
         // Toast removed per user request
       } catch (error) {
         console.error('[ElevationPlotHub] Error deleting room:', error);
@@ -1666,7 +1558,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
 
     this.savingRooms[roomName] = false;
     this.changeDetectorRef.detectChanges();
-    console.log('[ElevationPlotHub] removeRoom completed');
   }
 
   isBaseStation(roomName: string): boolean {
@@ -1686,7 +1577,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       let existingRooms: any[] = [];
       if (this.serviceId) {
         existingRooms = await this.foundationData.getEFEByService(this.serviceId, true);
-        console.log(`[ElevationPlotHub] Loaded ${existingRooms?.length || 0} existing rooms from cache`);
       }
 
       // FALLBACK: If templates are empty but we have cached rooms, display rooms directly
@@ -1694,7 +1584,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         console.warn('[ElevationPlotHub] ⚠️ Templates empty - attempting fallback to cached rooms');
         
         if (existingRooms && existingRooms.length > 0) {
-          console.log('[ElevationPlotHub] ✅ Using cached rooms directly (templates unavailable)');
           
           // Build room display directly from cached room data
           this.roomTemplates = existingRooms.map((room: any) => {
@@ -1726,7 +1615,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
             return orgA - orgB;
           });
           
-          console.log(`[ElevationPlotHub] Fallback: displayed ${this.roomTemplates.length} rooms from cache`);
         } else if (previousRoomTemplates.length > 0) {
           // ULTRA FALLBACK: Keep previous room templates if they exist
           console.warn('[ElevationPlotHub] ⚠️ No templates and no cached rooms - keeping previous state');
@@ -1815,7 +1703,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
             
             // FALLBACK: If no template found, create a minimal template from room data
             if (!template) {
-              console.log(`[ElevationPlotHub] Creating fallback template for room: ${roomName}`);
               template = {
                 RoomName: roomName,
                 TemplateID: templateId || 0,
@@ -1921,7 +1808,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           return orgA - orgB;
         });
         
-        console.log('[Load Rooms] Sorted rooms by Organization:', this.roomTemplates.map(r => ({ name: r.RoomName, org: r['Organization'] })));
       } else {
         // No service ID, just show auto templates as unselected
         this.roomTemplates = autoTemplates.map(template => ({
@@ -1944,7 +1830,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         try {
           const cachedRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms');
           if (cachedRooms && cachedRooms.length > 0) {
-            console.log('[ElevationPlotHub] Error recovery: Loading from cache');
             this.roomTemplates = cachedRooms.map((room: any) => ({
               RoomName: room.RoomName,
               TemplateID: room.TemplateID || 0,
@@ -1967,6 +1852,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   private async showToast(message: string, color: string = 'primary') {
+    if (color === 'success' || color === 'info') return;
     const toast = await this.toastController.create({
       message,
       duration: 3000,
@@ -2030,7 +1916,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
    */
   async addRoomTemplate(template: any) {
     try {
-      console.log('[Add Room] Adding room template:', template.RoomName);
       
       // Get the base name from the original template (never modify the original)
       const baseName = template.RoomName;
@@ -2066,7 +1951,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         
         // If this is the second occurrence, rename the first one
         if (existingWithBaseName.length === 1 && existingWithBaseName[0].RoomName === baseName) {
-          console.log('[Add Room] Renaming first occurrence to #1');
           
           // Rename the existing unnumbered room to #1
           const existingRoom = existingWithBaseName[0];
@@ -2078,7 +1962,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           if (roomId && !String(roomId).startsWith('temp_')) {
             try {
               await this.caspioService.updateServicesEFEByEFEID(roomId, { RoomName: newName }).toPromise();
-              console.log('[Add Room] Updated room name in database:', oldName, '→', newName);
             } catch (error) {
               console.error('[Add Room] Failed to update room name in database:', error);
               // Toast removed per user request
@@ -2115,16 +1998,8 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         roomName = `${baseName} #${nextNumber}`;
       }
       
-      console.log('[Add Room] Final room name:', roomName);
 
       // DEBUG: Log template keys to verify Point*Name fields exist
-      console.log('[Add Room] Template keys:', Object.keys(template));
-      console.log('[Add Room] Template Point fields:', {
-        Point1Name: template.Point1Name,
-        Point2Name: template.Point2Name,
-        Point3Name: template.Point3Name,
-        PointCount: template.PointCount
-      });
 
       // Create room elevation data
       const elevationPoints: any[] = [];
@@ -2146,7 +2021,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         }
       }
 
-      console.log('[Add Room] Extracted elevation points:', elevationPoints.length, elevationPoints.map(ep => ep.name));
       
       this.roomElevationData[roomName] = {
         roomName: roomName,
@@ -2191,10 +2065,8 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           const lastRoomOrg = this.roomTemplates[lastRoomIndex]['Organization'] ?? 0;
           // Set organization to be just after the last room
           newOrganization = lastRoomOrg + 1;
-          console.log(`[Add Room] Inserting after "${this.lastNavigatedRoom}" at index ${insertIndex}, org=${newOrganization}`);
         }
       } else {
-        console.log('[Add Room] No last navigated room, inserting at top');
       }
 
       roomData.Organization = newOrganization;
@@ -2204,10 +2076,8 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // DEXIE-FIRST: Use foundationData.createEFERoom() to create room via pending request
       // This creates a pending request record that points can depend on for proper sync
-      console.log('[Add Room] Creating room via foundationData.createEFERoom (Dexie-first)');
       const roomResponse = await this.foundationData.createEFERoom(roomData);
       const tempEfeId = roomResponse._tempId || roomResponse.EFEID;
-      console.log('[Add Room] Room queued with tempEfeId:', tempEfeId);
 
       // OPTIMISTIC UI: Create new room object and add to display list
       const newRoom: RoomDisplayData = {
@@ -2260,7 +2130,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
             tempEfeId,
             efePoints
           );
-          console.log('[Add Room] Added room to Dexie with tempEfeId:', tempEfeId);
 
           // DEXIE-FIRST: Create ALL elevation points with tempPointIds NOW
           // Points depend on the room's pending request, which was just created above
@@ -2271,7 +2140,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
             tempEfeId,
             this.foundationData  // Pass foundationData for queueing points
           );
-          console.log('[Add Room] Created', createdPoints.length, 'elevation points with temp IDs');
         } catch (dexieError) {
           console.error('[Add Room] Dexie update error (non-fatal):', dexieError);
           // Continue - room and points are queued for sync
@@ -2279,13 +2147,8 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
 
         // Room and points are now queued for background sync
         // No direct API call needed - BackgroundSyncService will handle it
-        console.log('[Add Room] Room and points queued for sync:', roomName, 'tempEfeId:', tempEfeId);
       } else {
         // WEBAPP: Room created directly via API - now create points
-        console.log('[Add Room] WEBAPP: === STARTING POINT CREATION ===');
-        console.log('[Add Room] WEBAPP: tempEfeId value:', tempEfeId, 'type:', typeof tempEfeId);
-        console.log('[Add Room] WEBAPP: roomResponse:', JSON.stringify(roomResponse));
-        console.log('[Add Room] WEBAPP: Points to create:', elevationPoints.length, elevationPoints.map(ep => ep.name));
 
         if (elevationPoints.length === 0) {
           console.warn('[Add Room] WEBAPP: No elevation points found in template! Check template Point1Name, Point2Name, etc. fields');
@@ -2294,13 +2157,11 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         const createdPointIds: string[] = [];
         for (const ep of elevationPoints) {
           try {
-            console.log('[Add Room] WEBAPP: Creating point:', ep.name, 'for EFEID:', tempEfeId);
             const pointResult = await this.foundationData.createEFEPoint({
               EFEID: parseInt(tempEfeId, 10),  // Ensure numeric EFEID
               PointName: ep.name
             }, tempEfeId);
             const pointId = pointResult?.PointID || pointResult?.PK_ID || pointResult?._tempId;
-            console.log('[Add Room] WEBAPP: ✅ Point created:', ep.name, 'with ID:', pointId);
             createdPointIds.push(String(pointId));
 
             // Update elevationPoints with real ID
@@ -2310,8 +2171,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           }
         }
 
-        console.log('[Add Room] WEBAPP: Created', createdPointIds.length, 'of', elevationPoints.length, 'elevation points');
-        console.log('[Add Room] WEBAPP: Point IDs:', createdPointIds);
 
         // Update roomElevationData with created point IDs
         if (this.roomElevationData[roomName]) {

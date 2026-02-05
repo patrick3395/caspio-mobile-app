@@ -3620,6 +3620,12 @@ body.dark-theme {
   --border-width: 0 !important;
 }
 
+/* Center native input vertically inside ion-input (md mode sets min-height: 56px,
+   internal .input-wrapper is column flex — needs justify-content to center content) */
+.login-content .input-wrapper {
+  justify-content: center;
+}
+
 /* Hide the input-highlight bar (renders when ion-input is NOT inside ion-item) */
 .login-content .input-highlight {
   display: none !important;

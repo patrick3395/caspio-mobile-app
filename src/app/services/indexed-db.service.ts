@@ -201,7 +201,6 @@ export class IndexedDbService {
    */
   lockImageForUpload(imageId: string): void {
     this.uploadingImageIds.add(imageId);
-    console.log('[IndexedDB] 🔒 Image locked for upload:', imageId);
   }
 
   /**
@@ -210,7 +209,6 @@ export class IndexedDbService {
    */
   unlockImageAfterUpload(imageId: string): void {
     this.uploadingImageIds.delete(imageId);
-    console.log('[IndexedDB] 🔓 Image unlocked after upload:', imageId);
   }
 
   /**
@@ -223,7 +221,6 @@ export class IndexedDbService {
 
   constructor(private thumbnailService: ThumbnailService) {
     // Database is initialized automatically by Dexie when first accessed
-    console.log('[IndexedDB] Service initialized with Dexie wrapper');
   }
 
   /**
@@ -264,7 +261,6 @@ export class IndexedDbService {
     };
 
     await db.pendingRequests.add(fullRequest);
-    console.log('[IndexedDB] Request added:', requestId, 'type:', request.type);
 
     // Emit sync queue change to reset rolling sync window
     this.emitSyncQueueChange(`pending_request:${request.type}`);
@@ -354,7 +350,6 @@ export class IndexedDbService {
       lastAttempt: 0,
       error: undefined
     });
-    console.log(`[IndexedDB] Request reset for retry: ${requestId}`);
     return true;
   }
 
@@ -374,7 +369,6 @@ export class IndexedDbService {
       lastAttempt: 0,
       error: undefined
     });
-    console.log(`[IndexedDB] Caption reset for retry: ${captionId}`);
     return true;
   }
 
@@ -415,7 +409,6 @@ export class IndexedDbService {
       });
     }
 
-    console.log(`[IndexedDB] Photo reset for retry: ${imageId}`);
     return true;
   }
 
@@ -432,7 +425,6 @@ export class IndexedDbService {
       if (depId.startsWith('temp_')) {
         const realId = await this.getRealId(depId);
         if (realId) {
-          console.log(`[IndexedDB] Dependency ${depId} met: mapped to real ID ${realId}`);
           continue;
         }
       }
@@ -442,17 +434,14 @@ export class IndexedDbService {
 
       if (!request) {
         // Request not found - it was already synced and deleted
-        console.log(`[IndexedDB] Dependency ${depId} met: request already deleted (synced)`);
         continue;
       }
 
       if (request.status === 'synced') {
-        console.log(`[IndexedDB] Dependency ${depId} met: status is synced`);
         continue;
       }
 
       // Request exists but not synced yet
-      console.log(`[IndexedDB] Dependency ${depId} NOT met: status is ${request.status}`);
       return false;
     }
 
@@ -471,7 +460,6 @@ export class IndexedDbService {
     };
 
     await db.tempIdMappings.put(mapping);
-    console.log(`[IndexedDB] Mapped ${tempId} → ${realId}`);
   }
 
   /**
@@ -507,7 +495,6 @@ export class IndexedDbService {
 
     await db.pendingRequests.bulkDelete(toDelete.map(r => r.requestId));
 
-    console.log(`[IndexedDB] Cleaned up ${deletedCount} old synced requests`);
     return deletedCount;
   }
 
@@ -530,7 +517,6 @@ export class IndexedDbService {
 
     if (deletedCount > 0) {
       await db.tempIdMappings.bulkDelete(toDelete.map(m => m.tempId));
-      console.log(`[IndexedDB] HUD-018: Cleaned up ${deletedCount} old temp ID mappings (older than ${olderThanHours}h)`);
     }
 
     return deletedCount;
@@ -551,9 +537,7 @@ export class IndexedDbService {
 
     if (byTempId) {
       await db.pendingRequests.delete(byTempId.requestId);
-      console.log('[IndexedDB] Removed pending request by tempId:', idOrTempId);
     } else {
-      console.log('[IndexedDB] Removed pending request by id:', idOrTempId);
     }
   }
 
@@ -622,7 +606,6 @@ export class IndexedDbService {
     };
 
     await db.pendingImages.put(imageData);
-    console.log('[IndexedDB] Photo file stored as ArrayBuffer:', tempId, file.size, 'bytes', 'drawings:', (drawings || '').length, 'chars');
   }
 
   /**
@@ -652,7 +635,6 @@ export class IndexedDbService {
     };
 
     await db.pendingImages.put(imageData);
-    console.log('[IndexedDB] Photo blob stored:', photoId, imageData.fileSize, 'bytes, service:', metadata.serviceId);
   }
 
   /**
@@ -669,7 +651,6 @@ export class IndexedDbService {
     const blob = new Blob([imageData.fileData], { type: imageData.fileType || 'image/jpeg' });
     const blobUrl = URL.createObjectURL(blob);
 
-    console.log('[IndexedDB] Generated blob URL for:', photoId);
     return blobUrl;
   }
 
@@ -683,7 +664,6 @@ export class IndexedDbService {
         status,
         updatedAt: Date.now()
       });
-      console.log('[IndexedDB] Updated photo status:', photoId, '->', status);
     } else {
       console.warn('[IndexedDB] Photo not found for status update:', photoId);
     }
@@ -703,9 +683,6 @@ export class IndexedDbService {
       if (updates.drawings !== undefined) updateObj.drawings = updates.drawings;
 
       await db.pendingImages.update(photoId, updateObj);
-      console.log('[IndexedDB] ✅ Updated pending photo data:', photoId,
-        'caption:', (updates.caption || '').substring(0, 30),
-        'drawings:', (updates.drawings || '').length, 'chars');
       return true;
     } else {
       console.warn('[IndexedDB] Photo not found for data update:', photoId);
@@ -770,7 +747,6 @@ export class IndexedDbService {
     const blob = new Blob([imageData.fileData], { type: imageData.fileType });
     const file = new File([blob], imageData.fileName, { type: imageData.fileType });
 
-    console.log('[IndexedDB] File reconstructed:', file.name, file.size, 'bytes');
     return file;
   }
 
@@ -788,7 +764,6 @@ export class IndexedDbService {
     const blob = new Blob([imageData.fileData], { type: imageData.fileType });
     const file = new File([blob], imageData.fileName, { type: imageData.fileType });
 
-    console.log('[IndexedDB] Photo data retrieved:', file.name, file.size, 'bytes', 'drawings:', (imageData.drawings || '').length, 'chars');
 
     return {
       file,
@@ -804,7 +779,6 @@ export class IndexedDbService {
    */
   async deleteStoredFile(fileId: string): Promise<void> {
     await db.pendingImages.delete(fileId);
-    console.log('[IndexedDB] Photo file deleted:', fileId);
   }
 
   /**
@@ -815,7 +789,6 @@ export class IndexedDbService {
     const pendingOrUploading = allPhotos.filter(p =>
       p.status === 'pending' || p.status === 'uploading' || !p.status
     );
-    console.log(`[IndexedDB] getAllPendingPhotos: ${allPhotos.length} total, ${pendingOrUploading.length} pending/uploading`);
     return pendingOrUploading;
   }
 
@@ -826,7 +799,6 @@ export class IndexedDbService {
     const imageData = await db.pendingImages.get(imageId);
     if (imageData) {
       await db.pendingImages.update(imageId, { status: 'uploading' });
-      console.log('[IndexedDB] Marked photo as uploading:', imageId);
     }
   }
 
@@ -837,7 +809,6 @@ export class IndexedDbService {
     const imageData = await db.pendingImages.get(imageId);
     if (imageData) {
       await db.pendingImages.update(imageId, { status: 'pending' });
-      console.log('[IndexedDB] Reset photo to pending:', imageId);
     }
   }
 
@@ -944,7 +915,6 @@ export class IndexedDbService {
 
     await db.cachedPhotos.put(photoData);
     const sizeKB = imageDataUrl.length / 1024;
-    console.log('[IndexedDB] ✅ Photo cached:', attachId, 'size:', sizeKB.toFixed(1), 'KB');
   }
 
   /**
@@ -964,7 +934,6 @@ export class IndexedDbService {
 
     // STORAGE DEBUG: Alert when cheap pointer path is used (good!)
     const blobSizeKB = (blob.sizeBytes / 1024).toFixed(1);
-    console.log(`[StorageDebug] 🟢 POINTER CACHE: ${attachId} -> ${blobKey} (refs ${blobSizeKB} KB)`);
 
     const photoData = {
       photoKey: photoKey,
@@ -977,7 +946,6 @@ export class IndexedDbService {
     };
 
     await db.cachedPhotos.put(photoData);
-    console.log('[IndexedDB] ✅ Photo pointer cached:', attachId, '-> blobKey:', blobKey, '(~50 bytes vs ~930KB)');
   }
 
   /**
@@ -989,13 +957,11 @@ export class IndexedDbService {
     const result = await db.cachedPhotos.get(photoKey);
 
     if (!result) {
-      console.log('[IndexedDB] No cached photo found for:', attachId);
       return null;
     }
 
     // Legacy: full base64 imageData stored directly
     if (result.imageData) {
-      console.log('[IndexedDB] Cached photo found (legacy):', attachId, '(data length:', result.imageData.length, ')');
       return result.imageData;
     }
 
@@ -1003,10 +969,8 @@ export class IndexedDbService {
     if (result.blobKey) {
       const blob = await this.getLocalBlob(result.blobKey);
       if (blob?.data) {
-        console.log('[IndexedDB] Cached photo found (pointer):', attachId, '-> blobKey:', result.blobKey);
         return this.arrayBufferToDataUrl(blob.data, blob.contentType || 'image/jpeg');
       }
-      console.log('[IndexedDB] Cached photo pointer invalid - blob not found:', attachId, 'blobKey:', result.blobKey);
     }
 
     return null;
@@ -1025,7 +989,6 @@ export class IndexedDbService {
       }
     }
 
-    console.log(`[IndexedDB] getAllCachedPhotoIds: Found ${cachedIds.size} cached photos`);
     return cachedIds;
   }
 
@@ -1062,7 +1025,6 @@ export class IndexedDbService {
       }
     }
 
-    console.log(`[IndexedDB] Cache integrity for ${serviceId}: ${localImages.length} images, ${withBlobs} with blobs, ${withCachedPhotos} with cache, ${missingFallback} missing fallback`);
     
     return {
       localImages: localImages.length,
@@ -1104,7 +1066,6 @@ export class IndexedDbService {
       console.warn(`[StorageDebug] ⚠️ LARGE ANNOTATED IMAGE: ${base64SizeMB} MB`);
     }
 
-    console.log('[IndexedDB] Annotated image cached:', attachId, 'size:', imageDataUrl.length);
     return imageDataUrl;
   }
 
@@ -1125,7 +1086,6 @@ export class IndexedDbService {
 
     // STORAGE DEBUG: Alert when cheap pointer path is used (good!)
     const blobSizeKB = (blob.sizeBytes / 1024).toFixed(1);
-    console.log(`[StorageDebug] 🟢 ANNOTATED POINTER: ${attachId} -> ${blobKey} (refs ${blobSizeKB} KB)`);
 
     const photoData = {
       photoKey: photoKey,
@@ -1139,7 +1099,6 @@ export class IndexedDbService {
     };
 
     await db.cachedPhotos.put(photoData);
-    console.log('[IndexedDB] ✅ Annotated pointer cached:', attachId, '-> blobKey:', blobKey, '(~50 bytes vs ~930KB)');
   }
 
   /**
@@ -1156,7 +1115,6 @@ export class IndexedDbService {
 
     // Legacy: full base64 imageData stored directly
     if (result.imageData) {
-      console.log('[IndexedDB] Cached annotated image found (legacy):', attachId, '(data length:', result.imageData.length, ')');
       return result.imageData;
     }
 
@@ -1164,10 +1122,8 @@ export class IndexedDbService {
     if (result.blobKey) {
       const blob = await this.getLocalBlob(result.blobKey);
       if (blob?.data) {
-        console.log('[IndexedDB] Cached annotated image found (pointer):', attachId, '-> blobKey:', result.blobKey);
         return this.arrayBufferToDataUrl(blob.data, blob.contentType || 'image/jpeg');
       }
-      console.log('[IndexedDB] Cached annotated pointer invalid - blob not found:', attachId, 'blobKey:', result.blobKey);
     }
 
     return null;
@@ -1187,12 +1143,10 @@ export class IndexedDbService {
       if (result?.blobKey) {
         // Also delete the referenced blob
         await db.localBlobs.delete(result.blobKey);
-        console.log('[IndexedDB] Deleted annotated blob:', result.blobKey);
       }
 
       // Delete the cachedPhotos record
       await db.cachedPhotos.delete(photoKey);
-      console.log('[IndexedDB] Deleted stale annotated cache:', attachId);
     } catch (error) {
       console.warn('[IndexedDB] Error deleting cached annotated image:', attachId, error);
     }
@@ -1236,7 +1190,6 @@ export class IndexedDbService {
     const annotatedKey = `annotated_${attachId}`;
 
     await db.cachedPhotos.bulkDelete([photoKey, annotatedKey]);
-    console.log('[IndexedDB] Deleted cached photo:', attachId);
   }
 
   /**
@@ -1244,7 +1197,6 @@ export class IndexedDbService {
    */
   async removeAttachmentFromCache(attachId: string, dataType: 'visual_attachments' | 'efe_point_attachments'): Promise<void> {
     const attachIdStr = String(attachId);
-    console.log(`[IndexedDB] Removing attachment ${attachIdStr} from ${dataType} cache`);
 
     const allCached = await db.cachedServiceData.toArray();
     let updatedCount = 0;
@@ -1260,12 +1212,10 @@ export class IndexedDbService {
         if (cached.data.length < originalLength) {
           await db.cachedServiceData.put(cached);
           updatedCount++;
-          console.log(`[IndexedDB] Removed attachment from ${cached.cacheKey}, was ${originalLength} now ${cached.data.length}`);
         }
       }
     }
 
-    console.log(`[IndexedDB] Updated ${updatedCount} cache entries after removing attachment ${attachIdStr}`);
   }
 
   /**
@@ -1275,7 +1225,6 @@ export class IndexedDbService {
     const allCached = await db.cachedServiceData.toArray();
     const toDelete = allCached.filter(c => c.dataType === dataType).map(c => c.cacheKey);
     await db.cachedServiceData.bulkDelete(toDelete);
-    console.log(`[IndexedDB] Cleared ${toDelete.length} ${dataType} cache entries`);
   }
 
   /**
@@ -1288,7 +1237,6 @@ export class IndexedDbService {
       .toArray();
 
     await db.cachedPhotos.bulkDelete(photos.map(p => p.photoKey));
-    console.log('[IndexedDB] Cleared cached photos for service:', serviceId);
   }
 
   /**
@@ -1314,7 +1262,6 @@ export class IndexedDbService {
       await db.cachedPhotos.clear();
       await db.pendingCaptions.clear();
     });
-    console.log('[IndexedDB] All data cleared');
   }
 
   /**
@@ -1335,7 +1282,6 @@ export class IndexedDbService {
       hasCachedPhotosStore: true
     };
 
-    console.log('[IndexedDB] Database diagnostics:', diagnostics);
     return diagnostics;
   }
 
@@ -1362,7 +1308,6 @@ export class IndexedDbService {
     };
 
     await db.cachedTemplates.put(cacheEntry);
-    console.log(`[IndexedDB] Cached ${templates.length} ${type} templates${version ? ` (version ${version})` : ''}`);
   }
 
   /**
@@ -1375,7 +1320,6 @@ export class IndexedDbService {
   ): Promise<any[] | null> {
     const cached = await db.cachedTemplates.get(`templates_${type}`);
     if (cached) {
-      console.log(`[IndexedDB] Retrieved ${cached.templates.length} cached ${type} templates`);
       return cached.templates;
     }
     return null;
@@ -1416,7 +1360,6 @@ export class IndexedDbService {
     type: 'visual' | 'efe' | 'lbw' | 'dte' | 'csa' | 'lbw_dropdown' | 'visual_dropdown' | 'hud' | 'hud_dropdown' | 'dte_dropdown' | 'csa_dropdown'
   ): Promise<void> {
     await db.cachedTemplates.delete(`templates_${type}`);
-    console.log(`[IndexedDB] Invalidated ${type} template cache`);
   }
 
   // ============================================
@@ -1436,7 +1379,6 @@ export class IndexedDbService {
     };
 
     await db.cachedServiceData.put(cacheEntry);
-    console.log(`[IndexedDB] Cached ${data.length} global ${dataType} records`);
   }
 
   /**
@@ -1445,7 +1387,6 @@ export class IndexedDbService {
   async getCachedGlobalData(dataType: 'services_drop' | 'projects_drop' | 'status' | 'types' | 'efe_drop'): Promise<any[] | null> {
     const cached = await db.cachedServiceData.get(`global_${dataType}`);
     if (cached && cached.data) {
-      console.log(`[IndexedDB] Retrieved ${cached.data.length} cached global ${dataType} records`);
       return cached.data;
     }
     return null;
@@ -1496,7 +1437,6 @@ export class IndexedDbService {
     if (mergeLocalUpdates && existingData.length > 0) {
       const localUpdates = existingData.filter((item: any) => item._localUpdate);
       if (localUpdates.length > 0) {
-        console.log(`[IndexedDB] safeUpdateCache: Preserving ${localUpdates.length} items with _localUpdate flag`);
 
         const newDataIds = new Set(finalData.map((item: any) =>
           String(item.PK_ID || item.EFEID || item.VisualID || item.PointID || item.AttachID || item._tempId || '')
@@ -1517,7 +1457,6 @@ export class IndexedDbService {
         item._tempId && String(item._tempId).startsWith('temp_')
       );
       if (tempItems.length > 0) {
-        console.log(`[IndexedDB] safeUpdateCache: Preserving ${tempItems.length} temp items`);
 
         const finalDataIds = new Set(finalData.map((item: any) =>
           String(item._tempId || item.PK_ID || item.EFEID || item.VisualID || item.PointID || item.AttachID || '')
@@ -1533,7 +1472,6 @@ export class IndexedDbService {
     }
 
     await this.cacheServiceData(serviceId, dataType, finalData);
-    console.log(`[IndexedDB] ✅ safeUpdateCache: Updated ${cacheKey} with ${finalData.length} items (was ${existingData.length})`);
 
     return true;
   }
@@ -1551,7 +1489,6 @@ export class IndexedDbService {
     };
 
     await db.cachedServiceData.put(cacheEntry);
-    console.log(`[IndexedDB] Cached ${data.length} ${dataType} for service ${serviceId}`);
   }
 
   /**
@@ -1560,7 +1497,6 @@ export class IndexedDbService {
   async getCachedServiceData(serviceId: string, dataType: CacheDataType): Promise<any[] | null> {
     const cached = await db.cachedServiceData.get(`${dataType}_${serviceId}`);
     if (cached) {
-      console.log(`[IndexedDB] Retrieved ${cached.data.length} cached ${dataType} for service ${serviceId}`);
       return cached.data;
     }
     return null;
@@ -1598,7 +1534,6 @@ export class IndexedDbService {
       data: counts as any,
       lastUpdated: Date.now()
     });
-    console.log(`[IndexedDB] Cached photo counts for ${categoryName}: ${Object.keys(counts).length} items`);
   }
 
   /**
@@ -1608,7 +1543,6 @@ export class IndexedDbService {
     const cacheKey = `photo_counts_${serviceId}_${categoryName}`;
     const cached = await db.cachedServiceData.get(cacheKey);
     if (cached && cached.data) {
-      console.log(`[IndexedDB] Retrieved cached photo counts for ${categoryName}: ${Object.keys(cached.data).length} items`);
       return cached.data as unknown as { [key: string]: number };
     }
     return null;
@@ -1630,7 +1564,6 @@ export class IndexedDbService {
       }
     }
 
-    console.log(`[IndexedDB] Bulk loaded ${result.size} visual attachments in ONE read`);
     return result;
   }
 
@@ -1649,7 +1582,6 @@ export class IndexedDbService {
       }
     }
 
-    console.log(`[IndexedDB] Bulk loaded ${result.size} cached photos for service ${serviceId} in ONE read`);
     return result;
   }
 
@@ -1666,7 +1598,6 @@ export class IndexedDbService {
       }
     }
 
-    console.log(`[IndexedDB] Bulk loaded ${result.size} annotated images from cachedPhotos in ONE read`);
     return result;
   }
 
@@ -1691,7 +1622,6 @@ export class IndexedDbService {
       .toArray();
 
     await db.cachedServiceData.bulkDelete(allCached.map(c => c.cacheKey));
-    console.log(`[IndexedDB] Invalidated ${allCached.length} cache entries for service ${serviceId}`);
   }
 
   /**
@@ -1699,9 +1629,7 @@ export class IndexedDbService {
    */
   async clearCachedServiceData(serviceId: string, dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments'): Promise<void> {
     const cacheKey = `${dataType}_${serviceId}`;
-    console.log(`[IndexedDB] Clearing cached data: ${cacheKey}`);
     await db.cachedServiceData.delete(cacheKey);
-    console.log(`[IndexedDB] Cleared: ${cacheKey}`);
   }
 
   /**
@@ -1709,9 +1637,7 @@ export class IndexedDbService {
    */
   async removeTemplateDownloadStatus(serviceId: string, templateType: string): Promise<void> {
     const cacheKey = `template_downloaded_${templateType}_${serviceId}`;
-    console.log(`[IndexedDB] Removing download status: ${cacheKey}`);
     await db.cachedServiceData.delete(cacheKey);
-    console.log(`[IndexedDB] Download status removed: ${cacheKey}`);
   }
 
   // ============================================
@@ -1728,7 +1654,6 @@ export class IndexedDbService {
     };
 
     await db.pendingEFEData.put(fullData);
-    console.log(`[IndexedDB] Added pending EFE ${data.type}:`, data.tempId);
   }
 
   /**
@@ -1740,7 +1665,6 @@ export class IndexedDbService {
       .equals(serviceId)
       .toArray();
 
-    console.log(`[IndexedDB] Found ${results.length} pending EFE items for service ${serviceId}`);
     return results;
   }
 
@@ -1754,7 +1678,6 @@ export class IndexedDbService {
       .filter(r => r.type === 'point')
       .toArray();
 
-    console.log(`[IndexedDB] Found ${results.length} pending points for room ${roomTempId}`);
     return results;
   }
 
@@ -1771,10 +1694,8 @@ export class IndexedDbService {
       };
 
       await db.pendingEFEData.put(existing);
-      console.log(`[IndexedDB] ✅ Updated pending EFE ${tempId} with:`, updates);
       return true;
     } else {
-      console.log(`[IndexedDB] Pending EFE ${tempId} not found`);
       return false;
     }
   }
@@ -1784,7 +1705,6 @@ export class IndexedDbService {
    */
   async removePendingEFE(tempId: string): Promise<void> {
     await db.pendingEFEData.delete(tempId);
-    console.log(`[IndexedDB] Removed pending EFE:`, tempId);
   }
 
   /**
@@ -1824,7 +1744,6 @@ export class IndexedDbService {
     };
 
     await db.pendingImages.put(imageData);
-    console.log('[IndexedDB] EFE photo file stored:', tempId, file.size, 'bytes, service:', serviceId);
   }
 
   /**
@@ -1841,7 +1760,6 @@ export class IndexedDbService {
     const blob = new Blob([imageData.fileData], { type: imageData.fileType });
     const file = new File([blob], imageData.fileName, { type: imageData.fileType });
 
-    console.log('[IndexedDB] EFE photo data retrieved:', file.name, file.size, 'bytes');
 
     return {
       file,
@@ -1956,7 +1874,6 @@ export class IndexedDbService {
     };
 
     await db.cachedServiceData.put(cacheEntry);
-    console.log(`[IndexedDB] Cached project record for ${projectId}`);
   }
 
   /**
@@ -1978,7 +1895,6 @@ export class IndexedDbService {
    * Cache a service record
    */
   async cacheServiceRecord(serviceId: string, service: any): Promise<void> {
-    console.log(`[IndexedDB] cacheServiceRecord(${serviceId}): input service =`, JSON.stringify(service).substring(0, 300));
 
     const cacheEntry = {
       cacheKey: `service_record_${serviceId}`,
@@ -1988,10 +1904,8 @@ export class IndexedDbService {
       lastUpdated: Date.now(),
     };
 
-    console.log(`[IndexedDB] cacheServiceRecord(${serviceId}): cacheEntry.data =`, JSON.stringify(cacheEntry.data).substring(0, 300));
 
     await db.cachedServiceData.put(cacheEntry);
-    console.log(`[IndexedDB] cacheServiceRecord(${serviceId}): SUCCESS - cached service record`);
   }
 
   /**
@@ -1999,12 +1913,9 @@ export class IndexedDbService {
    */
   async getCachedServiceRecord(serviceId: string): Promise<any | null> {
     const cached = await db.cachedServiceData.get(`service_record_${serviceId}`);
-    console.log(`[IndexedDB] getCachedServiceRecord(${serviceId}): raw cached =`, cached);
     if (cached && cached.data && cached.data.length > 0) {
-      console.log(`[IndexedDB] getCachedServiceRecord(${serviceId}): returning data[0] =`, JSON.stringify(cached.data[0]).substring(0, 200));
       return cached.data[0];
     } else {
-      console.log(`[IndexedDB] getCachedServiceRecord(${serviceId}): no data found, returning null`);
       return null;
     }
   }
@@ -2026,7 +1937,6 @@ export class IndexedDbService {
     };
 
     await db.cachedServiceData.put(cacheEntry);
-    console.log(`[IndexedDB] Marked ${templateType} template as downloaded for service ${serviceId}`);
   }
 
   /**
@@ -2034,19 +1944,15 @@ export class IndexedDbService {
    */
   async isTemplateDownloaded(serviceId: string, templateType: string): Promise<boolean> {
     const cacheKey = `download_status_${templateType}_${serviceId}`;
-    console.log(`[IndexedDB] isTemplateDownloaded(${serviceId}, ${templateType}): checking key ${cacheKey}`);
 
     const cached = await db.cachedServiceData.get(cacheKey);
-    console.log(`[IndexedDB] isTemplateDownloaded(${serviceId}, ${templateType}): cached =`, cached);
 
     if (cached && cached.data && cached.data.length > 0 && cached.data[0].downloaded) {
       const downloadAge = Date.now() - cached.data[0].timestamp;
       const maxAge = 7 * 24 * 60 * 60 * 1000;
       const isRecent = downloadAge < maxAge;
-      console.log(`[IndexedDB] isTemplateDownloaded(${serviceId}, ${templateType}): downloadAge=${downloadAge}ms, maxAge=${maxAge}ms, isRecent=${isRecent}`);
       return isRecent;
     } else {
-      console.log(`[IndexedDB] isTemplateDownloaded(${serviceId}, ${templateType}): no download status found, returning false`);
       return false;
     }
   }
@@ -2067,7 +1973,6 @@ export class IndexedDbService {
     if (request) {
       request.data = { ...request.data, ...updates };
       await db.pendingRequests.put(request);
-      console.log(`[IndexedDB] Updated pending request data for ${tempId}`);
       return true; // Successfully updated existing request
     } else {
       console.warn(`[IndexedDB] No pending request found with tempId ${tempId}`);
@@ -2085,7 +1990,6 @@ export class IndexedDbService {
     if (request) {
       const updated = { ...request, ...updates };
       await db.pendingRequests.put(updated);
-      console.log(`[IndexedDB] Updated pending request ${requestId}:`, updates);
     } else {
       console.warn(`[IndexedDB] No pending request found with id ${requestId}`);
     }
@@ -2111,11 +2015,9 @@ export class IndexedDbService {
     );
 
     for (const request of toDelete) {
-      console.log(`[IndexedDB] Cleared stuck request: ${request.requestId} (type: ${request.type}, created: ${new Date(request.createdAt).toISOString()})`);
     }
 
     await db.pendingRequests.bulkDelete(toDelete.map(r => r.requestId));
-    console.log(`[IndexedDB] Cleared ${toDelete.length} stuck pending requests`);
     return toDelete.length;
   }
 
@@ -2161,7 +2063,6 @@ export class IndexedDbService {
       }
     }
 
-    console.log(`[IndexedDB] Cleared all pending sync: ${result.requests} requests, ${result.captions} captions, ${result.images} images, ${result.outbox} outbox, ${result.localImages} stuck/failed localImages`);
     return result;
   }
 
@@ -2187,7 +2088,6 @@ export class IndexedDbService {
     result.photos = failedImages.length;
     await db.localImages.bulkDelete(failedImages.map(i => i.imageId));
 
-    console.log(`[IndexedDB] Cleared all failed: ${result.requests} requests, ${result.captions} captions, ${result.photos} photos`);
     return result;
   }
 
@@ -2249,12 +2149,6 @@ export class IndexedDbService {
       outboxCleared = serviceOutbox.length;
     }
 
-    console.log(`[IndexedDB] Cleared pending for service ${serviceId}:`, {
-      requests: requestsCleared,
-      captions: captionsCleared,
-      outbox: outboxCleared,
-      images: imagesCleared
-    });
 
     return { requests: requestsCleared, captions: captionsCleared, outbox: outboxCleared, images: imagesCleared };
   }
@@ -2277,11 +2171,9 @@ export class IndexedDbService {
           error: undefined
         });
         resetCount++;
-        console.log(`[IndexedDB] Reset old request: ${request.requestId} (was ${request.retryCount} retries)`);
       }
     }
 
-    console.log(`[IndexedDB] Force reset ${resetCount} old pending requests`);
     return resetCount;
   }
 
@@ -2295,11 +2187,9 @@ export class IndexedDbService {
     const toDelete = requests.filter(r => r.createdAt < cutoffTime);
 
     for (const request of toDelete) {
-      console.log(`[IndexedDB] Cleared stale request: ${request.requestId} (created ${new Date(request.createdAt).toISOString()})`);
     }
 
     await db.pendingRequests.bulkDelete(toDelete.map(r => r.requestId));
-    console.log(`[IndexedDB] Cleared ${toDelete.length} stale requests older than ${olderThanHours} hours`);
     return toDelete.length;
   }
 
@@ -2389,7 +2279,6 @@ export class IndexedDbService {
 
       // If updating a 'syncing' caption, reset it to pending (sync was likely stuck)
       if (toUpdate.status === 'syncing') {
-        console.log('[IndexedDB] ⚠️ Resetting stuck syncing caption to pending:', toUpdate.captionId);
         toUpdate.status = 'pending';
         toUpdate.retryCount = 0;
       }
@@ -2399,13 +2288,11 @@ export class IndexedDbService {
       toUpdate.updatedAt = now;
 
       await db.pendingCaptions.put(toUpdate);
-      console.log('[IndexedDB] ✅ Updated pending caption:', toUpdate.captionId, 'for attach:', data.attachId);
 
       // Clean up any extra duplicates for the same attachId
       if (existing.length > 1) {
         const toDelete = existing.slice(1).map(c => c.captionId);
         await db.pendingCaptions.bulkDelete(toDelete);
-        console.log('[IndexedDB] 🧹 Cleaned up', toDelete.length, 'duplicate captions for attach:', data.attachId);
       }
 
       // Emit sync queue change to reset rolling sync window
@@ -2430,7 +2317,6 @@ export class IndexedDbService {
       };
 
       await db.pendingCaptions.add(pendingCaption);
-      console.log('[IndexedDB] ✅ Queued new caption update:', captionId, 'for attach:', data.attachId);
 
       // Emit sync queue change to reset rolling sync window
       this.emitSyncQueueChange('caption_create');
@@ -2461,7 +2347,6 @@ export class IndexedDbService {
       if (caption.status === 'syncing') {
         const timeSinceUpdate = now - (caption.updatedAt || caption.createdAt);
         if (timeSinceUpdate > stuckThreshold) {
-          console.log(`[IndexedDB] Caption ${caption.captionId} stuck in syncing for ${Math.round(timeSinceUpdate / 1000)}s, including for retry`);
           return true;
         }
         return false;
@@ -2475,7 +2360,6 @@ export class IndexedDbService {
         const retryDelay = Math.min(30000 * Math.pow(2, retryCount), 300000);
         const timeSinceUpdate = now - (caption.lastAttempt || caption.updatedAt || caption.createdAt);
         if (timeSinceUpdate >= retryDelay) {
-          console.log(`[IndexedDB] Failed caption ${caption.captionId} ready for retry (attempt ${retryCount + 1})`);
           return true;
         }
         return false;
@@ -2504,7 +2388,6 @@ export class IndexedDbService {
       attachIds.includes(c.attachId) &&
       c.status !== 'failed'
     );
-    console.log(`[IndexedDB] getPendingCaptionsForAttachments: Found ${matching.length} captions for ${attachIds.length} attachIds (including synced)`);
     return matching;
   }
 
@@ -2546,7 +2429,6 @@ export class IndexedDbService {
    */
   async deletePendingCaption(captionId: string): Promise<void> {
     await db.pendingCaptions.delete(captionId);
-    console.log('[IndexedDB] ✅ Deleted synced caption:', captionId);
   }
 
   /**
@@ -2565,7 +2447,6 @@ export class IndexedDbService {
         return 0;
       }
 
-      console.log(`[IndexedDB] Checking ${tempIdCaptions.length} captions with temp IDs for orphans...`);
 
       const pendingImages = await db.pendingImages.toArray();
       const pendingImagesMap = new Set(pendingImages.map(img => img.imageId));
@@ -2582,17 +2463,14 @@ export class IndexedDbService {
           caption.attachId = realId;
           caption.updatedAt = Date.now();
           await db.pendingCaptions.put(caption);
-          console.log(`[IndexedDB] Updated orphaned caption ${caption.captionId} with real ID: ${tempId} → ${realId}`);
           continue;
         }
 
-        console.log(`[IndexedDB] Deleting orphaned caption ${caption.captionId} (temp ID: ${tempId} has no photo)`);
         await this.deletePendingCaption(caption.captionId);
         deletedCount++;
       }
 
       if (deletedCount > 0) {
-        console.log(`[IndexedDB] ✅ Cleaned up ${deletedCount} orphaned captions`);
       }
 
       return deletedCount;
@@ -2618,7 +2496,6 @@ export class IndexedDbService {
       caption.updatedAt = Date.now();
       await db.pendingCaptions.put(caption);
       updatedCount++;
-      console.log(`[IndexedDB] Updated caption ${caption.captionId} attachId: ${tempAttachId} → ${realAttachId}`);
     }
 
     return updatedCount;
@@ -2645,7 +2522,6 @@ export class IndexedDbService {
     );
 
     await db.pendingCaptions.bulkDelete(toDelete.map(c => c.captionId));
-    console.log(`[IndexedDB] Cleared ${toDelete.length} old caption updates`);
     return toDelete.length;
   }
 
@@ -2682,7 +2558,6 @@ export class IndexedDbService {
         errorReason = `Sync timed out after ${ageMinutes} minutes`;
       }
 
-      console.log(`[IndexedDB] Marking stale caption as failed: ${caption.captionId}, attachId: ${caption.attachId}, reason: ${errorReason}`);
 
       await db.pendingCaptions.update(caption.captionId, {
         status: 'failed',
@@ -2691,7 +2566,6 @@ export class IndexedDbService {
       });
     }
 
-    console.log(`[IndexedDB] Marked ${toMark.length} stale pending captions as failed`);
     return toMark.length;
   }
 
@@ -2724,7 +2598,6 @@ export class IndexedDbService {
         const quota = estimate.quota || 1;
         const percent = (usage / quota) * 100;
 
-        console.log(`[IndexedDB] Storage stats: ${(usage / 1024 / 1024).toFixed(2)}MB / ${(quota / 1024 / 1024).toFixed(2)}MB (${percent.toFixed(1)}%)`);
 
         return { usage, quota, percent };
       }
@@ -2744,12 +2617,10 @@ export class IndexedDbService {
         const isPersisted = await navigator.storage.persisted();
 
         if (isPersisted) {
-          console.log('[IndexedDB] Storage is already persistent');
           return true;
         }
 
         const granted = await navigator.storage.persist();
-        console.log(`[IndexedDB] Persistent storage ${granted ? 'granted' : 'denied'}`);
         return granted;
       }
     } catch (err) {
@@ -2781,14 +2652,12 @@ export class IndexedDbService {
       const isInActiveService = keepServiceIds.includes(String(serviceId));
 
       if (isOld && !isInActiveService) {
-        console.log(`[IndexedDB] Deleting old cached photo: ${record.attachId}, age: ${((Date.now() - cachedAt) / 86400000).toFixed(1)} days`);
         toDelete.push(record.photoKey);
         deletedCount++;
       }
     }
 
     await db.cachedPhotos.bulkDelete(toDelete);
-    console.log(`[IndexedDB] Cleanup complete: deleted ${deletedCount} old cached photos`);
     return deletedCount;
   }
 
@@ -2805,7 +2674,6 @@ export class IndexedDbService {
       }
     }
 
-    console.log(`[IndexedDB] Cached photos size: ${(totalSize / 1024 / 1024).toFixed(2)}MB`);
     return totalSize;
   }
 
@@ -2822,7 +2690,6 @@ export class IndexedDbService {
       }
     }
 
-    console.log(`[IndexedDB] Pending images size: ${(totalSize / 1024 / 1024).toFixed(2)}MB`);
     return totalSize;
   }
 
@@ -2832,7 +2699,6 @@ export class IndexedDbService {
   async clearAllCachedPhotos(): Promise<number> {
     const count = await db.cachedPhotos.count();
     await db.cachedPhotos.clear();
-    console.log(`[IndexedDB] Cleared all ${count} cached photos`);
     return count;
   }
 
@@ -2907,7 +2773,6 @@ export class IndexedDbService {
         createdAt: now
       };
 
-      console.log(`[IndexedDB] Thumbnail generated: ${thumbBlobId} (${thumbnailResult.sizeBytes} bytes)`);
     } catch (thumbError) {
       // Non-fatal: Continue without thumbnail if generation fails
       // Photos will still work, just won't have thumbnail fallback after soft purge
@@ -2960,7 +2825,6 @@ export class IndexedDbService {
       await db.uploadOutbox.add(outboxItem);
     });
 
-    console.log('[IndexedDB] ✅ Local image created:', imageId, 'blob:', blobId);
 
     this.emitChange({
       store: 'localImages',
@@ -3062,9 +2926,6 @@ export class IndexedDbService {
 
     await db.localImages.update(imageId, updateFields);
 
-    console.log('[IndexedDB] Local image updated:', imageId,
-      'fields:', Object.keys(updates).join(', '),
-      'drawings:', updates.drawings !== undefined ? (updates.drawings?.length || 0) + ' chars' : 'unchanged');
 
     this.emitChange({
       store: 'localImages',
@@ -3079,7 +2940,6 @@ export class IndexedDbService {
     // This ensures the sync icon shows pending count when annotations are saved on local-first photos
     if (updates.caption !== undefined || updates.drawings !== undefined) {
       this.emitSyncQueueChange('localimage_annotation_update');
-      console.log('[IndexedDB] ✅ Sync queue change emitted for annotation update:', imageId);
     }
   }
 
@@ -3104,11 +2964,9 @@ export class IndexedDbService {
     const images = await db.localImages.where('entityId').equals(oldEntityId).toArray();
 
     if (images.length === 0) {
-      console.log(`[IndexedDB] No LocalImages found with entityId=${oldEntityId}`);
       return 0;
     }
 
-    console.log(`[IndexedDB] US-001 FIX: Updating ${images.length} LocalImages from entityId=${oldEntityId} to ${newEntityId}`);
 
     // Update all images in a single transaction for atomicity
     await db.transaction('rw', db.localImages, async () => {
@@ -3134,13 +2992,11 @@ export class IndexedDbService {
           nextRetryAt: now,
           lastError: null  // Clear any "waiting for parent entity" error
         });
-        console.log(`[IndexedDB] US-001 FIX: Reset outbox item for imageId=${outboxItem.imageId} to process immediately`);
         resetCount++;
       }
     }
 
     if (resetCount > 0) {
-      console.log(`[IndexedDB] US-001 FIX: Reset ${resetCount} outbox items for immediate processing`);
     }
 
     // Emit change event to trigger liveQuery update
@@ -3153,7 +3009,6 @@ export class IndexedDbService {
       serviceId: images[0]?.serviceId || ''
     });
 
-    console.log(`[IndexedDB] US-001 FIX: Successfully updated ${images.length} LocalImages entityId`);
     return images.length;
   }
 
@@ -3182,7 +3037,6 @@ export class IndexedDbService {
    */
   async deleteLocalBlob(blobId: string): Promise<void> {
     await db.localBlobs.delete(blobId);
-    console.log('[IndexedDB] Local blob deleted:', blobId);
   }
 
   /**
@@ -3196,7 +3050,6 @@ export class IndexedDbService {
     }
 
     if (!image.localBlobId) {
-      console.log('[IndexedDB] Image already pruned:', imageId);
       return;
     }
 
@@ -3211,7 +3064,6 @@ export class IndexedDbService {
       localBlobId: null
     });
 
-    console.log('[IndexedDB] ✅ Pruned local blob for image:', imageId);
   }
 
   // ============================================================================
@@ -3236,12 +3088,10 @@ export class IndexedDbService {
       if (!image) {
         // ORPHANED ITEM FIX: LocalImage was deleted but outbox item wasn't
         // Include it so processUploadOutboxItem can clean it up properly
-        console.log(`[IndexedDB] Including orphaned outbox item ${item.opId} - LocalImage ${item.imageId} not found`);
         readyItems.push(item);
       } else if (image.status !== 'uploading') {
         readyItems.push(item);
       } else {
-        console.log(`[IndexedDB] Skipping outbox item ${item.opId} - image already uploading`);
       }
     }
 
@@ -3270,7 +3120,6 @@ export class IndexedDbService {
    */
   async removeOutboxItem(opId: string): Promise<void> {
     await db.uploadOutbox.delete(opId);
-    console.log('[IndexedDB] Outbox item removed:', opId);
   }
 
   /**
@@ -3305,9 +3154,7 @@ export class IndexedDbService {
     );
     
     if (stuckItems.length > 0) {
-      console.log(`[IndexedDB] Cleaning up ${stuckItems.length} stuck upload outbox items`);
       for (const item of stuckItems) {
-        console.log(`[IndexedDB]   Removing: ${item.opId} (${item.attempts} attempts, age: ${Math.round((Date.now() - item.createdAt) / 60000)}min, error: ${item.lastError || 'none'})`);
         
         // Also mark the corresponding LocalImage as failed so user knows
         const image = await db.localImages.get(item.imageId);
@@ -3332,7 +3179,6 @@ export class IndexedDbService {
     const item = await this.getOutboxItemForImage(imageId);
     if (item) {
       await db.uploadOutbox.delete(item.opId);
-      console.log('[IndexedDB] Removed from upload outbox by imageId:', imageId);
     }
   }
 
@@ -3341,7 +3187,6 @@ export class IndexedDbService {
    * Resets the LocalImage status to 'queued' and resets the outbox item retry counters
    */
   async resetFailedUpload(imageId: string): Promise<void> {
-    console.log('[IndexedDB] HUD-011: Resetting failed upload for:', imageId);
 
     // Update LocalImage status back to queued
     const image = await db.localImages.get(imageId);
@@ -3351,7 +3196,6 @@ export class IndexedDbService {
         lastError: null,
         updatedAt: Date.now()
       });
-      console.log('[IndexedDB] Reset LocalImage status to queued:', imageId);
     }
 
     // Check for existing outbox item
@@ -3364,7 +3208,6 @@ export class IndexedDbService {
         nextRetryAt: Date.now(), // Ready immediately
         lastError: null
       });
-      console.log('[IndexedDB] Reset existing outbox item:', existingItem.opId);
     } else {
       // Create new outbox item if it doesn't exist (e.g., was previously cleaned up)
       const opId = crypto.randomUUID();
@@ -3377,7 +3220,6 @@ export class IndexedDbService {
         createdAt: Date.now(),
         lastError: null
       });
-      console.log('[IndexedDB] Created new outbox item for retry:', opId);
     }
 
     // Emit sync queue change to trigger background sync
@@ -3396,7 +3238,6 @@ export class IndexedDbService {
    */
   async deleteLocalImage(imageId: string): Promise<void> {
     await db.localImages.delete(imageId);
-    console.log('[IndexedDB] LocalImage deleted:', imageId);
     
     // Emit change event for reactive subscriptions
     this.imageChange$.next({
@@ -3471,7 +3312,6 @@ export class IndexedDbService {
       summary += `\n\n⚠️ ${base64Count} EXPENSIVE base64 entries!`;
     }
 
-    console.log('[StorageSummary]', summary);
     return summary;
   }
 
@@ -3546,7 +3386,6 @@ export class IndexedDbService {
     }
 
     trace += `\n📊 TOTAL: ${(totalBytes / 1024 / 1024).toFixed(2)} MB`;
-    console.log('[TraceStorage]', trace);
     return trace;
   }
 }

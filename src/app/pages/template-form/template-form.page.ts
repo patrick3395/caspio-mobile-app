@@ -652,11 +652,12 @@ export class TemplateFormPage implements OnInit, OnDestroy {
   }
   
   async showToast(message: string, type: 'info' | 'success' | 'error' | 'warning') {
+    if (type === 'success' || type === 'info') return;
     const toast = await this.toastController.create({
       message: message,
       duration: type === 'error' ? 3000 : 2000,
       position: 'top',
-      color: type === 'error' ? 'danger' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'medium'
+      color: type === 'error' ? 'danger' : type === 'warning' ? 'warning' : 'medium'
     });
     await toast.present();
   }

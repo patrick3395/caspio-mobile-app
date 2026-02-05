@@ -65,9 +65,7 @@ export class WebappTemplateDataProvider extends ITemplateDataProvider {
     const endpoint = `/tables/${config.tableName}/records?response=rows`;
     const dbData = this.mapFromVisualRecord(config, visual);
 
-    console.log('[WebappDataProvider] Creating visual:', dbData);
     const result = await this.fetchApi<any>(endpoint, 'POST', dbData);
-    console.log('[WebappDataProvider] Create response:', result);
 
     const created = result.Result?.[0] || result;
     return this.mapToVisualRecord(config, { ...dbData, ...created });

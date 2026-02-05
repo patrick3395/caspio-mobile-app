@@ -71,7 +71,6 @@ export class EngineersFoundationDataService {
     // When a visual syncs, clear visual caches
     this.syncSubscriptions.push(
       this.backgroundSync.visualSyncComplete$.subscribe(event => {
-        console.log('[DataService] Visual synced, invalidating caches for service:', event.serviceId);
         this.invalidateCachesForService(event.serviceId, 'visual_sync');
       })
     );
@@ -84,7 +83,6 @@ export class EngineersFoundationDataService {
     // or loss of local updates like captions
     this.syncSubscriptions.push(
       this.backgroundSync.photoUploadComplete$.subscribe(event => {
-        console.log('[DataService] Photo synced, clearing in-memory caches only (no reload trigger)');
         this.visualAttachmentsCache.clear();
         this.efeAttachmentsCache.clear();
         this.imageCache.clear();
@@ -96,7 +94,6 @@ export class EngineersFoundationDataService {
     // When service data syncs, clear service/project caches
     this.syncSubscriptions.push(
       this.backgroundSync.serviceDataSyncComplete$.subscribe(event => {
-        console.log('[DataService] Service data synced, invalidating caches');
         if (event.serviceId) {
           this.serviceCache.delete(event.serviceId);
         }
@@ -110,7 +107,6 @@ export class EngineersFoundationDataService {
     // When EFE room syncs, clear EFE caches
     this.syncSubscriptions.push(
       this.backgroundSync.efeRoomSyncComplete$.subscribe(event => {
-        console.log('[DataService] EFE room synced, invalidating EFE caches');
         this.efePointsCache.clear();
         this.efeAttachmentsCache.clear();
         this.debouncedCacheInvalidation(undefined, 'efe_room_sync');
@@ -120,7 +116,6 @@ export class EngineersFoundationDataService {
     // When EFE point syncs, clear point caches
     this.syncSubscriptions.push(
       this.backgroundSync.efePointSyncComplete$.subscribe(event => {
-        console.log('[DataService] EFE point synced, invalidating point caches');
         this.efePointsCache.clear();
         this.efeAttachmentsCache.clear();
         this.debouncedCacheInvalidation(undefined, 'efe_point_sync');
@@ -131,28 +126,23 @@ export class EngineersFoundationDataService {
     // This ensures that stale in-memory data doesn't override fresh IndexedDB data
     this.syncSubscriptions.push(
       this.offlineTemplate.backgroundRefreshComplete$.subscribe(event => {
-        console.log('[DataService] Background refresh complete:', event.dataType, 'for', event.serviceId);
         
         // Clear the corresponding in-memory cache
         switch (event.dataType) {
           case 'visuals':
             this.visualsCache.delete(event.serviceId);
-            console.log('[DataService] Cleared visualsCache for', event.serviceId);
             break;
           case 'visual_attachments':
             this.visualAttachmentsCache.delete(event.serviceId);
-            console.log('[DataService] Cleared visualAttachmentsCache for', event.serviceId);
             break;
           case 'efe_rooms':
             // No specific room cache - just notify
             break;
           case 'efe_points':
             this.efePointsCache.delete(event.serviceId);
-            console.log('[DataService] Cleared efePointsCache for', event.serviceId);
             break;
           case 'efe_point_attachments':
             this.efeAttachmentsCache.delete(event.serviceId);
-            console.log('[DataService] Cleared efeAttachmentsCache for', event.serviceId);
             break;
         }
         
@@ -165,7 +155,6 @@ export class EngineersFoundationDataService {
     // This provides real-time UI updates when images are created/updated in IndexedDB
     this.syncSubscriptions.push(
       this.indexedDb.imageChange$.subscribe(event => {
-        console.log('[DataService] IndexedDB image change:', event.action, event.key, 'entity:', event.entityType, event.entityId);
         
         // Clear attachment caches for the affected entity type
         if (event.entityType === 'visual') {
@@ -198,7 +187,6 @@ export class EngineersFoundationDataService {
 
     // Set a new timer - emit after 1 second of no new sync events
     this.cacheInvalidationTimer = setTimeout(() => {
-      console.log(`[DataService] Debounced cache invalidation fired (reason: ${reason})`);
       this.cacheInvalidated$.next({ 
         serviceId: this.pendingInvalidationServiceId, 
         reason: reason 
@@ -213,7 +201,6 @@ export class EngineersFoundationDataService {
    * Called after sync to ensure fresh data is loaded from IndexedDB
    */
   invalidateCachesForService(serviceId: string, reason: string = 'manual'): void {
-    console.log(`[DataService] Invalidating all caches for service ${serviceId} (reason: ${reason})`);
     
     // Clear service-specific caches
     this.visualsCache.delete(serviceId);
@@ -277,7 +264,6 @@ export class EngineersFoundationDataService {
       // Complete if all critical data is present
       status.isComplete = status.visualTemplates && status.efeTemplates && status.serviceRecord;
 
-      console.log('[DataService] Cache health check:', status);
       return status;
     } catch (error) {
       console.error('[DataService] Error checking cache health:', error);
@@ -301,17 +287,14 @@ export class EngineersFoundationDataService {
     const cached = await this.indexedDb.getCachedServiceData(serviceId, dataType);
     
     if (cached && cached.length > 0) {
-      console.log(`[DataService] ✅ ${dataType} already cached: ${cached.length} items`);
       return true;
     }
 
     // Not cached - try to fetch if online and fetcher provided
     if (this.offlineService.isOnline() && fetcher) {
       try {
-        console.log(`[DataService] Fetching ${dataType} from API...`);
         const freshData = await fetcher();
         await this.indexedDb.cacheServiceData(serviceId, dataType, freshData || []);
-        console.log(`[DataService] ✅ ${dataType} fetched and cached: ${freshData?.length || 0} items`);
         return freshData && freshData.length > 0;
       } catch (error) {
         console.error(`[DataService] Failed to fetch ${dataType}:`, error);
@@ -339,7 +322,6 @@ export class EngineersFoundationDataService {
     // OFFLINE-FIRST: Try IndexedDB first
     const cachedService = await this.offlineTemplate.getService(serviceId);
     if (cachedService) {
-      console.log('[Service Data] Loaded service from IndexedDB cache');
       return cachedService;
     }
 
@@ -359,11 +341,9 @@ export class EngineersFoundationDataService {
   }
 
   async getEFETemplates(forceRefresh = false): Promise<any[]> {
-    console.log('[EFE Data] Loading EFE templates');
 
     // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
     const templates = await this.offlineTemplate.getEFETemplates();
-    console.log('[EFE Data] Loaded templates:', templates.length, '(from IndexedDB)');
 
     return templates;
   }
@@ -372,11 +352,9 @@ export class EngineersFoundationDataService {
    * Get visual templates with offline support
    */
   async getVisualsTemplates(forceRefresh = false): Promise<any[]> {
-    console.log('[Visual Data] Loading visual templates');
 
     // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
     const templates = await this.offlineTemplate.getVisualTemplates();
-    console.log('[Visual Data] Loaded templates:', templates.length, '(from IndexedDB)');
 
     return templates;
   }
@@ -387,11 +365,9 @@ export class EngineersFoundationDataService {
       return [];
     }
 
-    console.log('[EFE Data] Loading EFE rooms for ServiceID:', serviceId);
 
     // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
     const rooms = await this.offlineTemplate.getEFERooms(serviceId);
-    console.log('[EFE Data] Loaded rooms:', rooms.length, '(from IndexedDB + pending)');
 
     return rooms;
   }
@@ -410,14 +386,11 @@ export class EngineersFoundationDataService {
       console.warn('[Visual Data] getVisualsByService called with empty serviceId');
       return [];
     }
-    console.log('[Visual Data] Loading visuals for ServiceID:', serviceId);
 
     // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
     const visuals = await this.offlineTemplate.getVisualsByService(serviceId);
-    console.log('[Visual Data] Loaded visuals:', visuals.length, '(from IndexedDB + pending)');
 
     if (visuals.length > 0) {
-      console.log('[Visual Data] Sample visual:', visuals[0]);
     }
     return visuals;
   }
@@ -427,13 +400,10 @@ export class EngineersFoundationDataService {
       return [];
     }
     const visualIdStr = String(visualId);
-    console.log('[Visual Data] Loading attachments for VisualID:', visualIdStr);
 
     // WEBAPP MODE: Return only server data (no local images)
     if (environment.isWeb) {
-      console.log('[Visual Data] WEBAPP MODE: Loading attachments from server only');
       const serverAttachments = await this.offlineTemplate.getVisualAttachments(visualId);
-      console.log(`[Visual Data] WEBAPP: Loaded ${serverAttachments?.length || 0} attachments from server`);
       return serverAttachments || [];
     }
 
@@ -523,8 +493,6 @@ export class EngineersFoundationDataService {
     // Merge: local-first images first (most recent), then legacy
     const merged = [...localAttachments, ...filteredLegacy];
 
-    console.log('[Visual Data] Loaded attachments (silent sync):', merged.length,
-      `(${localAttachments.length} local-first + ${filteredLegacy.length} legacy)`);
 
     return merged;
   }
@@ -534,11 +502,9 @@ export class EngineersFoundationDataService {
       return [];
     }
     const key = String(roomId);
-    console.log('[EFE Data] Loading EFE points for RoomID:', key);
 
     // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
     const points = await this.offlineTemplate.getEFEPoints(key);
-    console.log('[EFE Data] Loaded points:', points.length, '(from IndexedDB + pending)');
 
     return points;
   }
@@ -552,13 +518,11 @@ export class EngineersFoundationDataService {
 
     // WEBAPP MODE: Return only server data (no local images)
     if (environment.isWeb) {
-      console.log('[EFE Data] WEBAPP MODE: Loading attachments from server only for', ids.length, 'points');
       const serverAttachments: any[] = [];
       for (const pointId of ids) {
         const attachments = await this.offlineTemplate.getEFEPointAttachments(pointId);
         serverAttachments.push(...attachments);
       }
-      console.log(`[EFE Data] WEBAPP: Loaded ${serverAttachments.length} attachments from server`);
       return serverAttachments;
     }
 
@@ -630,8 +594,6 @@ export class EngineersFoundationDataService {
     // Merge: local-first images first, then legacy
     const merged = [...localAttachments, ...filteredLegacy];
 
-    console.log('[EFE Data] Loaded attachments for', ids.length, 'points:', merged.length,
-      `(${localAttachments.length} local-first + ${filteredLegacy.length} legacy)`);
     return merged;
   }
 
@@ -655,7 +617,6 @@ export class EngineersFoundationDataService {
 
   // Clear all caches - use when returning to page to force fresh data load
   clearAllCaches(): void {
-    console.log('[Data Service] Clearing ALL caches to force fresh data load');
 
     // Clear in-memory caches in this service
     this.projectCache.clear();
@@ -675,7 +636,6 @@ export class EngineersFoundationDataService {
 
   // Clear specific caches for a service - use when service data changes
   clearServiceCaches(serviceId: string): void {
-    console.log('[Data Service] Clearing caches for ServiceID:', serviceId);
     this.visualsCache.delete(serviceId);
     // Note: Can't easily clear EFE points/attachments without knowing all room IDs
     // Better to use clearAllCaches() when returning to page
@@ -693,7 +653,6 @@ export class EngineersFoundationDataService {
   setWebappVisualRecordId(serviceId: string, category: string, templateId: string | number, visualId: string): void {
     const key = `${serviceId}_${category}_${templateId}`;
     this.webappVisualRecordIds.set(key, visualId);
-    console.log(`[Data Service] WEBAPP: Saved visual mapping: ${key} -> ${visualId}`);
   }
 
   /**
@@ -719,7 +678,6 @@ export class EngineersFoundationDataService {
       }
     }
 
-    console.log(`[Data Service] WEBAPP: Retrieved ${result.size} visual mappings for ${serviceId}/${category}`);
     return result;
   }
 
@@ -734,10 +692,8 @@ export class EngineersFoundationDataService {
           this.webappVisualRecordIds.delete(key);
         }
       }
-      console.log(`[Data Service] WEBAPP: Cleared visual mappings for service ${serviceId}`);
     } else {
       this.webappVisualRecordIds.clear();
-      console.log('[Data Service] WEBAPP: Cleared all visual mappings');
     }
   }
 
@@ -748,7 +704,6 @@ export class EngineersFoundationDataService {
   async createVisual(visualData: any): Promise<any> {
     // WEBAPP MODE: Create directly via API (no local storage)
     if (environment.isWeb) {
-      console.log('[Visual Data] WEBAPP: Creating visual directly via API:', visualData);
 
       try {
         const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_Visuals/records?response=rows`, {
@@ -765,7 +720,6 @@ export class EngineersFoundationDataService {
         const result = await response.json();
         const createdRecord = result.Result?.[0] || result;
 
-        console.log('[Visual Data] WEBAPP: ✅ Visual created with ID:', createdRecord.VisualID || createdRecord.PK_ID);
 
         // Clear cache
         if (visualData.ServiceID) {
@@ -785,7 +739,6 @@ export class EngineersFoundationDataService {
     }
 
     // MOBILE MODE: Offline-first with background sync
-    console.log('[Visual Data] Creating new visual (OFFLINE-FIRST):', visualData);
 
     // Generate temporary ID
     const tempId = this.tempId.generateTempId('visual');
@@ -819,7 +772,6 @@ export class EngineersFoundationDataService {
 
     // Sync will happen on next 60-second interval (batched sync)
 
-    console.log('[Visual Data] Visual saved with temp ID:', tempId);
 
     // Return placeholder immediately
     return placeholder;
@@ -828,7 +780,6 @@ export class EngineersFoundationDataService {
   async updateVisual(visualId: string, visualData: any, serviceId?: string): Promise<any> {
     // WEBAPP MODE: Update directly via API
     if (environment.isWeb) {
-      console.log('[Visual Data] WEBAPP: Updating visual directly via API:', visualId, visualData);
 
       try {
         const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_Visuals/records?q.where=VisualID=${visualId}`, {
@@ -842,7 +793,6 @@ export class EngineersFoundationDataService {
           throw new Error(`Failed to update visual: ${errorText}`);
         }
 
-        console.log('[Visual Data] WEBAPP: ✅ Visual updated:', visualId);
 
         // Clear in-memory cache
         this.visualsCache.clear();
@@ -855,7 +805,6 @@ export class EngineersFoundationDataService {
     }
 
     // MOBILE MODE: Offline-first
-    console.log('[Visual Data] Updating visual (OFFLINE-FIRST):', visualId, visualData);
 
     const isTempId = String(visualId).startsWith('temp_');
 
@@ -874,7 +823,6 @@ export class EngineersFoundationDataService {
           status: 'pending',
           priority: 'normal',
         });
-        console.log('[Visual Data] Queued update for sync:', visualId);
       }
     }
 
@@ -888,7 +836,6 @@ export class EngineersFoundationDataService {
   }
 
   async deleteVisual(visualId: string, serviceId?: string): Promise<any> {
-    console.log('[Visual Data] Deleting visual (OFFLINE-FIRST):', visualId);
     
     const isTempId = String(visualId).startsWith('temp_');
     
@@ -896,7 +843,6 @@ export class EngineersFoundationDataService {
     if (isTempId) {
       // For temp IDs, just remove the pending request
       await this.indexedDb.removePendingRequest(visualId);
-      console.log('[Visual Data] Removed pending visual:', visualId);
     } else {
       // Queue delete for background sync
       // CRITICAL: Use the correct API endpoint format with q.where clause
@@ -909,7 +855,6 @@ export class EngineersFoundationDataService {
         status: 'pending',
         priority: 'normal',
       });
-      console.log('[Visual Data] Queued delete for sync:', visualId);
       
       // Remove from IndexedDB cache if we have serviceId
       if (serviceId) {
@@ -951,7 +896,6 @@ export class EngineersFoundationDataService {
    * @param serviceId - Service ID for grouping (required for proper sync)
    */
   async uploadVisualPhoto(visualId: number | string, file: File, caption: string = '', drawings?: string, originalFile?: File, serviceId?: string): Promise<any> {
-    console.log('[Visual Photo] LOCAL-FIRST upload via LocalImageService for VisualID:', visualId, 'ServiceID:', serviceId);
     
     const visualIdStr = String(visualId);
     const effectiveServiceId = serviceId || '';
@@ -970,7 +914,6 @@ export class EngineersFoundationDataService {
     // Get display URL (will be local blob URL)
     const displayUrl = await this.localImageService.getDisplayUrl(localImage);
 
-    console.log('[Visual Photo] ✅ Image captured with stable ID:', localImage.imageId, 'status:', localImage.status);
 
     // Return immediately with stable imageId - NEVER WAIT FOR NETWORK
     // The imageId is a stable UUID that never changes (safe for Angular trackBy)
@@ -1016,18 +959,15 @@ export class EngineersFoundationDataService {
   }
 
   async deleteVisualPhoto(attachId: string): Promise<any> {
-    console.log('[Visual Photo] Deleting photo:', attachId);
 
     // Clear all attachment caches first (optimistic update)
     this.visualAttachmentsCache.clear();
 
     // WEBAPP MODE: Delete immediately via direct API call
     if (environment.isWeb) {
-      console.log('[Visual Photo] WEBAPP: Deleting photo directly via API:', attachId);
       try {
         // Use the existing CaspioService method for deleting visual attachments
         await firstValueFrom(this.caspioService.deleteServiceVisualsAttach(String(attachId)));
-        console.log('[Visual Photo] WEBAPP: Photo deleted successfully:', attachId);
         return { success: true, deleted: true };
       } catch (error) {
         console.error('[Visual Photo] WEBAPP: Failed to delete photo:', error);
@@ -1037,7 +977,6 @@ export class EngineersFoundationDataService {
 
     // MOBILE MODE: Queue delete for background sync (matches room-elevation pattern)
     // This ensures consistent behavior online/offline and batches deletes with other sync operations
-    console.log('[Visual Photo] MOBILE: Queuing delete for sync:', attachId);
     await this.indexedDb.addPendingRequest({
       type: 'DELETE',
       endpoint: `/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`,
@@ -1052,7 +991,6 @@ export class EngineersFoundationDataService {
   }
 
   async updateVisualPhotoCaption(attachId: string, caption: string, visualId?: string): Promise<any> {
-    console.log('[Visual Photo] Updating caption for AttachID:', attachId);
     const updateData = { Annotation: caption };
 
     // OFFLINE-FIRST: Update IndexedDB cache immediately
@@ -1065,7 +1003,6 @@ export class EngineersFoundationDataService {
             : att
         );
         await this.indexedDb.cacheServiceData(visualId, 'visual_attachments', updated);
-        console.log('[Visual Photo] ✅ Caption saved to IndexedDB for visual', visualId);
       } catch (cacheError) {
         console.warn('[Visual Photo] Failed to update IndexedDB cache:', cacheError);
       }
@@ -1083,7 +1020,6 @@ export class EngineersFoundationDataService {
         status: 'pending',
         priority: 'normal',
       });
-      console.log('[Visual Photo] ⏳ Caption queued for sync (offline)');
       // Sync will happen on next 60-second interval (batched sync)
       this.visualAttachmentsCache.clear();
       return { success: true, queued: true };
@@ -1094,7 +1030,6 @@ export class EngineersFoundationDataService {
       const result = await firstValueFrom(
         this.caspioService.updateServicesVisualsAttach(attachId, updateData)
       );
-      console.log('[Visual Photo] ✅ Caption saved via API');
       this.visualAttachmentsCache.clear();
       return result;
     } catch (apiError) {
@@ -1120,17 +1055,14 @@ export class EngineersFoundationDataService {
     if (visualId) {
       const key = String(visualId);
       this.visualAttachmentsCache.delete(key);
-      console.log('[Visual Photo] Cleared cache for VisualID:', visualId);
     } else {
       this.visualAttachmentsCache.clear();
-      console.log('[Visual Photo] Cleared all attachment caches');
     }
   }
 
   // Clear cache for EFE point attachments - CRITICAL for ensuring photos appear after navigation
   clearEFEAttachmentsCache(): void {
     this.efeAttachmentsCache.clear();
-    console.log('[EFE Photo] Cleared all EFE attachment caches');
   }
 
   // ============================================
@@ -1154,7 +1086,6 @@ export class EngineersFoundationDataService {
     attachType: 'visual' | 'efe_point' | 'fdf',
     metadata: { serviceId?: string; visualId?: string; pointId?: string } = {}
   ): Promise<string> {
-    console.log(`[Caption Queue] Queueing caption update for ${attachType} attach:`, attachId);
 
     // 1. Update local cache immediately with _localUpdate flag
     await this.updateLocalCacheWithCaption(attachId, caption, undefined, attachType, metadata);
@@ -1162,7 +1093,6 @@ export class EngineersFoundationDataService {
     // WEBAPP MODE: Call API directly for immediate persistence (if not a temp ID)
     const isTempId = String(attachId).startsWith('temp_') || String(attachId).startsWith('img_');
     if (environment.isWeb && !isTempId) {
-      console.log(`[Caption Queue] WEBAPP: Updating caption directly via API for ${attachType}:`, attachId);
       try {
         let endpoint = '';
         if (attachType === 'efe_point') {
@@ -1194,7 +1124,6 @@ export class EngineersFoundationDataService {
             throw new Error(`API returned ${response.status}`);
           }
 
-          console.log(`[Caption Queue] WEBAPP: ✅ Caption updated successfully`);
           return `webapp_direct_${Date.now()}`;
         }
       } catch (apiError: any) {
@@ -1213,7 +1142,6 @@ export class EngineersFoundationDataService {
       pointId: metadata.pointId
     });
 
-    console.log(`[Caption Queue] ✅ Caption queued:`, captionId);
 
     // Sync will happen on next 60-second interval (batched sync)
 
@@ -1230,7 +1158,6 @@ export class EngineersFoundationDataService {
     attachType: 'visual' | 'efe_point' | 'fdf',
     metadata: { serviceId?: string; visualId?: string; pointId?: string; caption?: string } = {}
   ): Promise<string> {
-    console.log(`[Annotation Queue] Queueing annotation update for ${attachType} attach:`, attachId);
 
     // 1. Update local cache immediately with _localUpdate flag
     await this.updateLocalCacheWithCaption(attachId, metadata.caption, drawings, attachType, metadata);
@@ -1238,7 +1165,6 @@ export class EngineersFoundationDataService {
     // WEBAPP MODE: Call API directly for immediate persistence (if not a temp ID)
     const isTempId = String(attachId).startsWith('temp_') || String(attachId).startsWith('img_');
     if (environment.isWeb && !isTempId) {
-      console.log(`[Annotation Queue] WEBAPP: Updating annotation directly via API for ${attachType}:`, attachId);
       try {
         let endpoint = '';
         const updateData: any = { Drawings: drawings };
@@ -1276,7 +1202,6 @@ export class EngineersFoundationDataService {
             throw new Error(`API returned ${response.status}`);
           }
 
-          console.log(`[Annotation Queue] WEBAPP: ✅ Annotation updated successfully`);
           return `webapp_direct_${Date.now()}`;
         }
       } catch (apiError: any) {
@@ -1295,7 +1220,6 @@ export class EngineersFoundationDataService {
       pointId: metadata.pointId
     });
 
-    console.log(`[Annotation Queue] ✅ Annotation queued:`, captionId);
 
     // Sync will happen on next 60-second interval (batched sync)
 
@@ -1312,7 +1236,6 @@ export class EngineersFoundationDataService {
     attachType: 'visual' | 'efe_point' | 'fdf',
     metadata: { serviceId?: string; visualId?: string; pointId?: string } = {}
   ): Promise<string> {
-    console.log(`[Caption+Annotation Queue] Queueing combined update for ${attachType} attach:`, attachId);
 
     // 1. Update local cache
     await this.updateLocalCacheWithCaption(attachId, caption, drawings, attachType, metadata);
@@ -1320,7 +1243,6 @@ export class EngineersFoundationDataService {
     // WEBAPP MODE: Call API directly for immediate persistence (if not a temp ID)
     const isTempId = String(attachId).startsWith('temp_') || String(attachId).startsWith('img_');
     if (environment.isWeb && !isTempId) {
-      console.log(`[Caption+Annotation Queue] WEBAPP: Updating directly via API for ${attachType}:`, attachId);
       try {
         let endpoint = '';
         const updateData: any = { Annotation: caption, Drawings: drawings };
@@ -1352,7 +1274,6 @@ export class EngineersFoundationDataService {
             throw new Error(`API returned ${response.status}`);
           }
 
-          console.log(`[Caption+Annotation Queue] WEBAPP: ✅ Updated successfully`);
           return `webapp_direct_${Date.now()}`;
         }
       } catch (apiError: any) {
@@ -1371,7 +1292,6 @@ export class EngineersFoundationDataService {
       pointId: metadata.pointId
     });
 
-    console.log(`[Caption+Annotation Queue] ✅ Combined update queued:`, captionId);
 
     // Sync will happen on next 60-second interval (batched sync)
     return captionId;
@@ -1401,7 +1321,6 @@ export class EngineersFoundationDataService {
           drawings: drawings
         });
         if (updated) {
-          console.log(`[Caption Cache] ✅ Updated pending photo data for temp ID:`, attachIdStr);
         } else {
           // Photo might not be in pendingImages store yet or was already synced
           // This is OK - pendingCaptions store will handle it as the authoritative source
@@ -1428,7 +1347,6 @@ export class EngineersFoundationDataService {
         if (foundInCache) {
           await this.indexedDb.cacheServiceData(metadata.visualId, 'visual_attachments', updatedCache);
           this.visualAttachmentsCache.clear();
-          console.log(`[Caption Cache] ✅ Updated visual attachments cache for visualId:`, metadata.visualId);
         } else if (!isTempId) {
           console.warn(`[Caption Cache] ⚠️ Attachment ${attachIdStr} not found in visual cache - pendingCaptions will handle it`);
         }
@@ -1448,7 +1366,6 @@ export class EngineersFoundationDataService {
         if (foundInCache) {
           await this.indexedDb.cacheServiceData(metadata.pointId, 'efe_point_attachments', updatedCache);
           this.efeAttachmentsCache.clear();
-          console.log(`[Caption Cache] ✅ Updated EFE point attachments cache for pointId:`, metadata.pointId);
         } else if (!isTempId) {
           console.warn(`[Caption Cache] ⚠️ Attachment ${attachIdStr} not found in EFE cache - pendingCaptions will handle it`);
         }
@@ -1478,7 +1395,6 @@ export class EngineersFoundationDataService {
   async createEFERoom(roomData: any): Promise<any> {
     // WEBAPP MODE: Create directly via API (no local storage)
     if (environment.isWeb) {
-      console.log('[EFE Data] WEBAPP: Creating EFE room directly via API:', roomData);
 
       try {
         const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE/records?response=rows`, {
@@ -1495,7 +1411,6 @@ export class EngineersFoundationDataService {
         const result = await response.json();
         const createdRecord = result.Result?.[0] || result;
 
-        console.log('[EFE Data] WEBAPP: ✅ EFE room created with ID:', createdRecord.EFEID || createdRecord.PK_ID);
 
         return {
           ...roomData,
@@ -1510,7 +1425,6 @@ export class EngineersFoundationDataService {
     }
 
     // MOBILE MODE: Offline-first with background sync
-    console.log('[EFE Data] Creating new EFE room (OFFLINE-FIRST):', roomData);
 
     // Generate temporary ID
     const tempId = this.tempId.generateTempId('efe');
@@ -1548,7 +1462,6 @@ export class EngineersFoundationDataService {
 
     // Sync will happen on next 60-second interval (batched sync)
 
-    console.log('[EFE Data] EFE room queued with temp ID:', tempId);
 
     // Return placeholder immediately
     return placeholder;
@@ -1558,11 +1471,9 @@ export class EngineersFoundationDataService {
    * Update an EFE room
    */
   async updateEFERoom(efeId: string, roomData: any): Promise<any> {
-    console.log('[EFE Data] Updating EFE room:', efeId);
 
     // Check if this is a temp ID (offline created room)
     if (String(efeId).startsWith('temp_')) {
-      console.log('[EFE Data] Cannot update room with temp ID until synced');
       throw new Error('Room not yet synced. Please wait for sync to complete.');
     }
 
@@ -1580,13 +1491,11 @@ export class EngineersFoundationDataService {
    * Delete an EFE room
    */
   async deleteEFERoom(efeId: string): Promise<any> {
-    console.log('[EFE Data] Deleting EFE room:', efeId);
 
     // Check if this is a temp ID (offline created room)
     if (String(efeId).startsWith('temp_')) {
       // Remove from pending
       await this.indexedDb.removePendingEFE(efeId);
-      console.log('[EFE Data] Removed pending EFE room:', efeId);
       return { deleted: true };
     }
 
@@ -1602,15 +1511,12 @@ export class EngineersFoundationDataService {
    * Create an EFE point (offline-first pattern with room dependency)
    */
   async createEFEPoint(pointData: any, roomTempId?: string): Promise<any> {
-    console.log('[EFE Data] createEFEPoint called with:', { pointData, roomTempId, isWeb: environment.isWeb });
 
     // Determine parent ID (room's temp or real ID)
     const parentId = roomTempId || String(pointData.EFEID);
-    console.log('[EFE Data] parentId resolved to:', parentId, 'type:', typeof parentId);
 
     // WEBAPP MODE: Create directly via API (if room has real ID, not temp)
     if (environment.isWeb && !String(parentId).startsWith('temp_')) {
-      console.log('[EFE Data] WEBAPP: Entering webapp branch for point creation');
       // Ensure EFEID is numeric (database expects integer)
       const numericEfeId = parseInt(String(parentId), 10);
       if (isNaN(numericEfeId)) {
@@ -1618,7 +1524,6 @@ export class EngineersFoundationDataService {
         throw new Error(`Invalid EFEID: ${parentId}`);
       }
 
-      console.log('[EFE Data] WEBAPP: Creating EFE point directly via API:', { ...pointData, EFEID: numericEfeId });
 
       try {
         const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE_Points/records?response=rows`, {
@@ -1638,7 +1543,6 @@ export class EngineersFoundationDataService {
         const result = await response.json();
         const createdRecord = result.Result?.[0] || result;
 
-        console.log('[EFE Data] WEBAPP: ✅ EFE point created with ID:', createdRecord.PointID || createdRecord.PK_ID);
 
         return {
           PointID: createdRecord.PointID || createdRecord.PK_ID,
@@ -1655,7 +1559,6 @@ export class EngineersFoundationDataService {
     }
 
     // MOBILE MODE: Offline-first with background sync
-    console.log('[EFE Data] Creating new EFE point (OFFLINE-FIRST):', pointData);
 
     // Generate temporary ID
     const tempId = this.tempId.generateTempId('point');
@@ -1690,7 +1593,6 @@ export class EngineersFoundationDataService {
       const roomRequest = [...pending, ...allRequests].find(r => r.tempId === roomTempId);
       if (roomRequest) {
         dependencies.push(roomRequest.requestId);
-        console.log('[EFE Data] Point depends on room request:', roomRequest.requestId);
       } else {
         console.warn('[EFE Data] Room request not found for', roomTempId, '- point may sync before room!');
       }
@@ -1717,7 +1619,6 @@ export class EngineersFoundationDataService {
 
     // Sync will happen on next 60-second interval (batched sync)
 
-    console.log('[EFE Data] EFE point queued with temp ID:', tempId, 'EFEID:', parentId, 'dependencies:', dependencies);
 
     // Return placeholder immediately
     return placeholder;
@@ -1727,11 +1628,9 @@ export class EngineersFoundationDataService {
    * Update an EFE point
    */
   async updateEFEPoint(pointId: string, pointData: any): Promise<any> {
-    console.log('[EFE Data] Updating EFE point:', pointId);
 
     // Check if this is a temp ID
     if (String(pointId).startsWith('temp_')) {
-      console.log('[EFE Data] Cannot update point with temp ID until synced');
       throw new Error('Point not yet synced. Please wait for sync to complete.');
     }
 
@@ -1747,13 +1646,11 @@ export class EngineersFoundationDataService {
    * Delete an EFE point
    */
   async deleteEFEPoint(pointId: string): Promise<any> {
-    console.log('[EFE Data] Deleting EFE point:', pointId);
 
     // Check if this is a temp ID
     if (String(pointId).startsWith('temp_')) {
       // Remove from pending
       await this.indexedDb.removePendingEFE(pointId);
-      console.log('[EFE Data] Removed pending EFE point:', pointId);
       return { deleted: true };
     }
 
@@ -1792,7 +1689,6 @@ export class EngineersFoundationDataService {
 
     // WEBAPP MODE: Upload directly to S3 and create database record immediately
     if (environment.isWeb && !isTempPointId) {
-      console.log('[EFE Photo] WEBAPP: Direct upload to S3 for PointID:', pointId, 'photoType:', photoType);
 
       try {
         // Generate unique filename for S3
@@ -1808,7 +1704,6 @@ export class EngineersFoundationDataService {
         formData.append('attachId', pointIdStr);
 
         const uploadUrl = `${environment.apiGatewayUrl}/api/s3/upload`;
-        console.log('[EFE Photo] WEBAPP: Uploading to S3:', uploadUrl);
 
         const uploadResponse = await fetch(uploadUrl, {
           method: 'POST',
@@ -1822,7 +1717,6 @@ export class EngineersFoundationDataService {
 
         const uploadResult = await uploadResponse.json();
         const s3Key = uploadResult.s3Key;
-        console.log('[EFE Photo] WEBAPP: ✅ Uploaded to S3 with key:', s3Key);
 
         // Create attachment record in database
         const attachmentData = {
@@ -1848,7 +1742,6 @@ export class EngineersFoundationDataService {
         const createdRecord = createResult.Result?.[0] || createResult;
         const attachId = createdRecord.AttachID || createdRecord.PK_ID;
 
-        console.log('[EFE Photo] WEBAPP: ✅ Attachment record created with ID:', attachId);
 
         // Create blob URL for immediate display (most reliable)
         const displayUrl = URL.createObjectURL(file);
@@ -1891,7 +1784,6 @@ export class EngineersFoundationDataService {
     }
 
     // MOBILE MODE (or webapp fallback): Local-first upload via LocalImageService
-    console.log('[EFE Photo] LOCAL-FIRST upload via LocalImageService for PointID:', pointId, 'photoType:', photoType, 'ServiceID:', serviceId);
 
     // Use LocalImageService for proper local-first handling with stable UUIDs
     // This stores blob + metadata + outbox item in a single atomic transaction
@@ -1909,7 +1801,6 @@ export class EngineersFoundationDataService {
     // Get display URL (will be local blob URL)
     const displayUrl = await this.localImageService.getDisplayUrl(localImage);
 
-    console.log('[EFE Photo] ✅ Image captured with stable ID:', localImage.imageId, 'status:', localImage.status);
 
     // Return immediately with stable imageId - NEVER WAIT FOR NETWORK
     // The imageId is a stable UUID that never changes (safe for Angular trackBy)
@@ -1959,13 +1850,11 @@ export class EngineersFoundationDataService {
    * Delete an EFE point photo
    */
   async deleteEFEPointPhoto(attachId: string): Promise<any> {
-    console.log('[EFE Photo] Deleting photo:', attachId);
 
     // Check if this is a temp ID
     if (String(attachId).startsWith('temp_')) {
       // Remove from IndexedDB
       await this.indexedDb.deleteStoredFile(attachId);
-      console.log('[EFE Photo] Removed pending photo:', attachId);
       return { deleted: true };
     }
 
@@ -2034,9 +1923,6 @@ export class EngineersFoundationDataService {
     };
     error?: string;
   }> {
-    console.log(`[DataService] ═══════════════════════════════════════════════════`);
-    console.log(`[DataService] 🔄 REHYDRATION STARTING for service: ${serviceId}`);
-    console.log(`[DataService] ═══════════════════════════════════════════════════`);
 
     const result = {
       success: false,
@@ -2062,11 +1948,6 @@ export class EngineersFoundationDataService {
 
       // Log the state before rehydration
       if (metadata) {
-        console.log(`[DataService] 📋 Service State Before Rehydration:`);
-        console.log(`[DataService]    - Purge State: ${metadata.purgeState}`);
-        console.log(`[DataService]    - Last Touched: ${new Date(metadata.lastTouchedAt).toLocaleString()}`);
-        console.log(`[DataService]    - Local Revision: ${metadata.lastLocalRevision}`);
-        console.log(`[DataService]    - Server ACK Revision: ${metadata.lastServerAckRevision}`);
       }
 
       // Count what's currently in local storage (should be 0 or minimal if purged)
@@ -2074,12 +1955,7 @@ export class EngineersFoundationDataService {
       const existingVisualFields = await db.visualFields.where('serviceId').equals(serviceId).count();
       const existingEfeFields = await db.efeFields.where('serviceId').equals(serviceId).count();
 
-      console.log(`[DataService] 📊 Current Local State (before rehydration):`);
-      console.log(`[DataService]    - Local Images: ${existingImages}`);
-      console.log(`[DataService]    - Visual Fields: ${existingVisualFields}`);
-      console.log(`[DataService]    - EFE Fields: ${existingEfeFields}`);
       if (metadata && metadata.purgeState === 'ACTIVE') {
-        console.log('[DataService] Service already ACTIVE, no rehydration needed');
         result.success = true;
         return result;
       }
@@ -2091,15 +1967,12 @@ export class EngineersFoundationDataService {
       const visualCategories = ['Grading', 'Roofing', 'Foundation', 'Superstructure', 'Limitations', 'Summary'];
 
       // ========== STEP 1: Seed EFE templates ==========
-      console.log('[DataService] Step 1: Seeding EFE templates...');
       const efeTemplates = await this.offlineTemplate.getEFETemplates();
       if (efeTemplates && efeTemplates.length > 0) {
         await this.efeFieldRepo.seedFromTemplates(serviceId, efeTemplates);
-        console.log(`[DataService] ✅ Seeded ${efeTemplates.length} EFE templates`);
       }
 
       // ========== STEP 2: Seed Visual templates ==========
-      console.log('[DataService] Step 2: Seeding Visual templates...');
       const allVisualTemplates = await this.offlineTemplate.getVisualTemplates();
       for (const category of visualCategories) {
         try {
@@ -2112,10 +1985,8 @@ export class EngineersFoundationDataService {
           console.warn(`[DataService] Failed to seed visual templates for ${category}:`, err);
         }
       }
-      console.log('[DataService] ✅ Visual templates seeded');
 
       // ========== STEP 3: Fetch and merge EFE rooms from server ==========
-      console.log('[DataService] Step 3: Fetching EFE rooms from server...');
       const efeRooms = await firstValueFrom(this.caspioService.getServicesEFE(serviceId));
       if (efeRooms && Array.isArray(efeRooms) && efeRooms.length > 0) {
         // Cache the raw data
@@ -2124,7 +1995,6 @@ export class EngineersFoundationDataService {
         // Merge into efeFields table (Dexie-first)
         await this.efeFieldRepo.mergeExistingRooms(serviceId, efeRooms);
         result.restored.efeRooms = efeRooms.length;
-        console.log(`[DataService] ✅ Merged ${efeRooms.length} EFE rooms`);
 
         // Fetch EFE points for each room and update efeFields
         for (const room of efeRooms) {
@@ -2161,11 +2031,9 @@ export class EngineersFoundationDataService {
             }
           }
         }
-        console.log(`[DataService] ✅ Restored ${result.restored.efeAttachments} EFE attachments`);
       }
 
       // ========== STEP 4: Fetch and merge Visuals from server ==========
-      console.log('[DataService] Step 4: Fetching Visuals from server...');
       const visuals = await firstValueFrom(this.caspioService.getServicesVisualsByServiceId(serviceId));
       if (visuals && Array.isArray(visuals) && visuals.length > 0) {
         // Cache the raw data
@@ -2180,13 +2048,11 @@ export class EngineersFoundationDataService {
           }
         }
         const categoriesArray = Array.from(serverCategories);
-        console.log(`[DataService] Found categories in server data:`, categoriesArray);
 
         // Merge into visualFields table for each category found in server data
         for (const category of serverCategories) {
           await this.visualFieldRepo.mergeExistingVisuals(serviceId, category, visuals);
         }
-        console.log(`[DataService] ✅ Merged ${visuals.length} visuals across ${serverCategories.size} categories`);
 
         // Fetch visual attachments and create LocalImage records
         for (const visual of visuals) {
@@ -2207,7 +2073,6 @@ export class EngineersFoundationDataService {
             }
           }
         }
-        console.log(`[DataService] ✅ Restored ${result.restored.visualAttachments} visual attachments`);
       }
 
       // Update purge state to ACTIVE
@@ -2220,16 +2085,6 @@ export class EngineersFoundationDataService {
       result.success = true;
 
       // Output detailed rehydration stats
-      console.log(`[DataService] ═══════════════════════════════════════════════════`);
-      console.log(`[DataService] 🔄 REHYDRATION COMPLETE for service: ${serviceId}`);
-      console.log(`[DataService] ═══════════════════════════════════════════════════`);
-      console.log(`[DataService] 📊 Data Restored from Server:`);
-      console.log(`[DataService]    - Visuals: ${result.restored.visuals}`);
-      console.log(`[DataService]    - EFE Rooms: ${result.restored.efeRooms}`);
-      console.log(`[DataService]    - Visual Attachments: ${result.restored.visualAttachments}`);
-      console.log(`[DataService]    - EFE Attachments: ${result.restored.efeAttachments}`);
-      console.log(`[DataService]    - Total Items: ${result.restored.visuals + result.restored.efeRooms + result.restored.visualAttachments + result.restored.efeAttachments}`);
-      console.log(`[DataService] ═══════════════════════════════════════════════════`);
 
     } catch (err) {
       result.error = err instanceof Error ? err.message : 'Unknown error during rehydration';
@@ -2267,7 +2122,6 @@ export class EngineersFoundationDataService {
       .first();
 
     if (existing) {
-      console.log(`[DataService] LocalImage already exists for attachId: ${attachId}`);
       return;
     }
 
@@ -2301,7 +2155,6 @@ export class EngineersFoundationDataService {
     };
 
     await db.localImages.add(localImage);
-    console.log(`[DataService] Created LocalImage for attachment: ${attachId}`);
   }
 
   /**

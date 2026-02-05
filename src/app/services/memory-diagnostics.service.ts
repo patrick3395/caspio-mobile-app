@@ -58,7 +58,6 @@ export class MemoryDiagnosticsService {
     private alertController: AlertController,
     private serviceMetadata: ServiceMetadataService
   ) {
-    console.log('[MemoryDiagnostics] Service initialized');
   }
 
   /**
@@ -95,7 +94,6 @@ export class MemoryDiagnosticsService {
     };
 
     this.snapshots.push(snapshot);
-    console.log(`[MemoryDiagnostics] ${label}: ${memory.usedHeapMB.toFixed(2)} MB used`);
     return snapshot;
   }
 
@@ -184,7 +182,6 @@ export class MemoryDiagnosticsService {
   async showMemoryAlert(operationName: string, before: MemorySnapshot | null, after: MemorySnapshot | null): Promise<void> {
     if (!this.enabled) return;
 
-    console.log('[MemoryDiagnostics] Showing memory alert for:', operationName);
 
     // Always show storage stats since memory API doesn't work on mobile
     const stats = await this.getStorageStats();
@@ -205,7 +202,6 @@ export class MemoryDiagnosticsService {
       });
 
       await alert.present();
-      console.log('[MemoryDiagnostics] Alert presented successfully');
     } catch (err) {
       console.error('[MemoryDiagnostics] Failed to show alert:', err);
     }
@@ -443,7 +439,6 @@ export class MemoryDiagnosticsService {
       }
     }
 
-    console.log(`[MemoryDiagnostics] Cleared ${clearedCount} orphaned blobs (${clearedMB.toFixed(1)} MB)`);
 
     if (clearedCount > 0) {
       const alert = await this.alertController.create({
@@ -495,7 +490,6 @@ export class MemoryDiagnosticsService {
    * Use when normal clear isn't freeing space
    */
   async clearAllDataAggressive(): Promise<void> {
-    console.log('[MemoryDiagnostics] Starting AGGRESSIVE clear...');
 
     const beforeStats = await this.getDetailedStorageStats();
 
@@ -528,7 +522,6 @@ export class MemoryDiagnosticsService {
       const afterStats = await this.getDetailedStorageStats();
       const freedMB = beforeStats.totalMB - afterStats.totalMB;
 
-      console.log(`[MemoryDiagnostics] AGGRESSIVE clear complete. Freed ${freedMB.toFixed(1)} MB`);
 
       const alert = await this.alertController.create({
         header: '✅ All Data Cleared',
@@ -564,7 +557,6 @@ export class MemoryDiagnosticsService {
     if (!this.enabled) return;
 
     this.operationCounter++;
-    console.log(`[MemoryDiagnostics] Operation #${this.operationCounter}: ${operationName}`);
 
     // Get IndexedDB storage stats (works on mobile!)
     const stats = await this.getStorageStats();
@@ -631,7 +623,6 @@ export class MemoryDiagnosticsService {
    */
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;
-    console.log(`[MemoryDiagnostics] Alerts ${enabled ? 'enabled' : 'disabled'}`);
   }
 
   /**
@@ -666,7 +657,6 @@ export class MemoryDiagnosticsService {
 
     try {
       const stats = await this.getStorageStats();
-      console.log(`[MemoryDiagnostics] Startup storage check: ${stats.totalMB.toFixed(1)} MB`);
 
       if (stats.totalMB >= STORAGE_CRITICAL_MB) {
         console.warn(`[MemoryDiagnostics] CRITICAL: Storage at ${stats.totalMB.toFixed(1)} MB (threshold: ${STORAGE_CRITICAL_MB} MB)`);
@@ -755,7 +745,6 @@ export class MemoryDiagnosticsService {
    * when the user reopens them. This ensures data is restored from the server.
    */
   async clearAllSyncedData(): Promise<{ clearedMB: number; clearedCount: number; servicesMarked: number }> {
-    console.log('[MemoryDiagnostics] Starting clearAllSyncedData...');
 
     const beforeStats = await this.getStorageStats();
     let clearedCount = 0;
@@ -810,12 +799,10 @@ export class MemoryDiagnosticsService {
 
       // 4. CRITICAL: Mark affected services as PURGED so they will rehydrate
       // This ensures data is restored from the server when the user reopens the service
-      console.log(`[MemoryDiagnostics] Marking ${affectedServiceIds.size} services for rehydration...`);
       for (const serviceId of affectedServiceIds) {
         try {
           await this.serviceMetadata.setPurgeState(serviceId, 'PURGED');
           servicesMarked++;
-          console.log(`[MemoryDiagnostics] Marked service ${serviceId} as PURGED`);
         } catch (err) {
           console.warn(`[MemoryDiagnostics] Failed to mark service ${serviceId} as PURGED:`, err);
         }
@@ -824,7 +811,6 @@ export class MemoryDiagnosticsService {
       const afterStats = await this.getStorageStats();
       const clearedMB = beforeStats.totalMB - afterStats.totalMB;
 
-      console.log(`[MemoryDiagnostics] ✅ Cleared ${clearedCount} items, freed ${clearedMB.toFixed(1)} MB, marked ${servicesMarked} services for rehydration`);
 
       // Show confirmation
       const confirmAlert = await this.alertController.create({

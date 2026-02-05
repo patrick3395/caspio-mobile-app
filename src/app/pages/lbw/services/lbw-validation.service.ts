@@ -30,7 +30,6 @@ export class LbwValidationService {
    * Validate all required fields across all pages
    */
   async validateAllRequiredFields(projectId: string, serviceId: string): Promise<ValidationResult> {
-    console.log('[LBW Validation] Starting validation for:', { projectId, serviceId });
     
     const incompleteFields: IncompleteField[] = [];
 
@@ -42,7 +41,6 @@ export class LbwValidationService {
     const categoryIncomplete = await this.validateCategoryFields(projectId, serviceId);
     incompleteFields.push(...categoryIncomplete);
 
-    console.log('[LBW Validation] Validation complete. Incomplete fields:', incompleteFields.length);
 
     return {
       isComplete: incompleteFields.length === 0,
@@ -108,7 +106,6 @@ export class LbwValidationService {
         }
       });
 
-      console.log('[LBW Validation] Project fields incomplete:', incompleteFields.length);
     } catch (error) {
       console.error('[LBW Validation] Error validating project fields:', error);
     }
@@ -127,7 +124,6 @@ export class LbwValidationService {
       const allTemplates = await this.offlineTemplate.getLbwTemplates();
       const requiredItems = (allTemplates || []).filter((item: any) => item.Required === 'Yes');
 
-      console.log('[LBW Validation] Found required template items:', requiredItems?.length || 0);
 
       // DEXIE-FIRST: Fetch user's answers for this service from cache
       const userAnswers = await this.offlineTemplate.getLbwByService(serviceId);
@@ -164,7 +160,6 @@ export class LbwValidationService {
         }
       }
 
-      console.log('[LBW Validation] Category fields incomplete:', incompleteFields.length);
     } catch (error) {
       console.error('[LBW Validation] Error validating category fields:', error);
     }

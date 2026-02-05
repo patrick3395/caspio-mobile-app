@@ -875,6 +875,7 @@ export class DteProjectDetailsPage implements OnInit {
   }
 
   async showToast(message: string, color: string = 'primary') {
+    if (color === 'success' || color === 'info') return;
     const toast = await this.toastController.create({
       message,
       duration: 2000,

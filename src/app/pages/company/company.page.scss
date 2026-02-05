@@ -526,49 +526,51 @@ ion-content {
   margin-top: 16px;
 }
 
-// Collapsible Section
+// Collapsible Section (matches Deliverables table on project-detail page)
 .collapsible-section {
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--ion-border-color, #E0E0E0);
   overflow: hidden;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
 }
 
 .collapsible-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
+  padding: 14px 12px;
   cursor: pointer;
-  background: #ffffff;
+  background: var(--ion-surface-muted-background, #F5F5F5);
   transition: background 0.2s ease;
 
   &:hover {
-    background: #fafafa;
+    background: rgba(0, 0, 0, 0.03);
   }
 
   .collapsible-title {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
 
     ion-icon {
-      font-size: 20px;
-      color: #69635d;
+      font-size: 18px;
+      color: var(--noble-orange, #F15A27);
+      flex-shrink: 0;
       transition: transform 0.2s ease;
     }
 
     h3 {
       margin: 0;
-      font-size: 1.25rem;
+      font-size: 14px;
       font-weight: 600;
       color: #333333;
     }
 
     .collapsible-count {
-      font-size: 0.9rem;
-      color: #69635d;
-      font-weight: 500;
+      font-size: 13px;
+      color: rgba(51, 51, 51, 0.75);
+      font-weight: 400;
     }
   }
 
@@ -1861,6 +1863,28 @@ ion-segment.filter-segment {
 
 .responsive-table tbody tr:nth-child(even) {
   background: rgba(15, 57, 116, 0.05);
+}
+
+.fee-display-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  .fee-value {
+    font-size: 0.9rem;
+    color: #333;
+  }
+
+  .fee-edit-btn {
+    font-size: 15px;
+    color: #999;
+    cursor: pointer;
+    transition: color 0.15s;
+
+    &:hover {
+      color: #F15A27;
+    }
+  }
 }
 
 .fee-input-wrapper {

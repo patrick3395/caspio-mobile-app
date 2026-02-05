@@ -64,13 +64,6 @@ export class MutationTrackingService {
       timestamp: Date.now()
     };
 
-    console.log('[MutationTracker] 🔄 Mutation tracked:', {
-      type: fullMutation.type,
-      entity: fullMutation.entityType,
-      id: fullMutation.entityId,
-      projectId: fullMutation.projectId,
-      serviceId: fullMutation.serviceId
-    });
 
     this.mutations$.next(fullMutation);
   }
@@ -200,7 +193,6 @@ export class MutationTrackingService {
    * Automatically invalidate caches based on mutation type
    */
   private invalidateCachesForMutation(mutation: Mutation): void {
-    console.log('[MutationTracker] 🗑️ Invalidating caches for:', mutation.entityType);
 
     switch (mutation.entityType) {
       case EntityType.PROJECT:
@@ -236,7 +228,6 @@ export class MutationTrackingService {
   private invalidateProjectCaches(mutation: Mutation): void {
     if (!mutation.projectId) return;
 
-    console.log('[MutationTracker] Clearing project caches for:', mutation.projectId);
 
     // Clear specific project cache
     this.cache.clearByPattern(`project_detail`);
@@ -256,13 +247,11 @@ export class MutationTrackingService {
    */
   private invalidateServiceCaches(mutation: Mutation): void {
     if (mutation.serviceId) {
-      console.log('[MutationTracker] Clearing service caches for:', mutation.serviceId);
       this.cache.clearServiceRelatedCaches(mutation.serviceId);
       this.cache.clearByPattern(`ServiceID=${mutation.serviceId}`);
     }
 
     if (mutation.projectId) {
-      console.log('[MutationTracker] Clearing project caches for service mutation:', mutation.projectId);
       this.cache.clearProjectRelatedCaches(mutation.projectId);
       this.cache.clearByPattern(`ProjectID=${mutation.projectId}`);
     }
@@ -276,7 +265,6 @@ export class MutationTrackingService {
    * Invalidate document/attachment caches
    */
   private invalidateDocumentCaches(mutation: Mutation): void {
-    console.log('[MutationTracker] Clearing document caches');
 
     // Clear attachment tables
     this.cache.clearTableCache('LPS_Attach');
@@ -296,7 +284,6 @@ export class MutationTrackingService {
    * Invalidate annotation caches
    */
   private invalidateAnnotationCaches(mutation: Mutation): void {
-    console.log('[MutationTracker] Clearing annotation caches');
 
     if (mutation.serviceId) {
       this.cache.clearByPattern(`ServiceID=${mutation.serviceId}`);
@@ -311,7 +298,6 @@ export class MutationTrackingService {
    * Invalidate template caches
    */
   private invalidateTemplateCaches(mutation: Mutation): void {
-    console.log('[MutationTracker] Clearing template caches');
     this.cache.clearByPattern('templates');
     this.cache.clearByPattern('attach_templates');
   }

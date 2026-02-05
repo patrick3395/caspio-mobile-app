@@ -392,7 +392,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
       }
     });
 
-    console.log('[Cache] PDF cache cleared - next PDF view will show fresh data');
   }
 
   constructor(
@@ -427,27 +426,22 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private setupGlobalScrollLock(): void {
-    console.log('[SCROLL LOCK] Setting up global scroll lock');
     
     // Listen for when modals/alerts are about to open
     document.addEventListener('ionModalWillPresent', () => {
-      console.log('[SCROLL LOCK] ionModalWillPresent - LOCKING SCROLL');
       this.lockScroll();
     });
     
     document.addEventListener('ionAlertWillPresent', () => {
-      console.log('[SCROLL LOCK] ionAlertWillPresent - LOCKING SCROLL');
       this.lockScroll();
     });
     
     // Listen for when modals/alerts close
     document.addEventListener('ionModalDidDismiss', () => {
-      console.log('[SCROLL LOCK] ionModalDidDismiss - UNLOCKING SCROLL');
       this.unlockScroll();
     });
     
     document.addEventListener('ionAlertDidDismiss', () => {
-      console.log('[SCROLL LOCK] ionAlertDidDismiss - UNLOCKING SCROLL');
       this.unlockScroll();
     });
   }
@@ -463,7 +457,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
     this.lockedScrollX = (scrollElement as any)?.scrollLeft || window.scrollX;
     this.scrollLockActive = true;
     
-    console.log('[SCROLL LOCK] Locked at Y:', this.lockedScrollY, 'X:', this.lockedScrollX);
     
     // Start monitoring and forcing scroll position on BOTH window and ion-content
     if (this.scrollCheckInterval) {
@@ -477,7 +470,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
         
         // If scroll position changed, force it back on BOTH
         if (currentY !== this.lockedScrollY || currentX !== this.lockedScrollX) {
-          console.log('[SCROLL LOCK] Forcing scroll back from Y:', currentY, 'to Y:', this.lockedScrollY);
           window.scrollTo(this.lockedScrollX, this.lockedScrollY);
           if (scrollElement) {
             (scrollElement as any).scrollTop = this.lockedScrollY;
@@ -489,8 +481,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private unlockScroll(): void {
-    console.log('-------------------------------------------');
-    console.log('[SCROLL LOCK] UNLOCKING - About to restore to Y:', this.lockedScrollY);
     
     // Get ion-content scroll element
     const ionContent = document.querySelector('ion-content');
@@ -498,9 +488,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
                           ionContent?.querySelector('.inner-scroll') || 
                           document.documentElement;
     
-    console.log('[SCROLL LOCK] Current window.scrollY:', window.scrollY);
-    console.log('[SCROLL LOCK] Current ion-content scrollTop:', (scrollElement as any)?.scrollTop);
-    console.log('-------------------------------------------');
     
     // Stop monitoring
     this.scrollLockActive = false;
@@ -515,7 +502,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
       setTimeout(() => {
         const currentY = window.scrollY;
         const ionY = (scrollElement as any)?.scrollTop || 0;
-        console.log(`[SCROLL LOCK] Restore attempt ${i+1} - Target Y: ${this.lockedScrollY}, window.scrollY: ${currentY}, ion-content scrollTop: ${ionY}`);
         
         window.scrollTo(this.lockedScrollX, this.lockedScrollY);
         if (scrollElement) {
@@ -527,14 +513,10 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async ngOnInit() {
-    console.log('[ngOnInit] ========== START ==========');
     // Get project ID from route params
     this.projectId = this.route.snapshot.paramMap.get('projectId') || '';
     this.serviceId = this.route.snapshot.paramMap.get('serviceId') || '';
 
-    console.log('[ngOnInit] ProjectId from route:', this.projectId);
-    console.log('[ngOnInit] ServiceId from route:', this.serviceId);
-    console.log('[ngOnInit] isFirstLoad:', this.isFirstLoad);
 
     // Initialize operations queue and register executors
     await this.initializeOperationsQueue();
@@ -572,12 +554,9 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
     // Debug logging removed - v1.4.316
 
     // Load all data in parallel for faster initialization
-    console.log('[ngOnInit] About to call presentTemplateLoader()');
     await this.presentTemplateLoader();
-    console.log('[ngOnInit] presentTemplateLoader() completed');
 
     try {
-      console.log('[ngOnInit] Starting Promise.all data loading...');
       await Promise.all([
         this.loadProjectData(),
         this.loadVisualCategories(),
@@ -586,22 +565,17 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
         this.loadVisualDropdownOptions(),
         this.loadStatusOptions()
       ]);
-      console.log('[ngOnInit] Promise.all completed');
       
       // Then load any existing template data (including visual selections)
-      console.log('[ngOnInit] Starting loadExistingData...');
       await this.loadExistingData();
-      console.log('[ngOnInit] loadExistingData completed');
 
       this.dataInitialized = true;
       this.tryAutoOpenPdf();
     } catch (error) {
       console.error('Error loading template data:', error);
     } finally {
-      console.log('[ngOnInit] About to dismiss loader and set isFirstLoad = false');
       await this.dismissTemplateLoader();
       this.isFirstLoad = false; // Mark first load as complete
-      console.log('[ngOnInit] ========== END ==========');
     }
   }
   
@@ -619,14 +593,12 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
    * Initialize the operations queue and register executors for room/point/photo operations
    */
   private async initializeOperationsQueue(): Promise<void> {
-    console.log('[OperationsQueue] Initializing operations queue...');
 
     // Restore any pending operations from storage
     await this.operationsQueue.restore();
 
     // Register CREATE_VISUAL executor (Structural Systems)
     this.operationsQueue.setExecutor('CREATE_VISUAL', async (data: any) => {
-      console.log('[OperationsQueue] Executing CREATE_VISUAL:', data.Name);
       const response = await this.caspioService.createServicesDTE(data).toPromise();
 
       if (!response) {
@@ -639,30 +611,24 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
         throw new Error('DTEID not found in response');
       }
 
-      console.log('[OperationsQueue] Visual created successfully:', visualId);
       return { visualId, response };
     });
 
     // Register UPDATE_VISUAL executor (Structural Systems)
     this.operationsQueue.setExecutor('UPDATE_VISUAL', async (data: any) => {
-      console.log('[OperationsQueue] Executing UPDATE_VISUAL:', data.visualId);
       const { visualId, updateData } = data;
       const response = await this.caspioService.updateServicesDTE(visualId, updateData).toPromise();
-      console.log('[OperationsQueue] Visual updated successfully');
       return { response };
     });
 
     // Register DELETE_VISUAL executor (Structural Systems)
     this.operationsQueue.setExecutor('DELETE_VISUAL', async (data: any) => {
-      console.log('[OperationsQueue] Executing DELETE_VISUAL:', data.visualId);
       await this.caspioService.deleteServicesDTE(data.visualId).toPromise();
-      console.log('[OperationsQueue] Visual deleted successfully');
       return { success: true };
     });
 
     // Register UPLOAD_VISUAL_PHOTO executor (Structural Systems)
     this.operationsQueue.setExecutor('UPLOAD_VISUAL_PHOTO', async (data: any, onProgress?: (p: number) => void) => {
-      console.log('[OperationsQueue] Executing UPLOAD_VISUAL_PHOTO for visual:', data.visualId);
 
       // Compress the file first
       const compressedFile = await this.imageCompression.compressImage(data.file, {
@@ -702,13 +668,11 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
 
       if (onProgress) onProgress(1.0); // 100% complete
 
-      console.log('[OperationsQueue] Visual photo uploaded successfully:', response?.AttachID);
       return { attachId: response?.AttachID || response?.PK_ID, response };
     });
 
     // Register UPLOAD_VISUAL_PHOTO_UPDATE executor (Background photo upload for existing record)
     this.operationsQueue.setExecutor('UPLOAD_VISUAL_PHOTO_UPDATE', async (data: any, onProgress?: (p: number) => void) => {
-      console.log('[OperationsQueue] Executing UPLOAD_VISUAL_PHOTO_UPDATE for AttachID:', data.attachId);
 
       // Compress the file first
       const compressedFile = await this.imageCompression.compressImage(data.file, {
@@ -728,11 +692,9 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
 
       if (onProgress) onProgress(1.0); // 100% complete
 
-      console.log('[OperationsQueue] Photo updated successfully for AttachID:', data.attachId);
       return { response };
     });
 
-    console.log('[OperationsQueue] Operations queue initialized successfully');
   }
 
   private tryAutoOpenPdf(): void {
@@ -763,12 +725,10 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
   addButtonEventListeners() {
     // Angular (click) binding should handle button clicks
     // No need for manual DOM listeners which can cause double-firing
-    console.log('[Button Listeners] Using Angular click bindings - no manual listeners needed');
   }
 
   // Bound methods for event listeners
   private handleBackClick = (event?: Event) => {
-    console.log('[Back Button] Click detected!');
     if (event) {
       event.preventDefault();
       event.stopPropagation();
@@ -802,12 +762,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
   
   // Page re-entry - photos now use base64 URLs so no refresh needed
   async ionViewWillEnter() {
-    console.log('==========================================');
-    console.log('[Lifecycle] ionViewWillEnter CALLED');
-    console.log('[Lifecycle] isFirstLoad:', this.isFirstLoad);
-    console.log('[Lifecycle] ServiceID:', this.serviceId);
-    console.log('[Lifecycle] Current selectedItems:', Object.keys(this.selectedItems).length);
-    console.log('==========================================');
 
     // Re-add button listeners in case they were removed
     this.addButtonEventListeners();
@@ -815,32 +769,25 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
     // Skip data reload on first load - ngOnInit already handles it
     // Only reload when returning to the page after navigating away
     if (this.isFirstLoad) {
-      console.log('[Lifecycle] Skipping data reload on first load - handled by ngOnInit');
       return;
     }
 
     // CRITICAL: Clear all caches to force fresh data load from Caspio
     // This prevents stale cached data from being displayed when returning to the page
-    console.log('[Lifecycle] Clearing all data caches...');
     this.hudData.clearAllCaches();
 
     // CRITICAL FIX: Reload existing selections when returning to the page
     // This ensures data persists when navigating back and forth
     if (this.serviceId) {
       try {
-        console.log('[Lifecycle] Starting data reload...');
 
         // Reload project and service data (including all form fields)
         await this.loadProjectData();
-        console.log('[Lifecycle] After loadProjectData - Project fields reloaded');
 
         await this.loadServiceData();
-        console.log('[Lifecycle] After loadServiceData - Service fields reloaded');
 
         await this.loadExistingVisualSelections({ awaitPhotos: true }); // Reload visual selections
-        console.log('[Lifecycle] After loadExistingVisualSelections - selectedItems:', Object.keys(this.selectedItems).length);
 
-        console.log('[Lifecycle] Data reload COMPLETE');
       } catch (error) {
         console.error('[Lifecycle] ERROR during data reload:', error);
         // Show toast to make it visible
@@ -980,7 +927,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async retryFailedOperation(id: string): Promise<void> {
-    console.log(`[Operations] Retrying operation ${id}`);
     await this.operationsQueue.retryOperation(id);
     this.changeDetectorRef.detectChanges();
   }
@@ -1002,13 +948,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
 
   // Navigation method for back button
   goBack(event?: Event) {
-    console.log('='.repeat(50));
-    console.log('[goBack] CALLED!');
-    console.log('[goBack] Event:', event);
-    console.log('[goBack] Platform:', this.platform.isWeb() ? 'Web' : 'Mobile');
-    console.log('[goBack] ProjectId:', this.projectId);
-    console.log('[goBack] ServiceId:', this.serviceId);
-    console.log('='.repeat(50));
 
     // Prevent default and stop propagation
     if (event) {
@@ -1127,9 +1066,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
 
         // Initialize change tracking - no changes yet since we just loaded from database
         this.hasChangesAfterLastFinalization = false;
-        console.log('[LoadService] Initialized hasChangesAfterLastFinalization to false');
-        console.log('[LoadService] Service Status:', this.serviceData.Status);
-        console.log('[LoadService] ReportFinalized:', this.serviceData.ReportFinalized);
 
         // StructStat field removed from DTE template
         
@@ -1336,7 +1272,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
       const response = await this.caspioService.get<any>('/tables/LPS_Status/records').toPromise();
       if (response && response.Result) {
         this.statusOptions = response.Result;
-        console.log('[Status] Loaded status options:', this.statusOptions);
       }
     } catch (error) {
       console.error('Error loading status options:', error);
@@ -1380,7 +1315,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
     try {
       const dropdownData = await this.caspioService.getServicesDTEDrop().toPromise();
       
-      console.log('[Dropdown Options] Loaded dropdown data:', dropdownData?.length || 0, 'rows');
       
       if (dropdownData && dropdownData.length > 0) {
         // Group dropdown options by TemplateID
@@ -1399,7 +1333,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
           }
         });
         
-        console.log('[Dropdown Options] Grouped by TemplateID:', Object.keys(this.visualDropdownOptions).length, 'templates have options');
         
         // Log details about what dropdown options are available for each TemplateID
         Object.entries(this.visualDropdownOptions).forEach(([templateId, options]) => {
@@ -1408,7 +1341,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
           if (!optionsArray.includes('Other')) {
             optionsArray.push('Other');
           }
-          console.log(`[Dropdown Options] TemplateID ${templateId}: ${optionsArray.length} options -`, optionsArray.join(', '));
         });
       } else {
         console.warn('[Dropdown Options] No dropdown data received from API');
@@ -1797,7 +1729,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
           
           // Debug logging for AnswerType 2 items (multi-select dropdowns)
           if (template.AnswerType === 2) {
-            console.log(`[Template Load] Multi-select item: "${template.Name}" - PK_ID: ${template.PK_ID}, TemplateID: ${template.TemplateID}, Using for dropdown: ${templateData.templateId}`);
           }
           
           // Initialize selection state
@@ -1867,9 +1798,7 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
     }
 
     try {
-      console.log('[Visual Load] Fetching existing visuals for ServiceID:', this.serviceId);
       const existingVisuals = await this.hudData.getVisualsByService(this.serviceId);
-      console.log('[Visual Load] Found existing visuals:', existingVisuals.length, existingVisuals);
 
       if (existingVisuals && Array.isArray(existingVisuals)) {
         existingVisuals.forEach(visual => {
@@ -1883,10 +1812,8 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
               // CRITICAL FIX: Use DTEID (unique record ID) for key to ensure each visual gets unique photos
               const visualId = visual.DTEID || visual.PK_ID || visual.id;
               const key = visual.Category + "_" + visualId;
-              console.log('[Visual Load] Marking visual as selected:', key, 'DTEID:', visualId);
               this.selectedItems[key] = true;
               this.visualRecordIds[key] = String(visualId);
-              console.log('[Visual Load] selectedItems state:', Object.keys(this.selectedItems).length, 'items selected');
 
               // CRITICAL FIX: Create NEW item instances for each visual record from database
               // This ensures each visual (even duplicates of same template) has its own photos
@@ -2019,7 +1946,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
                   
                   // Add the new instance to the array
                   items.push(newItem);
-                  console.log(`[Visual Load] Created duplicate instance of template ${matchingTemplate.PK_ID} with DTEID ${visualId}`);
                 }
               };
 
@@ -2563,7 +2489,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    console.log('[DTE] Starting finalize validation...');
     const incompleteAreas: string[] = [];
 
     // Helper function to check if a value is empty
@@ -2585,7 +2510,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
 
     Object.entries(requiredProjectFields).forEach(([field, label]) => {
       const value = this.projectData[field];
-      console.log(`[DTE] Checking ${field}:`, value);
       if (isEmpty(value)) {
         incompleteAreas.push(`Project Information: ${label}`);
       }
@@ -2601,7 +2525,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
 
     Object.entries(requiredServiceFields).forEach(([field, label]) => {
       const value = this.serviceData[field];
-      console.log(`[DTE] Checking ${field}:`, value);
       if (isEmpty(value)) {
         incompleteAreas.push(`Service Information: ${label}`);
       }
@@ -2661,8 +2584,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
     // }
 
     // Show results
-    console.log('[DTE] Validation complete. Incomplete areas:', incompleteAreas.length);
-    console.log('[DTE] Missing fields:', incompleteAreas);
     
     if (incompleteAreas.length > 0) {
       const alert = await this.alertController.create({
@@ -2672,9 +2593,7 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
         buttons: ['OK']
       });
       await alert.present();
-      console.log('[DTE] Alert shown with missing fields');
     } else {
-      console.log('[DTE] All fields complete, showing confirmation dialog');
       // Check if this is an update or initial finalization
       const isUpdate = this.isReportFinalized();
       const buttonText = isUpdate ? 'Update' : 'Finalize';
@@ -2709,7 +2628,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
    */
   markReportChanged() {
     this.hasChangesAfterLastFinalization = true;
-    console.log('[markReportChanged] Set hasChangesAfterLastFinalization to TRUE');
     this.changeDetectorRef.detectChanges();
   }
 
@@ -2763,19 +2681,11 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
         // NOTE: StatusEng is NOT updated - it remains as "Created" (set when service was first created)
       };
 
-      console.log('[EngFoundation] Finalizing report with PK_ID:', this.serviceId);
-      console.log('[EngFoundation] ProjectId:', this.projectId);
-      console.log('[EngFoundation] Is first finalization:', isFirstFinalization);
-      console.log('[EngFoundation] StatusClient:', statusClientValue, '-> StatusAdmin:', statusAdminValue);
-      console.log('[EngFoundation] StatusEng will NOT be updated (remains as "Created")');
-      console.log('[EngFoundation] Update data:', updateData);
 
       // Update the Services table using PK_ID (this.serviceId is actually PK_ID)
       const response = await this.caspioService.updateService(this.serviceId, updateData).toPromise();
-      console.log('[EngFoundation] API Response:', response);
 
       // CRITICAL: Clear all caches so project-detail page loads fresh data
-      console.log('[EngFoundation] Clearing all caches for project:', this.projectId);
       this.cache.clearProjectRelatedCaches(this.projectId);
       this.cache.clearByPattern('projects_active');
       this.cache.clearByPattern('projects_all');
@@ -2787,18 +2697,14 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
 
       // Reset change tracking - button should be grayed out until next change
       this.hasChangesAfterLastFinalization = false;
-      console.log('[EngFoundation] Reset hasChangesAfterLastFinalization to false after update');
 
       // Trigger change detection to update button state
       this.changeDetectorRef.detectChanges();
 
-      console.log('[EngFoundation] Report finalized successfully');
 
       await loading.dismiss();
 
       // Navigate back to project detail
-      console.log('[EngFoundation] Navigating to project detail...');
-      console.log('[EngFoundation] ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
 
       const navigationData = {
         finalizedServiceId: this.serviceId,
@@ -2807,18 +2713,14 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
         timestamp: Date.now()
       };
       localStorage.setItem('pendingFinalizedService', JSON.stringify(navigationData));
-      console.log('[EngFoundation] Stored navigation data:', navigationData);
 
       // Use different navigation for web vs mobile
-      console.log('[EngFoundation] Platform:', this.platform.isWeb() ? 'Web' : 'Mobile');
       setTimeout(() => {
         if (this.platform.isWeb()) {
           // Web: Use location.back() to avoid outlet activation error
-          console.log('[EngFoundation] Web: Using location.back()');
           this.location.back();
         } else {
           // Mobile: Use NavController for proper stack management
-          console.log('[EngFoundation] Mobile: Using navController.navigateBack()');
           this.navController.navigateBack(['/project', this.projectId]);
         }
       }, 300);
@@ -3096,7 +2998,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
 
       // Step 1: Wait for photo hydration if in progress
       if (this.photoHydrationPromise) {
-        console.log('[PDF] Waiting for photo hydration to complete...');
         loading = await this.alertController.create({
           header: 'Loading Photos',
           message: ' ',
@@ -3107,7 +3008,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
 
         try {
           await this.photoHydrationPromise;
-          console.log('[PDF] Photo hydration completed');
         } catch (error) {
           console.error('[PDF] Photo hydration error:', error);
           // Continue anyway - we'll handle missing photos gracefully
@@ -3120,7 +3020,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
       // Step 2: Wait for any pending saves to complete
       const savingKeys = Object.keys(this.savingItems).filter(key => this.savingItems[key]);
       if (savingKeys.length > 0) {
-        console.log('[PDF] Waiting for pending saves to complete:', savingKeys);
         loading = await this.alertController.create({
           header: 'Saving Changes',
           message: ' ',
@@ -3139,7 +3038,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
           }
           await new Promise(resolve => setTimeout(resolve, 100));
         }
-        console.log('[PDF] Pending saves completed or timed out');
 
         await loading.dismiss();
         loading = null;
@@ -3150,7 +3048,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
       const hasPendingPhotos = Object.keys(this.pendingPhotoUploads).length > 0;
 
       if (hasPendingVisuals || hasPendingPhotos) {
-        console.log('[PDF] Processing pending items before PDF generation');
         loading = await this.alertController.create({
           header: 'Syncing Data',
           message: ' ',
@@ -3161,7 +3058,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
 
         try {
           await this.processAllPendingVisuals();
-          console.log('[PDF] Pending items processed');
         } catch (error) {
           console.error('[PDF] Error processing pending items:', error);
           // Continue anyway
@@ -3193,7 +3089,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
       // CRITICAL: Check if user clicked cancel before continuing
       const { role } = await loading.onDidDismiss();
       if (role === 'cancel') {
-        console.log('[PDF] User cancelled PDF generation');
         this.isPDFGenerating = false;
         // Re-enable the PDF button
         const pdfBtn = (document.querySelector('.pdf-header-button') || document.querySelector('.pdf-fab')) as HTMLElement;
@@ -3226,10 +3121,8 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
       const cachedData = this.cache.get(cacheKey); // Use cache on all platforms
 
       if (cachedData) {
-        console.log('[PDF Data] ? Using cached PDF data - fast path!');
         ({ structuralSystemsData, elevationPlotData, projectInfo } = cachedData);
       } else {
-        console.log('[PDF Data] Loading fresh PDF data...');
         const startTime = Date.now();
         
         try {
@@ -3266,7 +3159,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
             elevationPlotData,
             projectInfo
           }, this.cache.CACHE_TIMES.MEDIUM);
-          console.log('[PDF Data] Cached PDF data for reuse (5 min expiry)');
         } catch (dataError) {
           console.error('[v1.4.338] Fatal error loading PDF data:', dataError);
           // Use fallback empty data to prevent reload
@@ -3289,18 +3181,15 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
         // Load primary photo (cover photo) in parallel
         (async () => {
           if (projectInfo?.primaryPhoto && typeof projectInfo.primaryPhoto === 'string') {
-            console.log('[PDF] Primary photo field value:', projectInfo.primaryPhoto.substring(0, 100));
 
             let convertedPhotoData: string | null = null;
 
             if (projectInfo.primaryPhoto.startsWith('/')) {
               // Caspio file path - convert to base64
               try {
-                console.log('[PDF] Converting primary photo from Caspio path to base64...');
                 const imageData = await this.caspioService.getImageFromFilesAPI(projectInfo.primaryPhoto).toPromise();
                 if (imageData && typeof imageData === 'string' && imageData.startsWith('data:')) {
                   convertedPhotoData = imageData;
-                  console.log('[PDF] Primary photo converted successfully (size:', Math.round(imageData.length / 1024), 'KB)');
                 } else {
                   console.error('[PDF] Primary photo conversion failed - invalid data returned:', typeof imageData);
                 }
@@ -3308,10 +3197,8 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
                 console.error('[PDF] Error converting primary photo:', error);
               }
             } else if (projectInfo.primaryPhoto.startsWith('data:')) {
-              console.log('[PDF] Primary photo is already base64, using directly');
               convertedPhotoData = projectInfo.primaryPhoto;
             } else if (projectInfo.primaryPhoto.startsWith('blob:')) {
-              console.log('[PDF] Primary photo is blob URL, attempting to convert...');
               try {
                 const response = await fetch(projectInfo.primaryPhoto);
                 const blob = await response.blob();
@@ -3322,7 +3209,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
                   reader.readAsDataURL(blob);
                 });
                 convertedPhotoData = base64;
-                console.log('[PDF] Primary photo blob converted successfully');
               } catch (error) {
                 console.error('[PDF] Error converting blob URL:', error);
               }
@@ -3337,12 +3223,10 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
             if (convertedPhotoData) {
               projectInfo.primaryPhotoBase64 = convertedPhotoData;
               projectInfo.primaryPhoto = convertedPhotoData;
-              console.log('[PDF] Primary photo ready for PDF rendering');
             } else {
               console.warn('[PDF] Primary photo conversion resulted in null - photo will not appear in PDF');
             }
           } else {
-            console.log('[PDF] No primary photo available for this project');
           }
         })()
       ]);
@@ -3750,7 +3634,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
       this.retryStuckPhotos();
     }, 10000); // 10 seconds
     
-    console.log('[Photo Retry] Periodic retry interval started (every 10 seconds)');
   }
 
   /**
@@ -3930,6 +3813,7 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async showToast(message: string, color: string = 'primary') {
+    if (color === 'success' || color === 'info') return;
     const toast = await this.toastController.create({
       message,
       duration: 2000,
@@ -4093,7 +3977,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
             dedupeKey: `update_visual_${existingVisualId}_${Date.now()}`,
             maxRetries: 3,
             onSuccess: () => {
-              console.log(`[Visual Queue] Updated answer for visual ${existingVisualId}`);
               this.savingItems[key] = false;
               this.changeDetectorRef.detectChanges();
             },
@@ -4123,7 +4006,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
             dedupeKey: `update_visual_${existingVisualId}_${Date.now()}`,
             maxRetries: 3,
             onSuccess: () => {
-              console.log(`[Visual Queue] Cleared answer for visual ${existingVisualId}`);
               this.savingItems[key] = false;
               this.changeDetectorRef.detectChanges();
             },
@@ -4171,7 +4053,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
             dedupeKey: `update_visual_${existingVisualId}_${Date.now()}`,
             maxRetries: 3,
             onSuccess: () => {
-              console.log(`[Visual Queue] Updated multi-select for visual ${existingVisualId}`);
               this.savingItems[key] = false;
               this.changeDetectorRef.detectChanges();
             },
@@ -4201,7 +4082,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
             dedupeKey: `update_visual_${existingVisualId}_${Date.now()}`,
             maxRetries: 3,
             onSuccess: () => {
-              console.log(`[Visual Queue] Cleared multi-select for visual ${existingVisualId}`);
               this.savingItems[key] = false;
               this.changeDetectorRef.detectChanges();
             },
@@ -4534,11 +4414,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
       this.inAttendanceOtherValue = '';
     }
     
-    console.log('[In Attendance] Parsed field:', {
-      raw: this.serviceData.InAttendance,
-      selections: this.inAttendanceSelections,
-      otherValue: this.inAttendanceOtherValue
-    });
   }
   
   // ========== End In Attendance Multi-Select Methods ==========
@@ -4730,7 +4605,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
         dedupeKey: `visual_${serviceIdNum}_${category}_${template.Name}`,
         maxRetries: 3,
         onSuccess: async (result: any) => {
-          console.log(`[Visual Queue] Success for ${template.Name}:`, result.visualId);
           this.visualRecordIds[key] = result.visualId;
           localStorage.setItem(recordKey, result.visualId);
           this.savingItems[key] = false;
@@ -4753,7 +4627,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
         }
       });
 
-      console.log(`[Visual Queue] Queued visual creation for ${template.Name}, operation ID: ${visualOpId}`);
     } catch (error) {
       console.error('Error saving visual:', error);
       await this.showToast('Failed to save visual', 'danger');
@@ -4788,7 +4661,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
           dedupeKey: 'delete_visual_' + recordId + '_' + Date.now(),
           maxRetries: 3,
           onSuccess: () => {
-            console.log('[Visual Queue] Deleted visual:', recordId);
             localStorage.removeItem(recordKey);
             this.changeDetectorRef.detectChanges();
           },
@@ -5698,7 +5570,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
       if (uploadTask) {
         this.activeUploadCount++;
 
-        console.log(`[Background Upload Queue] Starting upload (${this.activeUploadCount}/${this.maxParallelUploads} active, ${this.backgroundUploadQueue.length} queued)`);
 
         // Fire upload without awaiting - this allows parallel processing
         uploadTask()
@@ -5707,7 +5578,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
           })
           .finally(() => {
             this.activeUploadCount--;
-            console.log(`[Background Upload Queue] Upload completed (${this.activeUploadCount}/${this.maxParallelUploads} active, ${this.backgroundUploadQueue.length} queued)`);
 
             // Try to process next item in queue
             this.processBackgroundUploadQueue();
@@ -5744,7 +5614,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
           drawingsData
         ).toPromise();
 
-        console.log(`[Fast Upload] Created record instantly, AttachID: ${response.AttachID}`);
 
       } catch (createError: any) {
         console.error('Failed to create attachment record:', createError);
@@ -5758,7 +5627,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
 
       // Add upload task to queue
       this.backgroundUploadQueue.push(async () => {
-        console.log(`[Fast Upload] Starting queued upload for AttachID: ${attachId}`);
 
         try {
           const uploadResponse = await this.caspioService.updateServicesDTEAttachPhoto(
@@ -5767,7 +5635,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
             originalPhoto || undefined
           ).toPromise();
 
-          console.log(`[Fast Upload] Photo uploaded for AttachID: ${attachId}`);
 
           // CRITICAL: Run UI updates inside NgZone to ensure change detection
           this.ngZone.run(async () => {
@@ -5777,7 +5644,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
             // Find photo by attachId (it was updated in Step 3 below)
             const tempPhotoIndex = keyPhotos.findIndex((p: any) => p.AttachID === attachId || p.id === attachId);
 
-            console.log(`[Fast Upload] Found photo at index ${tempPhotoIndex} for AttachID: ${attachId}`);
 
             if (tempPhotoIndex !== -1) {
               const s3Key = uploadResponse?.Attachment; // S3 key
@@ -5787,9 +5653,7 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
               // Check if this is an S3 image
               if (s3Key && this.caspioService.isS3Key(s3Key)) {
                 try {
-                  console.log('[Fast Upload] ✨ S3 image detected, fetching pre-signed URL...');
                   imageUrl = await this.caspioService.getS3FileUrl(s3Key);
-                  console.log('[Fast Upload] ✅ Got S3 pre-signed URL');
                 } catch (err) {
                   console.error('[Fast Upload] ❌ Failed to fetch S3 URL:', err);
                   imageUrl = 'assets/img/photo-placeholder.svg';
@@ -5798,7 +5662,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
               // Fallback to old Caspio Files API
               else if (filePath) {
                 try {
-                  console.log('[Fast Upload] 📁 Caspio Files API path detected');
                   const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
                   if (imageData && imageData.startsWith('data:')) {
                     imageUrl = imageData;
@@ -5819,7 +5682,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
                 uploading: false  // CRITICAL: Clear the uploading flag
               };
 
-              console.log(`[Fast Upload] UI updated, uploading flag cleared for AttachID: ${attachId}`);
 
               // Force change detection
               this.changeDetectorRef.detectChanges();
@@ -5859,7 +5721,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
 
       if (tempPhotoId) {
         tempPhotoIndex = keyPhotos.findIndex((p: any) => p.id === tempPhotoId || p.AttachID === tempPhotoId);
-        console.log(`[Fast Upload] Looking for tempPhotoId: ${tempPhotoId}, found at index: ${tempPhotoIndex}`);
       }
 
       if (tempPhotoIndex !== -1) {
@@ -5871,7 +5732,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
           uploading: true,  // Still uploading in background
           queued: false  // CRITICAL: Clear queued flag
         };
-        console.log(`[Fast Upload] Updated photo at index ${tempPhotoIndex} with AttachID: ${attachId}`);
       } else {
         console.warn(`[Fast Upload] Could not find photo with tempPhotoId: ${tempPhotoId} in visualPhotos[${key}] (${keyPhotos.length} photos)`);
       }
@@ -5923,20 +5783,6 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
       if (!this._loggedPhotoKeys) this._loggedPhotoKeys = new Set();
       if (!this._loggedPhotoKeys.has(key)) {
         this._loggedPhotoKeys.add(key);
-        console.log(`[STRUCTURAL DEBUG] Photos for ${key}:`, 
-          photos.map(p => ({ 
-            AttachID: p.AttachID,
-            hasUrl: !!p.url,
-            urlType: p.url?.startsWith('data:') ? 'base64' : p.url?.startsWith('blob:') ? 'blob' : 'none',
-            hasThumbnail: !!p.thumbnailUrl,
-            thumbnailType: p.thumbnailUrl?.startsWith('data:') ? 'base64' : p.thumbnailUrl?.startsWith('blob:') ? 'blob' : 'placeholder',
-            hasDisplay: !!p.displayUrl,
-            displayType: p.displayUrl?.startsWith('data:') ? 'base64' : p.displayUrl?.startsWith('blob:') ? 'blob' : 'none',
-            caption: p.caption,
-            // Show first 50 chars of actual URL for debugging
-            urlPreview: p.displayUrl?.substring(0, 50) || p.thumbnailUrl?.substring(0, 50) || p.url?.substring(0, 50)
-          }))
-        );
       }
     }
     
@@ -7249,13 +7095,6 @@ Stack: ${error?.stack}`;
     this.preClickScrollY = (scrollElement as any)?.scrollTop || window.scrollY;
     this.preClickScrollX = (scrollElement as any)?.scrollLeft || window.scrollX;
     
-    console.log('-------------------------------------------');
-    console.log('[MOUSEDOWN] Saved scroll BEFORE click - Y:', this.preClickScrollY);
-    console.log('[MOUSEDOWN] window.scrollY:', window.scrollY);
-    console.log('[MOUSEDOWN] ion-content scrollTop:', (scrollElement as any)?.scrollTop);
-    console.log('[MOUSEDOWN] document.documentElement.scrollTop:', document.documentElement.scrollTop);
-    console.log('[MOUSEDOWN] Scroll element:', scrollElement?.tagName || scrollElement?.className);
-    console.log('-------------------------------------------');
   }
 
   // View photo - open viewer with integrated annotation
@@ -7271,8 +7110,6 @@ Stack: ${error?.stack}`;
       // CRITICAL: Use pre-click scroll position (saved on mousedown)
       this.lockedScrollY = this.preClickScrollY || window.scrollY;
       this.lockedScrollX = this.preClickScrollX || window.scrollX;
-      console.log('[viewPhoto] Using scroll position from mousedown - Y:', this.lockedScrollY);
-      console.log('[viewPhoto] Current window.scrollY:', window.scrollY);
       
       const key = `${category}_${itemId}`;
       const visualId = this.visualRecordIds[key];
@@ -7329,7 +7166,6 @@ Stack: ${error?.stack}`;
 
       // Get existing caption from photo object
       const existingCaption = photo.caption || photo.Annotation || '';
-      console.log(`[STRUCTURAL DEBUG] Existing caption:`, existingCaption);
 
       // ENHANCED: Open annotation window directly instead of photo viewer
       const modal = await this.modalController.create({
@@ -7499,7 +7335,6 @@ Stack: ${error?.stack}`;
           // Delete from database
           await this.caspioService.deleteServiceVisualsAttach(attachId).toPromise();
 
-          console.log('[Delete Photo] Photo removed successfully');
         } catch (error) {
           console.error('Failed to delete photo:', error);
         }
@@ -7953,7 +7788,6 @@ Stack: ${error?.stack}`;
     await Promise.all(loadPromises);
 
     const elapsed = performance.now() - startTime;
-    console.log(`[PHOTO FIX] Loaded photos for ${Object.keys(this.visualRecordIds).length} items in ${elapsed.toFixed(0)}ms`);
     this.changeDetectorRef.detectChanges(); // Single change detection after all photos loaded
   }
   
@@ -7980,18 +7814,11 @@ Stack: ${error?.stack}`;
         seenAttachIds.add(attachId);
         return true;
       });
-      console.log(`[STRUCTURAL DEBUG] Loaded ${uniquePhotoRecords.length} photo records for KEY: ${key}`);
 
       // CRITICAL FIX: Hydrate photos BEFORE assigning to visualPhotos
       // This ensures OnPush change detection sees photos with actual URLs, not placeholders
       await this.hydratePhotoRecords(uniquePhotoRecords);
       
-      console.log(`[STRUCTURAL DEBUG] Hydrated photos for KEY: ${key}`, uniquePhotoRecords.map(p => ({ 
-        AttachID: p.AttachID, 
-        hasUrl: !!p.url, 
-        hasThumbnail: !!p.thumbnailUrl, 
-        hasDisplay: !!p.displayUrl 
-      })));
       
       // NOW assign to visualPhotos AFTER hydration completes
       this.visualPhotos[key] = uniquePhotoRecords;
@@ -8129,16 +7956,12 @@ Stack: ${error?.stack}`;
   }
 
   private async presentTemplateLoader(message: string = 'Loading Report'): Promise<void> {
-    console.log('[presentTemplateLoader] Called with message:', message);
-    console.log('[presentTemplateLoader] templateLoaderPresented:', this.templateLoaderPresented);
     
     if (this.templateLoaderPresented) {
-      console.log('[presentTemplateLoader] Loader already presented, returning early');
       return;
     }
 
     this.templateLoadStart = Date.now();
-    console.log('[presentTemplateLoader] Creating alert controller...');
 
     try {
       // Create loading popup with cancel button
@@ -8158,10 +7981,8 @@ Stack: ${error?.stack}`;
       });
 
       if (this.templateLoader) {
-        console.log('[presentTemplateLoader] Presenting loader...');
         await this.templateLoader.present();
         this.templateLoaderPresented = true;
-        console.log('[presentTemplateLoader] Loader presented successfully');
       }
 
     } catch (error) {
@@ -8186,33 +8007,25 @@ Stack: ${error?.stack}`;
   }
 
   private async dismissTemplateLoader(): Promise<void> {
-    console.log('[dismissTemplateLoader] Called');
-    console.log('[dismissTemplateLoader] templateLoaderPresented:', this.templateLoaderPresented);
     
     if (!this.templateLoaderPresented) {
-      console.log('[dismissTemplateLoader] No loader to dismiss, returning early');
       return;
     }
 
     const elapsed = Date.now() - this.templateLoadStart;
     const remaining = this.templateLoaderMinDuration - elapsed;
-    console.log('[dismissTemplateLoader] Elapsed:', elapsed, 'ms, Remaining:', remaining, 'ms');
 
     if (remaining > 0) {
-      console.log('[dismissTemplateLoader] Waiting for minimum duration...');
       await new Promise(resolve => setTimeout(resolve, remaining));
     }
 
     try {
-      console.log('[dismissTemplateLoader] Dismissing loader...');
       await this.templateLoader?.dismiss();
-      console.log('[dismissTemplateLoader] Loader dismissed successfully');
     } catch (error) {
       console.warn('[TemplateLoader] Failed to dismiss loading overlay:', error);
     } finally {
       this.templateLoaderPresented = false;
       this.templateLoader = undefined;
-      console.log('[dismissTemplateLoader] Cleanup complete');
     }
   }
 
@@ -8301,7 +8114,6 @@ Stack: ${error?.stack}`;
   
   // Handle service field changes
   async onServiceFieldChange(fieldName: string, value: any) {
-    console.log('[onServiceFieldChange] Field:', fieldName, 'Value:', value);
 
     // Mark that changes have been made (enables Update button) - do this FIRST
     this.markReportChanged();
@@ -8493,19 +8305,14 @@ Stack: ${error?.stack}`;
   }
 
   async prepareStructuralSystemsData() {
-    console.log('[PDF] ========== prepareStructuralSystemsData START ==========');
-    console.log('[PDF] ServiceID:', this.serviceId);
     
     const result = [];
     
     // CRITICAL FIX: Fetch data directly from database instead of relying on in-memory state
     // This ensures PDF always shows the latest data, even when selections were made on category detail pages
-    console.log('[PDF] Fetching DTE records directly from database (bypassing cache)...');
     const allVisuals = await this.hudData.getVisualsByService(this.serviceId, true); // bypass cache
     
-    console.log('[PDF] Total DTE records from database:', allVisuals?.length || 0);
     if (allVisuals && allVisuals.length > 0) {
-      console.log('[PDF] Sample record:', JSON.stringify(allVisuals[0], null, 2));
     } else {
       console.warn('[PDF] ⚠️ NO DTE RECORDS FOUND IN DATABASE!');
     }
@@ -8520,7 +8327,6 @@ Stack: ${error?.stack}`;
       
       // Skip hidden visuals (soft deleted)
       if (visual.Notes && visual.Notes.startsWith('HIDDEN')) {
-        console.log('[PDF] Skipping hidden visual:', visual.Name);
         continue;
       }
       
@@ -8543,10 +8349,6 @@ Stack: ${error?.stack}`;
       }
     }
     
-    console.log('[PDF] Categories found:', categoryOrder);
-    console.log('[PDF] Organized data summary:', Object.keys(organizedFromDb).map(cat => 
-      `${cat}: ${organizedFromDb[cat].comments.length}C/${organizedFromDb[cat].limitations.length}L/${organizedFromDb[cat].deficiencies.length}D`
-    ));
     
     // Process each category from database
     for (const category of categoryOrder) {
@@ -8570,7 +8372,6 @@ Stack: ${error?.stack}`;
         const displayText = visual.Text || '';
         const answers = visual.Answers || '';
         
-        console.log('[PDF] Processing Comment:', visual.Name, 'DTEID:', DTEID);
         
         photoFetches.push(this.getVisualPhotos(DTEID, category, DTEID));
         photoMappings.push({
@@ -8591,7 +8392,6 @@ Stack: ${error?.stack}`;
         const displayText = visual.Text || '';
         const answers = visual.Answers || '';
         
-        console.log('[PDF] Processing Limitation:', visual.Name, 'DTEID:', DTEID);
         
         photoFetches.push(this.getVisualPhotos(DTEID, category, DTEID));
         photoMappings.push({
@@ -8612,7 +8412,6 @@ Stack: ${error?.stack}`;
         const displayText = visual.Text || '';
         const answers = visual.Answers || '';
         
-        console.log('[PDF] Processing Deficiency:', visual.Name, 'DTEID:', DTEID);
         
         photoFetches.push(this.getVisualPhotos(DTEID, category, DTEID));
         photoMappings.push({
@@ -8734,18 +8533,14 @@ Stack: ${error?.stack}`;
         p.displayUrl && (p.displayUrl.startsWith('data:') || p.displayUrl.startsWith('blob:'))
       );
       if (allValid) {
-        console.log('[PDF Photos] Using cached photos for visualId:', visualId, '(', cachedPhotos.length, 'photos)');
         return cachedPhotos;
       } else {
-        console.log('[PDF Photos] Cache invalid, reloading photos');
         this.cache.clear(cacheKey);
       }
     }
 
     // Load Fabric.js once for all photos to avoid multiple parallel imports
-    console.log('[PDF Photos] Loading Fabric.js for annotation rendering...');
     const fabric = await this.fabricService.getFabric();
-    console.log('[PDF Photos] Fabric.js loaded, processing', photos.length, 'photos for visual:', visualId);
 
     // PERFORMANCE OPTIMIZED: Process photos in batches
     // Increased batch sizes for faster PDF generation while maintaining stability
@@ -8757,7 +8552,6 @@ Stack: ${error?.stack}`;
 
     for (let i = 0; i < photos.length; i += BATCH_SIZE) {
       const batch = photos.slice(i, i + BATCH_SIZE);
-      console.log(`[PDF Photos] Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(photos.length / BATCH_SIZE)} (${batch.length} photos)`);
 
       const batchPromises = batch.map(async (photo, batchIndex) => {
       const photoIndex = i + batchIndex;
@@ -8769,9 +8563,6 @@ Stack: ${error?.stack}`;
       let conversionSuccess = false;
       let errorDetails = ''; // Store error info for debug popup
 
-      console.log(`[PDF Photos] [${photoIndex + 1}/${photos.length}] Processing "${photoName}"`);
-      console.log(`[PDF Photos]   - AttachID: ${photo.AttachID || 'none'}`);
-      console.log(`[PDF Photos]   - Photo URL: ${photoUrl?.substring(0, 100) || 'empty'}`);
 
       // If it's a Caspio file path (starts with /), convert to base64
       if (photoUrl && photoUrl.startsWith('/')) {
@@ -8780,12 +8571,10 @@ Stack: ${error?.stack}`;
         const cachedBase64 = !isMobile ? this.cache.get(photoCacheKey) : null;
 
         if (cachedBase64) {
-          console.log(`[PDF Photos]   - Using cached base64`);
           finalUrl = cachedBase64;
           conversionSuccess = true;
         } else {
           try {
-            console.log(`[PDF Photos]   - Converting to base64...`);
             const startTime = Date.now();
             const base64Data = await this.caspioService.getImageFromFilesAPI(photoUrl).toPromise();
             const duration = Date.now() - startTime;
@@ -8793,7 +8582,6 @@ Stack: ${error?.stack}`;
             if (base64Data && base64Data.startsWith('data:')) {
               finalUrl = base64Data;
               conversionSuccess = true;
-              console.log(`[PDF Photos]   ? Converted successfully in ${duration}ms (${Math.round(base64Data.length / 1024)}KB)`);
               // Cache individual photo for reuse (web only)
               if (!isMobile) {
                 this.cache.set(photoCacheKey, base64Data, this.cache.CACHE_TIMES.LONG);
@@ -8822,11 +8610,9 @@ Stack: ${error?.stack}`;
           }
         }
       } else if (photoUrl && (photoUrl.startsWith('blob:') || photoUrl.startsWith('data:'))) {
-        console.log(`[PDF Photos]   - Already data/blob URL`);
         finalUrl = photoUrl;
         conversionSuccess = true;
       } else if (photoUrl && photoUrl.startsWith('http')) {
-        console.log(`[PDF Photos]   - HTTP URL (may fail on mobile)`);
         finalUrl = photoUrl;
         conversionSuccess = true;
       } else {
@@ -8840,14 +8626,6 @@ Stack: ${error?.stack}`;
       // Check both Drawings and rawDrawingsString (rawDrawingsString is from buildPhotoRecord)
       const drawingsData = photo.Drawings || photo.rawDrawingsString;
       if (drawingsData && finalUrl && !finalUrl.includes('placeholder')) {
-        console.log('[PDF Photos] Rendering annotations for photo:', {
-          photoUrl,
-          hasDrawings: !!drawingsData,
-          drawingsType: typeof drawingsData,
-          drawingsPreview: typeof drawingsData === 'string' ? drawingsData.substring(0, 200) : drawingsData,
-          photoHasDrawings: !!photo.Drawings,
-          photoHasRawDrawingsString: !!photo.rawDrawingsString
-        });
         try {
           // Check cache for annotated version
           const annotatedCacheKey = this.cache.getApiCacheKey('photo_annotated', {
@@ -8857,14 +8635,11 @@ Stack: ${error?.stack}`;
           const cachedAnnotated = this.cache.get(annotatedCacheKey);
 
           if (cachedAnnotated) {
-            console.log('[PDF Photos] Using cached annotated photo');
             finalUrl = cachedAnnotated;
           } else {
-            console.log('[PDF Photos] Rendering annotations with renderAnnotationsOnPhoto...');
             // Render annotations onto the photo, passing the pre-loaded fabric instance
             const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawingsData, { quality: 0.9, format: 'jpeg', fabric });
             if (annotatedUrl && annotatedUrl !== finalUrl) {
-              console.log('[PDF Photos] Annotations rendered successfully');
               finalUrl = annotatedUrl;
               // Cache the annotated version
               this.cache.set(annotatedCacheKey, annotatedUrl, this.cache.CACHE_TIMES.LONG);
@@ -8878,7 +8653,6 @@ Stack: ${error?.stack}`;
         }
       } else {
         if (!drawingsData) {
-          console.log('[PDF Photos] No drawings data for photo:', photoUrl);
         }
       }
 
@@ -8906,7 +8680,6 @@ Stack: ${error?.stack}`;
       const batchResults = await Promise.all(batchPromises);
       processedPhotos.push(...batchResults);
 
-      console.log(`[PDF Photos] Batch complete: ${successCount} succeeded, ${failureCount} failed so far`);
 
       // Small delay between batches to allow garbage collection
       if (i + BATCH_SIZE < photos.length) {
@@ -8915,14 +8688,6 @@ Stack: ${error?.stack}`;
     }
 
     // Final summary
-    console.log(`[PDF Photos] ========== SUMMARY ==========`);
-    console.log(`[PDF Photos] Visual ID: ${visualId}`);
-    console.log(`[PDF Photos] Total photos: ${photos.length}`);
-    console.log(`[PDF Photos] Successful: ${successCount}`);
-    console.log(`[PDF Photos] Failed: ${failureCount}`);
-    console.log(`[PDF Photos] Success rate: ${photos.length > 0 ? Math.round((successCount / photos.length) * 100) : 0}%`);
-    console.log(`[PDF Photos] Platform: ${isMobile ? 'Mobile' : 'Web'}`);
-    console.log(`[PDF Photos] ============================`);
 
     // Show debug popup on mobile if there were failures
     if (isMobile && failureCount > 0) {
@@ -8959,9 +8724,7 @@ Stack: ${error?.stack}`;
     // Cache the processed photos using the cache service (web only - mobile gets fresh data)
     if (!isMobile) {
       this.cache.set(cacheKey, processedPhotos, this.cache.CACHE_TIMES.LONG);
-      console.log('[PDF Photos] Cached processed photos for web use');
     } else {
-      console.log('[PDF Photos] Skipping cache on mobile');
     }
 
     return processedPhotos;

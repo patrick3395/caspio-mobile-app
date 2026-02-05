@@ -47,7 +47,6 @@ export class TemplateRehydrationService {
     private indexedDb: IndexedDbService,
     private caspioService: CaspioService
   ) {
-    console.log('[TemplateRehydration] Service initialized');
   }
 
   /**
@@ -68,7 +67,6 @@ export class TemplateRehydrationService {
 
     const needsIt = metadata.purgeState === 'PURGED' || metadata.purgeState === 'ARCHIVED';
     if (needsIt) {
-      console.log(`[TemplateRehydration] Service ${serviceId} needs rehydration (state: ${metadata.purgeState})`);
     }
     return needsIt;
   }
@@ -90,19 +88,16 @@ export class TemplateRehydrationService {
     // Check if rehydration is already in progress
     const existingRehydration = this.rehydrationInProgress.get(rehydrationKey);
     if (existingRehydration) {
-      console.log(`[TemplateRehydration] Rehydration already in progress for ${rehydrationKey}`);
       return existingRehydration;
     }
 
     // Start rehydration
-    console.log(`[TemplateRehydration] Starting rehydration for ${config.id}/${serviceId}...`);
 
     const rehydrationPromise = this.performRehydration(config, serviceId);
     this.rehydrationInProgress.set(rehydrationKey, rehydrationPromise);
 
     try {
       const result = await rehydrationPromise;
-      console.log(`[TemplateRehydration] Rehydration complete for ${rehydrationKey}:`, result);
       return result;
     } finally {
       this.rehydrationInProgress.delete(rehydrationKey);
@@ -123,26 +118,20 @@ export class TemplateRehydrationService {
       // Step 1: Check purgeState - skip if already ACTIVE
       const metadata = await this.serviceMetadata.getServiceMetadata(serviceId);
       if (metadata?.purgeState === 'ACTIVE') {
-        console.log(`[TemplateRehydration] Service ${serviceId} is already ACTIVE, skipping rehydration`);
         return { success: true, recordsRestored: 0, imagesRestored: 0 };
       }
 
       // Step 2: Invalidate any in-memory caches by clearing cached service data
-      console.log(`[TemplateRehydration] Step 1: Invalidating caches for ${serviceId}...`);
       await this.indexedDb.clearCachedServiceData(serviceId, 'visuals');
 
       // Step 3: Get templates from offline cache (or fetch if needed)
-      console.log(`[TemplateRehydration] Step 2: Getting templates for ${config.id}...`);
       const templates = await this.getTemplatesForConfig(config);
       const dropdownData = await this.getDropdownDataForConfig(config);
 
       // Step 4: Fetch server records
-      console.log(`[TemplateRehydration] Step 3: Fetching server records for ${serviceId}...`);
       const serverRecords = await this.fetchServerRecords(config, serviceId);
-      console.log(`[TemplateRehydration] Fetched ${serverRecords.length} records from server`);
 
       // Step 5: Seed templates into Dexie field tables for each category
-      console.log(`[TemplateRehydration] Step 4: Seeding templates and merging records...`);
 
       // Get unique categories from both templates and records
       const categoriesFromTemplates = new Set(templates.map((t: any) => t.Category).filter(Boolean));
@@ -177,14 +166,11 @@ export class TemplateRehydrationService {
       recordsRestored = serverRecords.length;
 
       // Step 6: Create LocalImage records for attachments
-      console.log(`[TemplateRehydration] Step 5: Restoring image references...`);
       imagesRestored = await this.restoreImageReferences(config, serviceId, serverRecords);
 
       // Step 7: Set purgeState to ACTIVE
-      console.log(`[TemplateRehydration] Step 6: Setting purgeState to ACTIVE...`);
       await this.serviceMetadata.setPurgeState(serviceId, 'ACTIVE');
 
-      console.log(`[TemplateRehydration] ✅ Rehydration complete: ${recordsRestored} records, ${imagesRestored} images`);
 
       return {
         success: true,
@@ -295,7 +281,6 @@ export class TemplateRehydrationService {
 
     // Fetch attachments from server
     const attachments = await this.fetchAttachments(config, recordIds);
-    console.log(`[TemplateRehydration] Fetched ${attachments.length} attachments from server`);
 
     // Create LocalImage records for each attachment
     for (const attachment of attachments) {
@@ -420,7 +405,6 @@ export class TemplateRehydrationService {
    * Use this when user explicitly wants to sync from server
    */
   async forceRehydrate(config: TemplateConfig, serviceId: string): Promise<RehydrationResult> {
-    console.log(`[TemplateRehydration] Force rehydrating ${config.id}/${serviceId}...`);
 
     // Mark as PURGED to force rehydration
     await this.serviceMetadata.setPurgeState(serviceId, 'PURGED');

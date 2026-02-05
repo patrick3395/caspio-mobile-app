@@ -332,7 +332,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   
   // Page re-entry - photos now use base64 URLs so no refresh needed
   async ionViewWillEnter() {
-    console.log('[Lifecycle] ionViewWillEnter - Reloading data for page re-entry');
 
     // Re-add button listeners in case they were removed
     this.addButtonEventListeners();
@@ -342,7 +341,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     try {
       await this.loadRoomTemplates(); // Reload room selections and data
       await this.loadExistingVisualSelections({ awaitPhotos: true }); // Reload visual selections
-      console.log('[Lifecycle] Data reloaded successfully');
     } catch (error) {
       console.error('[Lifecycle] Error reloading data on page re-entry:', error);
     }
@@ -3798,7 +3796,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
             handler: () => {
               cancelRequested = true;
               resetState();
-              console.log('[PDF] User cancelled PDF generation');
               return true;
             }
           }
@@ -3844,7 +3841,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       const cachedData = this.cache.get(cacheKey);
 
       if (cachedData) {
-        console.log('[PDF] Using cached data');
         updateProgress(50, 'Loading from cache...');
         ({ structuralSystemsData, elevationPlotData, projectInfo } = cachedData);
       } else {
@@ -3853,7 +3849,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         if (cancelRequested) return;
 
         try {
-          console.log('[PDF] Step 1: Loading data in parallel...');
           updateProgress(10, 'Loading project information...');
 
           // Wrap each data prep in its own timeout to prevent infinite hangs
@@ -3883,8 +3878,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
             'PDF data loading'
           );
 
-          console.log('[PDF] Step 1 complete: structural=%d categories, elevation=%d rooms',
-            structuralData?.length || 0, elevationData?.length || 0);
 
           updateProgress(40, 'Processing data...');
           projectInfo = projectData;
@@ -3913,7 +3906,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
       if (cancelRequested) return;
 
-      console.log('[PDF] Step 2: Loading PDF preview component...');
       updateProgress(55, 'Loading PDF preview...');
       const PdfPreviewComponent = await withTimeout(this.loadPdfPreview(), 15000, 'PDF preview component');
 
@@ -3924,7 +3916,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       if (cancelRequested) return;
 
       // Preload primary photo (with timeout)
-      console.log('[PDF] Step 3: Processing cover photo...');
       updateProgress(70, 'Processing cover photo...');
       if (projectInfo?.primaryPhoto && typeof projectInfo.primaryPhoto === 'string') {
         try {
@@ -3976,7 +3967,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
       if (cancelRequested) return;
 
-      console.log('[PDF] Step 4: Creating PDF modal...');
       updateProgress(85, 'Preparing PDF document...');
 
       const modal = await this.modalController.create({
@@ -3995,7 +3985,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
 
       if (cancelRequested) return;
 
-      console.log('[PDF] Step 5: Presenting PDF modal...');
       updateProgress(95, 'Opening PDF...');
       await modal.present();
 
@@ -4094,6 +4083,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async showToast(message: string, color: string = 'primary') {
+    if (color === 'success' || color === 'info') return;
     const toast = await this.toastController.create({
       message,
       duration: 2000,
@@ -5257,14 +5247,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   
   // Separate method to perform the actual upload
   private async performVisualPhotoUpload(visualIdNum: number, photo: File, key: string, isBatchUpload: boolean = false, annotationData: any = null, originalPhoto: File | null = null) {
-    console.log('[UPLOAD] ========== Starting HUD Photo Upload ==========');
-    console.log('[UPLOAD] Key:', key);
-    console.log('[UPLOAD] HUDID:', visualIdNum);
-    console.log('[UPLOAD] File:', photo.name, `(${(photo.size / 1024).toFixed(2)} KB)`);
-    console.log('[UPLOAD] File type:', photo.type);
-    console.log('[UPLOAD] Is batch upload:', isBatchUpload);
-    console.log('[UPLOAD] Has annotation data:', !!annotationData);
-    console.log('[UPLOAD] Has original photo:', !!originalPhoto);
     
     try {
       // Show debug popup for what we're sending (only for single uploads)
@@ -5304,17 +5286,10 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       // Prepare the Drawings field data (annotation JSON)
       const drawingsData = annotationData ? JSON.stringify(annotationData) : '';
       
-      console.log('[UPLOAD] Preparing upload data:');
-      console.log('[UPLOAD]   - HUDID:', visualIdNum);
-      console.log('[UPLOAD]   - Annotation:', '(empty)');
-      console.log('[UPLOAD]   - Drawings data length:', drawingsData.length);
-      console.log('[UPLOAD]   - Photo file:', photo.name);
-      console.log('[UPLOAD]   - Original photo:', originalPhoto?.name || 'none');
       
       // Using EXACT same approach as working Required Documents upload but with HUD methods
       let response;
       try {
-        console.log('[UPLOAD] Calling createServicesHUDAttachWithFile...');
         response = await this.caspioService.createServicesHUDAttachWithFile(
           visualIdNum, 
           '', // Annotation field stays blank
@@ -5322,7 +5297,6 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           drawingsData, // Pass the annotation JSON to Drawings field
           originalPhoto || undefined // Pass original photo if we have annotations
         ).toPromise();
-        console.log('[UPLOAD] ✅ Upload response received:', response);
       } catch (uploadError: any) {
         console.error('Ã¢ÂÅ’ Upload failed:', uploadError);
         
@@ -6900,7 +6874,6 @@ Stack: ${error?.stack}`;
           // Delete from database (Services_HUD_Attach table)
           await this.caspioService.deleteServicesHUDAttach(attachId).toPromise();
 
-          console.log('[Delete Photo] Photo removed successfully');
         } catch (error) {
           console.error('Failed to delete photo:', error);
         }
@@ -6916,7 +6889,6 @@ Stack: ${error?.stack}`;
 
   async addPhotoFromCamera(category: string, itemId: string | number) {
     try {
-      console.log('[ADD PHOTO] Camera - Category:', category, 'ItemID:', itemId);
       
       // Take photo with camera
       const image = await Camera.getPhoto({
@@ -6937,7 +6909,6 @@ Stack: ${error?.stack}`;
         // Create visual record if it doesn't exist
         let visualId = this.visualRecordIds[key];
         if (!visualId) {
-          console.log('[ADD PHOTO] Creating HUD record first...');
           await this.saveVisualSelection(category, itemId);
           visualId = this.visualRecordIds[key];
         }
@@ -6955,7 +6926,6 @@ Stack: ${error?.stack}`;
           return;
         }
 
-        console.log('[ADD PHOTO] Valid HUD ID found:', visualIdNum);
 
         // Convert webPath to blob
         const response = await fetch(image.webPath);
@@ -6966,7 +6936,6 @@ Stack: ${error?.stack}`;
         const imageUrl = URL.createObjectURL(blob);
 
         // Open annotator for camera photos
-        console.log('[ADD PHOTO] Opening annotator...');
         const modal = await this.modalController.create({
           component: FabricPhotoAnnotatorComponent,
           componentProps: {
@@ -6980,7 +6949,6 @@ Stack: ${error?.stack}`;
         const { data } = await modal.onDidDismiss();
 
         if (data && data.blob) {
-          console.log('[ADD PHOTO] User saved annotations');
           
           // User annotated the photo
           const annotatedBlob = data.blob;
@@ -7012,13 +6980,11 @@ Stack: ${error?.stack}`;
 
           // Queue upload via background service
           const uploadFn = async (visualId: number, photo: File, cap: string) => {
-            console.log('[CAMERA UPLOAD] Uploading photo via background service');
             const result = await this.performHUDPhotoUpload(visualId, photo, key, true, annotationsData, originalFile, tempId, cap);
 
             // If there are annotations, save them after upload completes
             if (annotationsData && result) {
               try {
-                console.log('[CAMERA UPLOAD] Saving annotations for AttachID:', result);
 
                 // Save annotations to database
                 await this.saveAnnotationToDatabase(result, annotatedBlob, annotationsData, cap);
@@ -7038,7 +7004,6 @@ Stack: ${error?.stack}`;
                     annotationsData: annotationsData
                   };
                   this.changeDetectorRef.detectChanges();
-                  console.log('[CAMERA UPLOAD] Annotations saved and display updated');
                 }
               } catch (error) {
                 console.error('[CAMERA UPLOAD] Error saving annotations:', error);
@@ -7058,7 +7023,6 @@ Stack: ${error?.stack}`;
             uploadFn
           );
 
-          console.log('[CAMERA UPLOAD] Photo queued for background upload');
         }
 
         // Clean up blob URL
@@ -7080,7 +7044,6 @@ Stack: ${error?.stack}`;
 
   async addPhotoFromGallery(category: string, itemId: string | number) {
     try {
-      console.log('[ADD PHOTO] Gallery - Key:', `${category}_${itemId}`);
       
       // Use pickImages to allow multiple photo selection
       const images = await Camera.pickImages({
@@ -7096,7 +7059,6 @@ Stack: ${error?.stack}`;
           this.visualPhotos[key] = [];
         }
 
-        console.log('[GALLERY UPLOAD] Starting upload for', images.photos.length, 'photos');
 
         // CRITICAL: Create skeleton placeholders IMMEDIATELY for all photos
         const skeletonPhotos = images.photos.map((image, i) => {
@@ -7120,12 +7082,10 @@ Stack: ${error?.stack}`;
         // Add all skeleton placeholders to UI immediately
         this.visualPhotos[key].push(...skeletonPhotos);
         this.changeDetectorRef.detectChanges();
-        console.log('[GALLERY UPLOAD] Added', skeletonPhotos.length, 'skeleton placeholders');
 
         // NOW create HUD record if it doesn't exist
         let visualId = this.visualRecordIds[key];
         if (!visualId) {
-          console.log('[GALLERY UPLOAD] Creating HUD record...');
           await this.saveVisualSelection(category, itemId);
           visualId = this.visualRecordIds[key];
         }
@@ -7161,7 +7121,6 @@ Stack: ${error?.stack}`;
           return;
         }
 
-        console.log('[GALLERY UPLOAD] ✅ Valid HUD ID found:', visualIdNum);
 
         // CRITICAL: Process photos SEQUENTIALLY
         setTimeout(async () => {
@@ -7171,7 +7130,6 @@ Stack: ${error?.stack}`;
 
             if (image.webPath) {
               try {
-                console.log(`[GALLERY UPLOAD] Processing photo ${i + 1}/${images.photos.length}`);
 
                 // Fetch the blob
                 const response = await fetch(image.webPath);
@@ -7194,12 +7152,10 @@ Stack: ${error?.stack}`;
                     progress: 0
                   };
                   this.changeDetectorRef.detectChanges();
-                  console.log(`[GALLERY UPLOAD] Updated skeleton ${i + 1} to show preview`);
                 }
 
                 // Add to background upload queue
                 const uploadFn = async (visualId: number, photo: File, caption: string) => {
-                  console.log(`[GALLERY UPLOAD] Uploading photo ${i + 1}/${images.photos.length}`);
                   return await this.performHUDPhotoUpload(visualId, photo, key, true, null, null, skeleton.AttachID, caption);
                 };
 
@@ -7212,7 +7168,6 @@ Stack: ${error?.stack}`;
                   uploadFn
                 );
 
-                console.log(`[GALLERY UPLOAD] Photo ${i + 1}/${images.photos.length} queued for upload`);
 
               } catch (error) {
                 console.error(`[GALLERY UPLOAD] Error processing photo ${i + 1}:`, error);
@@ -7228,7 +7183,6 @@ Stack: ${error?.stack}`;
             }
           }
 
-          console.log(`[GALLERY UPLOAD] All ${images.photos.length} photos queued successfully`);
 
         }, 150); // Small delay to ensure skeletons render
       }
@@ -7301,14 +7255,12 @@ Stack: ${error?.stack}`;
     caption: string
   ): Promise<string | null> {
     try {
-      console.log(`[HUD PHOTO UPLOAD] Starting upload for HUDID ${hudId}`);
 
       // Upload photo using HUD attach method
       const result = await firstValueFrom(
         this.caspioService.createServicesHUDAttachWithFile(hudId, caption, photo, '', originalPhoto || undefined)
       );
 
-      console.log(`[HUD PHOTO UPLOAD] Upload complete for HUDID ${hudId}, AttachID:`, result.AttachID);
 
       if (tempId && this.visualPhotos[key]) {
         const photoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === tempId || p.id === tempId);
@@ -7325,13 +7277,11 @@ Stack: ${error?.stack}`;
           // If we got a file path, convert it to a displayable URL
           if (uploadedPhotoUrl && !uploadedPhotoUrl.startsWith('data:') && !uploadedPhotoUrl.startsWith('blob:')) {
             try {
-              console.log('[HUD PHOTO UPLOAD] Converting file path to displayable URL:', uploadedPhotoUrl);
               const imageData = await firstValueFrom(
                 this.caspioService.getImageFromFilesAPI(uploadedPhotoUrl)
               );
               if (imageData && imageData.startsWith('data:')) {
                 displayableUrl = imageData;
-                console.log('[HUD PHOTO UPLOAD] Successfully converted to data URL');
               } else {
                 console.warn('[HUD PHOTO UPLOAD] Files API returned invalid data');
               }
@@ -7341,7 +7291,6 @@ Stack: ${error?.stack}`;
             }
           }
 
-          console.log('[HUD PHOTO UPLOAD] Updating photo object at index', photoIndex);
 
           this.visualPhotos[key][photoIndex] = {
             ...this.visualPhotos[key][photoIndex],
@@ -7360,7 +7309,6 @@ Stack: ${error?.stack}`;
             Annotation: caption || ''
           };
 
-          console.log('[HUD PHOTO UPLOAD] Updated photo object with AttachID:', this.visualPhotos[key][photoIndex].AttachID);
 
           this.changeDetectorRef.detectChanges();
         }
@@ -7391,7 +7339,6 @@ Stack: ${error?.stack}`;
   // Save annotation data to database
   private async saveAnnotationToDatabase(attachId: string, annotatedBlob: Blob, annotationsData: any, caption: string): Promise<void> {
     try {
-      console.log('[SAVE ANNOTATION] Saving annotations for AttachID:', attachId);
 
       // Compress and save annotation data to Drawings field
       const drawingsData = JSON.stringify(annotationsData);
@@ -7399,7 +7346,6 @@ Stack: ${error?.stack}`;
 
       if (drawingsData.length > 50000) {
         compressedDrawings = compressAnnotationData(drawingsData, { emptyResult: '{}' });
-        console.log('[SAVE ANNOTATION] Compressed from', drawingsData.length, 'to', compressedDrawings.length, 'bytes');
       }
 
       // Update the attach record with drawings data
@@ -7410,7 +7356,6 @@ Stack: ${error?.stack}`;
         })
       );
 
-      console.log('[SAVE ANNOTATION] ✅ Annotations saved successfully');
     } catch (error) {
       console.error('[SAVE ANNOTATION] ❌ Failed to save annotations:', error);
       throw error;

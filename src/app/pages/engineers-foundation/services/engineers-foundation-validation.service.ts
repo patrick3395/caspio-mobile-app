@@ -30,7 +30,6 @@ export class EngineersFoundationValidationService {
    * Validate all required fields across all pages
    */
   async validateAllRequiredFields(projectId: string, serviceId: string): Promise<ValidationResult> {
-    console.log('[EngFoundation Validation] Starting validation for:', { projectId, serviceId });
     
     const incompleteFields: IncompleteField[] = [];
 
@@ -46,7 +45,6 @@ export class EngineersFoundationValidationService {
     const elevationIncomplete = await this.validateElevationFields(projectId, serviceId);
     incompleteFields.push(...elevationIncomplete);
 
-    console.log('[EngFoundation Validation] Validation complete. Incomplete fields:', incompleteFields.length);
 
     return {
       isComplete: incompleteFields.length === 0,
@@ -86,7 +84,6 @@ export class EngineersFoundationValidationService {
 
       Object.entries(requiredProjectFields).forEach(([field, label]) => {
         const value = projectData?.[field];
-        console.log(`[EngFoundation Validation] Project ${field}:`, value);
         if (isEmpty(value)) {
           incompleteFields.push({
             section: 'Project Details',
@@ -107,7 +104,6 @@ export class EngineersFoundationValidationService {
 
       Object.entries(requiredServiceFields).forEach(([field, label]) => {
         const value = serviceData?.[field];
-        console.log(`[EngFoundation Validation] Service ${field}:`, value);
         if (isEmpty(value)) {
           incompleteFields.push({
             section: 'Project Details',
@@ -117,7 +113,6 @@ export class EngineersFoundationValidationService {
         }
       });
 
-      console.log('[EngFoundation Validation] Project fields incomplete:', incompleteFields.length);
     } catch (error) {
       console.error('[EngFoundation Validation] Error validating project fields:', error);
     }
@@ -138,7 +133,6 @@ export class EngineersFoundationValidationService {
       const skipStructuralSystems = serviceData?.StructStat === 'Provided in Property Inspection Report';
 
       if (skipStructuralSystems) {
-        console.log('[EngFoundation Validation] Skipping structural systems validation');
         return incompleteFields;
       }
 
@@ -147,7 +141,6 @@ export class EngineersFoundationValidationService {
         .pipe(map((items: any[]) => items.filter((item: any) => item.Required === 'Yes')))
         .toPromise();
 
-      console.log('[EngFoundation Validation] Found required template items:', requiredItems?.length || 0);
 
       // Fetch user's answers for this service
       const userAnswers = await this.caspioService.getServicesEFE(serviceId).toPromise();
@@ -184,7 +177,6 @@ export class EngineersFoundationValidationService {
         }
       }
 
-      console.log('[EngFoundation Validation] Structural fields incomplete:', incompleteFields.length);
     } catch (error) {
       console.error('[EngFoundation Validation] Error validating structural fields:', error);
     }
@@ -214,7 +206,6 @@ export class EngineersFoundationValidationService {
       // Filter to only selected (active) rooms
       const selectedRooms = efeFields.filter(field => field.isSelected);
 
-      console.log('[EngFoundation Validation] Found', selectedRooms.length, 'selected rooms in local Dexie');
 
       // Check if Base Station exists and is selected
       const baseStation = selectedRooms.find(field => field.roomName === 'Base Station');
@@ -229,7 +220,6 @@ export class EngineersFoundationValidationService {
       // Check all other selected rooms have FDF
       const otherRooms = selectedRooms.filter(field => field.roomName !== 'Base Station');
       for (const room of otherRooms) {
-        console.log(`[EngFoundation Validation] Checking room "${room.roomName}" FDF:`, room.fdf);
 
         if (isEmpty(room.fdf)) {
           incompleteFields.push({
@@ -240,7 +230,6 @@ export class EngineersFoundationValidationService {
         }
       }
 
-      console.log('[EngFoundation Validation] Elevation fields incomplete:', incompleteFields.length);
     } catch (error) {
       console.error('[EngFoundation Validation] Error validating elevation fields:', error);
     }

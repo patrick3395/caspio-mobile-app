@@ -90,7 +90,6 @@ export class ProjectsService {
   clearProjectDetailCache(projectId: string): void {
     const cacheKey = this.getProjectDetailCacheKey(projectId);
     this.cache.clear(cacheKey);
-    console.log('🗑️ Cleared ProjectsService cache for project:', projectId);
   }
 
   getActiveProjects(companyId?: number): Observable<Project[]> {
@@ -424,7 +423,6 @@ export class ProjectsService {
       updateData
     ).pipe(
       tap(() => {
-        console.log(`Updated PrimaryPhoto for project ${projectId}`);
         this.cache.clear(this.getProjectDetailCacheKey(projectId));
 
         // OPTIMIZATION: Track mutation for instant cache invalidation

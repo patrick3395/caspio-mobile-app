@@ -80,7 +80,6 @@ export class ApiGatewayService {
             const delayMs = Math.pow(2, retryAttempt - 1) * 1000;
             currentAttempt = retryAttempt;
 
-            console.log(`⏳ API Gateway Retry ${retryAttempt}/${maxRetries} for ${endpoint} after ${delayMs}ms`);
             this.retryNotification.notifyRetryAttempt(endpoint, retryAttempt, maxRetries, delayMs);
 
             return timer(delayMs);
@@ -249,7 +248,6 @@ export class ApiGatewayService {
     }
 
     const requestId = this.offlineService.queueRequest('POST', endpoint, body);
-    console.log(`[ApiGateway] Queued POST request for ${endpoint} (ID: ${requestId})`);
 
     return {
       queued: true,
@@ -267,7 +265,6 @@ export class ApiGatewayService {
     }
 
     const requestId = this.offlineService.queueRequest('PUT', endpoint, body);
-    console.log(`[ApiGateway] Queued PUT request for ${endpoint} (ID: ${requestId})`);
 
     return {
       queued: true,
@@ -285,7 +282,6 @@ export class ApiGatewayService {
     }
 
     const requestId = this.offlineService.queueRequest('DELETE', endpoint, null);
-    console.log(`[ApiGateway] Queued DELETE request for ${endpoint} (ID: ${requestId})`);
 
     return {
       queued: true,
@@ -391,14 +387,12 @@ export class ApiGatewayService {
     // Extract resource pattern from endpoint (e.g., /api/projects/123 -> projects)
     const resourcePattern = this.extractResourcePattern(endpoint);
     if (resourcePattern) {
-      console.log(`[ApiGateway] 🗑️ Invalidating cache for: ${resourcePattern}`);
       this.apiCache.invalidatePattern(resourcePattern);
     }
 
     // Invalidate additional patterns if provided
     if (additionalPatterns?.length) {
       additionalPatterns.forEach(pattern => {
-        console.log(`[ApiGateway] 🗑️ Invalidating additional pattern: ${pattern}`);
         this.apiCache.invalidatePattern(pattern);
       });
     }

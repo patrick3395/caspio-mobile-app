@@ -27,10 +27,8 @@ export function templateDataProviderFactory(
   mobileProvider: MobileTemplateDataProvider
 ): ITemplateDataProvider {
   if (environment.isWeb) {
-    console.log('[TemplateDataProvider] Using WebappTemplateDataProvider');
     return webappProvider;
   } else {
-    console.log('[TemplateDataProvider] Using MobileTemplateDataProvider');
     return mobileProvider;
   }
 }

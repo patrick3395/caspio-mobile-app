@@ -232,13 +232,10 @@ export class AppComponent {
 
       // TASK 2 FIX: Log that background sync is initialized at app startup
       // The service is now injected here so it persists across all navigation
-      console.log('[App] BackgroundSyncService initialized at app startup - sync will persist across navigation');
 
       // G2-NAV-001: Log navigation history service initialization (web only)
       if (environment.isWeb) {
-        console.log('[App] NavigationHistoryService initialized - browser back/forward buttons enabled');
         // G2-A11Y-003: Log screen reader announcement service initialization
-        console.log('[App] ScreenReaderAnnouncementService initialized - aria-live regions active');
       }
 
       // Trigger a sync status refresh to show correct state on app load
@@ -247,14 +244,12 @@ export class AppComponent {
       // Check IndexedDB storage on startup - warn if critical (mobile only)
       this.memoryDiagnostics.checkCriticalStorage().then(isOk => {
         if (!isOk) {
-          console.log('[App] Storage warning shown to user');
         }
       });
 
       // Preload Fabric.js for offline photo annotation support
       // This ensures the Fabric chunk is cached by the service worker
       this.fabricService.ensureFabricLoaded().then(() => {
-        console.log('[App] Fabric.js preloaded for offline use');
       }).catch(err => {
         console.warn('[App] Failed to preload Fabric.js:', err);
       });
@@ -280,7 +275,6 @@ export class AppComponent {
       }
 
       // TASK 4 FIX: Show loading state before reload to prevent jarring black screen
-      console.log('[App] Update corruption detected, preparing to reload...');
       document.body.classList.add('app-reloading');
       // Small delay to allow any visual feedback before reload
       await new Promise(resolve => setTimeout(resolve, 100));

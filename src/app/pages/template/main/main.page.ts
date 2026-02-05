@@ -58,7 +58,6 @@ export class GenericMainPage implements OnInit, OnDestroy {
     // Subscribe to template config changes
     this.configSubscription = this.templateConfigService.activeConfig$.subscribe(config => {
       this.config = config;
-      console.log(`[GenericMain] Config loaded for template: ${config.id}`);
 
       // Initialize cards from config
       this.cards = config.navigationCards.map(card => ({
@@ -80,7 +79,6 @@ export class GenericMainPage implements OnInit, OnDestroy {
     if (parentParams) {
       this.projectId = parentParams['projectId'] || '';
       this.serviceId = parentParams['serviceId'] || '';
-      console.log('[GenericMain] Got params from snapshot:', this.projectId, this.serviceId);
     }
 
     // Also subscribe to param changes (for dynamic updates)
@@ -111,7 +109,6 @@ export class GenericMainPage implements OnInit, OnDestroy {
     try {
       // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
       this.statusOptions = await this.offlineTemplate.getStatusOptions();
-      console.log('[GenericMain] Loaded status options:', this.statusOptions.length);
     } catch (error) {
       console.error('[GenericMain] Error loading status options:', error);
     }
@@ -137,7 +134,6 @@ export class GenericMainPage implements OnInit, OnDestroy {
       // Mark that changes may have been made
       if (this.isReportFinalized) {
         this.hasChangesAfterFinalization = true;
-        console.log('[GenericMain] Marked changes after finalization');
       }
       // Non-blocking - fail silently offline
       this.checkCanFinalize();
@@ -162,7 +158,6 @@ export class GenericMainPage implements OnInit, OnDestroy {
       const needsRehydration = await this.templateRehydration.needsRehydration(this.serviceId);
 
       if (needsRehydration) {
-        console.log(`[GenericMain] Service ${this.serviceId} needs rehydration, starting...`);
         this.isRehydrating = true;
         this.changeDetectorRef.detectChanges();
 
@@ -175,7 +170,6 @@ export class GenericMainPage implements OnInit, OnDestroy {
         this.changeDetectorRef.detectChanges();
 
         if (result.success) {
-          console.log(`[GenericMain] Rehydration complete: ${result.recordsRestored} records, ${result.imagesRestored} images`);
         } else {
           console.error(`[GenericMain] Rehydration failed: ${result.error}`);
         }
@@ -200,7 +194,6 @@ export class GenericMainPage implements OnInit, OnDestroy {
                                 status === 'Updated' ||
                                 status === 'Under Review';
 
-      console.log('[GenericMain] Report finalized status:', this.isReportFinalized, 'Status:', status);
     } catch (error) {
       console.error('[GenericMain] Error checking finalized status:', error);
     }
@@ -221,7 +214,6 @@ export class GenericMainPage implements OnInit, OnDestroy {
         // Basic check - can be enhanced with validation services
         this.canFinalize = true;
       }
-      console.log('[GenericMain] Can finalize:', this.canFinalize);
     } catch (error) {
       console.error('[GenericMain] Error checking finalize status:', error);
       this.canFinalize = false;
@@ -238,10 +230,13 @@ export class GenericMainPage implements OnInit, OnDestroy {
     this.changeDetectorRef.detectChanges();
   }
 
+  trackByCardRoute(index: number, card: DisplayCard): string {
+    return card.route;
+  }
+
   navigateTo(card: DisplayCard) {
     if (!this.config) return;
 
-    console.log('[GenericMain] Navigating to:', card.route, 'projectId:', this.projectId, 'serviceId:', this.serviceId);
 
     // Split route into segments if it contains '/' (e.g., 'category/hud' -> ['category', 'hud'])
     const routeSegments = card.route.split('/');
@@ -256,8 +251,6 @@ export class GenericMainPage implements OnInit, OnDestroy {
   }
 
   async finalizeReport() {
-    console.log('[GenericMain] Starting finalization...');
-    console.log('[GenericMain] Is finalized:', this.isReportFinalized, 'Has changes:', this.hasChangesAfterFinalization);
 
     // If report is finalized but no changes made, show message
     if (this.isReportFinalized && !this.hasChangesAfterFinalization) {
@@ -297,7 +290,6 @@ export class GenericMainPage implements OnInit, OnDestroy {
   async markReportAsFinalized() {
     // Prevent double-click
     if (this.isFinalizationInProgress) {
-      console.log('[GenericMain] Finalization already in progress, ignoring');
       return;
     }
     this.isFinalizationInProgress = true;

@@ -138,12 +138,10 @@ export class TemplateDataAdapter {
     // Check if already cached
     const cached = await this.indexedDb.getCachedServiceData(serviceId, cacheType);
     if (cached && cached.length > 0) {
-      console.log(`[DataAdapter] ensureServiceDataCached: ${config.id} has ${cached.length} cached records`);
       return cached;
     }
 
     // Not cached - need to fetch
-    console.log(`[DataAdapter] ensureServiceDataCached: ${config.id} cache empty, fetching from API...`);
 
     if (environment.isWeb) {
       // Webapp: Direct API call
@@ -152,7 +150,6 @@ export class TemplateDataAdapter {
         const response = await this.fetchApi<CaspioResponse>(endpoint);
         const records = response.Result || [];
         await this.indexedDb.cacheServiceData(serviceId, cacheType, records);
-        console.log(`[DataAdapter] ensureServiceDataCached: ${config.id} fetched and cached ${records.length} records`);
         return records;
       } catch (error) {
         console.warn(`[DataAdapter] ensureServiceDataCached: API fetch failed:`, error);
@@ -167,7 +164,6 @@ export class TemplateDataAdapter {
         );
         const records = response.Result || [];
         await this.indexedDb.cacheServiceData(serviceId, cacheType, records);
-        console.log(`[DataAdapter] ensureServiceDataCached: ${config.id} fetched and cached ${records.length} records`);
         return records;
       } catch (error) {
         console.warn(`[DataAdapter] ensureServiceDataCached: API fetch failed (offline?):`, error);
@@ -299,7 +295,6 @@ export class TemplateDataAdapter {
           // Look up the real ID and create an UPDATE request instead
           const realId = await this.indexedDb.getRealId(visualId);
           if (realId) {
-            console.log(`[TemplateDataAdapter] Temp ID ${visualId} already synced, using real ID ${realId} for UPDATE`);
             effectiveId = realId;
             // Fall through to create UPDATE request with real ID
           } else {
@@ -308,7 +303,6 @@ export class TemplateDataAdapter {
           }
         } else {
           // Successfully updated pending CREATE request - we're done
-          console.log(`[TemplateDataAdapter] Updated pending CREATE request for ${visualId}`);
 
           // Update local cache
           if (serviceId) {
@@ -338,7 +332,6 @@ export class TemplateDataAdapter {
         status: 'pending',
         priority: 'normal',
       });
-      console.log(`[TemplateDataAdapter] Queued UPDATE request for ${effectiveId}`);
 
       // Update local cache
       if (serviceId) {
@@ -522,7 +515,6 @@ export class TemplateDataAdapter {
         // CRITICAL FIX: Handle local images (img_* prefix) that haven't synced yet
         // Update the LocalImage's drawings/caption directly in IndexedDB
         // The drawings will be uploaded with the image when background sync runs
-        console.log('[TemplateDataAdapter] Updating local image annotations:', attachId);
         await this.localImageService.updateCaptionAndDrawings(
           attachId,
           attachmentData.Annotation, // caption
@@ -534,7 +526,6 @@ export class TemplateDataAdapter {
         // When the photo syncs via upload outbox, it will include the annotations
         // The pendingCaption will wait for photo sync, then sync (or be cleaned up)
         const attachType = this.getAttachTypeFromConfig(config);
-        console.log('[TemplateDataAdapter] Queuing caption for unsynced photo (UI feedback):', attachId);
         await this.indexedDb.queueCaptionUpdate({
           attachId: attachId,
           attachType: attachType,
@@ -548,7 +539,6 @@ export class TemplateDataAdapter {
         // SYNC FIX: Use queueCaptionUpdate instead of addPendingRequest
         // This ensures annotation updates appear in the sync modal and are processed correctly
         const attachType = this.getAttachTypeFromConfig(config);
-        console.log('[TemplateDataAdapter] Queuing caption update for synced photo:', attachId, 'type:', attachType);
         await this.indexedDb.queueCaptionUpdate({
           attachId: attachId,
           attachType: attachType,
@@ -561,7 +551,6 @@ export class TemplateDataAdapter {
         // The LocalImage might exist if this is a local-first photo that has synced
         const localImage = await this.indexedDb.getLocalImageByAttachId(attachId);
         if (localImage) {
-          console.log('[TemplateDataAdapter] Also updating LocalImage for synced photo:', localImage.imageId);
           await this.localImageService.updateCaptionAndDrawings(
             localImage.imageId,
             attachmentData.Annotation,
@@ -624,7 +613,6 @@ export class TemplateDataAdapter {
       if (beforeDelete1) {
         await db.localImages.delete(attachId);
         deletedCount++;
-        console.log('[TemplateDataAdapter] Deleted localImage by imageId:', attachId);
       }
 
       // Method 2: Find and delete by attachId field (for synced images)
@@ -632,7 +620,6 @@ export class TemplateDataAdapter {
       for (const img of byAttachId) {
         await db.localImages.delete(img.imageId);
         deletedCount++;
-        console.log('[TemplateDataAdapter] Deleted localImage by attachId lookup:', img.imageId);
       }
 
       // Method 3: Find by entityId (in case the ID is actually an entityId)
@@ -640,10 +627,8 @@ export class TemplateDataAdapter {
       for (const img of byEntityId) {
         await db.localImages.delete(img.imageId);
         deletedCount++;
-        console.log('[TemplateDataAdapter] Deleted localImage by entityId lookup:', img.imageId);
       }
 
-      console.log(`[TemplateDataAdapter] Delete from localImages: ${deletedCount} images deleted for ID: ${attachId}`);
 
       // CRITICAL FIX: Also remove from attachment cache (visual_attachments, hud_attachments, etc.)
       // Photos are cached in TWO places - localImages AND cachedServiceData attachment caches
@@ -668,12 +653,10 @@ export class TemplateDataAdapter {
           if (cached.data.length < originalLength) {
             await db.cachedServiceData.put(cached);
             cacheUpdatedCount++;
-            console.log(`[TemplateDataAdapter] Removed from ${cached.dataType} cache (${cached.cacheKey}): was ${originalLength} now ${cached.data.length}`);
           }
         }
       }
 
-      console.log(`[TemplateDataAdapter] Delete complete: ${deletedCount} localImages + ${cacheUpdatedCount} cache entries updated for ID: ${attachId}`);
 
       // Queue backend delete (unless it's a temp/local-only image)
       if (isTempId) {

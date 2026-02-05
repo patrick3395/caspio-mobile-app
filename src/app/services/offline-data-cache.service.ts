@@ -32,7 +32,6 @@ export class OfflineDataCacheService {
    * If offline: return IndexedDB cache.
    */
   async getVisualsTemplates(): Promise<any[]> {
-    console.log('[OfflineCache] Getting visuals templates');
 
     // Check if cache is valid
     const cacheValid = await this.indexedDb.isTemplateCacheValid('visual', this.TEMPLATE_CACHE_TTL);
@@ -40,7 +39,6 @@ export class OfflineDataCacheService {
     if (cacheValid) {
       const cached = await this.indexedDb.getCachedTemplates('visual');
       if (cached && cached.length > 0) {
-        console.log('[OfflineCache] Using cached visuals templates:', cached.length);
 
         // Refresh in background if online
         if (this.offlineService.isOnline()) {
@@ -57,7 +55,6 @@ export class OfflineDataCacheService {
 
         // Cache the templates
         await this.indexedDb.cacheTemplates('visual', templates);
-        console.log('[OfflineCache] Fetched and cached visuals templates:', templates.length);
 
         return templates;
       } catch (error) {
@@ -66,7 +63,6 @@ export class OfflineDataCacheService {
         // Fallback to cache even if expired
         const cached = await this.indexedDb.getCachedTemplates('visual');
         if (cached) {
-          console.log('[OfflineCache] Falling back to expired cache');
           return cached;
         }
         throw error;
@@ -76,7 +72,6 @@ export class OfflineDataCacheService {
     // Offline - return cache or empty
     const cached = await this.indexedDb.getCachedTemplates('visual');
     if (cached) {
-      console.log('[OfflineCache] Offline: using cached visuals templates:', cached.length);
       return cached;
     }
 
@@ -88,7 +83,6 @@ export class OfflineDataCacheService {
    * Get EFE templates with offline support.
    */
   async getEFETemplates(): Promise<any[]> {
-    console.log('[OfflineCache] Getting EFE templates');
 
     // Check if cache is valid
     const cacheValid = await this.indexedDb.isTemplateCacheValid('efe', this.TEMPLATE_CACHE_TTL);
@@ -96,7 +90,6 @@ export class OfflineDataCacheService {
     if (cacheValid) {
       const cached = await this.indexedDb.getCachedTemplates('efe');
       if (cached && cached.length > 0) {
-        console.log('[OfflineCache] Using cached EFE templates:', cached.length);
 
         // Refresh in background if online
         if (this.offlineService.isOnline()) {
@@ -113,7 +106,6 @@ export class OfflineDataCacheService {
 
         // Cache the templates
         await this.indexedDb.cacheTemplates('efe', templates);
-        console.log('[OfflineCache] Fetched and cached EFE templates:', templates.length);
 
         return templates;
       } catch (error) {
@@ -122,7 +114,6 @@ export class OfflineDataCacheService {
         // Fallback to cache even if expired
         const cached = await this.indexedDb.getCachedTemplates('efe');
         if (cached) {
-          console.log('[OfflineCache] Falling back to expired EFE cache');
           return cached;
         }
         throw error;
@@ -132,7 +123,6 @@ export class OfflineDataCacheService {
     // Offline - return cache or empty
     const cached = await this.indexedDb.getCachedTemplates('efe');
     if (cached) {
-      console.log('[OfflineCache] Offline: using cached EFE templates:', cached.length);
       return cached;
     }
 
@@ -145,7 +135,6 @@ export class OfflineDataCacheService {
    */
   private async refreshTemplatesInBackground(type: 'visual' | 'efe'): Promise<void> {
     try {
-      console.log(`[OfflineCache] Background refresh for ${type} templates`);
 
       let templates: any[];
       if (type === 'visual') {
@@ -155,7 +144,6 @@ export class OfflineDataCacheService {
       }
 
       await this.indexedDb.cacheTemplates(type, templates);
-      console.log(`[OfflineCache] Background refresh complete: ${templates.length} ${type} templates`);
     } catch (error) {
       console.warn(`[OfflineCache] Background refresh failed for ${type}:`, error);
     }
@@ -170,7 +158,6 @@ export class OfflineDataCacheService {
    * Network-first with cache fallback.
    */
   async getVisualsByService(serviceId: string): Promise<any[]> {
-    console.log('[OfflineCache] Getting visuals for service:', serviceId);
 
     if (this.offlineService.isOnline()) {
       try {
@@ -178,7 +165,6 @@ export class OfflineDataCacheService {
 
         // Cache the data
         await this.indexedDb.cacheServiceData(serviceId, 'visuals', visuals);
-        console.log('[OfflineCache] Fetched and cached visuals:', visuals.length);
 
         return visuals;
       } catch (error) {
@@ -187,7 +173,6 @@ export class OfflineDataCacheService {
         // Fallback to cache
         const cached = await this.indexedDb.getCachedServiceData(serviceId, 'visuals');
         if (cached) {
-          console.log('[OfflineCache] Falling back to cached visuals:', cached.length);
           return cached;
         }
         throw error;
@@ -197,7 +182,6 @@ export class OfflineDataCacheService {
     // Offline - return cache
     const cached = await this.indexedDb.getCachedServiceData(serviceId, 'visuals');
     if (cached) {
-      console.log('[OfflineCache] Offline: using cached visuals:', cached.length);
       return cached;
     }
 
@@ -209,7 +193,6 @@ export class OfflineDataCacheService {
    * Get EFE rooms by service with offline support.
    */
   async getEFEByService(serviceId: string): Promise<any[]> {
-    console.log('[OfflineCache] Getting EFE rooms for service:', serviceId);
 
     if (this.offlineService.isOnline()) {
       try {
@@ -229,7 +212,6 @@ export class OfflineDataCacheService {
           );
           if (localRoom) {
             // Preserve local fields that haven't synced yet
-            console.log(`[OfflineCache] Preserving local updates for room: ${serverRoom.RoomName}`);
             return {
               ...serverRoom,
               FDF: localRoom.FDF !== undefined ? localRoom.FDF : serverRoom.FDF,
@@ -251,7 +233,6 @@ export class OfflineDataCacheService {
 
         // Cache the merged data
         await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', mergedRooms);
-        console.log('[OfflineCache] Fetched and cached EFE rooms:', rooms.length, `(${localUpdateRooms.length} with local updates preserved)`);
 
         return mergedRooms;
       } catch (error) {
@@ -260,7 +241,6 @@ export class OfflineDataCacheService {
         // Fallback to cache
         const cached = await this.indexedDb.getCachedServiceData(serviceId, 'efe_rooms');
         if (cached) {
-          console.log('[OfflineCache] Falling back to cached EFE rooms:', cached.length);
           return cached;
         }
         throw error;
@@ -270,7 +250,6 @@ export class OfflineDataCacheService {
     // Offline - return cache
     const cached = await this.indexedDb.getCachedServiceData(serviceId, 'efe_rooms');
     if (cached) {
-      console.log('[OfflineCache] Offline: using cached EFE rooms:', cached.length);
       return cached;
     }
 
@@ -282,7 +261,6 @@ export class OfflineDataCacheService {
    * Get EFE points by room with offline support.
    */
   async getEFEPoints(roomId: string): Promise<any[]> {
-    console.log('[OfflineCache] Getting EFE points for room:', roomId);
 
     if (this.offlineService.isOnline()) {
       try {
@@ -290,7 +268,6 @@ export class OfflineDataCacheService {
 
         // Cache the data (use room ID as part of the service ID for caching)
         await this.indexedDb.cacheServiceData(roomId, 'efe_points', points);
-        console.log('[OfflineCache] Fetched and cached EFE points:', points.length);
 
         return points;
       } catch (error) {
@@ -299,7 +276,6 @@ export class OfflineDataCacheService {
         // Fallback to cache
         const cached = await this.indexedDb.getCachedServiceData(roomId, 'efe_points');
         if (cached) {
-          console.log('[OfflineCache] Falling back to cached EFE points:', cached.length);
           return cached;
         }
         throw error;
@@ -309,7 +285,6 @@ export class OfflineDataCacheService {
     // Offline - return cache
     const cached = await this.indexedDb.getCachedServiceData(roomId, 'efe_points');
     if (cached) {
-      console.log('[OfflineCache] Offline: using cached EFE points:', cached.length);
       return cached;
     }
 
@@ -349,7 +324,6 @@ export class OfflineDataCacheService {
       return apiVisuals;
     }
 
-    console.log('[OfflineCache] Merging', apiVisuals.length, 'API visuals with', pendingVisuals.length, 'pending visuals');
 
     // Filter out pending visuals that may have already synced (check by temp ID or matching fields)
     const newPendingVisuals = pendingVisuals.filter(pending => {
@@ -382,7 +356,6 @@ export class OfflineDataCacheService {
       return apiRooms;
     }
 
-    console.log('[OfflineCache] Merging', apiRooms.length, 'API rooms with', pendingRooms.length, 'pending rooms');
 
     // Filter out rooms that may have synced
     const newPendingRooms = pendingRooms.filter(pending => {
@@ -413,7 +386,6 @@ export class OfflineDataCacheService {
       return apiPoints;
     }
 
-    console.log('[OfflineCache] Merging', apiPoints.length, 'API points with', formattedPending.length, 'pending points');
 
     // Filter out points that may have synced
     const newPendingPoints = formattedPending.filter(pending => {
@@ -434,7 +406,6 @@ export class OfflineDataCacheService {
    * Invalidate all caches for a service (call after sync completes)
    */
   async invalidateServiceCaches(serviceId: string): Promise<void> {
-    console.log('[OfflineCache] Invalidating caches for service:', serviceId);
     await this.indexedDb.invalidateServiceCache(serviceId);
   }
 
@@ -443,11 +414,9 @@ export class OfflineDataCacheService {
    */
   async refreshAllTemplates(): Promise<void> {
     if (!this.offlineService.isOnline()) {
-      console.log('[OfflineCache] Cannot refresh templates while offline');
       return;
     }
 
-    console.log('[OfflineCache] Refreshing all templates');
 
     try {
       const [visualTemplates, efeTemplates] = await Promise.all([
@@ -460,7 +429,6 @@ export class OfflineDataCacheService {
         this.indexedDb.cacheTemplates('efe', efeTemplates)
       ]);
 
-      console.log('[OfflineCache] Refreshed templates: visual=' + visualTemplates.length + ', efe=' + efeTemplates.length);
     } catch (error) {
       console.error('[OfflineCache] Failed to refresh templates:', error);
     }
@@ -471,11 +439,9 @@ export class OfflineDataCacheService {
    */
   async preCacheServiceData(serviceId: string): Promise<void> {
     if (!this.offlineService.isOnline()) {
-      console.log('[OfflineCache] Cannot pre-cache while offline');
       return;
     }
 
-    console.log('[OfflineCache] Pre-caching data for service:', serviceId);
 
     try {
       // Fetch and cache all data in parallel
@@ -489,7 +455,6 @@ export class OfflineDataCacheService {
         this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', efeRooms)
       ]);
 
-      console.log('[OfflineCache] Pre-cached: visuals=' + visuals.length + ', efeRooms=' + efeRooms.length);
     } catch (error) {
       console.error('[OfflineCache] Failed to pre-cache service data:', error);
     }

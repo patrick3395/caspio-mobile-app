@@ -100,7 +100,6 @@ export class DataLoadingService {
 
     // Step 2: If cache empty and online, fetch synchronously (blocking)
     if (state.isEmpty && isOnline && blockOnEmpty) {
-      console.log(`[DataLoading] Cache empty for ${dataType}, fetching from API (blocking)...`);
       state.loading = true;
 
       // G2-A11Y-003: Announce loading state (web only)
@@ -122,7 +121,6 @@ export class DataLoadingService {
           isEmpty: !freshData || freshData.length === 0
         };
 
-        console.log(`[DataLoading] Fetched ${freshData?.length || 0} items for ${dataType}`);
 
         // G2-A11Y-003: Announce loading complete (web only)
         if (environment.isWeb) {
@@ -204,11 +202,9 @@ export class DataLoadingService {
   ): void {
     setTimeout(async () => {
       try {
-        console.log(`[DataLoading] Background refresh for ${dataType}...`);
         const freshData = await fetcher();
         await this.indexedDb.cacheServiceData(serviceId, dataType as any, freshData || []);
         
-        console.log(`[DataLoading] Background refresh complete: ${freshData?.length || 0} items`);
         this.dataRefreshed$.next({ dataType, serviceId });
       } catch (error) {
         console.debug(`[DataLoading] Background refresh failed for ${dataType} (using cache)`);
@@ -229,17 +225,14 @@ export class DataLoadingService {
     const cached = await this.indexedDb.getCachedServiceData(serviceId, dataType);
     
     if (cached && cached.length > 0) {
-      console.log(`[DataLoading] Cache populated for ${dataType}: ${cached.length} items`);
       return true;
     }
 
     // Cache empty - try to fetch if online
     if (this.offlineService.isOnline()) {
-      console.log(`[DataLoading] Cache empty for ${dataType}, fetching...`);
       try {
         const freshData = await fetcher();
         await this.indexedDb.cacheServiceData(serviceId, dataType, freshData || []);
-        console.log(`[DataLoading] Fetched and cached ${freshData?.length || 0} items for ${dataType}`);
         return (freshData && freshData.length > 0);
       } catch (error) {
         console.error(`[DataLoading] Failed to populate cache for ${dataType}:`, error);
@@ -247,7 +240,6 @@ export class DataLoadingService {
       }
     }
 
-    console.log(`[DataLoading] Offline and cache empty for ${dataType}`);
     return false;
   }
 
@@ -262,17 +254,14 @@ export class DataLoadingService {
     const cached = await this.indexedDb.getCachedTemplates(templateType);
     
     if (cached && cached.length > 0) {
-      console.log(`[DataLoading] Templates cached for ${templateType}: ${cached.length} items`);
       return true;
     }
 
     // Cache empty - try to fetch if online
     if (this.offlineService.isOnline()) {
-      console.log(`[DataLoading] Templates empty for ${templateType}, fetching...`);
       try {
         const freshData = await fetcher();
         await this.indexedDb.cacheTemplates(templateType, freshData || []);
-        console.log(`[DataLoading] Fetched and cached ${freshData?.length || 0} templates for ${templateType}`);
         return (freshData && freshData.length > 0);
       } catch (error) {
         console.error(`[DataLoading] Failed to populate templates for ${templateType}:`, error);
@@ -280,7 +269,6 @@ export class DataLoadingService {
       }
     }
 
-    console.log(`[DataLoading] Offline and templates empty for ${templateType}`);
     return false;
   }
 
@@ -310,7 +298,6 @@ export class DataLoadingService {
         debounceTime(debounceMs)
       )
       .subscribe(() => {
-        console.log(`[DataLoading] Cache invalidated for ${serviceId}, triggering reload`);
         callback();
       });
     subscriptions.push(invalidationSub);
@@ -319,7 +306,6 @@ export class DataLoadingService {
     const refreshSub = refreshSource
       .pipe(filter(e => e.serviceId === serviceId))
       .subscribe(() => {
-        console.log(`[DataLoading] Background refresh complete for ${serviceId}, triggering reload`);
         callback();
       });
     subscriptions.push(refreshSub);
@@ -328,7 +314,6 @@ export class DataLoadingService {
     const dataSub = this.dataRefreshed$
       .pipe(filter(e => e.serviceId === serviceId))
       .subscribe(() => {
-        console.log(`[DataLoading] Data refreshed for ${serviceId}, triggering reload`);
         callback();
       });
     subscriptions.push(dataSub);

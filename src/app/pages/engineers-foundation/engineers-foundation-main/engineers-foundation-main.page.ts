@@ -88,7 +88,6 @@ export class EngineersFoundationMainPage implements OnInit {
     if (parentParams) {
       this.projectId = parentParams['projectId'] || '';
       this.serviceId = parentParams['serviceId'] || '';
-      console.log('[EngFoundation Main] Got params from snapshot:', this.projectId, this.serviceId);
     }
 
     // Also subscribe to param changes (for dynamic updates)
@@ -108,7 +107,6 @@ export class EngineersFoundationMainPage implements OnInit {
     try {
       // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
       this.statusOptions = await this.offlineTemplate.getStatusOptions();
-      console.log('[EngFoundation Main] Loaded status options:', this.statusOptions.length);
     } catch (error) {
       console.error('[EngFoundation Main] Error loading status options:', error);
     }
@@ -117,7 +115,6 @@ export class EngineersFoundationMainPage implements OnInit {
   getStatusAdminByClient(statusClient: string): string {
     const statusRecord = this.statusOptions.find(s => s.Status_Client === statusClient);
     if (statusRecord && statusRecord.Status_Admin) {
-      console.log(`[EngFoundation Main] Status mapping: "${statusClient}" -> "${statusRecord.Status_Admin}"`);
       return statusRecord.Status_Admin;
     }
     console.warn(`[EngFoundation Main] Status_Admin not found for "${statusClient}", using fallback`);
@@ -130,7 +127,6 @@ export class EngineersFoundationMainPage implements OnInit {
       // Mark that changes may have been made
       if (this.isReportFinalized) {
         this.hasChangesAfterFinalization = true;
-        console.log('[EngFoundation Main] Marked changes after finalization');
       }
       // Non-blocking - fail silently offline
       this.checkCanFinalize();
@@ -151,7 +147,6 @@ export class EngineersFoundationMainPage implements OnInit {
                                 status === 'Updated' || 
                                 status === 'Under Review';
       
-      console.log('[EngFoundation Main] Report finalized status:', this.isReportFinalized, 'Status:', status);
     } catch (error) {
       console.error('[EngFoundation Main] Error checking finalized status:', error);
     }
@@ -172,11 +167,9 @@ export class EngineersFoundationMainPage implements OnInit {
       // If report is finalized, only enable if changes have been made
       if (this.isReportFinalized) {
         this.canFinalize = this.hasChangesAfterFinalization && validationResult.isComplete;
-        console.log('[EngFoundation Main] Report finalized. Has changes:', this.hasChangesAfterFinalization, 'Can update:', this.canFinalize);
       } else {
         // For initial finalization, enable if all fields complete
         this.canFinalize = validationResult.isComplete;
-        console.log('[EngFoundation Main] Can finalize:', this.canFinalize);
       }
     } catch (error) {
       console.error('[EngFoundation Main] Error checking finalize status:', error);
@@ -185,7 +178,6 @@ export class EngineersFoundationMainPage implements OnInit {
   }
 
   navigateTo(card: NavigationCard) {
-    console.log('[EngFoundation Main] Navigating to:', card.route, 'projectId:', this.projectId, 'serviceId:', this.serviceId);
 
     // Use absolute navigation to ensure it works even if parent route isn't ready
     if (this.projectId && this.serviceId) {
@@ -197,8 +189,6 @@ export class EngineersFoundationMainPage implements OnInit {
   }
 
   async finalizeReport() {
-    console.log('[EngFoundation Main] Starting finalization validation...');
-    console.log('[EngFoundation Main] Is finalized:', this.isReportFinalized, 'Has changes:', this.hasChangesAfterFinalization);
     
     // If report is finalized but no changes made, show message
     if (this.isReportFinalized && !this.hasChangesAfterFinalization) {
@@ -242,7 +232,6 @@ export class EngineersFoundationMainPage implements OnInit {
           buttons: ['OK']
         });
         await alert.present();
-        console.log('[EngFoundation Main] Alert shown with', validationResult.incompleteFields.length, 'missing fields');
       } else {
         // All fields complete - show confirmation dialog
         const isUpdate = this.isReportFinalized;
@@ -252,7 +241,6 @@ export class EngineersFoundationMainPage implements OnInit {
           ? 'All required fields have been completed. Your report is ready to be updated.'
           : 'All required fields have been completed. Ready to finalize?';
         
-        console.log('[EngFoundation Main] All fields complete, showing confirmation');
         const alert = await this.alertController.create({
           header: headerText,
           message: messageText,
@@ -299,7 +287,6 @@ export class EngineersFoundationMainPage implements OnInit {
       promise.then(result => ({ result, timedOut: false as const })),
       new Promise<{ result: null; timedOut: true }>((resolve) => {
         setTimeout(() => {
-          console.log(`[EngFoundation Main] ${operationName} timed out after ${timeoutMs/1000}s`);
           resolve({ result: null, timedOut: true });
         }, timeoutMs);
       })
@@ -309,7 +296,6 @@ export class EngineersFoundationMainPage implements OnInit {
   async markReportAsFinalized() {
     // Prevent double-click
     if (this.isFinalizationInProgress) {
-      console.log('[EngFoundation Main] Finalization already in progress, ignoring');
       return;
     }
     this.isFinalizationInProgress = true;
@@ -321,7 +307,6 @@ export class EngineersFoundationMainPage implements OnInit {
     // All data is already saved directly to the API
     // ==========================================
     if (environment.isWeb) {
-      console.log('[EngFoundation Main] WEBAPP MODE: Simplified finalization');
 
       const loading = await this.loadingController.create({
         message: isUpdate ? 'Updating report...' : 'Finalizing report...',
@@ -340,13 +325,10 @@ export class EngineersFoundationMainPage implements OnInit {
           Status: statusAdminValue
         };
 
-        console.log('[EngFoundation Main] WEBAPP: Updating service status:', updateData);
 
         await this.caspioService.updateService(this.serviceId, updateData).toPromise();
-        console.log('[EngFoundation Main] WEBAPP: ✅ Status updated successfully');
 
         // Clear caches
-        console.log('[EngFoundation Main] WEBAPP: Clearing caches');
         this.cache.clearProjectRelatedCaches(this.projectId);
         this.cache.clearByPattern('projects_active');
         this.cache.clearByPattern('projects_all');
@@ -370,7 +352,6 @@ export class EngineersFoundationMainPage implements OnInit {
             text: 'OK',
             handler: () => {
               // Navigate back to project detail
-              console.log('[EngFoundation Main] WEBAPP: Navigating to project detail');
               this.navController.navigateBack(['/project', this.projectId]);
             }
           }]
@@ -406,11 +387,9 @@ export class EngineersFoundationMainPage implements OnInit {
       // ==========================================
       // STEP 1: Sync ALL pending images (with timeout)
       // ==========================================
-      console.log('[EngFoundation Main] Checking for unsynced images...');
       const imageStatus = await this.localImageService.getServiceImageSyncStatus(this.serviceId);
 
       if (imageStatus.pending > 0) {
-        console.log(`[EngFoundation Main] Found ${imageStatus.pending} unsynced images, forcing sync...`);
         loading.message = `Syncing ${imageStatus.pending} image(s)...`;
 
         // Trigger background sync to process pending uploads
@@ -456,7 +435,6 @@ export class EngineersFoundationMainPage implements OnInit {
       // ==========================================
       // STEP 2: Sync ALL pending requests/captions (with timeout)
       // ==========================================
-      console.log('[EngFoundation Main] Syncing pending requests and captions...');
       loading.message = 'Syncing data...';
 
       const dataSyncOutcome = await this.withTimeout(
@@ -470,7 +448,6 @@ export class EngineersFoundationMainPage implements OnInit {
         'Data sync'
       );
 
-      console.log('[EngFoundation Main] Data sync result:', dataSyncOutcome);
 
       // Handle timeout or failure
       if (dataSyncOutcome.timedOut || !dataSyncOutcome.result.success) {
@@ -500,7 +477,6 @@ export class EngineersFoundationMainPage implements OnInit {
       // ==========================================
       // STEP 3: Update image pointers
       // ==========================================
-      console.log('[EngFoundation Main] Updating image pointers to remote URLs...');
       loading.message = 'Updating image references...';
       await this.localImageService.updateImagePointersToRemote(this.serviceId);
 
@@ -544,7 +520,6 @@ export class EngineersFoundationMainPage implements OnInit {
         Status: statusAdminValue
       };
 
-      console.log('[EngFoundation Main] Updating service status:', updateData);
 
       // Try to update with timeout - if it fails, we still complete locally
       let statusUpdateSuccess = false;
@@ -554,7 +529,6 @@ export class EngineersFoundationMainPage implements OnInit {
 
         if (!outcome.timedOut) {
           statusUpdateSuccess = true;
-          console.log('[EngFoundation Main] Update response:', outcome.result);
         } else {
           console.warn('[EngFoundation Main] Status update timed out - will sync later');
         }
@@ -565,12 +539,10 @@ export class EngineersFoundationMainPage implements OnInit {
       // ==========================================
       // CLEANUP STEP 1: Clear any remaining pending items
       // ==========================================
-      console.log('[EngFoundation Main] Clearing any remaining pending items...');
       loading.message = 'Cleaning up...';
 
       try {
         const clearedItems = await this.indexedDb.clearPendingForService(this.serviceId);
-        console.log('[EngFoundation Main] Cleared pending items:', clearedItems);
       } catch (err) {
         console.warn('[EngFoundation Main] Error clearing pending items:', err);
       }
@@ -581,7 +553,6 @@ export class EngineersFoundationMainPage implements OnInit {
       try {
         await this.efeFieldRepo.markAllCleanForService(this.serviceId);
         await this.visualFieldRepo.markAllCleanForService(this.serviceId);
-        console.log('[EngFoundation Main] Marked all Dexie records as clean');
       } catch (err) {
         console.warn('[EngFoundation Main] Error marking records clean:', err);
       }
@@ -589,7 +560,6 @@ export class EngineersFoundationMainPage implements OnInit {
       // ==========================================
       // CLEANUP STEP 3: Clear API caches
       // ==========================================
-      console.log('[EngFoundation Main] Clearing caches for project:', this.projectId);
       this.cache.clearProjectRelatedCaches(this.projectId);
       this.cache.clearByPattern('projects_active');
       this.cache.clearByPattern('projects_all');
@@ -597,10 +567,8 @@ export class EngineersFoundationMainPage implements OnInit {
       // ==========================================
       // CLEANUP STEP 4: Prune local blobs
       // ==========================================
-      console.log('[EngFoundation Main] Cleaning up local blob data...');
       loading.message = 'Freeing device storage...';
       const cleanupResult = await this.localImageService.cleanupBlobDataAfterFinalization(this.serviceId);
-      console.log('[EngFoundation Main] Blob cleanup complete:', cleanupResult);
 
       // Reset change tracking
       this.hasChangesAfterFinalization = false;
@@ -625,7 +593,6 @@ export class EngineersFoundationMainPage implements OnInit {
           text: 'OK',
           handler: () => {
             // Navigate back to project detail
-            console.log('[EngFoundation Main] Navigating to project detail');
             this.navController.navigateBack(['/project', this.projectId]);
           }
         }]

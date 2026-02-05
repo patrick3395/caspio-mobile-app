@@ -208,7 +208,6 @@ export class BackgroundSyncService {
    */
   markSectionDirty(sectionKey: string): void {
     this.sectionDirtyFlags.set(sectionKey, true);
-    console.log(`[BackgroundSync] Section marked dirty: ${sectionKey}`);
   }
 
   /**
@@ -224,7 +223,6 @@ export class BackgroundSyncService {
     }
     // Also set a general service-level dirty flag
     this.sectionDirtyFlags.set(serviceId, true);
-    console.log(`[BackgroundSync] All sections marked dirty for service: ${serviceId}`);
   }
 
   /**
@@ -242,7 +240,6 @@ export class BackgroundSyncService {
    */
   clearSectionDirty(sectionKey: string): void {
     this.sectionDirtyFlags.set(sectionKey, false);
-    console.log(`[BackgroundSync] Section cleared: ${sectionKey}`);
   }
 
   // ==========================================================================
@@ -270,7 +267,6 @@ export class BackgroundSyncService {
     }
 
     const timeSinceFirst = this.firstChangeTimestamp ? Math.round((Date.now() - this.firstChangeTimestamp) / 1000) : 0;
-    console.log(`[BackgroundSync] Change queued (${reason}), pending: ${this.pendingChangesCount}, time since first: ${timeSinceFirst}s`);
 
     this.resetRollingSyncWindow(isFirstChange);
   }
@@ -290,28 +286,23 @@ export class BackgroundSyncService {
 
     // Don't set timers if offline
     if (!navigator.onLine) {
-      console.log('[BackgroundSync] Offline - sync timers not started');
       return;
     }
 
     // Start maximum wait timer on FIRST change only (never resets)
     if (isFirstChange && !this.maxWaitTimer) {
       this.maxWaitTimer = setTimeout(() => {
-        console.log(`[BackgroundSync] ⏰ MAX WAIT (${this.maxWaitMs / 1000}s) reached - syncing ${this.pendingChangesCount} pending changes`);
         this.clearSyncTimers();
         this.triggerSync();
       }, this.maxWaitMs);
-      console.log(`[BackgroundSync] Max wait timer started - will force sync in ${this.maxWaitMs / 1000}s regardless of new changes`);
     }
 
     // Set debounce timer - sync after short period of no new changes
     this.rollingSyncTimer = setTimeout(() => {
-      console.log(`[BackgroundSync] Debounce (${this.rollingWindowMs / 1000}s) expired - syncing ${this.pendingChangesCount} pending changes`);
       this.clearSyncTimers();
       this.triggerSync();
     }, this.rollingWindowMs);
 
-    console.log(`[BackgroundSync] Debounce timer reset - will sync in ${this.rollingWindowMs / 1000}s if no new changes`);
   }
 
   /**
@@ -432,7 +423,6 @@ export class BackgroundSyncService {
   private async subscribeToHudServices(): Promise<void> {
     // Only subscribe on mobile where HUD uses Dexie-first architecture
     if (!this.platform.isMobile()) {
-      console.log('[BackgroundSync] Webapp mode - HUD syncs immediately without batching');
       return;
     }
 
@@ -442,19 +432,16 @@ export class BackgroundSyncService {
       if (hudS3Upload) {
         // Forward HUD photo upload events to the central hudPhotoUploadComplete$ subject
         this.hudServicesSubscription = hudS3Upload.uploadComplete$.subscribe((result) => {
-          console.log('[BackgroundSync] HUD photo upload complete:', result.imageId);
           this.ngZone.run(() => {
             this.hudPhotoUploadComplete$.next(result);
           });
         });
-        console.log('[BackgroundSync] Subscribed to HUD photo upload events');
       }
 
       // Subscribe to HUD sync events (create/update/delete operations)
       const hudOpsQueue = await this.getHudOpsQueue();
       if (hudOpsQueue) {
         hudOpsQueue.syncComplete$.subscribe((event) => {
-          console.log(`[BackgroundSync] HUD sync complete: ${event.operation} for ${event.fieldKey}`);
           this.ngZone.run(() => {
             this.hudSyncComplete$.next({
               serviceId: event.serviceId,
@@ -464,7 +451,6 @@ export class BackgroundSyncService {
             });
           });
         });
-        console.log('[BackgroundSync] Subscribed to HUD sync events');
       }
     } catch (e) {
       console.warn('[BackgroundSync] Could not subscribe to HUD services:', e);
@@ -477,7 +463,6 @@ export class BackgroundSyncService {
    */
   private subscribeToSyncQueueChanges(): void {
     this.syncQueueSubscription = this.indexedDb.syncQueueChange$.subscribe(({ reason }) => {
-      console.log(`[BackgroundSync] Sync queue change detected: ${reason}`);
       this.queueChange(reason);
     });
   }
@@ -488,7 +473,6 @@ export class BackgroundSyncService {
    * Fixed interval kept as fallback for any missed changes
    */
   private startBackgroundSync(): void {
-    console.log('[BackgroundSync] Starting background sync service with rolling window');
 
     // TASK 1 FIX: Await reset of stuck items before triggering sync
     // This prevents race conditions where sync starts before stuck items are reset
@@ -521,7 +505,6 @@ export class BackgroundSyncService {
         if (!this.rollingSyncTimer && !this.maxWaitTimer) {
           this.triggerSync();
         } else {
-          console.log('[BackgroundSync] Skipping fixed interval - sync timers active');
         }
       });
     });
@@ -566,7 +549,6 @@ export class BackgroundSyncService {
 
       // Reset stuck 'syncing' requests
       if (stuckSyncing.length > 0) {
-        console.log(`[BackgroundSync] Found ${stuckSyncing.length} stuck 'syncing' requests, resetting to 'pending'`);
         updatePromises.push(...stuckSyncing.map(r =>
           this.indexedDb.updateRequestStatus(r.requestId, 'pending')
         ));
@@ -574,7 +556,6 @@ export class BackgroundSyncService {
 
       // Reset stuck 'pending' requests with high retry counts
       if (stuckPending.length > 0) {
-        console.log(`[BackgroundSync] Found ${stuckPending.length} stuck 'pending' requests with high retry counts, resetting`);
         updatePromises.push(...stuckPending.map(r =>
           this.indexedDb.updatePendingRequest(r.requestId, {
             retryCount: 0,
@@ -586,7 +567,6 @@ export class BackgroundSyncService {
 
       // Clean up old 'synced' requests
       if (syncedRequests.length > 0) {
-        console.log(`[BackgroundSync] Found ${syncedRequests.length} old 'synced' requests, cleaning up`);
         updatePromises.push(...syncedRequests.map(r =>
           this.indexedDb.removePendingRequest(r.requestId)
         ));
@@ -594,7 +574,6 @@ export class BackgroundSyncService {
 
       // Reset stuck 'syncing' captions
       if (stuckCaptions.length > 0) {
-        console.log(`[BackgroundSync] Found ${stuckCaptions.length} stuck 'syncing' captions, resetting to 'pending'`);
         updatePromises.push(...stuckCaptions.map(c =>
           this.indexedDb.updateCaptionStatus(c.captionId, 'pending')
         ));
@@ -602,7 +581,6 @@ export class BackgroundSyncService {
 
       // Reset stuck 'pending' captions with high retry counts
       if (stuckPendingCaptions.length > 0) {
-        console.log(`[BackgroundSync] Found ${stuckPendingCaptions.length} stuck 'pending' captions with high retry counts, resetting`);
         updatePromises.push(...stuckPendingCaptions.map(c =>
           this.indexedDb.updateCaptionStatus(c.captionId, 'pending', {
             retryCount: 0,
@@ -613,7 +591,6 @@ export class BackgroundSyncService {
 
       // Clean up old 'synced' captions
       if (syncedCaptions.length > 0) {
-        console.log(`[BackgroundSync] Found ${syncedCaptions.length} old 'synced' captions, cleaning up`);
         updatePromises.push(...syncedCaptions.map(c =>
           this.indexedDb.deletePendingCaption(c.captionId)
         ));
@@ -622,7 +599,6 @@ export class BackgroundSyncService {
       // Execute all updates in parallel
       if (updatePromises.length > 0) {
         await Promise.all(updatePromises);
-        console.log(`[BackgroundSync] Batch reset complete: ${updatePromises.length} operations`);
       }
 
       // CRITICAL FIX: Reset stuck upload outbox items
@@ -651,7 +627,6 @@ export class BackgroundSyncService {
       );
 
       if (stuckItems.length > 0) {
-        console.log(`[BackgroundSync] Found ${stuckItems.length} stuck upload outbox items, resetting`);
         // FIXED: Batch reset all items in parallel
         await Promise.all(stuckItems.map(item =>
           this.indexedDb.updateOutboxItem(item.opId, {
@@ -660,7 +635,6 @@ export class BackgroundSyncService {
             lastError: null
           })
         ));
-        console.log(`[BackgroundSync] Batch reset ${stuckItems.length} outbox items complete`);
       }
 
       // US-001 FIX: Also reset LocalImages stuck in 'uploading' status
@@ -691,7 +665,6 @@ export class BackgroundSyncService {
       }
 
       if (stuckImages.length > 0) {
-        console.log(`[BackgroundSync] Found ${stuckImages.length} images stuck in 'uploading' status, resetting to 'queued'`);
         await Promise.all(stuckImages.map(img =>
           this.localImageService.updateStatus(img.imageId, 'queued', { lastError: 'Upload was interrupted' })
         ));
@@ -742,9 +715,7 @@ export class BackgroundSyncService {
       }
 
       if (stuckImages.length > 0) {
-        console.log(`[BackgroundSync] US-001: Found ${stuckImages.length} images stuck in 'uploading' for >90s:`);
         stuckImages.forEach(img => {
-          console.log(`[BackgroundSync]   - ${img.imageId} stuck for ${Math.round(img.stuckDuration/1000)}s`);
         });
 
         // Reset both the LocalImage status AND the outbox item's nextRetryAt
@@ -759,7 +730,6 @@ export class BackgroundSyncService {
           });
         }));
 
-        console.log(`[BackgroundSync] US-001: Reset ${stuckImages.length} stuck uploads, ready for retry`);
       }
     } catch (error) {
       console.warn('[BackgroundSync] Error in resetAllStuckUploadingImages:', error);
@@ -779,7 +749,6 @@ export class BackgroundSyncService {
 
     this.connectionSubscription = this.connectionMonitor.getHealth().subscribe(health => {
       if (health.isHealthy && !this.isSyncing) {
-        console.log('[BackgroundSync] Connection restored, triggering sync');
         this.triggerSync();
       }
     });
@@ -791,13 +760,11 @@ export class BackgroundSyncService {
   async triggerSync(): Promise<void> {
     // Don't start new sync if already syncing
     if (this.isSyncing) {
-      console.log('[BackgroundSync] Sync already in progress, skipping');
       return;
     }
 
     // Don't sync if offline
     if (!navigator.onLine) {
-      console.log('[BackgroundSync] Offline, skipping sync');
       return;
     }
 
@@ -813,7 +780,6 @@ export class BackgroundSyncService {
       // OperationsQueue handles CREATE operations that generate temp IDs
       // These must complete before FDF photos can sync (they reference room temp IDs)
       // Without this, clicking "Sync Now" wouldn't process queued room creations
-      console.log('[BackgroundSync] Processing OperationsQueue (room/point creations)...');
       await this.operationsQueue.processQueue();
 
       // HUD-004: Process dirty HUD fields (MOBILE ONLY)
@@ -836,14 +802,12 @@ export class BackgroundSyncService {
       // This prevents the sync queue from showing ghost items
       const staleCleared = await this.indexedDb.clearStalePendingCaptions(60); // 60 min threshold
       if (staleCleared > 0) {
-        console.log(`[BackgroundSync] Cleaned up ${staleCleared} stale caption(s)`);
       }
       
       // CRITICAL FIX: Clean up truly stuck upload outbox items (older than 1 hour with many attempts)
       // This prevents the sync queue from showing items that will never succeed
       const stuckOutboxCleared = await this.indexedDb.cleanupStuckUploadOutboxItems(60); // 60 min threshold
       if (stuckOutboxCleared > 0) {
-        console.log(`[BackgroundSync] Cleaned up ${stuckOutboxCleared} stuck upload outbox item(s)`);
       }
       
       // Perform storage cleanup after successful sync (runs in background, non-blocking)
@@ -853,7 +817,6 @@ export class BackgroundSyncService {
 
       // Clear pending changes count after successful sync
       this.clearPendingChangesCount();
-      console.log('[BackgroundSync] Sync completed successfully, pending changes cleared');
 
       // Update service metadata revisions for storage bloat prevention (Phase 3)
       // This marks that the server has received all local changes
@@ -895,7 +858,6 @@ export class BackgroundSyncService {
       const hudOpsQueue = await this.getHudOpsQueue();
 
       if (!hudFieldRepo || !hudOpsQueue) {
-        console.log('[BackgroundSync] HUD services not available, skipping HUD sync');
         return;
       }
 
@@ -908,11 +870,9 @@ export class BackgroundSyncService {
       const dirtyFields = await hudFieldRepo.getDirtyFields();
 
       if (dirtyFields.length === 0) {
-        console.log('[BackgroundSync] No dirty HUD fields to sync');
         return;
       }
 
-      console.log(`[BackgroundSync] Syncing ${dirtyFields.length} dirty HUD fields`);
 
       // Group by service ID for batch processing
       const fieldsByService = new Map<string, typeof dirtyFields>();
@@ -925,7 +885,6 @@ export class BackgroundSyncService {
       // Process each service's dirty fields
       let totalEnqueued = 0;
       for (const [serviceId, fields] of fieldsByService) {
-        console.log(`[BackgroundSync] Processing ${fields.length} dirty HUD fields for service ${serviceId}`);
 
         // Use HudOperationsQueueService.syncDirtyFields() which handles the enqueuing
         // and sets up callbacks to emit hudSyncComplete$ events
@@ -936,7 +895,6 @@ export class BackgroundSyncService {
         this.markSectionDirty(`${serviceId}_hud`);
       }
 
-      console.log(`[BackgroundSync] Enqueued ${totalEnqueued} HUD operations across ${fieldsByService.size} services`);
 
     } catch (error) {
       console.error('[BackgroundSync] Error syncing dirty HUD fields:', error);
@@ -950,11 +908,9 @@ export class BackgroundSyncService {
     const pending = await this.indexedDb.getPendingRequests();
 
     if (pending.length === 0) {
-      console.log('[BackgroundSync] No pending requests');
       return;
     }
 
-    console.log(`[BackgroundSync] Syncing ${pending.length} pending requests`);
 
     for (const request of pending) {
       // Check if it's time to retry (exponential backoff)
@@ -965,7 +921,6 @@ export class BackgroundSyncService {
       // Check dependencies
       const depsCompleted = await this.indexedDb.areDependenciesCompleted(request.dependencies);
       if (!depsCompleted) {
-        console.log(`[BackgroundSync] Skipping ${request.requestId} - dependencies not met`);
         continue;
       }
 
@@ -994,7 +949,6 @@ export class BackgroundSyncService {
             await this.indexedDb.updateRequestStatus(request.requestId, 'pending', 'No records updated - retrying', true);
             continue;
           }
-          console.log(`[BackgroundSync] ✅ UPDATE affected ${recordsAffected} record(s)`);
         }
 
       // If this created a new record, store ID mapping and emit events
@@ -1057,13 +1011,11 @@ export class BackgroundSyncService {
               }
               
               await this.indexedDb.cacheServiceData(roomId, 'efe_points', updatedPoints);
-              console.log(`[BackgroundSync] Updated EFE points cache for room ${roomId}`);
             }
 
             // CRITICAL: Store temp-to-real point ID mapping for photo restoration on reload
             // This allows loadElevationPoints to find pending photos that were stored with temp point IDs
             await this.indexedDb.mapTempId(request.tempId!, String(realId), 'point');
-            console.log(`[BackgroundSync] ✅ Stored point ID mapping: ${request.tempId} -> ${realId}`);
 
             this.ngZone.run(() => {
               this.efePointSyncComplete$.next({
@@ -1121,7 +1073,6 @@ export class BackgroundSyncService {
               }
               
               await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', updatedRooms);
-              console.log(`[BackgroundSync] Updated EFE rooms cache for service ${serviceId}`);
             }
 
             this.ngZone.run(() => {
@@ -1184,7 +1135,6 @@ export class BackgroundSyncService {
               }
 
               await this.indexedDb.cacheServiceData(serviceId, 'hud', updatedHud);
-              console.log(`[BackgroundSync] ✅ Updated HUD cache for service ${serviceId}: temp ${request.tempId} -> real ${realId}`);
             }
 
             // Emit sync complete event for HUD
@@ -1244,7 +1194,6 @@ export class BackgroundSyncService {
               }
 
               await this.indexedDb.cacheServiceData(serviceId, 'lbw_records', updatedLbw);
-              console.log(`[BackgroundSync] ✅ Updated LBW cache for service ${serviceId}: temp ${request.tempId} -> real ${realId}`);
 
               // CRITICAL FIX: Update lbwFields table to replace tempLbwId with real lbwId
               // Without this, subsequent changes still use temp ID and fail to create UPDATE requests
@@ -1259,7 +1208,6 @@ export class BackgroundSyncService {
                     tempLbwId: null,
                     dirty: false
                   });
-                  console.log(`[BackgroundSync] ✅ Updated lbwFields: temp ${request.tempId} -> real ${realId}`);
                 }
               } catch (err) {
                 console.warn('[BackgroundSync] Failed to update lbwFields after sync:', err);
@@ -1322,7 +1270,6 @@ export class BackgroundSyncService {
               }
 
               await this.indexedDb.cacheServiceData(serviceId, 'dte', updatedDte);
-              console.log(`[BackgroundSync] ✅ Updated DTE cache for service ${serviceId}: temp ${request.tempId} -> real ${realId}`);
 
               // CRITICAL FIX: Update dteFields table to replace tempDteId with real dteId
               // Without this, subsequent changes still use temp ID and fail to create UPDATE requests
@@ -1337,7 +1284,6 @@ export class BackgroundSyncService {
                     tempDteId: null,
                     dirty: false
                   });
-                  console.log(`[BackgroundSync] ✅ Updated dteFields: temp ${request.tempId} -> real ${realId}`);
                 }
               } catch (err) {
                 console.warn('[BackgroundSync] Failed to update dteFields after sync:', err);
@@ -1355,7 +1301,6 @@ export class BackgroundSyncService {
           }
         } else if (request.endpoint.includes('Services_CSA') && !request.endpoint.includes('Attach')) {
           // For CSA records, use CSAID (or PK_ID as fallback)
-          console.log('[BackgroundSync] CSA record sync - processing result');
 
           if (result && result.CSAID) {
             realId = result.CSAID;
@@ -1368,7 +1313,6 @@ export class BackgroundSyncService {
           // Update IndexedDB 'csa' cache and emit sync complete event
           if (realId) {
             const serviceId = String(request.data?.ServiceID || '');
-            console.log(`[BackgroundSync] CSA record synced - realId: ${realId}, serviceId: ${serviceId}`);
 
             // Update the IndexedDB cache to replace temp ID with real CSA data
             if (serviceId) {
@@ -1403,30 +1347,24 @@ export class BackgroundSyncService {
               }
 
               await this.indexedDb.cacheServiceData(serviceId, 'csa_records', updatedCsa);
-              console.log(`[BackgroundSync] ✅ Updated CSA cache for service ${serviceId}: temp ${request.tempId} -> real ${realId}`);
 
               // CRITICAL FIX: Update csaFields table to replace tempCsaId with real csaId
               // Without this, subsequent changes still use temp ID and fail to create UPDATE requests
               try {
-                console.log(`[BackgroundSync] Looking for csaField with tempCsaId: ${request.tempId}`);
                 const csaFieldRecord = await db.csaFields
                   .where('tempCsaId')
                   .equals(request.tempId)
                   .first();
-                console.log(`[BackgroundSync] csaField lookup result:`, csaFieldRecord ? `Found id=${csaFieldRecord.id}` : 'NOT FOUND');
                 if (csaFieldRecord) {
                   await db.csaFields.update(csaFieldRecord.id!, {
                     csaId: String(realId),
                     tempCsaId: null,
                     dirty: false
                   });
-                  console.log(`[BackgroundSync] ✅ Updated csaFields: temp ${request.tempId} -> real ${realId}`);
                 } else {
                   // Try to find any csaField records for debugging
                   const allCsaFields = await db.csaFields.toArray();
-                  console.log(`[BackgroundSync] No csaField found with tempCsaId=${request.tempId}. Total csaFields: ${allCsaFields.length}`);
                   const fieldsWithTempIds = allCsaFields.filter(f => f.tempCsaId);
-                  console.log(`[BackgroundSync] csaFields with tempCsaId:`, fieldsWithTempIds.map(f => ({ id: f.id, templateId: f.templateId, tempCsaId: f.tempCsaId, csaId: f.csaId })));
                 }
               } catch (err) {
                 console.warn('[BackgroundSync] Failed to update csaFields after sync:', err);
@@ -1457,18 +1395,14 @@ export class BackgroundSyncService {
             realId.toString(),
             this.getTempIdType(request.tempId)
           );
-          console.log(`[BackgroundSync] Mapped ${request.tempId} → ${realId}`);
         }
       }
 
         // Emit sync complete event for Service/Project updates so pages can reload
         if (request.type === 'UPDATE') {
-          console.log(`[BackgroundSync] UPDATE completed for endpoint: ${request.endpoint}`);
-          console.log(`[BackgroundSync] UPDATE data was:`, request.data);
           if (request.endpoint.includes('LPS_Services/records')) {
             const match = request.endpoint.match(/PK_ID=(\d+)/);
             if (match) {
-              console.log(`[BackgroundSync] Emitting serviceDataSyncComplete for serviceId=${match[1]}`);
               this.ngZone.run(() => {
                 this.serviceDataSyncComplete$.next({ serviceId: match[1] });
               });
@@ -1476,7 +1410,6 @@ export class BackgroundSyncService {
           } else if (request.endpoint.includes('LPS_Projects/records')) {
             const match = request.endpoint.match(/PK_ID=(\d+)/);
             if (match) {
-              console.log(`[BackgroundSync] Emitting serviceDataSyncComplete for projectId=${match[1]}`);
               this.ngZone.run(() => {
                 this.serviceDataSyncComplete$.next({ projectId: match[1] });
               });
@@ -1486,7 +1419,6 @@ export class BackgroundSyncService {
             const attachMatch = request.endpoint.match(/AttachID=(\d+)/);
             if (attachMatch) {
               const attachId = attachMatch[1];
-              console.log(`[BackgroundSync] Annotation synced for AttachID ${attachId}, clearing _localUpdate flag`);
               await this.clearLocalUpdateFlag('visual_attachments', attachId);
             }
           } else if (request.endpoint.includes('LPS_Services_EFE_Points_Attach')) {
@@ -1494,7 +1426,6 @@ export class BackgroundSyncService {
             const attachMatch = request.endpoint.match(/AttachID=(\d+)/);
             if (attachMatch) {
               const attachId = attachMatch[1];
-              console.log(`[BackgroundSync] EFE Annotation synced for AttachID ${attachId}, clearing _localUpdate flag`);
               await this.clearLocalUpdateFlag('efe_point_attachments', attachId);
             }
           } else if (request.endpoint.includes('LPS_Services_Visuals/records') && !request.endpoint.includes('Attach')) {
@@ -1503,7 +1434,6 @@ export class BackgroundSyncService {
             if (visualMatch) {
               const visualId = visualMatch[1];
               const serviceId = request.data?.ServiceID;
-              console.log(`[BackgroundSync] Visual UPDATE synced for VisualID ${visualId}, clearing _localUpdate flag`);
               await this.clearVisualLocalUpdateFlag(visualId, serviceId);
             }
           } else if (request.endpoint.includes('LPS_Services_EFE/records') && !request.endpoint.includes('Points')) {
@@ -1512,7 +1442,6 @@ export class BackgroundSyncService {
             if (efeMatch) {
               const efeId = efeMatch[1];
               const serviceId = request.data?.ServiceID;
-              console.log(`[BackgroundSync] EFE Room UPDATE synced for EFEID ${efeId}, clearing _localUpdate flag`);
               await this.clearEFERoomLocalUpdateFlag(efeId, serviceId);
             }
           } else if (request.endpoint.includes('LPS_Services_HUD/records') && !request.endpoint.includes('Attach')) {
@@ -1521,7 +1450,6 @@ export class BackgroundSyncService {
             if (hudMatch) {
               const hudId = hudMatch[1];
               const serviceId = request.data?.ServiceID;
-              console.log(`[BackgroundSync] HUD UPDATE synced for VisualID ${hudId}, clearing _localUpdate flag`);
               await this.clearHudLocalUpdateFlag(hudId, serviceId);
             }
           } else if (request.endpoint.includes('LPS_Services_LBW/records') && !request.endpoint.includes('Attach')) {
@@ -1530,7 +1458,6 @@ export class BackgroundSyncService {
             if (lbwMatch) {
               const lbwId = lbwMatch[1];
               const serviceId = request.data?.ServiceID;
-              console.log(`[BackgroundSync] LBW UPDATE synced for LBWID ${lbwId}, clearing _localUpdate flag`);
               await this.clearLbwLocalUpdateFlag(lbwId, serviceId);
             }
           } else if (request.endpoint.includes('LPS_Services_DTE/records') && !request.endpoint.includes('Attach')) {
@@ -1539,7 +1466,6 @@ export class BackgroundSyncService {
             if (dteMatch) {
               const dteId = dteMatch[1];
               const serviceId = request.data?.ServiceID;
-              console.log(`[BackgroundSync] DTE UPDATE synced for DTEID ${dteId}, clearing _localUpdate flag`);
               await this.clearDteLocalUpdateFlag(dteId, serviceId);
             }
           }
@@ -1556,7 +1482,6 @@ export class BackgroundSyncService {
           // the mapping wouldn't be stored and photos would be stuck with "Waiting for parent entity sync"
           if (visualId && request.tempId) {
             await this.indexedDb.mapTempId(request.tempId, String(visualId), 'visual');
-            console.log(`[BackgroundSync] ✅ Stored visual ID mapping: ${request.tempId} -> ${visualId}`);
           } else if (!visualId) {
             console.error(`[BackgroundSync] ❌ Visual CREATE succeeded but no VisualID in response:`, JSON.stringify(result)?.substring(0, 200));
           }
@@ -1564,7 +1489,6 @@ export class BackgroundSyncService {
           // Emit sync complete and refresh cache only if we have a valid serviceId
           const validServiceId = serviceId && !isNaN(Number(serviceId)) ? String(serviceId) : null;
           if (validServiceId && visualId) {
-            console.log(`[BackgroundSync] Visual created - emitting visualSyncComplete for serviceId=${validServiceId}, visualId=${visualId}`);
 
             this.ngZone.run(() => {
               this.visualSyncComplete$.next({
@@ -1592,7 +1516,6 @@ export class BackgroundSyncService {
         // CRITICAL: Delete the request after successful sync instead of just marking as 'synced'
         // This prevents stale "pending" counts in the sync widget
         await this.indexedDb.removePendingRequest(request.requestId);
-        console.log(`[BackgroundSync] ✅ Synced and removed: ${request.requestId}`);
 
       } catch (error: any) {
         const errorMessage = error.message || 'Sync failed';
@@ -1606,7 +1529,6 @@ export class BackgroundSyncService {
           // DON'T increment retry count for dependency failures
           // These should retry immediately when the dependency resolves
           // TASK 2 FIX: Skip lastAttempt update so exponential backoff doesn't delay retry
-          console.log(`[BackgroundSync] ⏳ Dependency pending for ${request.requestId}: ${errorMessage}`);
           await this.indexedDb.updateRequestStatus(request.requestId, 'pending', errorMessage, true);
         } else {
           // Real failure - increment retry count for exponential backoff
@@ -1643,7 +1565,6 @@ export class BackgroundSyncService {
       return;
     }
     
-    console.log(`[BackgroundSync] Processing ${pendingCaptions.length} pending caption updates`);
     
     for (const caption of pendingCaptions) {
       try {
@@ -1668,12 +1589,10 @@ export class BackgroundSyncService {
           if (!realId) {
             // Track the dependency wait so it's visible in failed tab
             const dependencyError = `Waiting for photo sync (temp ID: ${attachIdStr})`;
-            console.log(`[BackgroundSync] Caption ${caption.captionId} waiting: ${dependencyError}`);
             await this.indexedDb.updateCaptionStatus(caption.captionId, 'pending', dependencyError);
             continue;
           }
           resolvedAttachId = realId;
-          console.log(`[BackgroundSync] Resolved caption attachId (temp): ${caption.attachId} → ${realId}`);
         }
         // Check for local-first imageId (new system - UUIDs or img_ prefix)
         else if (attachIdStr.startsWith('img_') || attachIdStr.includes('-')) {
@@ -1683,11 +1602,9 @@ export class BackgroundSyncService {
             if (localImage.attachId && !String(localImage.attachId).startsWith('img_')) {
               // Photo has synced and has a real Caspio AttachID
               resolvedAttachId = localImage.attachId;
-              console.log(`[BackgroundSync] Resolved caption attachId (local-first): ${caption.attachId} → ${resolvedAttachId}`);
             } else {
               // Photo hasn't synced yet - track the dependency so it's visible
               const dependencyError = `Waiting for photo upload (image: ${attachIdStr})`;
-              console.log(`[BackgroundSync] Caption ${caption.captionId} waiting: ${dependencyError}`);
               await this.indexedDb.updateCaptionStatus(caption.captionId, 'pending', dependencyError);
               continue;
             }
@@ -1696,10 +1613,8 @@ export class BackgroundSyncService {
             const realId = await this.indexedDb.getRealId(attachIdStr);
             if (realId) {
               resolvedAttachId = realId;
-              console.log(`[BackgroundSync] Resolved caption attachId (fallback): ${caption.attachId} → ${realId}`);
             } else {
               // Can't resolve - might be already synced with this ID, try anyway
-              console.log(`[BackgroundSync] Caption attachId ${attachIdStr} - proceeding as-is`);
             }
           }
         }
@@ -1735,7 +1650,6 @@ export class BackgroundSyncService {
             endpoint = `/api/caspio-proxy/tables/LPS_Services_DTE_Attach/records?q.where=AttachID=${resolvedAttachId}`;
             break;
           case 'csa':
-            console.log('[BackgroundSync] CSA caption sync - AttachID:', resolvedAttachId);
             endpoint = `/api/caspio-proxy/tables/LPS_Services_CSA_Attach/records?q.where=AttachID=${resolvedAttachId}`;
             break;
           case 'fdf':
@@ -1753,7 +1667,6 @@ export class BackgroundSyncService {
               fdfUpdateData[`FDF${photoType}Drawings`] = caption.drawings;
             }
             
-            console.log(`[BackgroundSync] Syncing FDF caption for room ${resolvedAttachId}, type: ${photoType}`);
             endpoint = `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${resolvedAttachId}`;
             
             try {
@@ -1766,7 +1679,6 @@ export class BackgroundSyncService {
                 continue;
               }
               
-              console.log(`[BackgroundSync] ✅ FDF caption synced: ${caption.captionId} (${fdfRecordsAffected} record(s) updated)`);
               await this.indexedDb.updateCaptionStatus(caption.captionId, 'synced');
               
               // Schedule deletion after 30 seconds
@@ -1790,7 +1702,6 @@ export class BackgroundSyncService {
         }
         
         // Perform the API update
-        console.log(`[BackgroundSync] Syncing caption for ${caption.attachType} AttachID=${resolvedAttachId}`);
         const response: any = await this.apiGateway.put(endpoint, updateData).toPromise();
         
         // CRITICAL: Verify that records were actually updated
@@ -1804,7 +1715,6 @@ export class BackgroundSyncService {
           continue;
         }
         
-        console.log(`[BackgroundSync] ✅ Caption synced: ${caption.captionId} (${recordsAffected} record(s) updated)`);
         
         // CRITICAL: Update the synced cache with caption/drawings data
         // This ensures the cache has correct data for future page loads
@@ -1822,13 +1732,11 @@ export class BackgroundSyncService {
         // Keep synced captions for 30 seconds in case user reloads page quickly
         // This fixes captions disappearing on reload
         await this.indexedDb.updateCaptionStatus(caption.captionId, 'synced');
-        console.log(`[BackgroundSync] Caption marked as synced: ${caption.captionId} - will delete in 30s`);
 
         // Schedule deletion after 30 seconds (gives time for page reload to merge)
         const captionIdToDelete = caption.captionId;
         setTimeout(() => {
           this.indexedDb.deletePendingCaption(captionIdToDelete).then(() => {
-            console.log(`[BackgroundSync] Caption deleted after delay: ${captionIdToDelete}`);
           }).catch(err => {
             console.warn(`[BackgroundSync] Failed to delete caption: ${captionIdToDelete}`, err);
           });
@@ -1959,7 +1867,6 @@ export class BackgroundSyncService {
   private async syncVisualPhotoUpload(request: PendingRequest): Promise<any> {
     const data = request.data;
 
-    console.log('[BackgroundSync] Photo upload - raw data:', data);
 
     // CRITICAL: Mark photo as uploading to prevent it showing in pending list during upload
     // This prevents broken images when user navigates away and back during sync
@@ -1980,17 +1887,12 @@ export class BackgroundSyncService {
     const drawings = storedDrawings || data.drawings || '';
     const caption = storedCaption || data.caption || '';
 
-    console.log('[BackgroundSync] File retrieved successfully:', file.name, file.size);
-    console.log('[BackgroundSync] Drawings from storage:', drawings.length, 'chars');
-    console.log('[BackgroundSync] Caption from storage:', caption);
 
     // Resolve temp Visual ID to real ID if needed
     let visualId = data.tempVisualId || data.visualId;
-    console.log('[BackgroundSync] Visual ID from request:', visualId);
 
     if (visualId && String(visualId).startsWith('temp_')) {
       const realId = await this.indexedDb.getRealId(String(visualId));
-      console.log('[BackgroundSync] Resolved temp ID:', visualId, '→', realId);
 
       if (!realId) {
         throw new Error(`Visual not synced yet: ${visualId}`);
@@ -2006,11 +1908,9 @@ export class BackgroundSyncService {
       throw new Error(`Invalid visual ID: ${data.visualId || data.tempVisualId}`);
     }
 
-    console.log('[BackgroundSync] Final Visual ID for upload:', visualId);
 
     // Generate idempotency key for AWS deduplication
     const idempotencyKey = data.idempotencyKey || `photo_${visualId}_${data.fileName}_${data.fileSize}`;
-    console.log('[BackgroundSync] Using idempotency key:', idempotencyKey);
 
     try {
       // CRITICAL FIX: Re-read annotations RIGHT before upload in case user updated while waiting
@@ -2020,7 +1920,6 @@ export class BackgroundSyncService {
       const latestCaption = latestPhotoData?.caption || caption;
       
       if (latestDrawings !== drawings) {
-        console.log('[BackgroundSync] ⚠️ Drawings updated while waiting! Using latest:', latestDrawings.length, 'chars');
       }
       
       // Call the EXISTING S3 upload method with LATEST drawings AND caption from IndexedDB
@@ -2031,11 +1930,9 @@ export class BackgroundSyncService {
         latestCaption    // Now passing the caption
       );
 
-      console.log('[BackgroundSync] Photo uploaded successfully to Visual', visualId, 'with', latestDrawings.length, 'chars of drawings, caption:', latestCaption || '(none)');
 
       // STEP 1: Update photo status to 'synced' (before cleanup)
       await this.indexedDb.updatePhotoStatus(data.fileId, 'synced');
-      console.log('[BackgroundSync] Photo status updated to synced:', data.fileId);
 
       // STEP 2: Cache the uploaded image as base64 for offline viewing
       // CRITICAL: This MUST succeed before we delete the local blob
@@ -2050,7 +1947,6 @@ export class BackgroundSyncService {
             result.s3Key || result.Photo,
             data.fileId  // Pass imageId for Dexie-first pointer storage
           );
-          console.log('[BackgroundSync] ✅ Cached uploaded photo for offline viewing');
           cachingSucceeded = true;
         } else {
           // No S3 key, but upload succeeded - mark as cached anyway
@@ -2067,7 +1963,6 @@ export class BackgroundSyncService {
       if (realAttachId && data.fileId) {
         const updatedCount = await this.indexedDb.updateCaptionAttachId(data.fileId, String(realAttachId));
         if (updatedCount > 0) {
-          console.log(`[BackgroundSync] ✅ Updated ${updatedCount} pending captions with real AttachID: ${realAttachId}`);
         }
       }
 
@@ -2097,13 +1992,11 @@ export class BackgroundSyncService {
         setTimeout(async () => {
           try {
             await this.indexedDb.deleteStoredFile(fileIdToDelete);
-            console.log('[BackgroundSync] Cleaned up stored photo file:', fileIdToDelete);
           } catch (delErr) {
             console.warn('[BackgroundSync] Failed to delete stored file:', fileIdToDelete, delErr);
           }
         }, 2000); // 2 second delay to allow navigation to complete
       } else {
-        console.log('[BackgroundSync] ⚠️ Skipping local blob deletion - caching failed');
       }
 
       // Refresh visual attachments cache with new photo
@@ -2119,7 +2012,6 @@ export class BackgroundSyncService {
         for (const att of existingCache) {
           if (att._localUpdate) {
             localUpdates.set(String(att.AttachID), att);
-            console.log(`[BackgroundSync] Preserving local annotation for AttachID ${att.AttachID}`);
           }
         }
         
@@ -2134,7 +2026,6 @@ export class BackgroundSyncService {
         });
         
         await this.indexedDb.cacheServiceData(String(visualId), 'visual_attachments', mergedAttachments);
-        console.log(`[BackgroundSync] ✅ Refreshed attachments cache for visual ${visualId}: ${freshAttachments.length} photos, ${localUpdates.size} local updates preserved`);
       } catch (cacheErr) {
         console.warn(`[BackgroundSync] Failed to refresh attachments cache:`, cacheErr);
       }
@@ -2155,7 +2046,6 @@ export class BackgroundSyncService {
   private async syncEFEPointPhotoUpload(request: PendingRequest): Promise<any> {
     const data = request.data;
 
-    console.log('[BackgroundSync] EFE photo upload - raw data:', data);
 
     // CRITICAL: Mark photo as uploading to prevent it showing in pending list during upload
     // This prevents broken images when user navigates away and back during sync
@@ -2171,21 +2061,16 @@ export class BackgroundSyncService {
 
     const { file, drawings, photoType, pointId: storedPointId } = photoData;
 
-    console.log('[BackgroundSync] EFE file retrieved:', file.name, file.size, 'bytes');
-    console.log('[BackgroundSync] Drawings:', drawings.length, 'chars, photoType:', photoType);
 
     // IMPORTANT: tempPointId may have already been resolved by resolveTempIds()
     // Check if it's already a number (resolved) or still a temp string
     let pointId = data.tempPointId || data.pointId || storedPointId;
-    console.log('[BackgroundSync] Point ID from request data:', pointId, 'type:', typeof pointId);
 
     // If it's already a number (resolved by resolveTempIds), use it directly
     if (typeof pointId === 'number' && !isNaN(pointId)) {
-      console.log('[BackgroundSync] Point ID already resolved to number:', pointId);
     } else if (pointId && String(pointId).startsWith('temp_')) {
       // Still a temp ID - try to resolve it
       const realId = await this.indexedDb.getRealId(String(pointId));
-      console.log('[BackgroundSync] Resolved temp Point ID:', pointId, '→', realId);
 
       if (!realId) {
         throw new Error(`EFE Point not synced yet: ${pointId}`);
@@ -2201,14 +2086,6 @@ export class BackgroundSyncService {
       throw new Error(`Invalid Point ID: ${data.pointId || data.tempPointId || storedPointId}`);
     }
 
-    console.log('[BackgroundSync] Final Point ID for EFE upload:', pointId, 'type:', typeof pointId);
-    console.log('[BackgroundSync] Full request data for debugging:', JSON.stringify({
-      tempPointId: data.tempPointId,
-      pointId: data.pointId,
-      storedPointId: storedPointId,
-      fileId: data.fileId,
-      photoType: photoType || data.photoType
-    }));
 
     // CRITICAL: Validate PointID is a valid number before API call
     if (!pointId || isNaN(pointId) || pointId <= 0) {
@@ -2224,14 +2101,11 @@ export class BackgroundSyncService {
       const latestCaption = latestPhotoData?.caption || data.caption || '';
       
       if (latestDrawings !== drawings) {
-        console.log('[BackgroundSync] ⚠️ EFE Drawings updated while waiting! Using latest:', latestDrawings.length, 'chars');
       }
       if (latestCaption) {
-        console.log('[BackgroundSync] EFE Caption from storage:', latestCaption);
       }
 
       // Call the S3 upload method for EFE point attachments
-      console.log('[BackgroundSync] Calling uploadEFEPointsAttachWithS3 with PointID:', pointId);
       const result = await this.caspioService.uploadEFEPointsAttachWithS3(
         pointId,
         latestDrawings || data.drawings || '',  // Use LATEST drawings
@@ -2240,11 +2114,9 @@ export class BackgroundSyncService {
         latestCaption  // CRITICAL: Pass caption to upload
       );
 
-      console.log('[BackgroundSync] ✅ EFE photo uploaded to Point', pointId, 'Result:', JSON.stringify(result));
 
       // STEP 1: Update photo status to 'synced' (before cleanup)
       await this.indexedDb.updatePhotoStatus(data.fileId, 'synced');
-      console.log('[BackgroundSync] EFE photo status updated to synced:', data.fileId);
 
       // STEP 2: Cache the uploaded image as base64 for offline viewing
       // CRITICAL: This MUST succeed before we delete the local blob
@@ -2258,7 +2130,6 @@ export class BackgroundSyncService {
             result.s3Key || result.Photo,
             data.fileId  // Pass imageId for Dexie-first pointer storage
           );
-          console.log('[BackgroundSync] ✅ Cached EFE photo for offline viewing');
           cachingSucceeded = true;
         } else {
           // No S3 key, but upload succeeded - mark as cached anyway
@@ -2275,7 +2146,6 @@ export class BackgroundSyncService {
       if (realAttachId && data.fileId) {
         const updatedCount = await this.indexedDb.updateCaptionAttachId(data.fileId, String(realAttachId));
         if (updatedCount > 0) {
-          console.log(`[BackgroundSync] ✅ Updated ${updatedCount} pending EFE captions with real AttachID: ${realAttachId}`);
         }
       }
 
@@ -2303,13 +2173,11 @@ export class BackgroundSyncService {
         setTimeout(async () => {
           try {
             await this.indexedDb.deleteStoredFile(fileIdToDelete);
-            console.log('[BackgroundSync] Cleaned up EFE photo file:', fileIdToDelete);
           } catch (delErr) {
             console.warn('[BackgroundSync] Failed to delete EFE stored file:', fileIdToDelete, delErr);
           }
         }, 2000); // 2 second delay to allow navigation to complete
       } else {
-        console.log('[BackgroundSync] ⚠️ Skipping EFE local blob deletion - caching failed');
       }
 
       return result;
@@ -2391,7 +2259,6 @@ export class BackgroundSyncService {
         const realId = await this.indexedDb.getRealId(tempId);
         if (realId) {
           data[field] = realId;
-          console.log(`[BackgroundSync] Resolved ${field}: ${tempId} → ${realId}`);
         } else {
           console.warn(`[BackgroundSync] Could not resolve ${field}: ${tempId} - real ID not found`);
         }
@@ -2410,7 +2277,6 @@ export class BackgroundSyncService {
         // Already a real ID - use it directly
         // DEXIE-FIRST FIX: Add quotes around EFEID for Caspio query compatibility
         endpoint = endpoint.replace('EFEID=DEFERRED', `EFEID='${tempEfeId}'`);
-        console.log(`[BackgroundSync] Using real EFEID directly: ${tempEfeId}`);
         delete data._tempEfeId;
       } else {
         // Still a temp ID - try to resolve it
@@ -2418,11 +2284,9 @@ export class BackgroundSyncService {
         if (realEfeId) {
           // DEXIE-FIRST FIX: Add quotes around EFEID for Caspio query compatibility
           endpoint = endpoint.replace('EFEID=DEFERRED', `EFEID='${realEfeId}'`);
-          console.log(`[BackgroundSync] Resolved DEFERRED endpoint: ${tempEfeId} → ${realEfeId}`);
           delete data._tempEfeId;
         } else {
           // Room not synced yet - throw error to defer until room syncs
-          console.log(`[BackgroundSync] FDF update deferred - room not synced yet: ${tempEfeId}`);
           throw new Error(`Room not synced yet: ${tempEfeId}`);
         }
       }
@@ -2436,18 +2300,15 @@ export class BackgroundSyncService {
       if (typeof tempPointId === 'string' && !tempPointId.startsWith('temp_')) {
         // Already a real ID - use it directly
         endpoint = endpoint.replace('PointID=DEFERRED', `PointID=${tempPointId}`);
-        console.log(`[BackgroundSync] Using real PointID directly: ${tempPointId}`);
         delete data._tempPointId;
       } else {
         // Still a temp ID - try to resolve it
         const realPointId = await this.indexedDb.getRealId(tempPointId);
         if (realPointId) {
           endpoint = endpoint.replace('PointID=DEFERRED', `PointID=${realPointId}`);
-          console.log(`[BackgroundSync] Resolved PointID DEFERRED: ${tempPointId} → ${realPointId}`);
           delete data._tempPointId;
         } else {
           // Point not synced yet - throw error to defer
-          console.log(`[BackgroundSync] Point operation deferred - point not synced yet: ${tempPointId}`);
           throw new Error(`Point not synced yet: ${tempPointId}`);
         }
       }
@@ -2459,16 +2320,13 @@ export class BackgroundSyncService {
 
       if (typeof tempAttachId === 'string' && !tempAttachId.startsWith('temp_')) {
         endpoint = endpoint.replace('AttachID=DEFERRED', `AttachID=${tempAttachId}`);
-        console.log(`[BackgroundSync] Using real AttachID directly: ${tempAttachId}`);
         delete data._tempAttachId;
       } else {
         const realAttachId = await this.indexedDb.getRealId(tempAttachId);
         if (realAttachId) {
           endpoint = endpoint.replace('AttachID=DEFERRED', `AttachID=${realAttachId}`);
-          console.log(`[BackgroundSync] Resolved AttachID DEFERRED: ${tempAttachId} → ${realAttachId}`);
           delete data._tempAttachId;
         } else {
-          console.log(`[BackgroundSync] Attachment operation deferred - not synced yet: ${tempAttachId}`);
           throw new Error(`Attachment not synced yet: ${tempAttachId}`);
         }
       }
@@ -2535,7 +2393,6 @@ export class BackgroundSyncService {
    * This ensures items with backoff delays are immediately retried when user clicks Force Sync
    */
   async forceSyncNow(): Promise<void> {
-    console.log('[BackgroundSync] Force sync triggered');
 
     // US-001 FIX: AGGRESSIVE reset - when user clicks Force Sync, reset ALL 'uploading' items
     // regardless of how long they've been uploading. User expects immediate retry.
@@ -2571,7 +2428,6 @@ export class BackgroundSyncService {
       }
 
       if (uploadingImages.length > 0) {
-        console.log(`[BackgroundSync] Force sync: resetting ${uploadingImages.length} 'uploading' images to 'queued'`);
 
         // Reset ALL uploading items - user clicked Force Sync so they want immediate retry
         await Promise.all(uploadingImages.map(async (img) => {
@@ -2601,7 +2457,6 @@ export class BackgroundSyncService {
       const delayedItems = allItems.filter(item => item.nextRetryAt > now);
 
       if (delayedItems.length > 0) {
-        console.log(`[BackgroundSync] Force sync: resetting ${delayedItems.length} delayed upload items`);
         await Promise.all(delayedItems.map(item =>
           this.indexedDb.updateOutboxItem(item.opId, {
             nextRetryAt: now
@@ -2618,7 +2473,6 @@ export class BackgroundSyncService {
    * Called after clearing pending items to update the UI
    */
   async refreshSyncStatus(): Promise<void> {
-    console.log('[BackgroundSync] Refreshing sync status from database');
     await this.updateSyncStatusFromDb();
   }
 
@@ -2627,7 +2481,6 @@ export class BackgroundSyncService {
    * FIXED: Also cleanup connection subscription and rolling timer to prevent memory leak
    */
   pauseSync(): void {
-    console.log('[BackgroundSync] Pausing sync');
     if (this.syncInterval) {
       this.syncInterval.unsubscribe();
       this.syncInterval = null;
@@ -2650,7 +2503,6 @@ export class BackgroundSyncService {
    * Resume background sync
    */
   resumeSync(): void {
-    console.log('[BackgroundSync] Resuming sync');
     if (!this.syncInterval) {
       this.startBackgroundSync();
     }
@@ -2679,7 +2531,6 @@ export class BackgroundSyncService {
           const freshData = await this.caspioService.getService(serviceId).toPromise();
           if (freshData) {
             await this.indexedDb.cacheServiceRecord(serviceId, freshData);
-            console.log(`[BackgroundSync] Refreshed service cache for ${serviceId} from server`);
 
             // Emit event so pages can reload their data
             this.ngZone.run(() => {
@@ -2696,7 +2547,6 @@ export class BackgroundSyncService {
           const freshData = await this.caspioService.getProject(projectId).toPromise();
           if (freshData) {
             await this.indexedDb.cacheProjectRecord(projectId, freshData);
-            console.log(`[BackgroundSync] Refreshed project cache for ${projectId} from server`);
 
             // Emit event so pages can reload their data
             this.ngZone.run(() => {
@@ -2758,14 +2608,12 @@ export class BackgroundSyncService {
             await this.indexedDb.cacheServiceData(
               caption.visualId, 'visual_attachments', updated
             );
-            console.log(`[BackgroundSync] ✅ Updated synced cache with caption for visual attachment ${caption.attachId}`);
           }
         }
         
         // FALLBACK PATH: Search all visual_attachments caches when visualId is missing
         // This handles the case where visualId wasn't available when caption was queued
         if (!foundInCache && caption.serviceId) {
-          console.log(`[BackgroundSync] 🔍 Searching all caches for attachment ${caption.attachId} (visualId was missing)`);
           const allCaches = await this.indexedDb.getAllCachedServiceData('visual_attachments');
           
           for (const cache of allCaches) {
@@ -2792,14 +2640,12 @@ export class BackgroundSyncService {
             
             if (foundInThisCache) {
               await this.indexedDb.cacheServiceData(cache.serviceId, 'visual_attachments', updatedAttachments);
-              console.log(`[BackgroundSync] ✅ Found and updated attachment ${caption.attachId} in cache ${cache.serviceId} (fallback search)`);
               break; // Found it, no need to continue searching
             }
           }
         }
         
         if (!foundInCache) {
-          console.log(`[BackgroundSync] ⚠️ Attachment ${caption.attachId} not in any cache - will be loaded on next page visit`);
         }
       } else if (caption.attachType === 'efe_point') {
         let foundInCache = false;
@@ -2831,13 +2677,11 @@ export class BackgroundSyncService {
             await this.indexedDb.cacheServiceData(
               caption.pointId, 'efe_point_attachments', updated
             );
-            console.log(`[BackgroundSync] ✅ Updated synced cache with caption for EFE point attachment ${caption.attachId}`);
           }
         }
         
         // FALLBACK PATH: Search all efe_point_attachments caches when pointId is missing
         if (!foundInCache && caption.serviceId) {
-          console.log(`[BackgroundSync] 🔍 Searching all EFE caches for attachment ${caption.attachId} (pointId was missing)`);
           const allCaches = await this.indexedDb.getAllCachedServiceData('efe_point_attachments');
           
           for (const cache of allCaches) {
@@ -2864,14 +2708,12 @@ export class BackgroundSyncService {
             
             if (foundInThisCache) {
               await this.indexedDb.cacheServiceData(cache.serviceId, 'efe_point_attachments', updatedAttachments);
-              console.log(`[BackgroundSync] ✅ Found and updated EFE attachment ${caption.attachId} in cache ${cache.serviceId} (fallback search)`);
               break;
             }
           }
         }
         
         if (!foundInCache) {
-          console.log(`[BackgroundSync] ⚠️ EFE Attachment ${caption.attachId} not in any cache - will be loaded on next page visit`);
         }
       } else if (caption.attachType === 'hud') {
         // HUD: Update hud_attachments cache and localImages
@@ -2887,7 +2729,6 @@ export class BackgroundSyncService {
             if (caption.drawings !== undefined) updateData.drawings = caption.drawings;
             await db.localImages.update(caption.attachId, updateData);
             foundInCache = true;
-            console.log(`[BackgroundSync] ✅ Updated localImages with synced caption for HUD: ${caption.attachId}`);
           } else {
             // Try to find by attachId field
             const imagesWithAttachId = await db.localImages.where('attachId').equals(caption.attachId).toArray();
@@ -2898,7 +2739,6 @@ export class BackgroundSyncService {
                 if (caption.drawings !== undefined) updateData.drawings = caption.drawings;
                 await db.localImages.update(img.imageId, updateData);
                 foundInCache = true;
-                console.log(`[BackgroundSync] ✅ Updated localImages (by attachId) with synced caption for HUD: ${img.imageId}`);
               }
             }
           }
@@ -2923,12 +2763,10 @@ export class BackgroundSyncService {
           });
           if (foundInCache) {
             await this.indexedDb.cacheServiceData(caption.visualId, 'hud_attachments', updated);
-            console.log(`[BackgroundSync] ✅ Updated hud_attachments cache for ${caption.attachId}`);
           }
         }
 
         if (!foundInCache) {
-          console.log(`[BackgroundSync] ⚠️ HUD Attachment ${caption.attachId} not in any cache - will be loaded on next page visit`);
         }
       } else if (caption.attachType === 'lbw') {
         // LBW: Update lbw_attachments cache and localImages
@@ -2944,7 +2782,6 @@ export class BackgroundSyncService {
             if (caption.drawings !== undefined) updateData.drawings = caption.drawings;
             await db.localImages.update(caption.attachId, updateData);
             foundInCache = true;
-            console.log(`[BackgroundSync] ✅ Updated localImages with synced caption for LBW: ${caption.attachId}`);
           } else {
             // Try to find by attachId field
             const imagesWithAttachId = await db.localImages.where('attachId').equals(caption.attachId).toArray();
@@ -2955,7 +2792,6 @@ export class BackgroundSyncService {
                 if (caption.drawings !== undefined) updateData.drawings = caption.drawings;
                 await db.localImages.update(img.imageId, updateData);
                 foundInCache = true;
-                console.log(`[BackgroundSync] ✅ Updated localImages (by attachId) with synced caption for LBW: ${img.imageId}`);
               }
             }
           }
@@ -2980,12 +2816,10 @@ export class BackgroundSyncService {
           });
           if (foundInCache) {
             await this.indexedDb.cacheServiceData(caption.visualId, 'lbw_attachments', updated);
-            console.log(`[BackgroundSync] ✅ Updated lbw_attachments cache for ${caption.attachId}`);
           }
         }
 
         if (!foundInCache) {
-          console.log(`[BackgroundSync] ⚠️ LBW Attachment ${caption.attachId} not in any cache - will be loaded on next page visit`);
         }
       } else if (caption.attachType === 'dte') {
         // DTE: Update dte_attachments cache and localImages
@@ -3001,7 +2835,6 @@ export class BackgroundSyncService {
             if (caption.drawings !== undefined) updateData.drawings = caption.drawings;
             await db.localImages.update(caption.attachId, updateData);
             foundInCache = true;
-            console.log(`[BackgroundSync] ✅ Updated localImages with synced caption for DTE: ${caption.attachId}`);
           } else {
             // Try to find by attachId field
             const imagesWithAttachId = await db.localImages.where('attachId').equals(caption.attachId).toArray();
@@ -3012,7 +2845,6 @@ export class BackgroundSyncService {
                 if (caption.drawings !== undefined) updateData.drawings = caption.drawings;
                 await db.localImages.update(img.imageId, updateData);
                 foundInCache = true;
-                console.log(`[BackgroundSync] ✅ Updated localImages (by attachId) with synced caption for DTE: ${img.imageId}`);
               }
             }
           }
@@ -3037,12 +2869,10 @@ export class BackgroundSyncService {
           });
           if (foundInCache) {
             await this.indexedDb.cacheServiceData(caption.visualId, 'dte_attachments', updated);
-            console.log(`[BackgroundSync] ✅ Updated dte_attachments cache for ${caption.attachId}`);
           }
         }
 
         if (!foundInCache) {
-          console.log(`[BackgroundSync] ⚠️ DTE Attachment ${caption.attachId} not in any cache - will be loaded on next page visit`);
         }
       } else if (caption.attachType === 'csa') {
         // CSA: Update csa_attachments cache and localImages
@@ -3058,7 +2888,6 @@ export class BackgroundSyncService {
             if (caption.drawings !== undefined) updateData.drawings = caption.drawings;
             await db.localImages.update(caption.attachId, updateData);
             foundInCache = true;
-            console.log(`[BackgroundSync] ✅ Updated localImages with synced caption for CSA: ${caption.attachId}`);
           } else {
             // Try to find by attachId field
             const imagesWithAttachId = await db.localImages.where('attachId').equals(caption.attachId).toArray();
@@ -3069,7 +2898,6 @@ export class BackgroundSyncService {
                 if (caption.drawings !== undefined) updateData.drawings = caption.drawings;
                 await db.localImages.update(img.imageId, updateData);
                 foundInCache = true;
-                console.log(`[BackgroundSync] ✅ Updated localImages (by attachId) with synced caption for CSA: ${img.imageId}`);
               }
             }
           }
@@ -3094,12 +2922,10 @@ export class BackgroundSyncService {
           });
           if (foundInCache) {
             await this.indexedDb.cacheServiceData(caption.visualId, 'csa_attachments', updated);
-            console.log(`[BackgroundSync] ✅ Updated csa_attachments cache for ${caption.attachId}`);
           }
         }
 
         if (!foundInCache) {
-          console.log(`[BackgroundSync] ⚠️ CSA Attachment ${caption.attachId} not in any cache - will be loaded on next page visit`);
         }
       }
       // FDF type is handled differently (stored in room record, not attachments)
@@ -3136,12 +2962,10 @@ export class BackgroundSyncService {
         
         if (found) {
           await this.indexedDb.cacheServiceData(cache.serviceId, dataType, updatedAttachments);
-          console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for AttachID ${attachId} in ${cache.serviceId}`);
           return;
         }
       }
       
-      console.log(`[BackgroundSync] AttachID ${attachId} not found in any cache (may already be cleared)`);
     } catch (error) {
       console.warn(`[BackgroundSync] Error clearing _localUpdate flag for AttachID ${attachId}:`, error);
     }
@@ -3175,7 +2999,6 @@ export class BackgroundSyncService {
         
         if (found) {
           await this.indexedDb.cacheServiceData(String(serviceId), 'visuals', updatedVisuals);
-          console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for VisualID ${visualId} in service ${serviceId}`);
           return;
         }
       }
@@ -3198,12 +3021,10 @@ export class BackgroundSyncService {
         
         if (found) {
           await this.indexedDb.cacheServiceData(cache.serviceId, 'visuals', updatedVisuals);
-          console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for VisualID ${visualId} in ${cache.serviceId}`);
           return;
         }
       }
       
-      console.log(`[BackgroundSync] VisualID ${visualId} not found in any cache (may already be cleared)`);
     } catch (error) {
       console.warn(`[BackgroundSync] Error clearing _localUpdate flag for VisualID ${visualId}:`, error);
     }
@@ -3237,7 +3058,6 @@ export class BackgroundSyncService {
         
         if (found) {
           await this.indexedDb.cacheServiceData(String(serviceId), 'efe_rooms', updatedRooms);
-          console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for EFEID ${efeId} in service ${serviceId}`);
           return;
         }
       }
@@ -3260,12 +3080,10 @@ export class BackgroundSyncService {
         
         if (found) {
           await this.indexedDb.cacheServiceData(cache.serviceId, 'efe_rooms', updatedRooms);
-          console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for EFEID ${efeId} in ${cache.serviceId}`);
           return;
         }
       }
       
-      console.log(`[BackgroundSync] EFEID ${efeId} not found in any cache (may already be cleared)`);
     } catch (error) {
       console.warn(`[BackgroundSync] Error clearing _localUpdate flag for EFEID ${efeId}:`, error);
     }
@@ -3295,7 +3113,6 @@ export class BackgroundSyncService {
 
         if (found) {
           await this.indexedDb.cacheServiceData(String(serviceId), 'hud', updatedHud);
-          console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for HUD ${hudId} in service ${serviceId}`);
           return;
         }
       }
@@ -3318,12 +3135,10 @@ export class BackgroundSyncService {
 
         if (found) {
           await this.indexedDb.cacheServiceData(cache.serviceId, 'hud', updatedHud);
-          console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for HUD ${hudId} in ${cache.serviceId}`);
           return;
         }
       }
 
-      console.log(`[BackgroundSync] HUD ${hudId} not found in any cache (may already be cleared)`);
     } catch (error) {
       console.warn(`[BackgroundSync] Error clearing _localUpdate flag for HUD ${hudId}:`, error);
     }
@@ -3353,7 +3168,6 @@ export class BackgroundSyncService {
 
         if (found) {
           await this.indexedDb.cacheServiceData(String(serviceId), 'lbw_records', updatedLbw);
-          console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for LBW ${lbwId} in service ${serviceId}`);
           return;
         }
       }
@@ -3376,12 +3190,10 @@ export class BackgroundSyncService {
 
         if (found) {
           await this.indexedDb.cacheServiceData(cache.serviceId, 'lbw_records', updatedLbw);
-          console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for LBW ${lbwId} in ${cache.serviceId}`);
           return;
         }
       }
 
-      console.log(`[BackgroundSync] LBW ${lbwId} not found in any cache (may already be cleared)`);
     } catch (error) {
       console.warn(`[BackgroundSync] Error clearing _localUpdate flag for LBW ${lbwId}:`, error);
     }
@@ -3411,7 +3223,6 @@ export class BackgroundSyncService {
 
         if (found) {
           await this.indexedDb.cacheServiceData(String(serviceId), 'dte', updatedDte);
-          console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for DTE ${dteId} in service ${serviceId}`);
           return;
         }
       }
@@ -3434,12 +3245,10 @@ export class BackgroundSyncService {
 
         if (found) {
           await this.indexedDb.cacheServiceData(cache.serviceId, 'dte', updatedDte);
-          console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for DTE ${dteId} in ${cache.serviceId}`);
           return;
         }
       }
 
-      console.log(`[BackgroundSync] DTE ${dteId} not found in any cache (may already be cleared)`);
     } catch (error) {
       console.warn(`[BackgroundSync] Error clearing _localUpdate flag for DTE ${dteId}:`, error);
     }
@@ -3447,7 +3256,6 @@ export class BackgroundSyncService {
 
   private async refreshVisualsCache(serviceId: string): Promise<void> {
     try {
-      console.log(`[BackgroundSync] Refreshing visuals cache for service ${serviceId}...`);
       
       // CRITICAL FIX: Check for pending UPDATE requests BEFORE fetching from server
       // This prevents race conditions where cache refresh overwrites local HIDDEN state
@@ -3465,7 +3273,6 @@ export class BackgroundSyncService {
         );
         
         if (pendingVisualUpdates.size > 0) {
-          console.log(`[BackgroundSync] Found ${pendingVisualUpdates.size} pending UPDATE requests for visuals:`, [...pendingVisualUpdates]);
         }
       } catch (pendingErr) {
         console.warn('[BackgroundSync] Failed to check pending requests (continuing without):', pendingErr);
@@ -3497,7 +3304,6 @@ export class BackgroundSyncService {
             if (vId) localUpdates.set(vId, visual);
             if (tempId) localUpdates.set(tempId, visual);
             const reason = visual._localUpdate ? '_localUpdate flag' : 'pending UPDATE request';
-            console.log(`[BackgroundSync] Preserving local version PK_ID=${pkId} VisualID=${vId} (${reason}, Notes: ${visual.Notes})`);
           }
         }
         
@@ -3508,7 +3314,6 @@ export class BackgroundSyncService {
           // Try to find local version by either key
           const localVersion = localUpdates.get(pkId) || localUpdates.get(vId);
           if (localVersion) {
-            console.log(`[BackgroundSync] Keeping local version of visual PK_ID=${pkId} with Notes: ${localVersion.Notes}`);
             return localVersion;
           }
           return serverVisual;
@@ -3519,7 +3324,6 @@ export class BackgroundSyncService {
         const finalVisuals = [...mergedVisuals, ...tempVisuals];
         
         await this.indexedDb.cacheServiceData(serviceId, 'visuals', finalVisuals);
-        console.log(`[BackgroundSync] ✅ Visuals cache refreshed: ${freshVisuals.length} server, ${localUpdates.size} local updates preserved, ${tempVisuals.length} temp for service ${serviceId}`);
         
         // Refresh attachments AND download actual images for each visual
         for (const visual of freshVisuals) {
@@ -3538,7 +3342,6 @@ export class BackgroundSyncService {
             }
           }
         }
-        console.log(`[BackgroundSync] ✅ Visual attachments and images cache refreshed for service ${serviceId}`);
       }
     } catch (error) {
       console.warn(`[BackgroundSync] Failed to refresh visuals cache for ${serviceId}:`, error);
@@ -3570,7 +3373,6 @@ export class BackgroundSyncService {
         const image = await this.indexedDb.getLocalImage(imageId);
         if (image?.localBlobId) {
           await this.indexedDb.cachePhotoPointer(attachId, serviceId, image.localBlobId, s3Key);
-          console.log('[BackgroundSync] ✅ Cached photo pointer (Dexie-first):', attachId, '-> blobId:', image.localBlobId);
           return;
         }
       }
@@ -3591,7 +3393,6 @@ export class BackgroundSyncService {
 
       // Cache in IndexedDB (legacy path)
       await this.indexedDb.cachePhoto(attachId, serviceId, base64, s3Key);
-      console.log('[BackgroundSync] Cached uploaded photo (legacy):', attachId);
     } catch (err: any) {
       console.warn('[BackgroundSync] Failed to cache uploaded photo:', attachId, err?.message || err);
       // Don't throw - the upload was successful, just caching failed
@@ -3627,7 +3428,6 @@ export class BackgroundSyncService {
       // This saves ~930KB per photo by storing ~50 byte pointer
       await this.indexedDb.cachePhotoPointer(attachId, serviceId, image.localBlobId, s3Key);
 
-      console.log('[BackgroundSync] ✅ Cached photo pointer:', attachId, '-> blobId:', image.localBlobId, '(saved ~930KB)');
     } catch (err: any) {
       console.error('[BackgroundSync] Failed to cache photo pointer:', imageId, err?.message || err);
       // Don't throw - we'll fall back to S3 URL if needed
@@ -3689,7 +3489,6 @@ export class BackgroundSyncService {
         // Use pointer storage instead of downloading from S3
         try {
           await this.indexedDb.cachePhotoPointer(attachId, serviceId, matchingImage.localBlobId, s3Key);
-          console.log(`[BackgroundSync] Cached pointer for attachment ${attachId} (Dexie-first)${isNative ? ' [Mobile]' : ''}`);
           continue;
         } catch (err: any) {
           console.warn(`[BackgroundSync] Pointer cache failed, falling back to S3:`, err?.message);
@@ -3702,7 +3501,6 @@ export class BackgroundSyncService {
         const s3Url = await this.caspioService.getS3FileUrl(s3Key);
         const base64 = await this.fetchImageAsBase64(s3Url);
         await this.indexedDb.cachePhoto(attachId, serviceId, base64, s3Key);
-        console.log(`[BackgroundSync] Cached image from S3 for attachment ${attachId}${isNative ? ' [Mobile]' : ''}`);
       } catch (err: any) {
         console.warn(`[BackgroundSync] Failed to cache image ${attachId}:`, err?.message || err);
       }
@@ -3744,14 +3542,12 @@ export class BackgroundSyncService {
    * Call this when user wants to force sync or when app detects stuck requests
    */
   async forceRetryAllStuck(): Promise<number> {
-    console.log('[BackgroundSync] Force retrying all stuck requests...');
     
     try {
       // Reset all old pending requests
       const resetCount = await this.indexedDb.forceRetryOldRequests(5); // 5 minutes
       
       if (resetCount > 0) {
-        console.log(`[BackgroundSync] Reset ${resetCount} stuck requests, triggering immediate sync`);
         // Trigger immediate sync
         this.triggerSync();
       }
@@ -3790,10 +3586,8 @@ export class BackgroundSyncService {
    * @param olderThanHours - Clear requests older than this many hours (default: 48)
    */
   async clearStaleRequests(olderThanHours: number = 48): Promise<number> {
-    console.log(`[BackgroundSync] Clearing stale requests older than ${olderThanHours} hours...`);
     
     const clearedCount = await this.indexedDb.clearStaleRequests(olderThanHours);
-    console.log(`[BackgroundSync] Cleared ${clearedCount} stale requests`);
     
     return clearedCount;
   }
@@ -3838,14 +3632,12 @@ export class BackgroundSyncService {
           await this.indexedDb.updateOutboxItem(item.opId, {
             nextRetryAt: now
           });
-          console.log(`[BackgroundSync] Reset deferred photo ${item.imageId} - dependency resolved: ${image.entityId} -> ${realId}`);
           resetCount++;
         }
       }
     }
 
     if (resetCount > 0) {
-      console.log(`[BackgroundSync] Reset ${resetCount} deferred photos with resolved dependencies`);
     }
 
     return resetCount;
@@ -3862,7 +3654,6 @@ export class BackgroundSyncService {
   private async processUploadOutbox(): Promise<void> {
     // Check if new system is available
     if (!this.indexedDb.hasNewImageSystem()) {
-      console.log('[BackgroundSync] Upload outbox: new image system not available');
       return;
     }
 
@@ -3880,12 +3671,10 @@ export class BackgroundSyncService {
     const readyItems = await this.localImageService.getReadyUploads();
 
     if (allItems.length > 0) {
-      console.log(`[BackgroundSync] Upload outbox: ${allItems.length} total, ${readyItems.length} ready`);
       // Log details for items that aren't ready
       const notReadyItems = allItems.filter(a => !readyItems.some(r => r.opId === a.opId));
       for (const item of notReadyItems) {
         const image = await this.indexedDb.getLocalImage(item.imageId);
-        console.log(`[BackgroundSync]   NOT READY: ${item.opId}, type: ${image?.entityType || 'unknown'}, nextRetry: ${new Date(item.nextRetryAt).toISOString()}, attempts: ${item.attempts}, error: ${item.lastError || 'none'}`);
       }
 
     }
@@ -3894,7 +3683,6 @@ export class BackgroundSyncService {
       return;
     }
 
-    console.log(`[BackgroundSync] Processing ${readyItems.length} upload outbox items`);
 
     for (const item of readyItems) {
       try {
@@ -3960,7 +3748,6 @@ export class BackgroundSyncService {
       return;
     }
 
-    console.log('[BackgroundSync] Uploading image:', item.imageId, 'type:', image.entityType, 'entityId:', image.entityId, 'photoType:', image.photoType, 'blobSize:', blob.data.byteLength);
 
     // Resolve temp entityId if needed BEFORE marking as uploading
     // This prevents items from getting stuck in 'uploading' status when deferred
@@ -3973,7 +3760,6 @@ export class BackgroundSyncService {
         // Parent entity not synced yet - delay and retry later (don't throw)
         // Track the dependency wait with error message so it's visible in failed tab
         const dependencyError = `Waiting for parent entity sync (entity: ${entityId})`;
-        console.log(`[BackgroundSync] Entity not synced yet, delaying photo: ${item.imageId} (entity: ${entityId})`);
         await this.indexedDb.updateOutboxItem(item.opId, {
           nextRetryAt: Date.now() + 30000,  // Retry in 30 seconds
           lastError: dependencyError
@@ -3983,7 +3769,6 @@ export class BackgroundSyncService {
         // Keep status as 'queued' (don't mark as uploading yet)
         return;  // Skip for now, will retry on next sync cycle
       }
-      console.log(`[BackgroundSync] Resolved temp ID: ${entityId} -> ${realId}`);
       entityId = realId;
       // Update image with resolved entityId
       await this.indexedDb.updateLocalImage(item.imageId, { entityId: realId });
@@ -4043,16 +3828,13 @@ export class BackgroundSyncService {
         case 'fdf':
           // FDF photos are stored on the EFE room record itself, not as attachments
           // photoType is stored in image.photoType (e.g., 'Top', 'Bottom', 'Threshold')
-          console.log('[BackgroundSync] FDF photo upload starting:', item.imageId, 'roomId:', entityId, 'photoType:', image.photoType);
           result = await uploadWithTimeout(
             this.uploadFDFPhoto(entityId, file, image.photoType || 'Top'),
             `fdf upload for ${item.imageId}`
           );
-          console.log('[BackgroundSync] FDF photo upload completed:', item.imageId, 'result:', result);
           break;
         case 'hud':
           // HUD photos are stored in LPS_Services_HUD_Attach table
-          console.log('[BackgroundSync] HUD photo upload starting:', item.imageId, 'hudId:', entityId);
           result = await uploadWithTimeout(
             this.caspioService.createServicesHUDAttachWithFile(
               parseInt(entityId),
@@ -4062,11 +3844,9 @@ export class BackgroundSyncService {
             ).toPromise(),
             `hud upload for ${item.imageId}`
           );
-          console.log('[BackgroundSync] HUD photo upload completed:', item.imageId, 'result:', result);
           break;
         case 'lbw':
           // LBW photos are stored in LPS_Services_LBW_Attach table
-          console.log('[BackgroundSync] LBW photo upload starting:', item.imageId, 'lbwId:', entityId);
           result = await uploadWithTimeout(
             this.caspioService.createServicesLBWAttachWithFile(
               parseInt(entityId),
@@ -4076,11 +3856,9 @@ export class BackgroundSyncService {
             ).toPromise(),
             `lbw upload for ${item.imageId}`
           );
-          console.log('[BackgroundSync] LBW photo upload completed:', item.imageId, 'result:', result);
           break;
         case 'dte':
           // DTE photos are stored in LPS_Services_DTE_Attach table
-          console.log('[BackgroundSync] DTE photo upload starting:', item.imageId, 'dteId:', entityId);
           result = await uploadWithTimeout(
             this.caspioService.createServicesDTEAttachWithFile(
               parseInt(entityId),
@@ -4090,11 +3868,9 @@ export class BackgroundSyncService {
             ).toPromise(),
             `dte upload for ${item.imageId}`
           );
-          console.log('[BackgroundSync] DTE photo upload completed:', item.imageId, 'result:', result);
           break;
         case 'csa':
           // CSA photos are stored in LPS_Services_CSA_Attach table
-          console.log('[BackgroundSync] CSA photo upload starting:', item.imageId, 'csaId:', entityId);
           result = await uploadWithTimeout(
             this.caspioService.createServicesCSAAttachWithFile(
               parseInt(entityId),
@@ -4104,7 +3880,6 @@ export class BackgroundSyncService {
             ).toPromise(),
             `csa upload for ${item.imageId}`
           );
-          console.log('[BackgroundSync] CSA photo upload completed:', item.imageId, 'result:', result);
           break;
         default:
           throw new Error(`Unsupported entity type: ${image.entityType}`);
@@ -4134,7 +3909,6 @@ export class BackgroundSyncService {
       throw new Error(`Upload response missing AttachID or s3Key (got attachId='${attachId}', s3Key='${s3Key?.substring(0, 30)}')`);
     }
 
-    console.log('[BackgroundSync] ✅ Upload success:', item.imageId, 'attachId:', attachId, 's3Key:', s3Key?.substring(0, 50));
 
     // Mark as uploaded (NOT verified yet)
     await this.localImageService.handleUploadSuccess(item.opId, item.imageId, s3Key, attachId);
@@ -4187,7 +3961,6 @@ export class BackgroundSyncService {
         });
       });
     } else if (image.entityType === 'csa') {
-      console.log('[BackgroundSync] Emitting csaPhotoUploadComplete$ event');
       this.ngZone.run(() => {
         this.csaPhotoUploadComplete$.next({
           imageId: item.imageId,
@@ -4216,7 +3989,6 @@ export class BackgroundSyncService {
    * FDF photos are stored as fields on the room record, not as separate attachments
    */
   private async uploadFDFPhoto(roomId: string, file: File, photoType: string): Promise<any> {
-    console.log('[BackgroundSync] Uploading FDF photo:', photoType, 'for room:', roomId);
     
     // Generate unique filename for S3
     const timestamp = Date.now();
@@ -4243,7 +4015,6 @@ export class BackgroundSyncService {
 
     const uploadResult = await uploadResponse.json();
     const s3Key = uploadResult.s3Key;
-    console.log('[BackgroundSync] FDF photo uploaded to S3:', s3Key);
 
     // Update the room record with S3 key in the appropriate column
     // photoType is 'Top', 'Bottom', or 'Threshold'
@@ -4252,7 +4023,6 @@ export class BackgroundSyncService {
     updateData[attachmentColumnName] = s3Key;
 
     await firstValueFrom(this.caspioService.updateServicesEFEByEFEID(roomId, updateData));
-    console.log('[BackgroundSync] Updated EFE room record with', attachmentColumnName);
 
     return {
       AttachID: `fdf_${roomId}_${photoType.toLowerCase()}`,
@@ -4268,7 +4038,6 @@ export class BackgroundSyncService {
     const verified = await this.localImageService.verifyRemoteImage(imageId);
     
     if (verified) {
-      console.log('[BackgroundSync] ✅ Remote verified:', imageId);
     } else {
       console.warn('[BackgroundSync] ⚠️ Remote not verified yet:', imageId);
       // Will be retried on next sync or when UI loads
@@ -4327,7 +4096,6 @@ export class BackgroundSyncService {
       }
 
       if (prunedCount > 0) {
-        console.log(`[BackgroundSync] ✅ Pruned ${prunedCount} verified local blobs (thumbnails preserved)`);
       }
     } catch (err) {
       console.warn('[BackgroundSync] Blob pruning error:', err);
@@ -4371,7 +4139,6 @@ export class BackgroundSyncService {
     try {
       const tempIdMappingsCleared = await this.indexedDb.cleanupTempIdMappings(24);
       if (tempIdMappingsCleared > 0) {
-        console.log(`[BackgroundSync] HUD-018: Cleaned up ${tempIdMappingsCleared} old temp ID mappings`);
       }
     } catch (err) {
       console.warn('[BackgroundSync] HUD-018: Temp ID mapping cleanup failed:', err);
@@ -4388,7 +4155,6 @@ export class BackgroundSyncService {
     try {
       const hardResult = await this.hardPurgeInactiveServices();
       if (hardResult.purged.length > 0) {
-        console.log(`[BackgroundSync] Auto-purged ${hardResult.purged.length} inactive services (2+ days old)`);
       }
     } catch (purgeErr) {
       console.warn('[BackgroundSync] Auto-purge check failed:', purgeErr);
@@ -4402,7 +4168,6 @@ export class BackgroundSyncService {
         try {
           const estimate = await (navigator as any).storage.estimate();
           usagePercent = ((estimate.usage || 0) / (estimate.quota || 1)) * 100;
-          console.log(`[BackgroundSync] Storage: ${(estimate.usage / (1024 * 1024)).toFixed(1)}MB / ${(estimate.quota / (1024 * 1024)).toFixed(1)}MB (${usagePercent.toFixed(1)}%)`);
         } catch (estimateErr) {
           console.warn('[BackgroundSync] navigator.storage.estimate() failed, using fallback');
           const stats = await this.indexedDb.getStorageStats();
@@ -4418,14 +4183,12 @@ export class BackgroundSyncService {
         return;
       }
 
-      console.log(`[BackgroundSync] ⚠️ Storage pressure: ${usagePercent.toFixed(1)}% - starting soft purge`);
 
       // ============================================================================
       // SOFT PURGE: Remove full-res blobs from verified images (thumbnails preserved)
       // Only runs under storage pressure
       // ============================================================================
       const softResult = await this.softPurgeAllVerified();
-      console.log(`[BackgroundSync] Soft purge complete: freed ${softResult.purged} images`);
 
       // Legacy cleanup: Clean old cached photos if still under pressure
       if (usagePercent > 70) {
@@ -4433,7 +4196,6 @@ export class BackgroundSyncService {
         const deleted = await this.indexedDb.cleanupOldCachedPhotos(activeServiceIds, 30);
 
         if (deleted > 0) {
-          console.log(`[BackgroundSync] Legacy cleanup: deleted ${deleted} old cached photos`);
         }
       }
     } catch (err) {
@@ -4464,7 +4226,6 @@ export class BackgroundSyncService {
       }
 
       if (prunedCount > 0) {
-        console.log(`[BackgroundSync] Pruned ${prunedCount} verified blobs older than ${retentionMs / (60 * 60 * 1000)}h`);
       }
     } catch (err) {
       console.warn('[BackgroundSync] Error pruning old verified blobs:', err);
@@ -4503,7 +4264,6 @@ export class BackgroundSyncService {
         }
       }
       
-      console.log(`[BackgroundSync] Found ${serviceIds.size} active service IDs`);
     } catch (err) {
       console.warn('[BackgroundSync] Error getting active service IDs:', err);
     }
@@ -4516,14 +4276,12 @@ export class BackgroundSyncService {
    * Use for manual cleanup or when user reports storage issues
    */
   async forceStorageCleanup(): Promise<{deleted: number, newPercent: number}> {
-    console.log('[BackgroundSync] Forcing storage cleanup...');
     
     const activeServiceIds = await this.getActiveServiceIds();
     const deleted = await this.indexedDb.cleanupOldCachedPhotos(activeServiceIds, 7); // More aggressive: 7 days
     
     const newStats = await this.indexedDb.getStorageStats();
     
-    console.log(`[BackgroundSync] Force cleanup complete: deleted ${deleted} photos, storage at ${newStats.percent.toFixed(1)}%`);
     
     return {
       deleted,
@@ -4545,7 +4303,6 @@ export class BackgroundSyncService {
     captionsSynced: number;
     captionsFailed: number;
   }> {
-    console.log(`[BackgroundSync] Force syncing all pending for service: ${serviceId}`);
 
     // Get initial counts
     const pendingRequests = await this.indexedDb.getPendingRequests();
@@ -4559,7 +4316,6 @@ export class BackgroundSyncService {
     const totalItems = serviceRequests.length + serviceCaptions.length;
 
     if (totalItems === 0) {
-      console.log('[BackgroundSync] No pending items to sync');
       return { success: true, requestsSynced: 0, requestsFailed: 0, captionsSynced: 0, captionsFailed: 0 };
     }
 
@@ -4618,7 +4374,6 @@ export class BackgroundSyncService {
       captionsFailed: failedCaptions.length
     };
 
-    console.log('[BackgroundSync] Force sync complete:', result);
     return result;
   }
 
@@ -4673,19 +4428,16 @@ export class BackgroundSyncService {
 
       // Only purge verified images
       if (image.status !== 'verified') {
-        console.log('[BackgroundSync] softPurgeImage: Skipping non-verified image:', imageId, 'status:', image.status);
         return;
       }
 
       // Skip if already purged (no local blob)
       if (!image.localBlobId) {
-        console.log('[BackgroundSync] softPurgeImage: Already purged:', imageId);
         return;
       }
 
       // Ensure thumbnail exists before deleting full-res
       if (!image.thumbBlobId) {
-        console.log('[BackgroundSync] softPurgeImage: Generating thumbnail before purge:', imageId);
         await this.generateAndStoreThumbnail(imageId);
       }
 
@@ -4693,7 +4445,6 @@ export class BackgroundSyncService {
       await this.indexedDb.deleteLocalBlob(image.localBlobId);
       await this.indexedDb.updateLocalImage(imageId, { localBlobId: null });
 
-      console.log('[BackgroundSync] ✅ Soft purged image:', imageId);
     } catch (err) {
       console.warn('[BackgroundSync] softPurgeImage error:', imageId, err);
     }
@@ -4737,7 +4488,6 @@ export class BackgroundSyncService {
       // Update image record with thumbnail reference
       await this.indexedDb.updateLocalImage(imageId, { thumbBlobId });
 
-      console.log('[BackgroundSync] ✅ Generated thumbnail for:', imageId, 'size:', thumbResult.sizeBytes);
     } catch (err) {
       console.warn('[BackgroundSync] generateAndStoreThumbnail error:', imageId, err);
     }
@@ -4765,7 +4515,6 @@ export class BackgroundSyncService {
         }
       }
 
-      console.log(`[BackgroundSync] softPurgeAllVerified: purged=${purged}, skipped=${skipped}`);
     } catch (err) {
       console.warn('[BackgroundSync] softPurgeAllVerified error:', err);
     }
@@ -4790,13 +4539,11 @@ export class BackgroundSyncService {
 
     try {
       const inactiveServices = await this.serviceMetadata.getInactiveServices(cutoff);
-      console.log(`[BackgroundSync] hardPurgeInactiveServices: Found ${inactiveServices.length} inactive services`);
 
       for (const service of inactiveServices) {
         const { safe, reasons } = await this.serviceMetadata.isPurgeSafe(service.serviceId);
 
         if (!safe) {
-          console.log(`[BackgroundSync] Skipping purge for ${service.serviceId}:`, reasons);
           skipped.push(service.serviceId);
           continue;
         }
@@ -4806,10 +4553,8 @@ export class BackgroundSyncService {
         await this.serviceMetadata.setPurgeState(service.serviceId, 'PURGED');
         purged.push(service.serviceId);
 
-        console.log(`[BackgroundSync] ✅ Auto-purged service: ${service.serviceId} (will rehydrate on next open)`);
       }
 
-      console.log(`[BackgroundSync] hardPurgeInactiveServices complete: purged=${purged.length}, skipped=${skipped.length}`);
     } catch (err) {
       console.warn('[BackgroundSync] hardPurgeInactiveServices error:', err);
     }
@@ -4828,7 +4573,6 @@ export class BackgroundSyncService {
    */
   private async purgeServiceData(serviceId: string): Promise<void> {
     try {
-      console.log(`[BackgroundSync] 🗑️ PURGE STARTING for service: ${serviceId}`);
 
       // Get all local images for this service
       const images = await this.indexedDb.getLocalImagesForService(serviceId);
@@ -4873,16 +4617,6 @@ export class BackgroundSyncService {
       // This matches clearAllSyncedData behavior for consistent rehydration flow
 
       // Output detailed purge stats
-      console.log(`[BackgroundSync] ═══════════════════════════════════════════════════`);
-      console.log(`[BackgroundSync] 🗑️ PURGE COMPLETE for service: ${serviceId}`);
-      console.log(`[BackgroundSync] ═══════════════════════════════════════════════════`);
-      console.log(`[BackgroundSync] 📸 Verified images processed: ${verifiedImages.length} of ${images.length}`);
-      console.log(`[BackgroundSync]    - Full-res blobs freed: ${fullResBlobCount}`);
-      console.log(`[BackgroundSync]    - Thumbnail blobs freed: ${thumbBlobCount}`);
-      console.log(`[BackgroundSync]    - Total bytes freed: ${(totalBlobBytes / 1024 / 1024).toFixed(2)} MB`);
-      console.log(`[BackgroundSync] 🖼️ Cached photos cleared: ${cachedPhotoCount}`);
-      console.log(`[BackgroundSync] 📝 LocalImage records preserved with S3 keys for fallback`);
-      console.log(`[BackgroundSync] ═══════════════════════════════════════════════════`);
     } catch (err) {
       console.warn(`[BackgroundSync] purgeServiceData error for ${serviceId}:`, err);
       throw err;
@@ -4933,7 +4667,6 @@ export class BackgroundSyncService {
     warning?: string;
     error?: string;
   }> {
-    console.log(`[BackgroundSync] Manual purge requested for service: ${serviceId}, forceUnsafe: ${forceUnsafe}`);
 
     try {
       const status = await this.getServicePurgeStatus(serviceId);

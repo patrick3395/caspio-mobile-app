@@ -100,7 +100,6 @@ export class LbwContainerPage implements OnInit, OnDestroy {
 
       // US-002 FIX: Only show loading and re-download if this is a NEW service
       if (isNewService || isFirstLoad) {
-        console.log('[LBW Container] New service detected, downloading template data...');
 
         // CRITICAL: Force loading screen to render before starting download
         this.templateReady = false;
@@ -116,7 +115,6 @@ export class LbwContainerPage implements OnInit, OnDestroy {
         // Track that we've loaded this service
         LbwContainerPage.lastLoadedServiceId = newServiceId;
       } else {
-        console.log('[LBW Container] Same service (' + newServiceId + '), skipping re-download to prevent hard refresh');
         // CRITICAL: Must set templateReady=true when skipping download
         this.templateReady = true;
         this.changeDetectorRef.detectChanges();
@@ -144,19 +142,14 @@ export class LbwContainerPage implements OnInit, OnDestroy {
    */
   private async downloadTemplateData(): Promise<void> {
     if (!this.serviceId) {
-      console.log('[LBW Container] loadTemplate: no serviceId, skipping');
       this.templateReady = true;
       this.changeDetectorRef.detectChanges();
       return;
     }
 
-    console.log(`[LBW Container] ========== TEMPLATE LOAD ==========`);
-    console.log(`[LBW Container] ServiceID: ${this.serviceId}, ProjectID: ${this.projectId}`);
-    console.log(`[LBW Container] Online: ${this.offlineService.isOnline()}`);
 
     // WEBAPP MODE: Skip template download - pages will fetch directly from API
     if (environment.isWeb) {
-      console.log('[LBW Container] WEBAPP MODE: Skipping template download - pages fetch from API directly');
       this.templateReady = true;
       this.downloadProgress = 'Ready';
       this.changeDetectorRef.detectChanges();
@@ -167,7 +160,6 @@ export class LbwContainerPage implements OnInit, OnDestroy {
     this.templateReady = false;
     this.downloadProgress = 'Loading template data...';
     this.changeDetectorRef.detectChanges();
-    console.log('[LBW Container] Loading screen should now be visible');
 
     const isOnline = this.offlineService.isOnline();
 
@@ -176,10 +168,8 @@ export class LbwContainerPage implements OnInit, OnDestroy {
       try {
         this.downloadProgress = 'Syncing template data...';
         this.changeDetectorRef.detectChanges();
-        console.log('[LBW Container] Online - downloading fresh template data...');
 
         await this.offlineTemplate.downloadTemplateForOffline(this.serviceId, 'LBW', this.projectId);
-        console.log('[LBW Container] Template downloaded - ready for offline use');
 
         this.downloadProgress = 'Template ready!';
         this.changeDetectorRef.detectChanges();
@@ -190,14 +180,12 @@ export class LbwContainerPage implements OnInit, OnDestroy {
 
         // Try fallback download
         try {
-          console.log('[LBW Container] Trying fallback pre-cache...');
           this.downloadProgress = 'Attempting fallback sync...';
           this.changeDetectorRef.detectChanges();
           await Promise.all([
             this.offlineCache.refreshAllTemplates(),
             this.offlineCache.preCacheServiceData(this.serviceId)
           ]);
-          console.log('[LBW Container] Fallback completed');
           this.downloadProgress = 'Template ready (partial sync)';
           this.changeDetectorRef.detectChanges();
         } catch (fallbackError) {
@@ -210,7 +198,6 @@ export class LbwContainerPage implements OnInit, OnDestroy {
       // OFFLINE: Check for cached data
       this.downloadProgress = 'Offline - loading cached data...';
       this.changeDetectorRef.detectChanges();
-      console.log('[LBW Container] Offline - checking for cached data...');
       this.downloadProgress = 'Working offline with cached data';
       this.changeDetectorRef.detectChanges();
     }
@@ -218,7 +205,6 @@ export class LbwContainerPage implements OnInit, OnDestroy {
     // Always mark as ready - let user proceed
     this.templateReady = true;
     this.changeDetectorRef.detectChanges();
-    console.log('[LBW Container] Template ready, loading screen hidden');
   }
 
   private updateBreadcrumbs() {

@@ -149,65 +149,46 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
   async ngOnInit() {
     console.time('[RoomElevation] ngOnInit total');
-    console.log('========================================');
-    console.log('[RoomElevation] ngOnInit - Starting Route Debug');
-    console.log('========================================');
 
     // Debug current route
-    console.log('[RoomElevation] Current route snapshot URL:', this.route.snapshot.url);
-    console.log('[RoomElevation] Current route params:', this.route.snapshot.params);
-    console.log('[RoomElevation] Current route paramMap keys:', Array.from(this.route.snapshot.paramMap.keys));
 
     // Debug parent routes
     let routeLevel = 0;
     let currentRoute: any = this.route;
     while (currentRoute) {
-      console.log(`[RoomElevation] Route Level ${routeLevel}:`, {
-        url: currentRoute.snapshot?.url,
-        params: currentRoute.snapshot?.params,
-        paramMapKeys: currentRoute.snapshot?.paramMap ? Array.from(currentRoute.snapshot.paramMap.keys) : [],
-        routeConfig: currentRoute.snapshot?.routeConfig?.path
-      });
       currentRoute = currentRoute.parent;
       routeLevel++;
     }
 
     // Try to get IDs from different route levels
-    console.log('\n[RoomElevation] Attempting to retrieve IDs from route hierarchy...\n');
 
     // Method 1: Direct from current route
     let tempProjectId = this.route.snapshot.paramMap.get('projectId');
     let tempServiceId = this.route.snapshot.paramMap.get('serviceId');
-    console.log('[Method 1 - Direct] ProjectId:', tempProjectId, 'ServiceId:', tempServiceId);
 
     // Method 2: From parent
     if (this.route.parent) {
       tempProjectId = this.route.parent.snapshot.paramMap.get('projectId');
       tempServiceId = this.route.parent.snapshot.paramMap.get('serviceId');
-      console.log('[Method 2 - Parent] ProjectId:', tempProjectId, 'ServiceId:', tempServiceId);
     }
 
     // Method 3: From parent.parent
     if (this.route.parent?.parent) {
       tempProjectId = this.route.parent.parent.snapshot.paramMap.get('projectId');
       tempServiceId = this.route.parent.parent.snapshot.paramMap.get('serviceId');
-      console.log('[Method 3 - Parent.Parent] ProjectId:', tempProjectId, 'ServiceId:', tempServiceId);
     }
 
     // Method 4: From parent.parent.parent (just in case)
     if (this.route.parent?.parent?.parent) {
       tempProjectId = this.route.parent.parent.parent.snapshot.paramMap.get('projectId');
       tempServiceId = this.route.parent.parent.parent.snapshot.paramMap.get('serviceId');
-      console.log('[Method 4 - Parent.Parent.Parent] ProjectId:', tempProjectId, 'ServiceId:', tempServiceId);
     }
 
     // Method 5: Try to get from route state
     const navigation = this.router.getCurrentNavigation();
-    console.log('[Method 5 - Router Navigation State]:', navigation?.extras?.state);
 
     // Method 6: Try subscription approach
     this.route.parent?.parent?.params.subscribe(params => {
-      console.log('[Method 6 - Parent.Parent Subscription] Params:', params);
       if (params['projectId']) tempProjectId = params['projectId'];
       if (params['serviceId']) tempServiceId = params['serviceId'];
     });
@@ -217,14 +198,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     if (currentRouteForIds) {
       this.projectId = currentRouteForIds.snapshot.paramMap.get('projectId') || '';
       this.serviceId = currentRouteForIds.snapshot.paramMap.get('serviceId') || '';
-      console.log('\n[Selected] Using parent.parent - ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
     }
 
     // Fallback: try to get from snapshot if not found
     if (!this.projectId || !this.serviceId) {
       this.projectId = this.route.snapshot.paramMap.get('projectId') || this.projectId;
       this.serviceId = this.route.snapshot.paramMap.get('serviceId') || this.serviceId;
-      console.log('[Fallback] Using direct snapshot - ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
     }
 
     // Get room name from route params
@@ -235,11 +214,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       this.roomName = 'Base Station';
     }
 
-    console.log('\n[RoomElevation] FINAL VALUES:');
-    console.log('  - ProjectId:', this.projectId);
-    console.log('  - ServiceId:', this.serviceId);
-    console.log('  - RoomName:', this.roomName);
-    console.log('========================================\n');
 
     // Validate we have required IDs
     if (!this.serviceId || !this.projectId) {
@@ -262,7 +236,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       return;
     }
 
-    console.log('[RoomElevation] Validation passed. Loading room data...');
 
     // DEXIE-FIRST: Use initializeFromDexie() for instant loading from Dexie
     // Falls back to loadRoomData() if room not in Dexie yet
@@ -272,7 +245,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     // Subscribe to background sync photo upload completions
     // This handles the case where photos are uploaded via IndexedDB queue (offline -> online)
     this.photoSyncSubscription = this.backgroundSync.photoUploadComplete$.subscribe(async (event) => {
-      console.log('[RoomElevation PHOTO SYNC] Photo upload completed:', event.tempFileId);
 
       // Extract data from the result object
       const realAttachId = event.result?.AttachID;
@@ -289,7 +261,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         if (photoIndex >= 0 && photoIndex !== undefined) {
           const photo = point.photos[photoIndex];
           const originalTempId = photo._tempId || photo.attachId;
-          console.log('[RoomElevation PHOTO SYNC] Found matching photo at point:', point.name, 'index:', photoIndex);
 
           // CRITICAL: Check if user added annotations while photo was uploading
           const hasExistingAnnotations = photo.hasAnnotations || 
@@ -318,7 +289,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               if (localImage?.localBlobId && realAttachId) {
                 // Use pointer storage (saves ~930KB by not fetching S3)
                 await this.indexedDb.cachePhotoPointer(String(realAttachId), this.serviceId, localImage.localBlobId, s3Key || '');
-                console.log('[RoomElevation PHOTO SYNC] ✅ Cached photo pointer (Dexie-first):', realAttachId, '-> blobId:', localImage.localBlobId);
               } else if (photoUrl && realAttachId) {
                 // FALLBACK: Fetch from S3 if no local blob (legacy)
                 let imageUrl = photoUrl;
@@ -328,7 +298,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                 const dataUrl = await this.fetchS3ImageAsDataUrl(imageUrl);
                 photo.url = dataUrl;
                 await this.indexedDb.cachePhoto(String(realAttachId), this.serviceId, dataUrl, s3Key || '');
-                console.log('[RoomElevation PHOTO SYNC] ✅ Server image cached (legacy fallback)');
               }
             } catch (err) {
               console.warn('[RoomElevation PHOTO SYNC] Failed to cache photo:', err);
@@ -339,13 +308,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           // CRITICAL: Transfer cached annotated pointer from temp ID to real ID
           // STORAGE OPTIMIZED: Use pointer instead of duplicating full image data
           if (hasExistingAnnotations && originalTempId && realAttachId) {
-            console.log('[RoomElevation PHOTO SYNC] Transferring annotated pointer from temp ID to real ID:', originalTempId, '->', realAttachId);
             try {
               const localImage = await this.localImageService.getImage(String(event.tempFileId));
               if (localImage?.localBlobId) {
                 // DEXIE-FIRST: Create pointer for realAttachId pointing to same blob
                 await this.indexedDb.cacheAnnotatedPointer(String(realAttachId), localImage.localBlobId);
-                console.log('[RoomElevation PHOTO SYNC] ✅ Annotated pointer transferred:', realAttachId, '-> blobId:', localImage.localBlobId);
 
                 // Update in-memory map - get the actual data URL for display
                 const dataUrl = await this.indexedDb.getCachedAnnotatedImage(String(realAttachId));
@@ -364,7 +331,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                     this.bulkAnnotatedImagesMap.set(String(realAttachId), base64);
                     this.bulkAnnotatedImagesMap.delete(String(originalTempId));
                   }
-                  console.log('[RoomElevation PHOTO SYNC] ✅ Annotated image transferred (legacy):', realAttachId);
                 }
               }
             } catch (transferErr) {
@@ -373,7 +339,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           }
 
           this.changeDetectorRef.detectChanges();
-          console.log('[RoomElevation PHOTO SYNC] Updated photo with real ID:', realAttachId, 'annotations preserved:', hasExistingAnnotations);
           break;
         }
       }
@@ -385,7 +350,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           const photo = fdfPhotos[key];
           if (photo && (String(photo._tempId) === String(event.tempFileId) || String(photo.attachId) === String(event.tempFileId))) {
             const originalTempId = photo._tempId || photo.attachId;
-            console.log('[RoomElevation PHOTO SYNC] Found matching FDF photo:', key);
             
             // Check if user added annotations while photo was uploading
             const cacheId = `fdf_${this.roomId}_${key}`;
@@ -409,7 +373,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
                 // Cache the photo for persistence (used after local blob is pruned)
                 await this.indexedDb.cachePhoto(cacheId, this.serviceId, dataUrl, s3Key || '');
-                console.log('[RoomElevation PHOTO SYNC] ✅ FDF server image cached (displayUrl unchanged - staying with LocalImages)');
               } catch (err) {
                 fdfPhotos[`${key}Url`] = photoUrl;
                 console.warn('[RoomElevation PHOTO SYNC] Failed to cache FDF remote image:', err);
@@ -422,7 +385,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               try {
                 const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(tempCacheId);
                 if (cachedAnnotatedImage) {
-                  console.log('[RoomElevation PHOTO SYNC] ✅ FDF annotated image already cached for:', cacheId);
                 }
               } catch (transferErr) {
                 console.warn('[RoomElevation PHOTO SYNC] Error checking FDF annotated cache:', transferErr);
@@ -439,7 +401,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     // Subscribe to EFE photo upload completions (for elevation point photos)
     // ALWAYS display from LocalImages table - never swap displayUrl to remote URLs
     this.efePhotoSyncSubscription = this.backgroundSync.efePhotoUploadComplete$.subscribe(async (event) => {
-      console.log('[RoomElevation EFE PHOTO SYNC] EFE photo upload completed:', event.tempFileId);
 
       const realAttachId = event.result?.AttachID || event.result?.PK_ID;
       const s3Key = event.result?.Attachment || event.result?.Photo;
@@ -452,7 +413,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         );
 
         if (photoIndex >= 0 && photoIndex !== undefined) {
-          console.log('[RoomElevation EFE PHOTO SYNC] Found EFE photo at point:', point.name, 'index:', photoIndex);
 
           const existingPhoto = point.photos[photoIndex];
 
@@ -463,16 +423,13 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             const cachedBase64 = await this.indexedDb.getCachedPhoto(String(realAttachId));
             if (cachedBase64) {
               cachedUrl = cachedBase64;
-              console.log('[RoomElevation EFE PHOTO SYNC] ✅ Found cached base64');
             } else if (s3Key && this.offlineService.isOnline()) {
               // FALLBACK: Cache wasn't ready yet, fetch from S3 and cache for persistence
-              console.log('[RoomElevation EFE PHOTO SYNC] Cache miss, fetching from S3 for persistence...');
               try {
                 const s3Url = await this.caspioService.getS3FileUrl(s3Key);
                 cachedUrl = await this.fetchS3ImageAsDataUrl(s3Url);
                 // Cache it for next time
                 await this.indexedDb.cachePhoto(String(realAttachId), this.serviceId, cachedUrl, s3Key);
-                console.log('[RoomElevation EFE PHOTO SYNC] ✅ Fetched and cached from S3');
               } catch (s3Err) {
                 console.warn('[RoomElevation EFE PHOTO SYNC] S3 fetch failed:', s3Err);
               }
@@ -504,7 +461,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           };
 
           this.changeDetectorRef.detectChanges();
-          console.log('[RoomElevation EFE PHOTO SYNC] Updated EFE photo with real ID:', realAttachId, '(displayUrl unchanged - staying with LocalImages)');
           break;
         }
       }
@@ -516,7 +472,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     this.efeRoomSyncSubscription = this.backgroundSync.efeRoomSyncComplete$.subscribe((event) => {
       // Check if this is our room
       if (String(this.roomId) === String(event.tempId)) {
-        console.log(`[RoomElevation] Room synced! Updating roomId: ${event.tempId} -> ${event.realId}`);
         this.roomId = String(event.realId);
         this.lastLoadedRoomId = this.roomId;
       }
@@ -527,14 +482,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     this.cacheInvalidationSubscription = this.foundationData.cacheInvalidated$.subscribe(event => {
       // Skip if in local operation cooldown (prevents flash when syncing)
       if (this.localOperationCooldown) {
-        console.log('[RoomElevation] Skipping cache invalidation - in local operation cooldown');
         return;
       }
 
       // CRITICAL: Skip reload during active sync - images would disappear
       const syncStatus = this.backgroundSync.syncStatus$.getValue();
       if (syncStatus.isSyncing) {
-        console.log('[RoomElevation] Skipping cache invalidation - sync in progress, will reload after sync completes');
         this.pendingSyncReload = true;
         return;
       }
@@ -547,14 +500,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
         // Skip if already reloading
         if (this.isReloadingAfterSync) {
-          console.log('[RoomElevation] Skipping - already reloading');
           return;
         }
 
         // Debounce: wait 100ms before reloading to batch multiple rapid events
         // Reduced from 500ms for faster UI response after sync
         this.cacheInvalidationDebounceTimer = setTimeout(() => {
-          console.log('[RoomElevation] Cache invalidated (debounced), reloading elevation data...');
           this.reloadElevationDataAfterSync();
         }, 100);
       }
@@ -564,7 +515,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     this.syncStatusSubscription = this.backgroundSync.syncStatus$.subscribe((status) => {
       // When sync finishes and we have a pending reload, do it now
       if (!status.isSyncing && this.pendingSyncReload) {
-        console.log('[RoomElevation] Sync finished, now reloading elevation data...');
         this.pendingSyncReload = false;
         // Small delay to ensure all sync operations are fully complete
         setTimeout(() => {
@@ -577,13 +527,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     this.backgroundRefreshSubscription = this.offlineTemplate.backgroundRefreshComplete$.subscribe(event => {
       if (event.serviceId === this.serviceId &&
           (event.dataType === 'efe_points' || event.dataType === 'efe_point_attachments')) {
-        console.log('[RoomElevation] Background refresh complete for:', event.dataType);
 
         // CRITICAL FIX: Skip reload during active sync - defer until sync completes
         // This prevents photos from disappearing during sync
         const syncStatus = this.backgroundSync.syncStatus$.getValue();
         if (syncStatus.isSyncing) {
-          console.log('[RoomElevation] Skipping background refresh reload - sync in progress, will reload after sync completes');
           this.pendingSyncReload = true;
           return;
         }
@@ -605,7 +553,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     // SILENT SYNC PATTERN (matches structural-systems): Never show uploading spinners
     // Photos display from cache immediately, sync happens invisibly in background
     this.localImageStatusSubscription = this.localImageService.statusChange$.subscribe(async (event) => {
-      console.log('[RoomElevation] LocalImage status changed:', event.imageId, event.oldStatus, '->', event.newStatus);
 
       // Find and update the corresponding photo in elevation points
       if (this.roomData?.elevationPoints) {
@@ -645,7 +592,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               // The blob URL should remain valid until explicitly replaced
 
               this.changeDetectorRef.detectChanges();
-              console.log('[RoomElevation] Updated photo status (silent sync):', photoId, '->', event.newStatus);
               break;
             }
           }
@@ -662,7 +608,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             fdfPhotos[`${photoType}Uploading`] = false;
             // CRITICAL: Never clear displayUrl
             this.changeDetectorRef.detectChanges();
-            console.log('[RoomElevation] Updated FDF photo status (silent sync):', photoType, '->', event.newStatus);
             break;
           }
         }
@@ -692,16 +637,13 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     }
 
     if (!this.serviceId) {
-      console.log('[RoomElevation] No serviceId, skipping LocalImages subscription');
       return;
     }
 
-    console.log('[RoomElevation] Subscribing to LocalImages changes for service:', this.serviceId);
 
     // Subscribe to all LocalImages for this service (efe_point entity type)
     this.localImagesSubscription = db.liveLocalImages$(this.serviceId, 'efe_point').subscribe(
       async (localImages) => {
-        console.log('[RoomElevation] LiveQuery - LocalImages updated:', localImages.length, 'images');
 
         // Update bulkLocalImagesMap reactively
         this.updateBulkLocalImagesMap(localImages);
@@ -725,7 +667,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     // This matches the pattern used for elevation points above
     this.fdfLocalImagesSubscription = db.liveLocalImages$(this.serviceId, 'fdf').subscribe(
       async (localImages) => {
-        console.log('[RoomElevation] LiveQuery - FDF LocalImages updated:', localImages.length, 'images');
 
         // ANNOTATION FIX: Reload annotated images cache to ensure annotations persist
         await this.reloadAnnotatedImagesCache();
@@ -762,7 +703,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       this.bulkLocalImagesMap.get(entityId)!.push(img);
     }
 
-    console.log('[RoomElevation] Updated bulkLocalImagesMap with', this.bulkLocalImagesMap.size, 'point groups');
   }
 
   /**
@@ -807,7 +747,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
             if (cachedAnnotated) {
               freshUrl = cachedAnnotated;
-              console.log('[RoomElevation] Using cached ANNOTATED image for refresh:', localImage.imageId);
             } else {
               // Fall back to getDisplayUrl which checks IndexedDB
               freshUrl = await this.localImageService.getDisplayUrl(localImage);
@@ -822,7 +761,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                 (currentUrl.startsWith('blob:') && !await this.isValidBlobUrl(currentUrl));
 
               if (needsUpdate) {
-                console.log('[RoomElevation] Refreshing displayUrl for photo:', localImage.imageId);
                 photo.displayUrl = freshUrl;
                 photo.url = freshUrl;
                 photo.thumbnailUrl = freshUrl;
@@ -942,7 +880,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
         if (cachedAnnotated) {
           freshUrl = cachedAnnotated;
-          console.log('[RoomElevation] Using cached ANNOTATED FDF image for refresh:', photoKey, localImage.imageId);
         } else {
           // Fall back to getDisplayUrl which checks IndexedDB
           freshUrl = await this.localImageService.getDisplayUrl(localImage);
@@ -950,7 +887,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
         if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.svg') {
           // DEXIE-FIRST: Always apply fresh URL from LocalImages (source of truth)
-          console.log('[RoomElevation] Refreshing FDF displayUrl for:', photoKey, localImage.imageId);
           fdfPhotos[photoKey] = true;
           fdfPhotos[`${photoKey}Url`] = freshUrl;
           fdfPhotos[`${photoKey}DisplayUrl`] = freshUrl;
@@ -1018,32 +954,27 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     const syncStatus = this.backgroundSync.syncStatus$.getValue();
     const syncInProgress = syncStatus.isSyncing;
 
-    console.log(`[RoomElevation] ionViewWillEnter - hasData: ${!!hasDataInMemory}, isDirty: ${isDirty}, roomChanged: ${roomChanged}, syncInProgress: ${syncInProgress}`);
 
     // ALWAYS reload if:
     // 1. First load (no data in memory)
     // 2. Room has changed (navigating from project details)
     // But SKIP reload if sync is in progress and we have data - just refresh local state
     if (!hasDataInMemory || roomChanged) {
-      console.log('[RoomElevation] Reloading data - no data or room changed');
       await this.loadRoomData();
       this.backgroundSync.clearSectionDirty(sectionKey);
     } else if (isDirty && !syncInProgress) {
       // Section is dirty but sync is NOT in progress - safe to reload
-      console.log('[RoomElevation] Reloading data - section dirty and sync not in progress');
       await this.loadRoomData();
       this.backgroundSync.clearSectionDirty(sectionKey);
     } else if (isDirty && syncInProgress) {
       // TASK 1 FIX: Section is dirty but sync IS in progress
       // DON'T do full reload - it would cause photos to disappear
       // Just refresh local state (blob URLs) and defer full reload until sync completes
-      console.log('[RoomElevation] Sync in progress - refreshing local state only, deferring full reload');
       this.pendingSyncReload = true;  // Will reload after sync completes
       await this.refreshLocalState();
     } else {
       // SKIP FULL RELOAD but refresh local state (blob URLs, pending captions/drawings)
       // This ensures images don't disappear when navigating back to this page
-      console.log('[RoomElevation] Refreshing local images and pending captions');
       await this.refreshLocalState();
     }
     console.timeEnd('[RoomElevation] ionViewWillEnter');
@@ -1125,7 +1056,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           if (newUrl) {
             fdfPhotos[`${photoType}Url`] = newUrl;
             fdfPhotos[`${photoType}DisplayUrl`] = newUrl;
-            console.log(`[RoomElevation] Refreshed FDF ${photoType} URL from LocalImage:`, imageId);
           }
         }
       }
@@ -1159,7 +1089,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                 photo.displayUrl = newUrl;
                 photo.url = newUrl;
                 photo.thumbnailUrl = newUrl;
-                console.log(`[RoomElevation] Refreshed photo URL for imageId: ${imageId}`);
               }
             }
           }
@@ -1190,10 +1119,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           }
         }
       }
-      console.log(`[RoomElevation] Updated preservation maps: ${this.preservedPhotosByPointName.size} points`);
     }
 
-    console.log('[RoomElevation] Local state refreshed - URLs regenerated, captions merged');
   }
 
   /**
@@ -1274,13 +1201,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
   private async reloadElevationDataAfterSync(): Promise<void> {
     // Prevent concurrent reloads
     if (this.isReloadingAfterSync) {
-      console.log('[RoomElevation] Skipping - already reloading');
       return;
     }
 
     this.isReloadingAfterSync = true;
     try {
-      console.log('[RoomElevation] Reloading points and attachments after sync...');
 
       // CRITICAL FIX: Preserve ALL existing photos BEFORE reloading
       // This prevents photos from disappearing during sync - matching structural-category pattern
@@ -1306,11 +1231,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               preservedPhotosByPointId.set(String(point.pointId), photosCopy);
             }
 
-            console.log(`[RoomElevation] Preserving ${photosCopy.length} photos for point "${point.name}" (ID: ${point.pointId}, sync: ${syncInProgress})`);
           }
         }
       }
-      console.log(`[RoomElevation] Preserved photos for ${preservedPhotosByPointName.size} points`);
 
       // FAST LOAD FIX: Reload photo caches first for instant display
       const [cachedPhotos, annotatedImages] = await Promise.all([
@@ -1319,11 +1242,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       ]);
       this.bulkCachedPhotosMap = cachedPhotos;
       this.bulkAnnotatedImagesMap = annotatedImages;
-      console.log(`[RoomElevation] Reloaded caches: ${cachedPhotos.size} photos, ${annotatedImages.size} annotations`);
 
       // Reload points from fresh IndexedDB data
       const existingPoints = await this.foundationData.getEFEPoints(this.roomId);
-      console.log('[RoomElevation] Reloaded', existingPoints?.length || 0, 'points from IndexedDB');
 
       // Get point IDs for attachment loading
       const pointIds = existingPoints?.map((p: any) => p.PointID || p.PK_ID).filter((id: any) => id) || [];
@@ -1333,7 +1254,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       if (pointIds.length > 0) {
         try {
           attachments = await this.foundationData.getEFEAttachments(pointIds);
-          console.log('[RoomElevation] Reloaded', attachments?.length || 0, 'attachments from IndexedDB');
         } catch (err) {
           console.warn('[RoomElevation] Failed to reload attachments:', err);
         }
@@ -1342,7 +1262,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       // CRITICAL: Also load pending photos from IndexedDB (photos not yet synced)
       // This ensures photos added offline don't disappear during reload
       const pendingPhotosMap = await this.indexedDb.getAllPendingPhotosGroupedByPoint();
-      console.log('[RoomElevation] Reloaded pending photos map with', pendingPhotosMap.size, 'points');
 
       // CRITICAL FIX: Load LocalImages for this service (new local-first image system)
       // This ensures photos persist through navigation and sync - matching structural-category pattern
@@ -1374,7 +1293,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           }
         }
       }
-      console.log(`[RoomElevation] Reloaded ${allLocalImages.length} LocalImages for ${bulkLocalImagesMap.size} points`);
 
       // TASK 1 FIX: Update class-level bulkLocalImagesMap so liveQuery updates work correctly
       this.bulkLocalImagesMap = bulkLocalImagesMap;
@@ -1388,7 +1306,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           if (localPoint) {
             // Update with server data (real ID)
             const realId = serverPoint.PointID || serverPoint.PK_ID;
-            console.log(`[RoomElevation] Updating point "${pointName}" with real ID: ${realId}`);
             localPoint.pointId = realId;
             localPoint.value = serverPoint.Elevation || localPoint.value || '';
             delete localPoint._tempId;
@@ -1419,12 +1336,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                         photo.displayUrl = freshUrl;
                         photo.url = freshUrl;
                         photo.thumbnailUrl = freshUrl;
-                        console.log(`[RoomElevation] ✅ Refreshed blob URL for preserved photo ${imageId}`);
                       }
                     }
                   }
                 }
-                console.log(`[RoomElevation] ✅ Restored ${preserved.length} preserved photos for point "${pointName}"`);
               } else {
                 // BULLETPROOF FIX: Try bulkLocalImagesMap as last resort
                 const localImagesForPoint = bulkLocalImagesMap.get(pointIdStr) || [];
@@ -1469,7 +1384,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                       isLocalFirst: true,
                       _tempId: localImg.imageId,
                     });
-                    console.log(`[RoomElevation] BULLETPROOF: Restored photo from LocalImage ${localImg.imageId} for point "${pointName}" (displayUrl: ${displayUrl.substring(0, 50)}...)`);
                   }
                 } else {
                   localPoint.photos = [];
@@ -1479,7 +1393,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
             // CRITICAL: Reload photos for this point
             const pointAttachments = attachments.filter((att: any) => String(att.PointID) === pointIdStr);
-            console.log(`[RoomElevation] Found ${pointAttachments.length} attachments for point "${pointName}"`);
 
             // Build a comprehensive set of existing photo IDs to avoid duplicates
             // CRITICAL FIX: Include ALL possible ID fields (attachId, imageId, _tempId, localImageId)
@@ -1526,7 +1439,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                 if (existingPhoto) {
                   // CRITICAL: Update attachId to the real server ID so future matches work
                   if (existingPhoto.attachId !== attachIdStr) {
-                    console.log(`[RoomElevation] Updating photo attachId: ${existingPhoto.attachId} -> ${attachIdStr}`);
                     existingPhoto.attachId = attachIdStr;
                     existingPhoto.AttachID = attachIdStr;
                   }
@@ -1567,7 +1479,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
               if (cachedAnnotatedImage) {
                 cachedDisplayUrl = cachedAnnotatedImage;
-                console.log(`[RoomElevation] ✅ Using cached ANNOTATED image for new photo ${attachIdStr}`);
               }
 
               // Check bulk cached photo if no annotated version
@@ -1575,7 +1486,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                 const cachedImage = this.bulkCachedPhotosMap.get(attachIdStr);
                 if (cachedImage) {
                   cachedDisplayUrl = cachedImage;
-                  console.log(`[RoomElevation] ✅ Using cached image for new photo ${attachIdStr}`);
                 }
               }
 
@@ -1622,7 +1532,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           const pendingPhotos = pendingPhotosMap.get(pointIdStr);
 
           if (pendingPhotos && pendingPhotos.length > 0) {
-            console.log(`[RoomElevation] Merging ${pendingPhotos.length} pending photos for point "${point.name}"`);
 
             // Build comprehensive set of existing photo IDs to avoid duplicates
             // CRITICAL FIX: Include ALL possible ID fields
@@ -1677,7 +1586,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                 point.photos = [];
               }
               point.photos.push(pendingPhotoData);
-              console.log(`[RoomElevation] Added pending photo ${pendingAttachId} to point "${point.name}"`);
             }
           }
         }
@@ -1717,7 +1625,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           }
 
           if (localImagesForPoint.length > 0) {
-            console.log(`[RoomElevation] Merging ${localImagesForPoint.length} LocalImages for point "${point.name}"`);
 
             // Build comprehensive set of existing photo IDs to avoid duplicates
             const existingPhotoIds = new Set<string>();
@@ -1735,11 +1642,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
               // Skip if already added (check all possible ID fields)
               if (existingPhotoIds.has(imageId)) {
-                console.log(`[RoomElevation] Skipping duplicate LocalImage: ${imageId}`);
                 continue;
               }
               if (localImage.attachId && existingPhotoIds.has(String(localImage.attachId))) {
-                console.log(`[RoomElevation] Skipping duplicate LocalImage by attachId: ${localImage.attachId}`);
                 continue;
               }
 
@@ -1790,14 +1695,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                 point.photos = [];
               }
               point.photos.push(localPhotoData);
-              console.log(`[RoomElevation] Added LocalImage ${imageId} to point "${point.name}"`);
             }
           }
         }
       }
 
       this.changeDetectorRef.detectChanges();
-      console.log('[RoomElevation] Elevation data reload complete');
 
       // TASK 1 FIX: Update class-level preservation maps after successful reload
       // This ensures photos survive subsequent navigations and reloads
@@ -1818,7 +1721,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             }
           }
         }
-        console.log(`[RoomElevation] Updated preservation maps after reload: ${this.preservedPhotosByPointName.size} points`);
       }
 
       // Set cooldown to prevent rapid re-invalidations
@@ -1895,7 +1797,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     // Blob URLs are now properly cleaned up when LocalImages are pruned after sync.
     // See refreshLocalState() for how we regenerate URLs on page return.
 
-    console.log('[ROOM ELEVATION] Component destroyed, but uploads continue in background');
   }
 
   /**
@@ -1904,7 +1805,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
    * during sync status changes by blocking reload triggers
    */
   private startLocalOperationCooldown(): void {
-    console.log('[RoomElevation] Starting local operation cooldown (2s)');
 
     // Clear any existing timer
     if (this.localOperationCooldownTimer) {
@@ -1914,7 +1814,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     this.localOperationCooldown = true;
     this.localOperationCooldownTimer = setTimeout(() => {
       this.localOperationCooldown = false;
-      console.log('[RoomElevation] Local operation cooldown ended');
     }, 2000); // 2 second cooldown after local operation
   }
 
@@ -1955,8 +1854,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
     // WEBAPP MODE: Load directly from API (no Dexie)
     if (environment.isWeb) {
-      console.log('[RoomElevation] WEBAPP: Loading room data directly from API');
-      console.log('[RoomElevation] serviceId:', this.serviceId, 'roomName:', this.roomName);
       this.loading = true;
       this.changeDetectorRef.detectChanges();
 
@@ -1971,7 +1868,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
         if (!room) {
           // Room doesn't exist in database yet - it's a template room that needs to be created
-          console.log('[RoomElevation] WEBAPP: Room not found in database, loading from templates');
 
           // Load templates to get room info
           const templates = await this.foundationData.getEFETemplates();
@@ -2010,28 +1906,17 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         // 2. Room exists - load its data
         this.roomId = String(room.EFEID || room.PK_ID);
         this.lastLoadedRoomId = this.roomId;
-        console.log('[RoomElevation] WEBAPP: Found room with ID:', this.roomId);
 
         // 3. Load points for this room
         const points = await firstValueFrom(this.caspioService.getServicesEFEPoints(this.roomId));
-        console.log('[RoomElevation] WEBAPP: Loaded', points.length, 'points');
 
         // 4. Load point attachments (photos)
         let attachments: any[] = [];
         if (points.length > 0) {
           const pointIds = points.map((p: any) => String(p.PointID || p.PK_ID));
-          console.log('[RoomElevation] WEBAPP: Fetching attachments for pointIds:', pointIds);
           attachments = await firstValueFrom(this.caspioService.getServicesEFEAttachments(pointIds));
-          console.log('[RoomElevation] WEBAPP: Loaded', attachments.length, 'attachments');
           // Debug: Log each attachment's key fields
           attachments.forEach((a, i) => {
-            console.log(`[RoomElevation] WEBAPP: Attachment[${i}]:`, {
-              AttachID: a.AttachID,
-              PointID: a.PointID,
-              Type: a.Type,
-              Attachment: a.Attachment?.substring(0, 50),
-              Photo: a.Photo
-            });
           });
         }
 
@@ -2059,8 +1944,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
             // Debug: Log photos mapped for this point
             if (pointPhotos.length > 0) {
-              console.log(`[RoomElevation] WEBAPP: Point ${p.PointName} (${pointId}) has ${pointPhotos.length} photos:`,
-                pointPhotos.map(ph => ({ attachId: ph.attachId, photoType: ph.photoType, url: ph.url?.substring(0, 40) })));
             }
 
             return {
@@ -2089,7 +1972,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         this.loading = false;
         this.initialLoadComplete = true;
         this.changeDetectorRef.detectChanges();
-        console.log('[RoomElevation] WEBAPP: Room loaded successfully');
         console.timeEnd('[RoomElevation] initializeFromDexie');
         return;
       } catch (err: any) {
@@ -2100,8 +1982,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     }
 
     // MOBILE MODE: Use Dexie-first pattern
-    console.log('[RoomElevation] DEXIE-FIRST: Loading from Dexie only');
-    console.log('[RoomElevation] serviceId:', this.serviceId, 'roomName:', this.roomName);
 
     // Unsubscribe from previous subscription if exists
     if (this.efeFieldSubscription) {
@@ -2125,7 +2005,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       return;
     }
 
-    console.log('[RoomElevation] DEXIE-FIRST: Room found in Dexie');
 
     // 2. Set roomId from Dexie (prefer real ID, fallback to temp)
     this.roomId = field.efeId || field.tempEfeId || '';
@@ -2135,7 +2014,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     // This handles rooms seeded from templates where points have no IDs yet
     const pointsNeedIds = field.elevationPoints.some(p => !p.pointId && !p.tempPointId);
     if (pointsNeedIds && this.roomId) {
-      console.log('[RoomElevation] Points need tempPointIds - creating now');
 
       try {
         // Create tempPointIds and queue points for sync
@@ -2145,7 +2023,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           this.roomId,
           this.foundationData
         );
-        console.log('[RoomElevation] Created', createdPoints.length, 'points with tempPointIds');
 
         // Reload field from Dexie to get updated points
         const updatedField = await this.efeFieldRepo.getFieldByRoom(this.serviceId, this.roomName);
@@ -2205,7 +2082,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         next: (updatedField) => {
           if (!updatedField) return;
 
-          console.log('[RoomElevation] liveQuery update received');
 
           // Update metadata from liveQuery
           if (this.roomData) {
@@ -2221,13 +2097,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               if (existingPoint) {
                 // DEXIE-FIRST: Update name from Dexie (for renamed points)
                 if (efePoint.name && existingPoint.name !== efePoint.name) {
-                  console.log(`[RoomElevation] Point ${efePoint.pointNumber} name updated: "${existingPoint.name}" → "${efePoint.name}"`);
                   existingPoint.name = efePoint.name;
                 }
                 if (efePoint.value) existingPoint.value = efePoint.value;
                 // Update pointId if it changed (temp → real after sync)
                 if (efePoint.pointId && existingPoint.pointId !== efePoint.pointId) {
-                  console.log(`[RoomElevation] Point ${efePoint.pointNumber} ID updated: ${existingPoint.pointId} → ${efePoint.pointId}`);
                   existingPoint.pointId = efePoint.pointId;
                 }
               }
@@ -2236,7 +2110,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
           // Update roomId if it changed (temp → real after sync)
           if (updatedField.efeId && this.roomId !== updatedField.efeId) {
-            console.log(`[RoomElevation] RoomId updated: ${this.roomId} → ${updatedField.efeId}`);
             this.roomId = updatedField.efeId;
             this.lastLoadedRoomId = this.roomId;
           }
@@ -2261,16 +2134,13 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
    */
   private async populatePhotosFromLocalImages(): Promise<void> {
     if (!this.roomData?.elevationPoints) {
-      console.log('[RoomElevation] No elevation points to populate photos for');
       return;
     }
 
-    console.log('[RoomElevation] populatePhotosFromLocalImages - Loading photos from LocalImages');
 
     try {
       // Get all LocalImages for this service's elevation points
       const allLocalImages = await this.localImageService.getImagesForService(this.serviceId, 'efe_point');
-      console.log(`[RoomElevation] Found ${allLocalImages.length} LocalImages for efe_point`);
 
       // Group LocalImages by entityId (pointId)
       const localImagesMap = new Map<string, any[]>();
@@ -2303,7 +2173,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
       // Update class-level map for liveQuery updates
       this.bulkLocalImagesMap = localImagesMap;
-      console.log(`[RoomElevation] Built LocalImagesMap with ${localImagesMap.size} point groups`);
 
       // Populate photos for each elevation point
       for (const point of this.roomData.elevationPoints) {
@@ -2323,7 +2192,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           if (resolvedRealId && resolvedRealId !== pointIdStr) {
             localImagesForPoint = localImagesMap.get(resolvedRealId) || [];
             if (localImagesForPoint.length > 0) {
-              console.log(`[RoomElevation] Resolved temp ID ${pointIdStr} -> ${resolvedRealId}, found ${localImagesForPoint.length} photos`);
             }
           }
         }
@@ -2344,7 +2212,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
         if (localImagesForPoint.length === 0) continue;
 
-        console.log(`[RoomElevation] Found ${localImagesForPoint.length} photos for point ${point.name} (${pointIdStr})`);
 
         // Convert LocalImages to photo objects
         point.photos = [];
@@ -2376,7 +2243,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       // Also load FDF photos if any
       await this.populateFdfPhotosFromLocalImages(localImagesMap);
 
-      console.log('[RoomElevation] populatePhotosFromLocalImages - Complete');
     } catch (error) {
       console.error('[RoomElevation] Error loading photos from LocalImages:', error);
     }
@@ -2403,7 +2269,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             const realId = await this.indexedDb.getRealId(img.entityId);
             if (realId === this.roomId && !fdfImages.some(f => f.imageId === img.imageId)) {
               fdfImages.push(img);
-              console.log(`[RoomElevation] Found FDF photo via temp->real mapping: ${img.imageId}`);
             }
           } catch (e) {
             // Ignore mapping errors
@@ -2412,7 +2277,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       }
     }
 
-    console.log(`[RoomElevation] populateFdfPhotosFromLocalImages: Found ${fdfImages.length} FDF images for room ${this.roomId}`);
 
     for (const localImage of fdfImages) {
       const photoType = localImage.photoType as string;
@@ -2456,14 +2320,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       fdfPhotos[`${fdfKey}IsLocalFirst`] = true;
       fdfPhotos[`${fdfKey}HasAnnotations`] = !!(localImage.drawings && localImage.drawings.length > 10);
 
-      console.log(`[RoomElevation] ✅ Loaded FDF ${fdfKey} from LocalImages: ${localImage.imageId}`);
     }
   }
 
   private async loadRoomData() {
-    console.log('[RoomElevation] loadRoomData() called');
-    console.log('  - ServiceId:', this.serviceId);
-    console.log('  - RoomName:', this.roomName);
 
     // OFFLINE-FIRST: Don't show loading spinner if we have cached data
     // Data is already cached by the container's template download
@@ -2474,13 +2334,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       this.cacheLoadPromise = this.preloadPhotoCaches();
 
       // Load room record from Services_EFE (reads from IndexedDB immediately)
-      console.log('[RoomElevation] Calling foundationData.getEFEByService with serviceId:', this.serviceId);
       const rooms = await this.foundationData.getEFEByService(this.serviceId, true);
-      console.log('[RoomElevation] getEFEByService returned', rooms?.length || 0, 'rooms');
-      console.log('[RoomElevation] Rooms:', rooms);
 
       const room = rooms.find((r: any) => r.RoomName === this.roomName);
-      console.log('[RoomElevation] Found room matching name "' + this.roomName + '":', room);
 
       if (!room) {
         console.error('[RoomElevation] ERROR: Room not found with name:', this.roomName);
@@ -2490,10 +2346,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       }
 
       this.roomId = room.EFEID;
-      console.log('[RoomElevation] Room ID set to:', this.roomId);
-      console.log('[RoomElevation] Room TemplateID from database:', room.TemplateID);
-      console.log('[RoomElevation] Room FDF value from database:', room.FDF);
-      console.log('[RoomElevation] Room full record:', room);
 
       // CRITICAL FIX: Preserve existing photos BEFORE clearing roomData
       // This prevents photos from disappearing during reloads/sync - matches category-detail pattern
@@ -2535,17 +2387,14 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                 this.preservedPhotosByPointId.set(String(point.pointId), photosCopy);
               }
 
-              console.log(`[RoomElevation] PRESERVED ${photosCopy.length} photos for point "${point.name}" (ID: ${point.pointId})`);
             }
           }
         }
       }
-      console.log(`[RoomElevation] Total preserved: ${this.preservedPhotosByPointName.size} points with photos`);
 
       // Preserve FDF photos
       this.preservedFdfPhotos = this.roomData?.fdfPhotos ? { ...this.roomData.fdfPhotos } : null;
       if (this.preservedFdfPhotos) {
-        console.log('[RoomElevation] Preserved FDF photos state');
       }
 
       // Initialize room data structure
@@ -2622,7 +2471,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       this.bulkCachedPhotosMap = cachedPhotos;
       this.bulkAnnotatedImagesMap = annotatedImages;
 
-      console.log(`[RoomElevation] Pre-loaded ${cachedPhotos.size} photos, ${annotatedImages.size} annotations in ${Date.now() - cacheLoadStart}ms`);
     } catch (error) {
       console.warn('[RoomElevation] Failed to pre-load caches:', error);
       // Not critical - photos will load on-demand as fallback
@@ -2637,7 +2485,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     try {
       const annotatedImages = await this.indexedDb.getAllCachedAnnotatedImagesForService();
       this.bulkAnnotatedImagesMap = annotatedImages;
-      console.log(`[RoomElevation] Reloaded ${annotatedImages.size} annotated images cache`);
     } catch (error) {
       console.warn('[RoomElevation] Failed to reload annotated images cache:', error);
     }
@@ -2649,15 +2496,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
     // WEBAPP DEBUG: Log FDF columns from room object
     if (environment.isWeb) {
-      console.log('[FDF Load] WEBAPP: Room FDF columns:', {
-        FDFPhotoTop: room.FDFPhotoTop,
-        FDFPhotoTopAttachment: room.FDFPhotoTopAttachment,
-        FDFPhotoBottom: room.FDFPhotoBottom,
-        FDFPhotoBottomAttachment: room.FDFPhotoBottomAttachment,
-        FDFPhotoThreshold: room.FDFPhotoThreshold,
-        FDFPhotoThresholdAttachment: room.FDFPhotoThresholdAttachment,
-        EFEID: room.EFEID
-      });
     }
 
     // CRITICAL FIX: Check if we have preserved FDF photos with local blob/data URLs
@@ -2692,7 +2530,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         fdfPhotos.topLoading = false;
         fdfPhotos.topIsLocalFirst = preserved.topIsLocalFirst;
         fdfPhotos.topImageId = preserved.topImageId;
-        console.log('[RoomElevation] ✅ Restored preserved FDF top photo URL');
       } else {
         fdfPhotos.topLoading = true; // Skeleton state
         fdfPhotos.topUrl = 'assets/img/photo-placeholder.svg'; // Placeholder
@@ -2700,7 +2537,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
         // Load actual image in background - PREFER S3 key
         const topPhotoSource = topS3Key || topLegacyPath;
-        console.log('[FDF Load] WEBAPP: Loading top photo from:', topPhotoSource);
         this.loadFDFPhotoImage(topPhotoSource, 'top').catch(err => {
           console.error('Error loading top photo:', err);
         });
@@ -2716,7 +2552,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       fdfPhotos.topCaption = preserved.topCaption || '';
       fdfPhotos.topDrawings = preserved.topDrawings || null;
       fdfPhotos.topHasAnnotations = preserved.topHasAnnotations;
-      console.log('[RoomElevation] ✅ Restored local-only FDF top photo');
     }
 
     // Load Bottom photo metadata - PREFER S3 Attachment column over legacy Files API path
@@ -2739,7 +2574,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         fdfPhotos.bottomLoading = false;
         fdfPhotos.bottomIsLocalFirst = preserved.bottomIsLocalFirst;
         fdfPhotos.bottomImageId = preserved.bottomImageId;
-        console.log('[RoomElevation] ✅ Restored preserved FDF bottom photo URL');
       } else {
         fdfPhotos.bottomLoading = true; // Skeleton state
         fdfPhotos.bottomUrl = 'assets/img/photo-placeholder.svg';
@@ -2747,7 +2581,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
         // Load actual image in background - PREFER S3 key
         const bottomPhotoSource = bottomS3Key || bottomLegacyPath;
-        console.log('[FDF Load] WEBAPP: Loading bottom photo from:', bottomPhotoSource);
         this.loadFDFPhotoImage(bottomPhotoSource, 'bottom').catch(err => {
           console.error('Error loading bottom photo:', err);
         });
@@ -2763,7 +2596,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       fdfPhotos.bottomCaption = preserved.bottomCaption || '';
       fdfPhotos.bottomDrawings = preserved.bottomDrawings || null;
       fdfPhotos.bottomHasAnnotations = preserved.bottomHasAnnotations;
-      console.log('[RoomElevation] ✅ Restored local-only FDF bottom photo');
     }
 
     // Load Threshold (Location) photo metadata - PREFER S3 Attachment column over legacy Files API path
@@ -2786,7 +2618,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         fdfPhotos.thresholdLoading = false;
         fdfPhotos.thresholdIsLocalFirst = preserved.thresholdIsLocalFirst;
         fdfPhotos.thresholdImageId = preserved.thresholdImageId;
-        console.log('[RoomElevation] ✅ Restored preserved FDF threshold photo URL');
       } else {
         fdfPhotos.thresholdLoading = true; // Skeleton state
         fdfPhotos.thresholdUrl = 'assets/img/photo-placeholder.svg';
@@ -2794,7 +2625,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
         // Load actual image in background - PREFER S3 key
         const thresholdPhotoSource = thresholdS3Key || thresholdLegacyPath;
-        console.log('[FDF Load] WEBAPP: Loading threshold photo from:', thresholdPhotoSource);
         this.loadFDFPhotoImage(thresholdPhotoSource, 'threshold').catch(err => {
           console.error('Error loading threshold photo:', err);
         });
@@ -2810,7 +2640,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       fdfPhotos.thresholdCaption = preserved.thresholdCaption || '';
       fdfPhotos.thresholdDrawings = preserved.thresholdDrawings || null;
       fdfPhotos.thresholdHasAnnotations = preserved.thresholdHasAnnotations;
-      console.log('[RoomElevation] ✅ Restored local-only FDF threshold photo');
     }
     
     // WEBAPP MODE: Skip local photo loading - only use server data
@@ -2821,7 +2650,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       // CRITICAL: Also load FDF photos from LocalImageService (new local-first system)
       await this.loadLocalFDFPhotos();
     } else {
-      console.log('[RoomElevation] WEBAPP MODE: Skipping local FDF photo loading - using server data only');
     }
   }
 
@@ -2829,7 +2657,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
   private async loadLocalFDFPhotos() {
     // WEBAPP MODE: Skip local photo loading
     if (this.isWebappMode) {
-      console.log('[RoomElevation] WEBAPP MODE: Skipping loadLocalFDFPhotos');
       return;
     }
 
@@ -2854,7 +2681,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                 // Avoid duplicates
                 if (!localFDFImages.some(existing => existing.imageId === img.imageId)) {
                   localFDFImages.push(img);
-                  console.log(`[RoomElevation] Found FDF photo via temp->real mapping: ${img.imageId} (${img.entityId} -> ${this.roomId})`);
                 }
               }
             }
@@ -2864,7 +2690,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         }
       }
 
-      console.log(`[RoomElevation] Found ${localFDFImages.length} LocalImage FDF photos for room ${this.roomId} (including temp ID mappings)`);
 
       for (const localImage of localFDFImages) {
         const photoType = localImage.photoType || 'Top';  // Default to Top if not specified
@@ -2901,7 +2726,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           fdfPhotos[`${photoKey}IsLocalFirst`] = true;
           fdfPhotos[`${photoKey}HasAnnotations`] = !!(localImage.drawings && localImage.drawings.length > 10);
 
-          console.log(`[RoomElevation] ✅ Loaded local FDF ${photoType} photo: ${localImage.imageId} (status: ${localImage.status}, displayUrl: ${displayUrl.substring(0, 50)}...)`);
         }
       }
 
@@ -2935,7 +2759,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             try {
               const mappedRealId = await this.indexedDb.getRealId(storedRoomId);
               if (mappedRealId === this.roomId) {
-                console.log(`[FDF Restore] ✅ Matched pending FDF photo via temp->real room mapping: ${storedRoomId} -> ${this.roomId}`);
                 fdfRequests.push(r);
               }
             } catch (err) {
@@ -2962,7 +2785,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         // Try to load the stored photo data
         const storedData = await this.indexedDb.getStoredPhotoData(tempFileId);
         if (storedData?.file) {
-          console.log(`[FDF Restore] Restoring pending ${photoType} photo from IndexedDB`);
           
           // Convert to base64 for display
           const base64Image = await this.convertFileToBase64(storedData.file);
@@ -3000,7 +2822,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     const cacheId = `fdf_${this.roomId}_${photoKey}`;
     const isS3Key = this.caspioService.isS3Key(photoPathOrS3Key);
     
-    console.log(`[FDF Photo] Loading ${photoKey} image, isS3Key: ${isS3Key}`);
     
     // TWO-FIELD APPROACH: Set display state
     let displayState: 'local' | 'cached' | 'remote_loading' | 'remote' = 'remote';
@@ -3012,7 +2833,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(cacheId);
 
       if (cachedAnnotatedImage) {
-        console.log(`[FDF Photo] ✅ Using bulk cached ANNOTATED ${photoKey} image`);
         fdfPhotos[`${photoKey}Url`] = cachedAnnotatedImage;
         fdfPhotos[`${photoKey}DisplayUrl`] = cachedAnnotatedImage;
         fdfPhotos[`${photoKey}DisplayState`] = 'cached';
@@ -3024,7 +2844,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       // Check bulk cached photo
       const cachedImage = this.bulkCachedPhotosMap.get(cacheId);
       if (cachedImage) {
-        console.log(`[FDF Photo] ✅ Using bulk cached ${photoKey} image`);
         fdfPhotos[`${photoKey}Url`] = cachedImage;
         fdfPhotos[`${photoKey}DisplayUrl`] = cachedImage;
         fdfPhotos[`${photoKey}DisplayState`] = 'cached';
@@ -3035,7 +2854,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
       // If offline and no cache, use placeholder
       if (!this.offlineService.isOnline()) {
-        console.log(`[FDF Photo] Offline and no cache for ${photoKey}, using placeholder`);
         fdfPhotos[`${photoKey}Url`] = 'assets/img/photo-placeholder.svg';
         fdfPhotos[`${photoKey}DisplayUrl`] = 'assets/img/photo-placeholder.svg';
         fdfPhotos[`${photoKey}DisplayState`] = 'remote';
@@ -3053,7 +2871,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       let imageData: string | null = null;
       
       if (isS3Key) {
-        console.log(`[FDF Photo] Fetching S3 image for ${photoKey}:`, photoPathOrS3Key);
         try {
           const s3Url = await this.caspioService.getS3FileUrl(photoPathOrS3Key);
           
@@ -3079,7 +2896,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         fdfPhotos[`${photoKey}Loading`] = false;
         
         await this.indexedDb.cachePhoto(cacheId, this.serviceId, imageData, photoPathOrS3Key);
-        console.log(`[FDF Photo] ✅ Loaded and cached ${photoKey} image`);
         
         this.changeDetectorRef.detectChanges();
       } else {
@@ -3115,7 +2931,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       try {
         const localBlobUrl = await this.indexedDb.getPhotoBlobUrl(attachId);
         if (localBlobUrl) {
-          if (this.DEBUG) console.log(`[Point Photo] ✅ Using local blob for ${attachId}`);
           photoData.url = localBlobUrl;
           photoData.displayUrl = localBlobUrl;
           photoData.displayState = 'local';
@@ -3133,7 +2948,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(attachId)
         || (localImageId ? this.bulkAnnotatedImagesMap.get(String(localImageId)) : null);
       if (cachedAnnotatedImage) {
-        if (this.DEBUG) console.log(`[Point Photo] ✅ Using bulk cached ANNOTATED image for ${attachId} (or localImageId: ${localImageId})`);
         photoData.url = cachedAnnotatedImage;
         photoData.displayUrl = cachedAnnotatedImage;
         photoData.displayState = 'cached';
@@ -3146,7 +2960,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       // Check bulk cached photo
       const cachedImage = this.bulkCachedPhotosMap.get(attachId);
       if (cachedImage) {
-        if (this.DEBUG) console.log(`[Point Photo] Using bulk cached image for ${attachId}`);
         photoData.url = cachedImage;
         photoData.displayUrl = cachedImage;
         photoData.displayState = 'cached';
@@ -3157,7 +2970,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
       // If offline and no cache, use placeholder
       if (!this.offlineService.isOnline()) {
-        if (this.DEBUG) console.log(`[Point Photo] Offline and no cache for ${attachId}, using placeholder`);
         photoData.url = 'assets/img/photo-placeholder.svg';
         photoData.displayUrl = 'assets/img/photo-placeholder.svg';
         photoData.displayState = 'remote';
@@ -3175,7 +2987,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       let imageData: string | null = null;
       
       if (s3Key && this.caspioService.isS3Key(s3Key)) {
-        if (this.DEBUG) console.log(`[Point Photo] Fetching S3 image for ${attachId}:`, s3Key);
         try {
           const s3Url = await this.caspioService.getS3FileUrl(s3Key);
           
@@ -3202,7 +3013,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         
         if (attachId && !String(attachId).startsWith('temp_')) {
           await this.indexedDb.cachePhoto(attachId, this.serviceId, imageData, s3Key || photoPath);
-          if (this.DEBUG) console.log(`[Point Photo] ✅ Loaded and cached image for ${attachId}`);
         }
         
         this.changeDetectorRef.detectChanges();
@@ -3238,24 +3048,14 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
   }
 
   private async loadElevationPoints() {
-    console.log('========================================');
-    console.log('[RoomElevation] *** LOAD ELEVATION POINTS - START ***');
-    console.log('========================================');
-    console.log('[RoomElevation] RoomID:', this.roomId);
-    console.log('[RoomElevation] RoomName:', this.roomName);
-    console.log('[RoomElevation] Current roomData:', this.roomData);
 
     try {
       // STEP 1: Load the template to get point names (Point1Name, Point2Name, etc.)
-      console.log('\n[RoomElevation] STEP 1: Loading template...');
       const templateId = this.roomData?.templateId;
-      console.log('[RoomElevation] TemplateID from roomData:', templateId);
-      console.log('[RoomElevation] TemplateID type:', typeof templateId);
 
       // Convert templateId to number (matches original code behavior)
       // Database may return string but templates have numeric TemplateID
       const templateIdNum = typeof templateId === 'string' ? parseInt(templateId, 10) : templateId;
-      console.log('[RoomElevation] TemplateID converted to number:', templateIdNum);
 
       if (!templateId) {
         console.error('[RoomElevation] âŒ ERROR: No TemplateID found for room!');
@@ -3264,20 +3064,14 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       }
 
       // Load all templates
-      console.log('[RoomElevation] Calling foundationData.getEFETemplates()...');
       const allTemplates = await this.foundationData.getEFETemplates();
-      console.log('[RoomElevation] âœ“ Loaded', allTemplates?.length || 0, 'templates from LPS_Services_EFE_Templates');
 
       if (allTemplates && allTemplates.length > 0) {
-        console.log('[RoomElevation] Sample template structure:', allTemplates[0]);
-        console.log('[RoomElevation] All template IDs:', allTemplates.map((t: any) => ({ TemplateID: t.TemplateID, PK_ID: t.PK_ID, RoomName: t.RoomName })));
       }
 
       // Find the matching template
-      console.log(`[RoomElevation] Searching for template with TemplateID=${templateIdNum}...`);
       const template = allTemplates.find((t: any) => {
         const matches = t.TemplateID == templateIdNum || t.PK_ID == templateIdNum;
-        console.log(`  - Checking template: TemplateID=${t.TemplateID}, PK_ID=${t.PK_ID}, RoomName="${t.RoomName}", Matches=${matches}`);
         return matches;
       });
 
@@ -3287,17 +3081,13 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         return;
       }
 
-      console.log('[RoomElevation] âœ“ Found matching template:', template.RoomName);
-      console.log('[RoomElevation] Template full data:', template);
 
       // STEP 2: Extract elevation points from template (Point1Name through Point20Name)
-      console.log('\n[RoomElevation] STEP 2: Extracting elevation points from template...');
       const templatePoints: any[] = [];
       for (let i = 1; i <= 20; i++) {
         const pointColumnName = `Point${i}Name`;
         const pointName = template[pointColumnName];
 
-        console.log(`[RoomElevation]   ${pointColumnName}: "${pointName}"`);
 
         if (pointName && pointName.trim() !== '') {
           templatePoints.push({
@@ -3307,35 +3097,23 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             value: '',
             photos: []
           });
-          console.log(`[RoomElevation]     âœ“ Added point #${i}: "${pointName}"`);
         }
       }
 
-      console.log('[RoomElevation] âœ“ Template has', templatePoints.length, 'predefined points');
-      console.log('[RoomElevation] Template points:', templatePoints.map(p => p.name));
 
       // STEP 3: Load existing points from Services_EFE_Points
-      console.log('\n[RoomElevation] STEP 3: Loading existing points from Services_EFE_Points...');
-      console.log('[RoomElevation] Calling getServicesEFEPoints with roomId:', this.roomId);
 
       let existingPoints: any[] = [];
       try {
         // OFFLINE-FIRST: Use foundationData which reads from IndexedDB first
         existingPoints = await this.foundationData.getEFEPoints(this.roomId) || [];
-        console.log('[RoomElevation] âœ“ Found', existingPoints?.length || 0, 'existing points in database');
         if (existingPoints && existingPoints.length > 0) {
-          console.log('[RoomElevation] Existing points:', existingPoints.map((p: any) => ({
-            PointID: p.PointID,
-            PointName: p.PointName,
-            Elevation: p.Elevation
-          })));
         }
       } catch (error) {
         console.error('[RoomElevation] âŒ Error loading existing points:', error);
       }
 
       // STEP 4: Load all attachments for existing points
-      console.log('\n[RoomElevation] STEP 4: Loading attachments...');
       let attachments: any[] = [];
 
       // WEBAPP MODE: Skip local data loading - only use server data
@@ -3347,7 +3125,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         // CRITICAL: Get ALL pending photos grouped by point in ONE IndexedDB call
         // This avoids N+1 reads when processing each point (matches structural systems pattern)
         pendingPhotosMap = await this.indexedDb.getAllPendingPhotosGroupedByPoint();
-        console.log('[RoomElevation] Pending photos map has', pendingPhotosMap.size, 'points with pending photos');
 
         // NEW: Load LocalImages for EFE points (new local-first image system)
         // This ensures photos persist through navigation before sync completes
@@ -3381,43 +3158,30 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             }
           }
         }
-        console.log(`[RoomElevation] Loaded ${allLocalImages.length} LocalImages for ${bulkLocalImagesMap.size} points (with temp ID resolution)`);
 
         // TASK 1 FIX: Update class-level bulkLocalImagesMap so liveQuery updates work correctly
         // The local variable is used during initial load, but the class property is needed
         // for refreshPhotosFromLocalImages() to find the right photos when status changes
         this.bulkLocalImagesMap = bulkLocalImagesMap;
       } else {
-        console.log('[RoomElevation] WEBAPP MODE: Skipping local image loading - using server data only');
       }
 
       if (existingPoints && existingPoints.length > 0) {
         const pointIds = existingPoints.map((p: any) => p.PointID || p.PK_ID).filter(id => id);
-        console.log('[RoomElevation] Point IDs to fetch attachments for:', pointIds);
 
         if (pointIds.length > 0) {
           try {
             attachments = await this.foundationData.getEFEAttachments(pointIds);
-            console.log('[RoomElevation] âœ“ Loaded', attachments?.length || 0, 'attachments from Services_EFE_Points_Attach');
             if (attachments && attachments.length > 0) {
-              console.log('[RoomElevation] Attachments:', attachments.map((a: any) => ({
-                AttachID: a.AttachID,
-                PointID: a.PointID,
-                PhotoType: a.PhotoType,
-                Photo: a.Photo
-              })));
             }
           } catch (error) {
             console.error('[RoomElevation] âŒ Error loading attachments:', error);
           }
         }
       } else {
-        console.log('[RoomElevation] No existing points, skipping attachment loading');
       }
 
       // STEP 5: Merge template points with existing database points
-      console.log('\n[RoomElevation] STEP 5: Merging template points with database data...');
-      console.log('[RoomElevation] Processing', templatePoints.length, 'template points...');
 
       // CRITICAL FIX: Check sync status to preserve photos during sync
       const syncStatus = this.backgroundSync.syncStatus$.getValue();
@@ -3427,7 +3191,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       // The local maps were always empty because roomData.elevationPoints was already cleared
       // by the time this function runs. Now we use this.preservedPhotosByPointName and
       // this.preservedPhotosByPointId which are populated BEFORE roomData is reinitialized.
-      console.log(`[RoomElevation] Using preserved photos: ${this.preservedPhotosByPointName.size} points by name, ${this.preservedPhotosByPointId.size} points by ID (sync in progress: ${syncInProgress})`);
 
       // TASK 1 FIX: During sync, also preserve photos from current roomData.elevationPoints
       // This handles the case where sync starts AFTER initial load - photos would be in memory
@@ -3453,15 +3216,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             }
           }
         }
-        console.log(`[RoomElevation] SYNC IN PROGRESS - augmented preservation maps with current photos`);
       }
 
       for (const templatePoint of templatePoints) {
-        console.log(`\n[RoomElevation] --- Processing template point: "${templatePoint.name}" ---`);
 
         // Find matching existing point by name
         const existingPoint = existingPoints?.find((p: any) => p.PointName === templatePoint.name);
-        console.log(`[RoomElevation]   Existing point in DB:`, existingPoint ? `Yes (ID: ${existingPoint.PointID})` : 'No');
 
         // CRITICAL FIX: Use class-level preserved photos instead of empty local maps
         // Try by name first, then by point ID - ensures photos aren't lost if names change
@@ -3469,10 +3229,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         let preservedPhotos: any[] = [];
         if (this.preservedPhotosByPointName.has(templatePoint.name)) {
           preservedPhotos = this.preservedPhotosByPointName.get(templatePoint.name) || [];
-          console.log(`[RoomElevation]   ✅ Restored ${preservedPhotos.length} preserved photos by point name`);
         } else if (pointId && this.preservedPhotosByPointId.has(String(pointId))) {
           preservedPhotos = this.preservedPhotosByPointId.get(String(pointId)) || [];
-          console.log(`[RoomElevation]   ✅ Restored ${preservedPhotos.length} preserved photos by point ID`);
         }
 
         // TASK 1 FIX: ALWAYS preserve photos with valid displayUrls, not just during sync
@@ -3491,7 +3249,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         // The local photos have the actual image data - database records may not yet have S3 URLs
         const skipDatabasePhotos = hasValidPreservedPhotos;
         if (skipDatabasePhotos) {
-          console.log(`[RoomElevation]   PRESERVING local photos with valid displayUrls, skipping database merge`);
         }
 
         const pointData: any = {
@@ -3514,7 +3271,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             if (this.deletedPointPhotoIds.has(localImg.imageId) ||
                 this.deletedPointPhotoIds.has(localImgAttachId || '') ||
                 this.deletedPointPhotoIds.has(compositeKey)) {
-              console.log(`[RoomElevation]   Skipping deleted LocalImage: ${localImg.imageId} (compositeKey: ${compositeKey})`);
               continue;
             }
 
@@ -3564,7 +3320,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                 _tempId: localImg.imageId,
               };
               pointData.photos.push(localPhotoData);
-              console.log(`[RoomElevation] BULLETPROOF: Restored photo from LocalImage ${localImg.imageId} for point "${pointData.name}" (displayUrl: ${displayUrl.substring(0, 50)}...)`);
             }
           }
         }
@@ -3575,14 +3330,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           const pointIdStr = String(dbPointId);
           // CRITICAL FIX: Use String() conversion to avoid type mismatch when comparing IDs
           const pointAttachments = attachments.filter((att: any) => String(att.PointID) === pointIdStr);
-          console.log(`[RoomElevation]   Found ${pointAttachments.length} attachments for this point (ID: ${pointIdStr})`);
 
           // Process each attachment
           for (const attach of pointAttachments) {
             // CRITICAL: Database column is "Type", not "PhotoType"
             const photoType = attach.Type || attach.photoType || 'Measurement';
             const attachIdStr = String(attach.AttachID || attach.PK_ID);
-            console.log(`[RoomElevation]     Processing attachment: Type=${photoType}, Photo=${attach.Photo}, isPending=${attach.isPending}, ID=${attachIdStr}`);
 
             // TASK 1 FIX: Check if server attachment matches any LocalImage by attachId
             // This handles photos that were captured with imageId then synced to get real attachId
@@ -3607,7 +3360,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             );
 
             if (alreadyExists) {
-              console.log(`[RoomElevation]     Skipping duplicate attachment: ${attachIdStr} (matched via ${matchingImageId || 'direct ID'})`);
               // CRITICAL: Update the photo's attachId to the real server ID if needed
               const existingPhoto = pointData.photos.find((p: any) =>
                 String(p.attachId) === attachIdStr ||
@@ -3618,7 +3370,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                 ))
               );
               if (existingPhoto && existingPhoto.attachId !== attachIdStr) {
-                console.log(`[RoomElevation]     Updating photo attachId: ${existingPhoto.attachId} -> ${attachIdStr}`);
                 existingPhoto.attachId = attachIdStr;
                 existingPhoto.AttachID = attachIdStr;
               }
@@ -3627,7 +3378,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             
             // Check if this is a pending photo (uploaded offline, not yet synced)
             if (attach.isPending || attach.queued) {
-              console.log(`[RoomElevation]     Adding pending photo with blob URL: ${photoType}`);
               const pendingPhotoData: any = {
                 attachId: attach.AttachID || attach._pendingFileId,
                 photoType: photoType,
@@ -3661,7 +3411,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             if (cachedAnnotatedImage) {
               cachedDisplayUrl = cachedAnnotatedImage;
               displayState = 'cached';
-              console.log(`[RoomElevation]       ✅ Using cached ANNOTATED image for ${attachIdStr}`);
             }
 
             // Check bulk cached photo if no annotated version
@@ -3670,7 +3419,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               if (cachedImage) {
                 cachedDisplayUrl = cachedImage;
                 displayState = 'cached';
-                console.log(`[RoomElevation]       ✅ Using cached image for ${attachIdStr}`);
               }
             }
 
@@ -3702,7 +3450,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             if ((hasS3Key || hasPhotoPath) && !cachedDisplayUrl) {
               photoData.needsLoad = true;
               photoData.path = attach.Photo || attach.Attachment;
-              console.log(`[RoomElevation]       Photo needs remote load (S3: ${hasS3Key})`);
             }
           }
         }
@@ -3730,7 +3477,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                 const mappedRealId = await this.indexedDb.getRealId(tempPointId);
                 if (mappedRealId === pointIdStr) {
                   pendingPhotos = photos;
-                  console.log(`[RoomElevation] ✅ Found pending photos via temp->real mapping: ${tempPointId} -> ${pointIdStr}`);
                   break;
                 }
               } catch (mappingErr) {
@@ -3741,7 +3487,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         }
         
         if (pendingPhotos.length > 0) {
-          console.log(`[RoomElevation]   Adding ${pendingPhotos.length} pending photos for point ${pointIdStr}`);
           for (const pendingPhoto of pendingPhotos) {
             const pendingAttachId = String(pendingPhoto.AttachID || pendingPhoto._pendingFileId);
             
@@ -3752,7 +3497,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             );
             
             if (alreadyExists) {
-              console.log(`[RoomElevation]     Skipping duplicate pending photo: ${pendingAttachId}`);
               continue;
             }
             
@@ -3769,7 +3513,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(photoId)
               || (pendingPhotoLocalImageId ? this.bulkAnnotatedImagesMap.get(String(pendingPhotoLocalImageId)) : null);
             if (cachedAnnotatedImage) {
-              console.log('[RoomElevation] ✅ Using bulk cached annotated image for pending photo:', photoId);
               displayUrl = cachedAnnotatedImage;
               hasAnnotations = true;
             }
@@ -3798,7 +3541,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         // This ensures photos captured via LocalImageService persist through page reload
         const localImagesForPoint = bulkLocalImagesMap.get(pointIdStr) || [];
         if (localImagesForPoint.length > 0) {
-          console.log(`[RoomElevation]   Adding ${localImagesForPoint.length} LocalImages for point ${pointIdStr}`);
           
           for (const localImage of localImagesForPoint) {
             // Skip if already added (by imageId or attachId)
@@ -3810,7 +3552,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             );
             
             if (alreadyExists) {
-              console.log(`[RoomElevation]     Skipping duplicate LocalImage: ${localImage.imageId}`);
               continue;
             }
             
@@ -3857,34 +3598,22 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               _tempId: localImage.imageId,
             };
             pointData.photos.push(localPhotoData);
-            console.log(`[RoomElevation]     Added LocalImage: ${localImage.imageId}, photoType: ${localImage.photoType}`);
           }
         }
 
-        console.log(`[RoomElevation] Point "${templatePoint.name}" complete:`, {
-          pointId: pointData.pointId,
-          value: pointData.value,
-          photoCount: pointData.photos.length
-        });
 
         this.roomData.elevationPoints.push(pointData);
       }
 
       // STEP 5.5: Auto-create database records for template points that don't exist yet
       // This ensures points have a pointId so photo buttons are enabled
-      console.log('\n[RoomElevation] STEP 5.5: Auto-creating missing point records in database...');
-      console.log('[RoomElevation] Current roomId:', this.roomId);
-      console.log('[RoomElevation] Total points in elevationPoints array:', this.roomData.elevationPoints.length);
 
       const pointsNeedingCreation = this.roomData.elevationPoints.filter((p: any) => !p.pointId);
-      console.log(`[RoomElevation] Found ${pointsNeedingCreation.length} points without database records`);
 
       if (pointsNeedingCreation.length > 0) {
-        console.log('[RoomElevation] Points needing creation:', pointsNeedingCreation.map((p: any) => ({ name: p.name, pointId: p.pointId })));
 
         for (const point of pointsNeedingCreation) {
           try {
-            console.log(`[RoomElevation]   Creating database record for: "${point.name}"...`);
 
             // For temp room IDs, pass the temp ID as EFEID for dependency resolution
             // For real room IDs, parse as integer for the API
@@ -3894,11 +3623,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               PointName: point.name
             };
 
-            console.log('[RoomElevation]     Request data:', newPointData, 'isTempRoom:', isTempRoom);
 
             // OFFLINE-FIRST: Use foundationData.createEFEPoint which queues for background sync
             const response = await this.foundationData.createEFEPoint(newPointData, isTempRoom ? this.roomId : undefined);
-            console.log('[RoomElevation]     Response received:', response);
 
             const newPointId = response?.PointID || response?.PK_ID || response?._tempId;
 
@@ -3906,8 +3633,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               point.pointId = newPointId;
               point._tempId = response._tempId;
               point._syncing = response._syncing;
-              console.log(`[RoomElevation]     âœ“ Created with PointID: ${newPointId}`);
-              console.log(`[RoomElevation]     Point now has pointId:`, point.pointId);
             } else {
               console.error(`[RoomElevation]     âŒ Failed to get PointID from response:`, response);
             }
@@ -3918,19 +3643,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         }
 
         // Trigger change detection after creating all points
-        console.log('[RoomElevation] Triggering change detection after point creation...');
         this.changeDetectorRef.detectChanges();
       }
-      console.log('[RoomElevation] âœ“ Auto-creation complete');
-      console.log('[RoomElevation] Final point status:', this.roomData.elevationPoints.map((p: any) => ({
-        name: p.name,
-        pointId: p.pointId,
-        isReady: !!p.pointId
-      })));
 
       // STEP 6: Add any custom points from database that weren't in the template
       // This matches the original behavior where custom points are added dynamically
-      console.log('\n[RoomElevation] STEP 6: Checking for custom points not in template...');
       if (existingPoints && existingPoints.length > 0) {
         for (const existingPoint of existingPoints) {
           const pointId = existingPoint.PointID || existingPoint.PK_ID;
@@ -3941,7 +3658,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           );
 
           if (!alreadyAdded) {
-            console.log(`[RoomElevation]   Found custom point not in template: "${existingPoint.PointName}"`);
 
             // This is a custom point not in the template - add it
             const customPointData: any = {
@@ -3957,13 +3673,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             const pointIdStr = String(pointId);
             // CRITICAL FIX: Use String() conversion to avoid type mismatch when comparing IDs
             const pointAttachments = attachments.filter((att: any) => String(att.PointID) === pointIdStr);
-            console.log(`[RoomElevation]     Found ${pointAttachments.length} attachments for custom point (ID: ${pointIdStr})`);
 
             for (const attach of pointAttachments) {
               // CRITICAL: Database column is "Type", not "PhotoType"
               const photoType = attach.Type || 'Measurement';
               const attachIdStr = String(attach.AttachID || attach.PK_ID);
-              console.log(`[RoomElevation]       Processing attachment: Type=${photoType}, ID=${attachIdStr}`);
 
               // CRITICAL FIX: Check for duplicate before adding - use String() conversion for consistent comparison
               const alreadyExists = customPointData.photos.some((p: any) => 
@@ -3971,7 +3685,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               );
               
               if (alreadyExists) {
-                console.log(`[RoomElevation]       Skipping duplicate attachment: ${attachIdStr}`);
                 continue;
               }
 
@@ -3998,7 +3711,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                 photoData.url = 'assets/img/photo-placeholder.svg';
                 photoData.displayUrl = 'assets/img/photo-placeholder.svg';
                 photoData.loading = true;
-                console.log(`[RoomElevation]         Setting photo to loading state (S3: ${hasS3Key})`);
               }
 
               customPointData.photos.push(photoData);
@@ -4014,7 +3726,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             const customPointIdStr = String(pointId);
             const localImagesForCustomPoint = bulkLocalImagesMap.get(customPointIdStr) || [];
             if (localImagesForCustomPoint.length > 0) {
-              console.log(`[RoomElevation]     Adding ${localImagesForCustomPoint.length} LocalImages for custom point ${customPointIdStr}`);
               
               for (const localImage of localImagesForCustomPoint) {
                 // Skip if already added
@@ -4066,27 +3777,16 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               }
             }
 
-            console.log(`[RoomElevation]     âœ" Custom point "${existingPoint.PointName}" added:`, {
-              pointId: customPointData.pointId,
-              value: customPointData.value,
-              photoCount: customPointData.photos.length
-            });
 
             this.roomData.elevationPoints.push(customPointData);
           }
         }
       }
-      console.log('[RoomElevation] âœ" Custom points check complete');
 
       // STEP 7 (NEW): Merge pending caption updates into all loaded photos
       // This ensures captions added after photo creation are visible on page reload
       await this.mergePendingCaptionsIntoPointPhotos();
 
-      console.log('\n========================================');
-      console.log('[RoomElevation] *** LOAD ELEVATION POINTS - COMPLETE ***');
-      console.log('[RoomElevation] Total elevation points:', this.roomData.elevationPoints.length);
-      console.log('[RoomElevation] Final elevationPoints array:', this.roomData.elevationPoints);
-      console.log('========================================\n');
 
       this.changeDetectorRef.detectChanges();
     } catch (error) {
@@ -4132,7 +3832,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         return;
       }
 
-      console.log(`[MERGE CAPTIONS] Merging ${pendingCaptions.length} pending captions into ${uniqueAttachIds.length} photo IDs`);
 
       // Build lookup map for faster matching
       const captionMap = new Map<string, any>();
@@ -4169,14 +3868,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           if (pendingCaption) {
             // Update caption if pending
             if (pendingCaption.caption !== undefined) {
-              console.log(`[MERGE CAPTIONS] Applying caption to photo ${matchedId}: "${pendingCaption.caption?.substring(0, 30)}..."`);
               photo.caption = pendingCaption.caption;
               photo.Annotation = pendingCaption.caption;
             }
 
             // Update drawings if pending
             if (pendingCaption.drawings !== undefined) {
-              console.log(`[MERGE CAPTIONS] Applying drawings to photo ${matchedId}`);
               photo.drawings = pendingCaption.drawings;
               photo.Drawings = pendingCaption.drawings;
               photo.hasAnnotations = !!pendingCaption.drawings;
@@ -4192,17 +3889,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
   private async loadFDFOptions() {
     try {
-      console.log('[RoomElevation] Loading FDF options (OFFLINE-FIRST)...');
       // OFFLINE-FIRST: Use offlineTemplate which reads from IndexedDB first
       const options = await this.offlineTemplate.getEFEDropOptions();
-      console.log('[RoomElevation] FDF options loaded:', options?.length || 0, 'options');
-      console.log('[RoomElevation] Options type:', typeof options);
-      console.log('[RoomElevation] Options is array?', Array.isArray(options));
-      console.log('[RoomElevation] Options length:', options?.length);
 
       if (options && options.length > 0) {
-        console.log('[RoomElevation] First option:', options[0]);
-        console.log('[RoomElevation] Keys in first option:', Object.keys(options[0]));
 
         // Try to extract FDF values from all possible field names
         const possibleFieldNames = ['Dropdown', 'FDF', 'fdf', 'Fdf', 'Value', 'value', 'Name', 'name', 'Option', 'option'];
@@ -4211,7 +3901,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         for (const fieldName of possibleFieldNames) {
           const testOptions = options.map((opt: any) => opt[fieldName]).filter((val: any) => val && typeof val === 'string' && val.trim() !== '');
           if (testOptions.length > 0) {
-            console.log(`[RoomElevation] Found ${testOptions.length} options using field name: ${fieldName}`);
             extractedOptions = testOptions;
             break;
           }
@@ -4219,8 +3908,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
         if (extractedOptions.length > 0) {
           this.fdfOptions = extractedOptions;
-          console.log('[RoomElevation] Successfully loaded FDF options:', this.fdfOptions);
-          console.log('[RoomElevation] FDF options count:', this.fdfOptions.length);
         } else {
           console.error('[RoomElevation] Could not extract FDF options from any known field name');
           console.error('[RoomElevation] Available fields in first record:', Object.keys(options[0]));
@@ -4266,13 +3953,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     // Try to resolve real ID from IndexedDB
     const realId = await this.indexedDb.getRealId(this.roomId);
     if (realId) {
-      console.log('[RoomElevation] Resolved temp ID to real ID:', this.roomId, '->', realId);
       // Update local roomId reference for future calls
       this.roomId = realId;
       return { id: realId, isTempId: false };
     }
 
-    console.log('[RoomElevation] Room still has temp ID, update will be queued:', this.roomId);
     return { id: this.roomId, isTempId: true };
   }
 
@@ -4293,7 +3978,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
       // WEBAPP MODE: Call API directly for immediate persistence
       if (environment.isWeb && !isTempId) {
-        console.log('[RoomElevation] WEBAPP: Updating FDF directly via API for EFEID:', id);
         try {
           const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`, {
             method: 'PUT',
@@ -4306,7 +3990,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             throw new Error(`Failed to update FDF: ${errorText}`);
           }
 
-          console.log('[RoomElevation] WEBAPP: ✅ FDF updated successfully');
         } catch (apiError: any) {
           console.error('[RoomElevation] WEBAPP: ❌ FDF API update failed:', apiError?.message || apiError);
           throw apiError;
@@ -4325,7 +4008,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             priority: 'normal',
             serviceId: this.serviceId
           });
-          console.log('[RoomElevation] FDF update queued for sync (room not yet synced)');
         } else {
           // Queue for background sync (visible in sync modal)
           await this.indexedDb.addPendingRequest({
@@ -4338,7 +4020,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             priority: 'normal',
             serviceId: this.serviceId
           });
-          console.log('[RoomElevation] FDF update queued for sync');
         }
 
         // Update sync pending count to show in UI immediately
@@ -4381,14 +4062,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         };
         
         await this.indexedDb.cacheServiceData(this.serviceId, 'efe_rooms', cachedRooms);
-        console.log('[RoomElevation] ✅ Local EFE cache updated with:', updates, 'for room:', this.roomName);
       } else {
         // CRITICAL FIX: Room not in main cache - check if it's a pending (offline-created) room
         // Pending rooms are stored separately in pendingEFEData
         if (roomIdStr.startsWith('temp_')) {
           const updated = await this.indexedDb.updatePendingEFE(roomIdStr, updates);
           if (updated) {
-            console.log('[RoomElevation] ✅ Pending EFE room updated with:', updates, 'for temp room:', roomIdStr);
             return;
           }
         }
@@ -4431,7 +4110,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
       // WEBAPP MODE: Call API directly for immediate persistence
       if (environment.isWeb && !isTempId) {
-        console.log('[RoomElevation] WEBAPP: Updating Location directly via API for EFEID:', id);
         try {
           const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`, {
             method: 'PUT',
@@ -4444,7 +4122,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             throw new Error(`Failed to update Location: ${errorText}`);
           }
 
-          console.log('[RoomElevation] WEBAPP: ✅ Location updated successfully');
         } catch (apiError: any) {
           console.error('[RoomElevation] WEBAPP: ❌ Location API update failed:', apiError?.message || apiError);
           throw apiError;
@@ -4463,7 +4140,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             priority: 'normal',
             serviceId: this.serviceId
           });
-          console.log('[RoomElevation] Location update queued for sync (room not yet synced)');
         } else {
           // Queue for background sync (visible in sync modal) instead of direct API call
           await this.indexedDb.addPendingRequest({
@@ -4476,7 +4152,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             priority: 'normal',
             serviceId: this.serviceId
           });
-          console.log('[RoomElevation] Location update queued for sync');
         }
 
         // Update sync pending count to show in UI immediately
@@ -4538,7 +4213,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
       // WEBAPP MODE: Call API directly for immediate persistence
       if (environment.isWeb && !isTempId) {
-        console.log('[RoomElevation] WEBAPP: Updating Notes directly via API for EFEID:', id);
         try {
           const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`, {
             method: 'PUT',
@@ -4551,7 +4225,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             throw new Error(`Failed to update Notes: ${errorText}`);
           }
 
-          console.log('[RoomElevation] WEBAPP: ✅ Notes updated successfully');
         } catch (apiError: any) {
           console.error('[RoomElevation] WEBAPP: ❌ Notes API update failed:', apiError?.message || apiError);
           throw apiError;
@@ -4570,7 +4243,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             priority: 'normal',
             serviceId: this.serviceId
           });
-          console.log('[RoomElevation] Notes update queued for sync (room not yet synced)');
         } else {
           // Queue for background sync (visible in sync modal) instead of direct API call
           await this.indexedDb.addPendingRequest({
@@ -4583,7 +4255,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             priority: 'normal',
             serviceId: this.serviceId
           });
-          console.log('[RoomElevation] Notes update queued for sync');
         }
 
         // Update sync pending count to show in UI immediately
@@ -4679,7 +4350,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     }
     const fdfPhotos = this.roomData.fdfPhotos;
 
-    console.log(`[FDF Upload] Processing photo: ${photoType} (${environment.isWeb ? 'WEBAPP - Direct API' : 'MOBILE - LocalImageService'})`);
 
     try {
       // Compress the image
@@ -4691,7 +4361,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
       // WEBAPP MODE: Direct API upload to S3 and update EFE room record
       if (environment.isWeb) {
-        console.log(`[FDF Upload] WEBAPP: Uploading directly to S3 and updating EFE record`);
 
         // Show immediate preview using local blob URL
         const previewUrl = URL.createObjectURL(compressedFile);
@@ -4728,22 +4397,14 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
         const uploadResult = await uploadResponse.json();
         const s3Key = uploadResult.s3Key;
-        console.log(`[FDF Upload] WEBAPP: ✅ Photo uploaded to S3:`, s3Key);
 
         // Update the EFE room record with S3 key
         const attachmentColumnName = `FDFPhoto${photoType}Attachment`;
         const updateData: any = {};
         updateData[attachmentColumnName] = s3Key;
 
-        console.log(`[FDF Upload] WEBAPP: Updating EFE record:`, {
-          roomId: this.roomId,
-          column: attachmentColumnName,
-          value: s3Key,
-          updateData: updateData
-        });
 
         await firstValueFrom(this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData));
-        console.log(`[FDF Upload] WEBAPP: ✅ Updated EFE record with ${attachmentColumnName} = ${s3Key}`);
 
         // Get signed URL for display
         const s3Url = await this.caspioService.getS3FileUrl(s3Key);
@@ -4759,7 +4420,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         URL.revokeObjectURL(previewUrl);
 
         this.changeDetectorRef.detectChanges();
-        console.log(`[FDF Upload] WEBAPP: ✅ Photo synced successfully`);
         return;
       }
 
@@ -4793,7 +4453,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
       // Trigger change detection to show preview IMMEDIATELY
       this.changeDetectorRef.detectChanges();
-      console.log(`[FDF Upload] MOBILE: ✅ Photo captured with LocalImageService:`, localImage.imageId);
 
     } catch (error: any) {
       console.error(`[FDF Upload] Error processing FDF ${photoType} photo:`, error);
@@ -4811,7 +4470,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
   // Upload FDF photo to S3 - mirrors other photo uploads in the application
   private async uploadFDFPhotoToS3(photoType: 'Top' | 'Bottom' | 'Threshold', file: File, tempId: string): Promise<any> {
-    console.log(`[FDF Upload S3] Starting S3 upload for ${photoType}`);
 
     if (!this.roomId) {
       throw new Error(`Room not ready for upload`);
@@ -4823,7 +4481,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     try {
       // Compress the image
       const compressedFile = await this.imageCompression.compressImage(file);
-      console.log(`[FDF Upload S3] Compressed ${photoType} image`);
 
       // Generate unique filename for S3
       const timestamp = Date.now();
@@ -4838,7 +4495,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       formData.append('attachId', this.roomId);
 
       const uploadUrl = `${environment.apiGatewayUrl}/api/s3/upload`;
-      console.log(`[FDF Upload S3] Uploading to S3: ${uploadUrl}`);
       
       const uploadResponse = await fetch(uploadUrl, {
         method: 'POST',
@@ -4853,7 +4509,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
       const uploadResult = await uploadResponse.json();
       const s3Key = uploadResult.s3Key;
-      console.log(`[FDF Upload S3] Uploaded to S3 with key: ${s3Key}`);
 
       // Update the room record with S3 key in the new Attachment column
       const attachmentColumnName = `FDFPhoto${photoType}Attachment`;
@@ -4863,7 +4518,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       // TASK 3 FIX: Add fallback to queue if direct API call fails
       try {
         await this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData).toPromise();
-        console.log(`[FDF Upload S3] Updated room record with S3 key in ${attachmentColumnName}`);
       } catch (apiError) {
         console.warn(`[FDF Upload S3] API update failed, queuing for sync:`, apiError);
         await this.indexedDb.addPendingRequest({
@@ -4890,16 +4544,13 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       for (const req of pendingRequests) {
         if (req.type === 'UPLOAD_FILE' && req.data?.isFDFPhoto && req.data?.tempFileId === tempId) {
           await this.indexedDb.removePendingRequest(req.requestId);
-          console.log(`[FDF Upload S3] Removed pending request for ${tempId}`);
         }
       }
 
       // Note: Stored photo data in IndexedDB will be cleaned up automatically by storePhotoFile
       // when overwritten, or can be cleaned up separately if needed
-      console.log(`[FDF Upload S3] Upload complete for ${tempId}`);
 
       this.changeDetectorRef.detectChanges();
-      console.log(`[FDF Upload S3] Completed ${photoType}`);
 
       return { s3Key, success: true };
     } catch (error) {
@@ -4933,7 +4584,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     try {
       // CRITICAL FIX: Wait for photo to load if still loading
       if (fdfPhotos[`${photoKey}Loading`]) {
-        console.log('[FDF Annotate] Photo still loading, waiting...');
         const startTime = Date.now();
         while (fdfPhotos[`${photoKey}Loading`] && (Date.now() - startTime) < 10000) {
           await new Promise(resolve => setTimeout(resolve, 100));
@@ -4949,21 +4599,18 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       const cacheId = `fdf_${this.roomId}_${photoKey}`;
       
       // PERFORMANCE FIX: Try bulk map first (O(1) lookup), fall back to IndexedDB if not found
-      console.log('[FDF Annotate] Checking bulk cache for:', cacheId);
       let cachedDataUrl = this.bulkCachedPhotosMap.get(cacheId);
       if (!cachedDataUrl) {
         // Fallback to IndexedDB for photos added mid-session
         cachedDataUrl = await this.indexedDb.getCachedPhoto(cacheId) || undefined;
       }
       if (cachedDataUrl && cachedDataUrl.startsWith('data:')) {
-        console.log('[FDF Annotate] ✅ Using cached data URL');
         photoUrl = cachedDataUrl;
       }
       
       // If still no valid data URL and we have an S3 path, fetch and cache it
       if ((!photoUrl || photoUrl === 'assets/img/photo-placeholder.svg' || photoUrl.startsWith('https://')) && s3Key) {
         if (this.caspioService.isS3Key(s3Key)) {
-          console.log('[FDF Annotate] Fetching S3 image as data URL via XMLHttpRequest:', s3Key);
           try {
             // Get pre-signed S3 URL first
             const s3Url = await this.caspioService.getS3FileUrl(s3Key);
@@ -4976,7 +4623,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               fdfPhotos[`${photoKey}DisplayUrl`] = photoUrl;
               // Cache for future use
               await this.indexedDb.cachePhoto(cacheId, this.serviceId, photoUrl, s3Key);
-              console.log('[FDF Annotate] ✅ Got data URL via XMLHttpRequest');
             }
           } catch (err) {
             console.error('[FDF Annotate] Failed to fetch S3 image:', err);
@@ -4994,12 +4640,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
       if (compressedDrawings && compressedDrawings !== EMPTY_COMPRESSED_ANNOTATIONS && !compressedDrawings.startsWith('H4sI')) {
         try {
-          console.log('[FDF Annotate] Decompressing existing annotations, length:', compressedDrawings.length);
           // Using static import for offline support
           existingAnnotations = decompressAnnotationData(compressedDrawings);
-          console.log('[FDF Annotate] Decompressed annotations:', existingAnnotations ? 'SUCCESS' : 'FAILED');
           if (existingAnnotations && existingAnnotations.objects) {
-            console.log('[FDF Annotate] Found', existingAnnotations.objects.length, 'annotation objects');
           }
         } catch (e) {
           console.error('[FDF Annotate] Error decompressing annotations:', e);
@@ -5059,8 +4702,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           [`${photoKey}HasAnnotations`]: !!annotationsData
         };
 
-        console.log('[FDF SAVE] ✅ Replaced fdfPhotos object with updated', photoKey, 'displayUrl');
-        console.log('[FDF SAVE] Updated photo with compressed drawings, length:', compressedDrawings?.length || 0);
 
         // Force UI update
         this.changeDetectorRef.detectChanges();
@@ -5090,7 +4731,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
             // 1. DEXIE-FIRST: Get the imageId before clearing local state
             const imageId = fdfPhotos[`${photoKey}ImageId`];
-            console.log('[FDF Delete] Starting Dexie-first deletion for:', photoKey, 'imageId:', imageId);
 
             // 2. MOBILE: Delete from LocalImages table (source of truth)
             // Note: WEBAPP FDF photos are stored on the EFE record (not in a separate attach table)
@@ -5098,7 +4738,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             if (imageId) {
               try {
                 await this.localImageService.deleteLocalImage(imageId);
-                console.log('[FDF Delete] ✅ Deleted from LocalImages:', imageId);
               } catch (localErr) {
                 console.warn('[FDF Delete] Error deleting from LocalImages:', localErr);
               }
@@ -5107,7 +4746,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             // 3. DEXIE-FIRST: Clear FDF photo metadata in efeFields via repo
             try {
               await this.efeFieldRepo.clearFdfPhoto(this.serviceId, this.roomName, photoKey);
-              console.log('[FDF Delete] ✅ Cleared fdfPhotos metadata in Dexie:', photoKey);
             } catch (repoErr) {
               console.warn('[FDF Delete] Error clearing fdfPhotos in repo:', repoErr);
             }
@@ -5134,7 +4772,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             // 5. Clear cached photo from IndexedDB (legacy cache)
             const cacheId = `fdf_${this.roomId}_${photoKey}`;
             await this.indexedDb.deleteCachedPhoto(cacheId);
-            console.log('[FDF Delete] Cleared cached photo from IndexedDB:', cacheId);
 
             // 6. Update backend (clear FDF columns on server)
             // API data - only valid database columns
@@ -5153,7 +4790,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               if (isTempRoomId) {
                 // Use DEFERRED pattern - background sync will resolve temp ID to real ID
                 apiEndpoint = `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=DEFERRED`;
-                console.log('[FDF Delete] Room has temp ID, using DEFERRED pattern:', this.roomId);
               } else {
                 apiEndpoint = `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID='${this.roomId}'`;
               }
@@ -5162,9 +4798,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               // MOBILE MODE: Use direct API if online with real room ID, else queue for sync
               if ((environment.isWeb || this.offlineService.isOnline()) && !isTempRoomId) {
                 try {
-                  console.log('[FDF Delete] WEBAPP: Clearing FDF columns via direct API for EFEID:', this.roomId);
                   await this.caspioService.updateServicesEFEByEFEID(this.roomId, apiData).toPromise();
-                  console.log('[FDF Delete] ✅ Cleared FDF columns from EFE record');
                 } catch (apiError) {
                   console.warn('[FDF Delete] API update failed, queuing for sync:', apiError);
                   // Queue data includes metadata for sync modal display
@@ -5187,7 +4821,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                 }
               } else {
                 // Offline or temp room ID - queue for background sync
-                console.log('[FDF Delete] Queuing delete for sync (offline or temp roomId)');
                 // Queue data includes metadata for sync modal display
                 const queueData = {
                   ...apiData,
@@ -5207,7 +4840,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                 });
               }
 
-              console.log('[FDF Delete] ✅ Photo deletion complete (Dexie-first)');
             } catch (error) {
               console.error('[FDF Delete] Error queuing backend update:', error);
             }
@@ -5277,7 +4909,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     if (imageId) {
       try {
         await this.localImageService.updateCaptionAndDrawings(imageId, newCaption);
-        console.log('[FDF Caption] ✅ Updated LocalImage caption for imageId:', imageId);
       } catch (err) {
         console.warn('[FDF Caption] Could not update LocalImage caption:', err);
       }
@@ -5299,7 +4930,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           pointId: photoType  // photoType (Top/Bottom/Threshold) passed as pointId for FDF sync handler
         }
       );
-      console.log('[FDF Caption] ✅ Queued for sync via unified system, roomId:', this.roomId, 'photoType:', photoType);
     } catch (error) {
       console.error('[FDF Caption] Error:', error);
     }
@@ -5395,7 +5025,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         });
 
         this.changeDetectorRef.detectChanges();
-        console.log(`[RoomElevation] Point "${pointName}" created with ID: ${pointId}, pointNumber: ${assignedPointNumber}${response._tempId ? ' (pending sync)' : ''}`);
       }
     } catch (error) {
       console.error('Error adding point:', error);
@@ -5464,7 +5093,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
         // WEBAPP MODE: Call API directly for immediate persistence
         if (environment.isWeb && !isTempId) {
-          console.log('[RoomElevation] WEBAPP: Updating point name directly via API for PointID:', point.pointId);
           try {
             const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE_Points/records?q.where=PointID=${point.pointId}`, {
               method: 'PUT',
@@ -5477,7 +5105,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               throw new Error(`Failed to update point name: ${errorText}`);
             }
 
-            console.log('[RoomElevation] WEBAPP: ✅ Point name updated successfully');
           } catch (apiError: any) {
             console.error('[RoomElevation] WEBAPP: ❌ Point name API update failed:', apiError?.message || apiError);
             throw apiError;
@@ -5514,7 +5141,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           await this.backgroundSync.refreshSyncStatus();
         }
 
-        console.log('[RoomElevation] Point name update saved to Dexie and queued for sync');
       } catch (error) {
         console.error('Error updating point name:', error);
       }
@@ -5549,7 +5175,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
         // WEBAPP MODE: Call API directly for immediate persistence
         if (environment.isWeb && !isTempPointId) {
-          console.log('[RoomElevation] WEBAPP: Deleting point and photos via API for PointID:', point.pointId);
 
           // Delete photos first
           if (point.photos && point.photos.length > 0) {
@@ -5564,7 +5189,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                   if (!photoResponse.ok) {
                     console.warn('[RoomElevation] WEBAPP: Failed to delete photo:', photo.attachId);
                   } else {
-                    console.log('[RoomElevation] WEBAPP: ✅ Photo deleted:', photo.attachId);
                   }
                 } catch (photoError) {
                   console.warn('[RoomElevation] WEBAPP: Photo delete error:', photoError);
@@ -5590,7 +5214,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               throw new Error(`Failed to delete point: ${errorText}`);
             }
 
-            console.log('[RoomElevation] WEBAPP: ✅ Point deleted successfully');
           } catch (apiError: any) {
             console.error('[RoomElevation] WEBAPP: ❌ Point delete failed:', apiError?.message || apiError);
             throw apiError;
@@ -5688,7 +5311,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         await this.backgroundSync.refreshSyncStatus();
 
         this.changeDetectorRef.detectChanges();
-        console.log('[RoomElevation] Point and photo deletions queued for sync');
       } catch (error) {
         console.error('Error deleting point:', error);
       }
@@ -5762,7 +5384,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       const isPointTempId = String(point.pointId).startsWith('temp_');
       const isOfflineMode = isActuallyOffline || isPointTempId;
 
-      console.log(`[Point Photo] isActuallyOffline: ${isActuallyOffline}, isOfflineMode: ${isOfflineMode}`);
 
       // Find existing photo or create new one
       let existingPhoto = point.photos.find((p: any) => p.photoType === photoType);
@@ -5833,7 +5454,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         this.serviceId  // CRITICAL: Pass serviceId for LocalImage lookup
       );
 
-      console.log(`[Point Photo] Photo ${photoType} processed for point ${point.pointName}:`, result);
 
       // Update local state with result
       if (result) {
@@ -5866,7 +5486,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           existingPhoto.uploading = false;
           existingPhoto.queued = true;
           // Display URL is already set from the blob stored in IndexedDB
-          console.log(`[Point Photo] Photo stored locally for background sync, imageId:`, existingPhoto.imageId);
         } else {
           // Online upload completed - photo was synced immediately
           existingPhoto.uploading = false;
@@ -5888,7 +5507,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       }
 
       this.changeDetectorRef.detectChanges();
-      console.log(`[Point Photo] Photo ${photoType} for point ${point.pointName} processed successfully`);
 
     } catch (error: any) {
       console.error('Error processing point photo:', error);
@@ -5909,7 +5527,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     try {
       // CRITICAL FIX: Wait for photo to load if still loading
       if (photo.loading) {
-        console.log('[Point Annotate] Photo still loading, waiting...');
         // Wait for loading to complete (poll every 100ms, timeout after 10s)
         const startTime = Date.now();
         while (photo.loading && (Date.now() - startTime) < 10000) {
@@ -5927,14 +5544,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       // PERFORMANCE FIX: Try bulk map first (O(1) lookup), fall back to IndexedDB if not found
       const attachId = photo.attachId;
       if (attachId) {
-        console.log('[Point Annotate] Checking bulk cache for:', attachId);
         let cachedDataUrl = this.bulkCachedPhotosMap.get(attachId);
         if (!cachedDataUrl) {
           // Fallback to IndexedDB for photos added mid-session
           cachedDataUrl = await this.indexedDb.getCachedPhoto(attachId) || undefined;
         }
         if (cachedDataUrl && cachedDataUrl.startsWith('data:')) {
-          console.log('[Point Annotate] ✅ Using cached data URL');
           imageUrl = cachedDataUrl;
         }
       }
@@ -5946,7 +5561,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         
         // For S3 images, fetch via XMLHttpRequest to get data URL (avoids CORS issues with fabric.js canvas)
         if (s3Key && this.caspioService.isS3Key(s3Key)) {
-          console.log('[Point Annotate] Fetching S3 image as data URL via XMLHttpRequest:', s3Key);
           try {
             // Get pre-signed S3 URL first
             const s3Url = await this.caspioService.getS3FileUrl(s3Key);
@@ -5962,7 +5576,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               if (attachId) {
                 await this.indexedDb.cachePhoto(attachId, this.serviceId, imageUrl, s3Key);
               }
-              console.log('[Point Annotate] ✅ Got data URL via XMLHttpRequest');
             }
           } catch (err) {
             console.error('[Point Annotate] Failed to fetch S3 image:', err);
@@ -5981,12 +5594,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
       if (compressedDrawings && compressedDrawings !== EMPTY_COMPRESSED_ANNOTATIONS && !compressedDrawings.startsWith('H4sI')) {
         try {
-          console.log('[Point Annotate] Decompressing existing annotations, length:', compressedDrawings.length);
           // Using static import for offline support
           existingAnnotations = decompressAnnotationData(compressedDrawings);
-          console.log('[Point Annotate] Decompressed annotations:', existingAnnotations ? 'SUCCESS' : 'FAILED');
           if (existingAnnotations && existingAnnotations.objects) {
-            console.log('[Point Annotate] Found', existingAnnotations.objects.length, 'annotation objects');
           }
         } catch (e) {
           console.error('[Point Annotate] Error decompressing annotations:', e);
@@ -6062,7 +5672,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             Drawings: savedCompressedDrawings,
             _localUpdate: true
           };
-          console.log('[Point SAVE] ✅ Replaced photo object in array at index:', photoIndex);
         } else {
           // Fallback: mutate existing object
           photo.drawings = savedCompressedDrawings;
@@ -6070,10 +5679,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           photo.displayUrl = newUrl;
           photo.thumbnailUrl = newUrl;  // ANNOTATION FIX: Update thumbnail to show annotations
           photo.hasAnnotations = !!annotationsData;
-          console.log('[Point SAVE] ⚠️ Photo not found in array, mutated existing object');
         }
 
-        console.log('[Point SAVE] Updated photo with compressed drawings, length:', savedCompressedDrawings?.length || 0);
 
         // Force UI update
         this.changeDetectorRef.detectChanges();
@@ -6114,7 +5721,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               if (index < 0 && photo.photoType) {
                 index = point.photos.findIndex((p: any) => p.photoType === photo.photoType);
                 if (index >= 0) {
-                  console.log('[Point Photo] Found by photoType fallback:', photo.photoType);
                 }
               }
 
@@ -6122,19 +5728,16 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               if (index < 0) {
                 index = point.photos.indexOf(photo);
                 if (index >= 0) {
-                  console.log('[Point Photo] Found by object reference');
                 }
               }
 
               if (index >= 0) {
                 point.photos.splice(index, 1);
-                console.log('[Point Photo] ✅ Removed from UI array at index:', index);
               } else {
                 console.warn('[Point Photo] Could not find photo in array to remove:', photo);
                 // DEXIE-FIRST FIX: Force clear the array for this photoType as last resort
                 if (photo.photoType) {
                   point.photos = point.photos.filter((p: any) => p.photoType !== photo.photoType);
-                  console.log('[Point Photo] Force-filtered photos by photoType:', photo.photoType);
                 }
               }
 
@@ -6143,11 +5746,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               const imageId = photo.imageId || photo.localImageId;
               if (imageId) {
                 this.deletedPointPhotoIds.add(imageId);
-                console.log('[Point Photo] Added to deletedPointPhotoIds:', imageId);
               }
               if (photo.attachId) {
                 this.deletedPointPhotoIds.add(String(photo.attachId));
-                console.log('[Point Photo] Added attachId to deletedPointPhotoIds:', photo.attachId);
               }
               if (photo._tempId) {
                 this.deletedPointPhotoIds.add(String(photo._tempId));
@@ -6158,7 +5759,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               if (pointIdForTracking && photo.photoType) {
                 const compositeKey = `${pointIdForTracking}:${photo.photoType}`;
                 this.deletedPointPhotoIds.add(compositeKey);
-                console.log('[Point Photo] Added composite key to deletedPointPhotoIds:', compositeKey);
               }
 
               // DEXIE-FIRST FIX: Remove from preservation maps so photo doesn't reappear
@@ -6178,7 +5778,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                          !this.deletedPointPhotoIds.has(pCompositeKey || '');
                 });
                 this.preservedPhotosByPointName.set(pointName, filteredPreserved);
-                console.log(`[Point Photo] Updated preservedPhotosByPointName for "${pointName}": ${preserved.length} -> ${filteredPreserved.length}`);
               }
               if (pointId && this.preservedPhotosByPointId.has(String(pointId))) {
                 const preserved = this.preservedPhotosByPointId.get(String(pointId)) || [];
@@ -6193,7 +5792,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                          !this.deletedPointPhotoIds.has(pCompositeKey || '');
                 });
                 this.preservedPhotosByPointId.set(String(pointId), filteredPreserved);
-                console.log(`[Point Photo] Updated preservedPhotosByPointId for "${pointId}": ${preserved.length} -> ${filteredPreserved.length}`);
               }
 
               // Force UI update first
@@ -6204,7 +5802,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               if (imageId) {
                 try {
                   await this.localImageService.deleteLocalImage(imageId);
-                  console.log('[Point Photo] ✅ Deleted from LocalImages:', imageId);
 
                   // DELETE FIX: Also clear cached photos/annotations by imageId
                   // Local-first photos may be cached by imageId, not attachId
@@ -6229,7 +5826,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                   point.pointNumber,
                   newPhotoCount
                 );
-                console.log('[Point Photo] ✅ Updated Dexie photoCount:', newPhotoCount);
               } catch (repoErr) {
                 console.warn('[Point Photo] Failed to update Dexie photoCount:', repoErr);
               }
@@ -6250,7 +5846,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                 if (!String(photo.attachId).startsWith('temp_') && !String(photo.attachId).startsWith('img_')) {
                   // WEBAPP MODE: Call API directly for immediate persistence
                   if (environment.isWeb) {
-                    console.log('[Point Photo] WEBAPP: Deleting photo via API:', photo.attachId);
                     try {
                       const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`, {
                         method: 'DELETE',
@@ -6260,14 +5855,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                       if (!response.ok) {
                         console.warn('[Point Photo] WEBAPP: Delete API returned non-OK status');
                       } else {
-                        console.log('[Point Photo] WEBAPP: ✅ Photo deleted successfully');
                       }
                     } catch (apiError: any) {
                       console.error('[Point Photo] WEBAPP: ❌ Delete failed:', apiError?.message || apiError);
                     }
                   } else {
                     // MOBILE MODE: Queue for background sync
-                    console.log('[Point Photo] Queuing delete for sync:', photo.attachId);
                     await this.indexedDb.addPendingRequest({
                       type: 'DELETE',
                       endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`,
@@ -6281,7 +5874,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                   }
                 }
 
-                console.log('[Point Photo] Photo removed successfully');
               }
 
               // Clear the in-memory attachments cache
@@ -6289,7 +5881,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
               // DEXIE-FIRST: Final UI update to ensure photo is visually removed
               this.changeDetectorRef.detectChanges();
-              console.log('[Point Photo] ✅ Deletion complete (Dexie-first). Photos remaining:', point.photos?.length || 0);
             } catch (error) {
               console.error('Error deleting photo:', error);
             }
@@ -6371,7 +5962,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         return;
       }
 
-      console.log(`[Point Caption] Saving caption for attachId: ${attachId}`);
       
       // 3. Find the point ID for cache lookup
       let pointId: string | undefined;
@@ -6384,7 +5974,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         );
         if (foundPhoto && p.pointId) {
           pointId = String(p.pointId);
-          console.log(`[Point Caption] Found point ID: ${pointId} for attachId: ${attachId}`);
           break;
         }
       }
@@ -6405,7 +5994,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         }
       );
       
-      console.log(`[Point Caption] ✅ Caption queued for sync: ${attachId}`);
       
     } catch (error) {
       console.error('[Point Caption] ❌ Error saving caption:', error);
@@ -6422,6 +6010,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
   }
 
   private async showToast(message: string, color: string = 'primary') {
+    if (color === 'success' || color === 'info') return;
     const toast = await this.toastController.create({
       message,
       duration: 3000,
@@ -6570,7 +6159,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           const originalSize = drawingsData.length;
           drawingsData = compressAnnotationData(drawingsData, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
 
-          console.log(`[SAVE FDF] Compressed annotations: ${originalSize} â†’ ${drawingsData.length} bytes`);
 
           if (drawingsData.length > 64000) {
             console.error('[SAVE FDF] Annotation data exceeds 64KB limit:', drawingsData.length, 'bytes');
@@ -6595,13 +6183,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     updateData[`FDF${photoType}Drawings`] = drawingsData;
     updateData[`FDF${photoType}Annotation`] = caption || '';
 
-    console.log('[SAVE FDF] Saving annotations to database:', {
-      roomId,
-      photoType,
-      hasDrawings: !!drawingsData,
-      drawingsLength: drawingsData?.length || 0,
-      caption: caption || '(empty)'
-    });
 
     // TASK 2 FIX: Always queue FDF annotation updates through unified queue system
     // This ensures annotations appear in sync queue icon (matching point photos behavior)
@@ -6620,14 +6201,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         pointId: photoType  // photoType (Top/Bottom/Threshold) passed as pointId for FDF sync handler
       }
     );
-    console.log('[SAVE FDF] ✅ FDF annotation queued for sync, roomId:', roomId, 'photoType:', photoType);
 
     // CRITICAL FIX: Cache the annotated image blob for thumbnail display on reload
     if (annotatedBlob && annotatedBlob.size > 0) {
       try {
         const cacheId = `fdf_${roomId}_${photoType.toLowerCase()}`;
         const base64 = await this.indexedDb.cacheAnnotatedImage(cacheId, annotatedBlob);
-        console.log('[SAVE FDF] ✅ Annotated image blob cached:', cacheId);
         // Update in-memory map so same-session navigation shows the annotation
         if (base64) {
           this.bulkAnnotatedImagesMap.set(cacheId, base64);
@@ -6643,7 +6222,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           this.bulkAnnotatedImagesMap.set(fdfImageId, base64);
 
           await this.localImageService.updateCaptionAndDrawings(fdfImageId, undefined, drawingsData);
-          console.log('[SAVE FDF] ✅ Updated LocalImages.drawings for liveQuery trigger:', fdfImageId);
         }
       } catch (annotCacheErr) {
         console.warn('[SAVE FDF] Failed to cache annotated image blob:', annotCacheErr);
@@ -6732,7 +6310,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           // EMPTY_COMPRESSED_ANNOTATIONS is imported from annotation-utils - uses proper JSON format, not gzip
           drawingsData = compressAnnotationData(drawingsData, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
 
-          console.log(`[SAVE] Compressed annotations: ${originalSize} â†' ${drawingsData.length} bytes`);
 
           // Final size check
           if (drawingsData.length > 64000) {
@@ -6757,12 +6334,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       updateData.Drawings = EMPTY_COMPRESSED_ANNOTATIONS;
     }
 
-    console.log('[SAVE] Saving annotations to database:', {
-      attachId,
-      hasDrawings: !!updateData.Drawings,
-      drawingsLength: updateData.Drawings?.length || 0,
-      caption: caption || '(empty)'
-    });
 
     // Find the pointId for this attachment (needed for cache update and queue)
     let pointIdForCache: string | null = null;
@@ -6783,19 +6354,16 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       const localImageId = foundPhoto?.localImageId || foundPhoto?.imageId;
       if (localImageId && (foundPhoto?.isLocalFirst || foundPhoto?.isLocalImage)) {
         // This is a local-first photo - update LocalImage record directly
-        console.log('[SAVE] Updating annotations for local-first photo:', localImageId);
         await this.localImageService.updateCaptionAndDrawings(
           localImageId,
           updateData.Annotation || caption,
           updateData.Drawings
         );
-        console.log('[SAVE] ✅ LocalImage record updated with drawings:', localImageId);
         if (foundPhoto) {
           foundPhoto._localUpdate = true;
         }
       } else if (String(attachId).startsWith('temp_') || (foundPhoto && foundPhoto.isPending)) {
         // This is a syncing photo - use the dedicated method to update caption/drawings
-        console.log('[SAVE] Updating annotations for temp/pending photo:', attachId);
         
         const pendingFileId = foundPhoto?._pendingFileId || foundPhoto?._tempId || attachId;
         const updated = await this.indexedDb.updatePendingPhotoData(pendingFileId, {
@@ -6804,7 +6372,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         });
         
         if (updated) {
-          console.log('[SAVE] ✅ Updated pending EFE photo with annotations in IndexedDB:', pendingFileId);
           if (foundPhoto) {
             foundPhoto._localUpdate = true;
           }
@@ -6827,7 +6394,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           return att;
         });
         await this.indexedDb.cacheServiceData(pointIdForCache, 'efe_point_attachments', updatedAttachments);
-        console.log('[SAVE] ✅ EFE Annotation saved to IndexedDB cache for point', pointIdForCache);
       }
       
       // CRITICAL FIX: Cache the annotated image blob for thumbnail display on reload
@@ -6835,7 +6401,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       if (annotatedBlob && annotatedBlob.size > 0) {
         try {
           const base64 = await this.indexedDb.cacheAnnotatedImage(String(attachId), annotatedBlob);
-          console.log('[SAVE] ✅ EFE Annotated image blob cached for thumbnail display:', attachId);
           // Update in-memory map so same-session navigation shows the annotation
           if (base64) {
             this.bulkAnnotatedImagesMap.set(String(attachId), base64);
@@ -6849,14 +6414,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             if (base64) {
               this.bulkAnnotatedImagesMap.set(localImageId, base64);
             }
-            console.log('[SAVE] ✅ Also cached under localImageId:', localImageId);
           }
 
           // DEXIE-FIRST FIX: Update LocalImages.drawings to trigger liveQuery
           // This makes localImages the source of truth and triggers UI refresh
           if (localImageId) {
             await this.localImageService.updateCaptionAndDrawings(localImageId, undefined, updateData.Drawings);
-            console.log('[SAVE] ✅ Updated LocalImages.drawings for liveQuery trigger:', localImageId);
           }
         } catch (annotCacheErr) {
           console.warn('[SAVE] Failed to cache EFE annotated image blob:', annotCacheErr);
@@ -6879,7 +6442,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         if (localImage?.attachId && !String(localImage.attachId).startsWith('img_') && !String(localImage.attachId).startsWith('temp_')) {
           // Photo was synced - use the real attachId for queueing annotation update
           syncAttachId = localImage.attachId;
-          console.log('[SAVE] Local-first photo already synced, using real attachId for queue:', syncAttachId);
         }
       } catch (e) {
         console.warn('[SAVE] Could not check LocalImage sync status:', e);
@@ -6896,11 +6458,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         pointId: pointIdForCache || undefined
       }
     );
-    console.log('[SAVE] ✅ EFE annotation queued for sync:', syncAttachId);
 
     // CRITICAL: Clear the attachments cache to ensure annotations appear after navigation
     this.foundationData.clearEFEAttachmentsCache();
-    console.log('[SAVE] Cleared EFE attachments cache after saving annotations');
 
     // Return the compressed drawings string so caller can update local photo object
     return updateData.Drawings;
@@ -7243,7 +6803,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       }
 
       if (annotatedImage) {
-        console.log('[IMAGE ERROR] Using cached ANNOTATED image:', attachId || localImageId);
         img.src = annotatedImage;
         photo.displayUrl = annotatedImage;
         photo.thumbnailUrl = annotatedImage;
@@ -7257,7 +6816,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         if (localImage) {
           const fallbackUrl = await this.localImageService.getDisplayUrl(localImage);
           if (fallbackUrl && fallbackUrl !== 'assets/img/photo-placeholder.svg') {
-            console.log('[IMAGE ERROR] Using LocalImage fallback:', localImageId);
             img.src = fallbackUrl;
             photo.displayUrl = fallbackUrl;
             photo.url = fallbackUrl;
@@ -7271,7 +6829,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       if (attachId && !attachId.startsWith('temp_') && !attachId.startsWith('img_')) {
         const cached = await this.indexedDb.getCachedPhoto(attachId);
         if (cached) {
-          console.log('[IMAGE ERROR] Using cached photo fallback:', attachId);
           img.src = cached;
           photo.displayUrl = cached;
           photo.url = cached;
@@ -7281,7 +6838,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       }
 
       // Fallback 3: Placeholder
-      console.log('[IMAGE ERROR] No fallback available, showing placeholder');
       img.src = 'assets/img/photo-placeholder.svg';
       photo.displayUrl = 'assets/img/photo-placeholder.svg';
       photo.loading = false;
@@ -7327,18 +6883,14 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     // Wait for cache to load first (so we can check for annotated images)
     await this.cacheLoadPromise;
 
-    console.log('[RoomElevation] WEBAPP: Resolving S3 URLs for', this.roomData.elevationPoints.length, 'points');
 
     for (const point of this.roomData.elevationPoints) {
-      console.log('[RoomElevation] WEBAPP: Point', point.name, 'has', point.photos?.length || 0, 'photos');
       for (const photo of point.photos || []) {
-        console.log('[RoomElevation] WEBAPP: Photo', photo.attachId, 'type:', photo.photoType, 'url:', photo.url?.substring(0, 50), 'hasAnnotations:', photo.hasAnnotations);
 
         // WEBAPP FIX: Check for cached annotated image FIRST (shows annotations on thumbnail)
         if (photo.attachId && photo.hasAnnotations) {
           const cachedAnnotated = this.bulkAnnotatedImagesMap.get(String(photo.attachId));
           if (cachedAnnotated) {
-            console.log('[RoomElevation] WEBAPP: ✅ Using cached annotated image for:', photo.attachId);
             photo.displayUrl = cachedAnnotated;
             photo.loading = false;
             continue;  // Skip S3 fetch - we have the annotated version
@@ -7348,13 +6900,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         if (photo.url && this.caspioService.isS3Key(photo.url)) {
           try {
             // Use same pattern as FDF: getS3FileUrl() + fetchS3ImageAsDataUrl()
-            console.log('[RoomElevation] WEBAPP: Fetching S3 URL for:', photo.attachId);
             const s3Url = await this.caspioService.getS3FileUrl(photo.url);
             const dataUrl = await this.fetchS3ImageAsDataUrl(s3Url);
 
             photo.displayUrl = dataUrl;
             photo.loading = false;
-            console.log('[RoomElevation] WEBAPP: ✅ Created data URL for photo:', photo.attachId, 'type:', photo.photoType);
           } catch (err) {
             console.warn('[RoomElevation] WEBAPP: Failed to resolve S3 URL:', err);
             photo.displayUrl = 'assets/img/photo-placeholder.svg';

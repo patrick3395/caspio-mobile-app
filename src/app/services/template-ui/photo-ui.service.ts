@@ -242,10 +242,8 @@ export class PhotoUIService {
       // Legacy photo deletion
       else if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
         await deleteVisualPhoto(photo.AttachID);
-        console.log('[PhotoUI] Deleted photo (or queued for sync):', photo.AttachID);
       }
 
-      console.log('[PhotoUI] Photo removed successfully');
       return { success: true, deleted: true };
     } catch (error) {
       console.error('[PhotoUI] Error deleting photo:', error);
@@ -278,14 +276,12 @@ export class PhotoUIService {
     deleteVisualPhoto: (attachId: string) => Promise<void>
   ): Promise<void> {
     const localImageId = photo.localImageId || photo.imageId;
-    console.log('[PhotoUI] Deleting LocalImage:', localImageId);
 
     // CRITICAL: Get LocalImage data BEFORE deleting to check if server deletion is needed
     const localImage = await this.indexedDb.getLocalImage(localImageId);
 
     // If the photo was already synced (has real attachId), queue delete for server
     if (localImage?.attachId && !String(localImage.attachId).startsWith('img_')) {
-      console.log('[PhotoUI] LocalImage was synced, queueing server delete:', localImage.attachId);
       await deleteVisualPhoto(localImage.attachId);
     }
 

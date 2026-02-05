@@ -43,7 +43,6 @@ export class PerformanceMonitorService {
    */
   start(): void {
     this.initializeMonitoring();
-    console.log('🚀 Performance monitoring started');
   }
 
   /**
@@ -63,7 +62,6 @@ export class PerformanceMonitorService {
     // Monitor network performance
     this.startNetworkMonitoring();
 
-    console.log('🚀 Performance monitoring initialized');
   }
 
   /**
@@ -87,7 +85,6 @@ export class PerformanceMonitorService {
     };
 
     this.metrics.push(metrics);
-    console.log('📊 Performance metrics recorded:', metrics);
   }
 
   /**
@@ -99,11 +96,6 @@ export class PerformanceMonitorService {
     setInterval(() => {
       const memory = (performance as any).memory;
       if (memory) {
-        console.log('🧠 Memory usage:', {
-          used: Math.round(memory.usedJSHeapSize / 1024 / 1024) + 'MB',
-          total: Math.round(memory.totalJSHeapSize / 1024 / 1024) + 'MB',
-          limit: Math.round(memory.jsHeapSizeLimit / 1024 / 1024) + 'MB'
-        });
       }
     }, 30000); // Every 30 seconds
   }
@@ -138,7 +130,6 @@ export class PerformanceMonitorService {
    */
   recordComponentLoadTime(componentName: string, loadTime: number): void {
     this.componentLoadTimes.set(componentName, loadTime);
-    console.log(`📦 Component ${componentName} loaded in ${loadTime.toFixed(2)}ms`);
   }
 
   /**
@@ -146,7 +137,6 @@ export class PerformanceMonitorService {
    */
   recordImageLoadTime(imageUrl: string, loadTime: number): void {
     this.imageLoadTimes.set(imageUrl, loadTime);
-    console.log(`🖼️ Image ${imageUrl} loaded in ${loadTime.toFixed(2)}ms`);
   }
 
   /**
@@ -326,6 +316,5 @@ export class PerformanceMonitorService {
     this.networkRequests = 0;
     this.cacheHits = 0;
     this.cacheMisses = 0;
-    console.log('🧹 Performance data cleared');
   }
 }

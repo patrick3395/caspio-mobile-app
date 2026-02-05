@@ -88,7 +88,6 @@ export class HudMainPage implements OnInit {
     if (parentParams) {
       this.projectId = parentParams['projectId'] || '';
       this.serviceId = parentParams['serviceId'] || '';
-      console.log('[HUD Main] Got params from snapshot:', this.projectId, this.serviceId);
     }
 
     // Also subscribe to param changes (for dynamic updates)
@@ -111,7 +110,6 @@ export class HudMainPage implements OnInit {
     try {
       // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
       this.statusOptions = await this.offlineTemplate.getStatusOptions();
-      console.log('[HUD Main] Loaded status options:', this.statusOptions.length);
     } catch (error) {
       console.error('[HUD Main] Error loading status options:', error);
     }
@@ -120,7 +118,6 @@ export class HudMainPage implements OnInit {
   getStatusAdminByClient(statusClient: string): string {
     const statusRecord = this.statusOptions.find(s => s.Status_Client === statusClient);
     if (statusRecord && statusRecord.Status_Admin) {
-      console.log(`[HUD Main] Status mapping: "${statusClient}" -> "${statusRecord.Status_Admin}"`);
       return statusRecord.Status_Admin;
     }
     console.warn(`[HUD Main] Status_Admin not found for "${statusClient}", using fallback`);
@@ -133,7 +130,6 @@ export class HudMainPage implements OnInit {
       // Mark that changes may have been made
       if (this.isReportFinalized) {
         this.hasChangesAfterFinalization = true;
-        console.log('[HUD Main] Marked changes after finalization');
       }
       // Non-blocking - fail silently offline
       this.checkCanFinalize();
@@ -199,7 +195,6 @@ export class HudMainPage implements OnInit {
         hudCard.deficiencyCount = deficiencyCount;
       }
 
-      console.log('[HUD Main] Counts loaded - Comments:', commentCount, 'Limitations:', limitationCount, 'Deficiencies:', deficiencyCount);
       this.changeDetectorRef.detectChanges();
 
     } catch (error) {
@@ -234,7 +229,6 @@ export class HudMainPage implements OnInit {
                                 status === 'Updated' || 
                                 status === 'Under Review';
       
-      console.log('[HUD Main] Report finalized status:', this.isReportFinalized, 'Status:', status);
     } catch (error) {
       console.error('[HUD Main] Error checking finalized status:', error);
     }
@@ -255,11 +249,9 @@ export class HudMainPage implements OnInit {
       // If report is finalized, only enable if changes have been made
       if (this.isReportFinalized) {
         this.canFinalize = this.hasChangesAfterFinalization && validationResult.isComplete;
-        console.log('[HUD Main] Report finalized. Has changes:', this.hasChangesAfterFinalization, 'Can update:', this.canFinalize);
       } else {
         // For initial finalization, enable if all fields complete
         this.canFinalize = validationResult.isComplete;
-        console.log('[HUD Main] Can finalize:', this.canFinalize);
       }
     } catch (error) {
       console.error('[HUD Main] Error checking finalize status:', error);
@@ -268,7 +260,6 @@ export class HudMainPage implements OnInit {
   }
 
   navigateTo(card: NavigationCard) {
-    console.log('[HUD Main] Navigating to:', card.route, 'projectId:', this.projectId, 'serviceId:', this.serviceId);
 
     // Split route by '/' to handle nested routes like 'category/hud'
     // Without splitting, 'category/hud' becomes URL-encoded as 'category%2Fhud'
@@ -284,8 +275,6 @@ export class HudMainPage implements OnInit {
   }
 
   async finalizeReport() {
-    console.log('[HUD Main] Starting finalization validation...');
-    console.log('[HUD Main] Is finalized:', this.isReportFinalized, 'Has changes:', this.hasChangesAfterFinalization);
     
     // If report is finalized but no changes made, show message
     if (this.isReportFinalized && !this.hasChangesAfterFinalization) {
@@ -329,7 +318,6 @@ export class HudMainPage implements OnInit {
           buttons: ['OK']
         });
         await alert.present();
-        console.log('[HUD Main] Alert shown with', validationResult.incompleteFields.length, 'missing fields');
       } else {
         // All fields complete - show confirmation dialog
         const isUpdate = this.isReportFinalized;
@@ -339,7 +327,6 @@ export class HudMainPage implements OnInit {
           ? 'All required fields have been completed. Your report is ready to be updated.'
           : 'All required fields have been completed. Ready to finalize?';
         
-        console.log('[HUD Main] All fields complete, showing confirmation');
         const alert = await this.alertController.create({
           header: headerText,
           message: messageText,
@@ -386,7 +373,6 @@ export class HudMainPage implements OnInit {
       promise.then(result => ({ result, timedOut: false as const })),
       new Promise<{ result: null; timedOut: true }>((resolve) => {
         setTimeout(() => {
-          console.log(`[HUD Main] ${operationName} timed out after ${timeoutMs/1000}s`);
           resolve({ result: null, timedOut: true });
         }, timeoutMs);
       })
@@ -396,7 +382,6 @@ export class HudMainPage implements OnInit {
   async markReportAsFinalized() {
     // Prevent double-click
     if (this.isFinalizationInProgress) {
-      console.log('[HUD Main] Finalization already in progress, ignoring');
       return;
     }
     this.isFinalizationInProgress = true;
@@ -408,7 +393,6 @@ export class HudMainPage implements OnInit {
     // All data is already saved directly to the API
     // ==========================================
     if (environment.isWeb) {
-      console.log('[HUD Main] WEBAPP MODE: Simplified finalization');
 
       const loading = await this.loadingController.create({
         message: isUpdate ? 'Updating report...' : 'Finalizing report...',
@@ -427,13 +411,10 @@ export class HudMainPage implements OnInit {
           Status: statusAdminValue
         };
 
-        console.log('[HUD Main] WEBAPP: Updating service status:', updateData);
 
         await this.caspioService.updateService(this.serviceId, updateData).toPromise();
-        console.log('[HUD Main] WEBAPP: ✅ Status updated successfully');
 
         // Clear caches
-        console.log('[HUD Main] WEBAPP: Clearing caches');
         this.cache.clearProjectRelatedCaches(this.projectId);
         this.cache.clearByPattern('projects_active');
         this.cache.clearByPattern('projects_all');
@@ -457,7 +438,6 @@ export class HudMainPage implements OnInit {
             text: 'OK',
             handler: () => {
               // Navigate back to project detail
-              console.log('[HUD Main] WEBAPP: Navigating to project detail');
               this.navController.navigateBack(['/project', this.projectId]);
             }
           }]
@@ -493,11 +473,9 @@ export class HudMainPage implements OnInit {
       // ==========================================
       // STEP 1: Sync ALL pending images (with timeout)
       // ==========================================
-      console.log('[HUD Main] Checking for unsynced images...');
       const imageStatus = await this.localImageService.getServiceImageSyncStatus(this.serviceId);
 
       if (imageStatus.pending > 0) {
-        console.log(`[HUD Main] Found ${imageStatus.pending} unsynced images, forcing sync...`);
         loading.message = `Syncing ${imageStatus.pending} image(s)...`;
 
         // Trigger background sync to process pending uploads
@@ -543,7 +521,6 @@ export class HudMainPage implements OnInit {
       // ==========================================
       // STEP 2: Sync ALL pending requests/captions (with timeout)
       // ==========================================
-      console.log('[HUD Main] Syncing pending requests and captions...');
       loading.message = 'Syncing data...';
 
       const dataSyncOutcome = await this.withTimeout(
@@ -557,7 +534,6 @@ export class HudMainPage implements OnInit {
         'Data sync'
       );
 
-      console.log('[HUD Main] Data sync result:', dataSyncOutcome);
 
       // Handle timeout or failure
       if (dataSyncOutcome.timedOut || !dataSyncOutcome.result.success) {
@@ -587,7 +563,6 @@ export class HudMainPage implements OnInit {
       // ==========================================
       // STEP 3: Update image pointers
       // ==========================================
-      console.log('[HUD Main] Updating image pointers to remote URLs...');
       loading.message = 'Updating image references...';
       await this.localImageService.updateImagePointersToRemote(this.serviceId);
 
@@ -631,7 +606,6 @@ export class HudMainPage implements OnInit {
         Status: statusAdminValue
       };
 
-      console.log('[HUD Main] Updating service status:', updateData);
 
       // Try to update with timeout - if it fails, we still complete locally
       let statusUpdateSuccess = false;
@@ -641,7 +615,6 @@ export class HudMainPage implements OnInit {
 
         if (!outcome.timedOut) {
           statusUpdateSuccess = true;
-          console.log('[HUD Main] Update response:', outcome.result);
         } else {
           console.warn('[HUD Main] Status update timed out - will sync later');
         }
@@ -652,12 +625,10 @@ export class HudMainPage implements OnInit {
       // ==========================================
       // CLEANUP STEP 1: Clear any remaining pending items
       // ==========================================
-      console.log('[HUD Main] Clearing any remaining pending items...');
       loading.message = 'Cleaning up...';
 
       try {
         const clearedItems = await this.indexedDb.clearPendingForService(this.serviceId);
-        console.log('[HUD Main] Cleared pending items:', clearedItems);
       } catch (err) {
         console.warn('[HUD Main] Error clearing pending items:', err);
       }
@@ -668,7 +639,6 @@ export class HudMainPage implements OnInit {
       try {
         await this.efeFieldRepo.markAllCleanForService(this.serviceId);
         await this.visualFieldRepo.markAllCleanForService(this.serviceId);
-        console.log('[HUD Main] Marked all Dexie records as clean');
       } catch (err) {
         console.warn('[HUD Main] Error marking records clean:', err);
       }
@@ -676,7 +646,6 @@ export class HudMainPage implements OnInit {
       // ==========================================
       // CLEANUP STEP 3: Clear API caches
       // ==========================================
-      console.log('[HUD Main] Clearing caches for project:', this.projectId);
       this.cache.clearProjectRelatedCaches(this.projectId);
       this.cache.clearByPattern('projects_active');
       this.cache.clearByPattern('projects_all');
@@ -684,10 +653,8 @@ export class HudMainPage implements OnInit {
       // ==========================================
       // CLEANUP STEP 4: Prune local blobs
       // ==========================================
-      console.log('[HUD Main] Cleaning up local blob data...');
       loading.message = 'Freeing device storage...';
       const cleanupResult = await this.localImageService.cleanupBlobDataAfterFinalization(this.serviceId);
-      console.log('[HUD Main] Blob cleanup complete:', cleanupResult);
 
       // Reset change tracking
       this.hasChangesAfterFinalization = false;
@@ -712,7 +679,6 @@ export class HudMainPage implements OnInit {
           text: 'OK',
           handler: () => {
             // Navigate back to project detail
-            console.log('[HUD Main] Navigating to project detail');
             this.navController.navigateBack(['/project', this.projectId]);
           }
         }]

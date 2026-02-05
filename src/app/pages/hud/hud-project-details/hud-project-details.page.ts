@@ -102,18 +102,14 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
   ) {}
 
   async ngOnInit() {
-    console.log('[ProjectDetails] ngOnInit() called');
 
     // Get IDs from parent route snapshot immediately (for offline reliability)
     const parentParams = this.route.parent?.snapshot?.params;
-    console.log('[ProjectDetails] parentParams from snapshot:', parentParams);
     if (parentParams) {
       this.projectId = parentParams['projectId'] || '';
       this.serviceId = parentParams['serviceId'] || '';
-      console.log('[ProjectDetails] Got params from snapshot:', this.projectId, this.serviceId);
 
       if (this.projectId && this.serviceId) {
-        console.log('[ProjectDetails] Calling loadData() from SNAPSHOT');
         await this.loadData();
         
         // CRITICAL: Load dropdown options AFTER data is loaded
@@ -125,15 +121,11 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Also subscribe to param changes (for dynamic updates)
     this.route.parent?.params.subscribe(async params => {
-      console.log('[ProjectDetails] params.subscribe fired with:', params);
       const newProjectId = params['projectId'];
       const newServiceId = params['serviceId'];
-      console.log('[ProjectDetails] newProjectId:', newProjectId, 'newServiceId:', newServiceId);
-      console.log('[ProjectDetails] current projectId:', this.projectId, 'current serviceId:', this.serviceId);
 
       // Only reload if IDs changed
       if (newProjectId !== this.projectId || newServiceId !== this.serviceId) {
-        console.log('[ProjectDetails] IDs CHANGED - calling loadData() from SUBSCRIPTION');
         this.projectId = newProjectId;
         this.serviceId = newServiceId;
         await this.loadData();
@@ -142,7 +134,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
         await this.loadDropdownOptions();
         await this.loadProjectDropdownOptions();
       } else {
-        console.log('[ProjectDetails] IDs unchanged - NOT reloading');
       }
     });
 
@@ -158,7 +149,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
    * Ensures data is refreshed when returning from other pages
    */
   async ionViewWillEnter() {
-    console.log('[ProjectDetails] ionViewWillEnter - Reloading data from cache');
     
     // Only reload if initial load is complete and we have IDs
     if (this.initialLoadComplete && this.projectId && this.serviceId) {
@@ -173,7 +163,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
   private subscribeToSyncEvents(): void {
     // WEBAPP MODE: Skip sync event subscription - not needed with direct API calls
     if (environment.isWeb) {
-      console.log('[ProjectDetails] WEBAPP MODE: Skipping sync event subscription');
       return;
     }
 
@@ -181,7 +170,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
     // This fires when local changes to project/service data are synced to the server
     this.serviceDataSyncSubscription = this.backgroundSync.serviceDataSyncComplete$.subscribe(event => {
       if (event.serviceId === this.serviceId || event.projectId === this.projectId) {
-        console.log('[ProjectDetails] Service/project data synced, reloading...');
         if (this.initialLoadComplete) {
           this.loadData();
         }
@@ -201,8 +189,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
   private async loadData() {
     this.loadDataCallCount++;
     const callNum = this.loadDataCallCount;
-    console.log(`[ProjectDetails] ========== loadData() CALL #${callNum} ==========`);
-    console.log(`[ProjectDetails] loadData() #${callNum}: projectId=${this.projectId}, serviceId=${this.serviceId}`);
 
     try {
       // OFFLINE-FIRST: Try IndexedDB first for both project and service data
@@ -210,7 +196,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
         this.loadProjectData(),
         this.loadServiceData()
       ]);
-      console.log(`[ProjectDetails] loadData() #${callNum}: COMPLETED`);
     } catch (error) {
       console.error(`[ProjectDetails] loadData() #${callNum}: ERROR:`, error);
     }
@@ -221,7 +206,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // WEBAPP MODE: Load directly from API (no IndexedDB caching)
     if (environment.isWeb) {
-      console.log('[ProjectDetails] WEBAPP MODE: Loading project directly from API');
       try {
         project = await firstValueFrom(this.caspioService.getProject(this.projectId, false));
       } catch (error) {
@@ -233,10 +217,8 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
       project = await this.offlineTemplate.getProject(this.projectId);
 
       if (project) {
-        console.log('[ProjectDetails] Loaded project from IndexedDB cache');
       } else {
         // Only fetch from API if IndexedDB has nothing at all
-        console.log('[ProjectDetails] Project not in cache, fetching from API...');
         try {
           const freshProject = await this.caspioService.getProject(this.projectId, false).toPromise();
           if (freshProject) {
@@ -262,15 +244,12 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   private async loadServiceData() {
-    console.log(`[ProjectDetails] loadServiceData() called for serviceId=${this.serviceId}`);
     let service: any = null;
 
     // WEBAPP MODE: Load directly from API (no IndexedDB caching)
     if (environment.isWeb) {
-      console.log('[ProjectDetails] WEBAPP MODE: Loading service directly from API');
       try {
         service = await firstValueFrom(this.caspioService.getService(this.serviceId, false));
-        console.log('[ProjectDetails] WEBAPP: API returned service with fields:', service ? Object.keys(service) : 'null');
       } catch (error) {
         console.error('[ProjectDetails] WEBAPP: Error loading service from API:', error);
         return;
@@ -279,20 +258,12 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
       // MOBILE MODE: Try IndexedDB first - this is the source of truth for offline-first
       service = await this.offlineTemplate.getService(this.serviceId);
 
-      console.log(`[ProjectDetails] getService(${this.serviceId}) returned:`, service);
-      console.log(`[ProjectDetails] service fields:`, service ? Object.keys(service) : 'null');
 
       if (service) {
-        console.log('[ProjectDetails] Loaded service from IndexedDB cache');
-        console.log('[ProjectDetails] FirstFoundationType =', service.FirstFoundationType);
-        console.log('[ProjectDetails] OccupancyFurnishings =', service.OccupancyFurnishings);
-        console.log('[ProjectDetails] WeatherConditions =', service.WeatherConditions);
       } else {
         // Only fetch from API if IndexedDB has nothing at all
-        console.log('[ProjectDetails] Service not in cache, fetching from API...');
         try {
           const freshService = await this.caspioService.getService(this.serviceId, false).toPromise();
-          console.log('[ProjectDetails] API returned:', freshService);
           if (freshService) {
             await this.indexedDb.cacheServiceRecord(this.serviceId, freshService);
             service = freshService;
@@ -309,7 +280,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
       console.error('[ProjectDetails] ?? WARNING: serviceData set to EMPTY! service was:', service);
       console.trace('[ProjectDetails] Stack trace for empty serviceData:');
     }
-    console.log('[ProjectDetails] this.serviceData set to:', JSON.stringify(this.serviceData).substring(0, 300));
 
     // NOTE: Don't convert values to "Other" here - the dropdown options haven't loaded yet from API
     // The loadDropdownOptions() will handle adding any missing values to the options arrays
@@ -337,36 +307,26 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     // FINAL STATE LOG
-    console.log('[ProjectDetails] loadServiceData COMPLETE - Final serviceData state:');
-    console.log('[ProjectDetails]   FirstFoundationType =', this.serviceData.FirstFoundationType);
-    console.log('[ProjectDetails]   OccupancyFurnishings =', this.serviceData.OccupancyFurnishings);
-    console.log('[ProjectDetails]   WeatherConditions =', this.serviceData.WeatherConditions);
-    console.log('[ProjectDetails]   OutdoorTemperature =', this.serviceData.OutdoorTemperature);
-    console.log('[ProjectDetails]   InAttendance =', this.serviceData.InAttendance);
 
     this.changeDetectorRef.detectChanges();
   }
 
   // Load dropdown options from Services_Drop table
   private async loadDropdownOptions() {
-    console.log('[ProjectDetails] loadDropdownOptions() called');
     try {
       let servicesDropData: any[] = [];
 
       // WEBAPP MODE: Load directly from API
       if (environment.isWeb) {
-        console.log('[ProjectDetails] WEBAPP MODE: Loading Services_Drop directly from API');
         servicesDropData = await firstValueFrom(this.caspioService.getServicesDrop()) || [];
       } else {
         // MOBILE MODE: Use OfflineTemplateService which reads from IndexedDB
         servicesDropData = await this.offlineTemplate.getServicesDrop();
       }
-      console.log('[ProjectDetails] loadDropdownOptions(): got data, servicesDropData.length =', servicesDropData?.length);
       
       // Debug: Log all unique ServicesName values to see what's available
       if (servicesDropData && servicesDropData.length > 0) {
         const uniqueServiceNames = [...new Set(servicesDropData.map((row: any) => row.ServicesName))];
-        console.log('[ProjectDetails] Available ServicesName values:', uniqueServiceNames);
       }
 
       if (servicesDropData && servicesDropData.length > 0) {
@@ -401,11 +361,9 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
               this.normalizeForComparison(opt) === normalizedCurrentValue
             );
             if (matchingOption && matchingOption !== currentValue) {
-              console.log(`[ProjectDetails] Normalizing WeatherConditions: "${currentValue}" -> "${matchingOption}"`);
               this.serviceData.WeatherConditions = matchingOption;
             } else if (!matchingOption) {
               // Value not in options - show "Other" and populate text field
-              console.log(`[ProjectDetails] WeatherConditions "${currentValue}" not in options - showing as Other`);
               this.weatherConditionsOtherValue = currentValue;
               this.serviceData.WeatherConditions = 'Other';
             }
@@ -426,11 +384,9 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
               this.normalizeForComparison(opt) === normalizedCurrentValue
             );
             if (matchingOption && matchingOption !== currentValue) {
-              console.log(`[ProjectDetails] Normalizing OutdoorTemperature: "${currentValue}" -> "${matchingOption}"`);
               this.serviceData.OutdoorTemperature = matchingOption;
             } else if (!matchingOption) {
               // Value not in options - show "Other" and populate text field
-              console.log(`[ProjectDetails] OutdoorTemperature "${currentValue}" not in options - showing as Other`);
               this.outdoorTemperatureOtherValue = currentValue;
               this.serviceData.OutdoorTemperature = 'Other';
             }
@@ -460,11 +416,9 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
               this.normalizeForComparison(opt) === normalizedCurrentValue
             );
             if (matchingOption && matchingOption !== currentValue) {
-              console.log(`[ProjectDetails] Normalizing OccupancyFurnishings: "${currentValue}" -> "${matchingOption}"`);
               this.serviceData.OccupancyFurnishings = matchingOption;
             } else if (!matchingOption) {
               // Value not in options - show "Other" and populate text field
-              console.log(`[ProjectDetails] OccupancyFurnishings "${currentValue}" not in options - showing as Other`);
               this.occupancyFurnishingsOtherValue = currentValue;
               this.serviceData.OccupancyFurnishings = 'Other';
             }
@@ -484,12 +438,10 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
               );
               if (matchingOption) {
                 if (matchingOption !== selection) {
-                  console.log(`[ProjectDetails] Normalizing InAttendance selection: "${selection}" -> "${matchingOption}"`);
                 }
                 return matchingOption;
               } else {
                 // Add missing selection to options (custom values added via Other)
-                console.log(`[ProjectDetails] Adding missing InAttendance selection to options: "${selection}"`);
                 this.inAttendanceOptions.push(selection);
                 return selection;
               }
@@ -518,11 +470,9 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
               this.normalizeForComparison(opt) === normalizedCurrentValue
             );
             if (matchingOption && matchingOption !== currentValue) {
-              console.log(`[ProjectDetails] Normalizing FirstFoundationType: "${currentValue}" -> "${matchingOption}"`);
               this.serviceData.FirstFoundationType = matchingOption;
             } else if (!matchingOption) {
               // Value not in options - show "Other" and populate text field
-              console.log(`[ProjectDetails] FirstFoundationType "${currentValue}" not in options - showing as Other`);
               this.firstFoundationTypeOtherValue = currentValue;
               this.serviceData.FirstFoundationType = 'Other';
             }
@@ -544,11 +494,9 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
               this.normalizeForComparison(opt) === normalizedCurrentValue
             );
             if (matchingOption && matchingOption !== currentValue) {
-              console.log(`[ProjectDetails] Normalizing SecondFoundationType: "${currentValue}" -> "${matchingOption}"`);
               this.serviceData.SecondFoundationType = matchingOption;
             } else if (!matchingOption) {
               // Value not in options - show "Other" and populate text field
-              console.log(`[ProjectDetails] SecondFoundationType "${currentValue}" not in options - showing as Other`);
               this.secondFoundationTypeOtherValue = currentValue;
               this.serviceData.SecondFoundationType = 'Other';
             }
@@ -570,11 +518,9 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
               this.normalizeForComparison(opt) === normalizedCurrentValue
             );
             if (matchingOption && matchingOption !== currentValue) {
-              console.log(`[ProjectDetails] Normalizing ThirdFoundationType: "${currentValue}" -> "${matchingOption}"`);
               this.serviceData.ThirdFoundationType = matchingOption;
             } else if (!matchingOption) {
               // Value not in options - show "Other" and populate text field
-              console.log(`[ProjectDetails] ThirdFoundationType "${currentValue}" not in options - showing as Other`);
               this.thirdFoundationTypeOtherValue = currentValue;
               this.serviceData.ThirdFoundationType = 'Other';
             }
@@ -595,12 +541,10 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
               );
               if (matchingOption) {
                 if (matchingOption !== selection) {
-                  console.log(`[ProjectDetails] Normalizing SecondFoundationRooms selection: "${selection}" -> "${matchingOption}"`);
                 }
                 return matchingOption;
               } else {
                 // Add missing selection to options (custom values added via Other)
-                console.log(`[ProjectDetails] Adding missing SecondFoundationRooms selection to options: "${selection}"`);
                 this.secondFoundationRoomsOptions.push(selection);
                 return selection;
               }
@@ -629,12 +573,10 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
               );
               if (matchingOption) {
                 if (matchingOption !== selection) {
-                  console.log(`[ProjectDetails] Normalizing ThirdFoundationRooms selection: "${selection}" -> "${matchingOption}"`);
                 }
                 return matchingOption;
               } else {
                 // Add missing selection to options (custom values added via Other)
-                console.log(`[ProjectDetails] Adding missing ThirdFoundationRooms selection to options: "${selection}"`);
                 this.thirdFoundationRoomsOptions.push(selection);
                 return selection;
               }
@@ -663,17 +605,14 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
               this.normalizeForComparison(opt) === normalizedCurrentValue
             );
             if (matchingOption && matchingOption !== currentValue) {
-              console.log(`[ProjectDetails] Normalizing OwnerOccupantInterview: "${currentValue}" -> "${matchingOption}"`);
               this.serviceData.OwnerOccupantInterview = matchingOption;
             } else if (!matchingOption) {
               // Value not in options - show "Other" and populate text field
-              console.log(`[ProjectDetails] OwnerOccupantInterview "${currentValue}" not in options - showing as Other`);
               this.ownerOccupantInterviewOtherValue = currentValue;
               this.serviceData.OwnerOccupantInterview = 'Other';
             }
           }
         }
-        console.log('[ProjectDetails] loadDropdownOptions(): Options loaded, forcing change detection');
         this.changeDetectorRef.detectChanges();
       }
     } catch (error) {
@@ -689,7 +628,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // WEBAPP MODE: Load directly from API
       if (environment.isWeb) {
-        console.log('[ProjectDetails] WEBAPP MODE: Loading Projects_Drop directly from API');
         dropdownData = await firstValueFrom(this.caspioService.getProjectsDrop()) || [];
       } else {
         // MOBILE MODE: Use OfflineTemplateService which reads from IndexedDB
@@ -726,7 +664,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
         if (this.projectData.TypeOfBuilding &&
             this.projectData.TypeOfBuilding !== 'Other' &&
             !this.optionsIncludeNormalized(this.typeOfBuildingOptions, this.projectData.TypeOfBuilding)) {
-          console.log(`[ProjectDetails] TypeOfBuilding "${this.projectData.TypeOfBuilding}" not in options - showing as Other`);
           // Store the custom value in the Other text field
           this.typeOfBuildingOtherValue = this.projectData.TypeOfBuilding;
           // Set dropdown to "Other"
@@ -737,14 +674,12 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
         if (this.projectData.Style &&
             this.projectData.Style !== 'Other' &&
             !this.optionsIncludeNormalized(this.styleOptions, this.projectData.Style)) {
-          console.log(`[ProjectDetails] Style "${this.projectData.Style}" not in options - showing as Other`);
           // Store the custom value in the Other text field
           this.styleOtherValue = this.projectData.Style;
           // Set dropdown to "Other"
           this.projectData.Style = 'Other';
         }
 
-        console.log('[ProjectDetails] loadProjectDropdownOptions(): Options loaded, forcing change detection');
         this.changeDetectorRef.detectChanges();
       }
     } catch (error) {
@@ -868,7 +803,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Check if this value already exists in options
     if (this.inAttendanceOptions.includes(customValue)) {
-      console.log(`[ProjectDetails] InAttendance option "${customValue}" already exists`);
       // Just select it if not already selected
       if (!this.inAttendanceSelections.includes(customValue)) {
         this.inAttendanceSelections.push(customValue);
@@ -887,7 +821,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
           this.inAttendanceOptions.push(customValue);
         }
       }
-      console.log(`[ProjectDetails] Added custom InAttendance option: "${customValue}"`);
 
       // Select the new custom value
       if (!this.inAttendanceSelections) {
@@ -974,7 +907,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Check if this value already exists in options
     if (this.secondFoundationRoomsOptions.includes(customValue)) {
-      console.log(`[ProjectDetails] SecondFoundationRooms option "${customValue}" already exists`);
       // Just select it if not already selected
       if (!this.secondFoundationRoomsSelections.includes(customValue)) {
         this.secondFoundationRoomsSelections.push(customValue);
@@ -992,7 +924,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
           this.secondFoundationRoomsOptions.push(customValue);
         }
       }
-      console.log(`[ProjectDetails] Added custom SecondFoundationRooms option: "${customValue}"`);
 
       // Select the new custom value
       if (!this.secondFoundationRoomsSelections) {
@@ -1078,7 +1009,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Check if this value already exists in options
     if (this.thirdFoundationRoomsOptions.includes(customValue)) {
-      console.log(`[ProjectDetails] ThirdFoundationRooms option "${customValue}" already exists`);
       // Just select it if not already selected
       if (!this.thirdFoundationRoomsSelections.includes(customValue)) {
         this.thirdFoundationRoomsSelections.push(customValue);
@@ -1096,7 +1026,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
           this.thirdFoundationRoomsOptions.push(customValue);
         }
       }
-      console.log(`[ProjectDetails] Added custom ThirdFoundationRooms option: "${customValue}"`);
 
       // Select the new custom value
       if (!this.thirdFoundationRoomsSelections) {
@@ -1207,7 +1136,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
    * This keeps the dropdown showing "Other" while saving the actual custom value
    */
   private async saveOtherValueToDatabase(tableType: 'project' | 'service', fieldName: string, value: string) {
-    console.log(`[ProjectDetails] Saving Other value for ${fieldName}: "${value}"`);
 
     // WEBAPP MODE: Save directly to API
     if (environment.isWeb) {
@@ -1217,11 +1145,9 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
           // Use PK_ID from loaded project data for API updates (matches mobile app pattern)
           const projectIdForUpdate = this.projectData?.PK_ID || this.projectId;
           await firstValueFrom(this.caspioService.updateProject(projectIdForUpdate, { [fieldName]: value }));
-          console.log(`[ProjectDetails] WEBAPP: Project Other value ${fieldName} saved to API`);
         } else {
           if (!this.serviceId || this.serviceId === 'new') return;
           await firstValueFrom(this.caspioService.updateService(this.serviceId, { [fieldName]: value }));
-          console.log(`[ProjectDetails] WEBAPP: Service Other value ${fieldName} saved to API`);
         }
         this.showSaveStatus(`${fieldName} saved`, 'success');
       } catch (error) {
@@ -1238,7 +1164,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
       // Save to IndexedDB (actual value, not "Other")
       try {
         await this.offlineTemplate.updateProject(this.projectId, { [fieldName]: value });
-        console.log(`[ProjectDetails] Project Other value ${fieldName} saved to IndexedDB`);
       } catch (error) {
         console.error(`[ProjectDetails] Error saving Other value to IndexedDB:`, error);
       }
@@ -1248,7 +1173,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
       // Save to IndexedDB (actual value, not "Other")
       try {
         await this.offlineTemplate.updateService(this.serviceId, { [fieldName]: value });
-        console.log(`[ProjectDetails] Service Other value ${fieldName} saved to IndexedDB`);
       } catch (error) {
         console.error(`[ProjectDetails] Error saving Other value to IndexedDB:`, error);
       }
@@ -1268,7 +1192,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
   private async autoSaveProjectField(fieldName: string, value: any) {
     if (!this.projectId || this.projectId === 'new') return;
 
-    console.log(`[ProjectDetails] Saving project field ${fieldName}:`, value);
 
     // Update local data immediately (for instant UI feedback)
     this.projectData[fieldName] = value;
@@ -1279,7 +1202,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
         // Use PK_ID from loaded project data for API updates (matches mobile app pattern)
         const projectIdForUpdate = this.projectData?.PK_ID || this.projectId;
         await firstValueFrom(this.caspioService.updateProject(projectIdForUpdate, { [fieldName]: value }));
-        console.log(`[ProjectDetails] WEBAPP: Project field ${fieldName} saved to API`);
         this.showSaveStatus(`${fieldName} saved`, 'success');
       } catch (error) {
         console.error(`[ProjectDetails] WEBAPP: Error saving to API:`, error);
@@ -1291,7 +1213,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
     // MOBILE MODE: Update IndexedDB cache, sync later
     try {
       await this.offlineTemplate.updateProject(this.projectId, { [fieldName]: value });
-      console.log(`[ProjectDetails] Project field ${fieldName} saved to IndexedDB`);
     } catch (error) {
       console.error(`[ProjectDetails] Error saving to IndexedDB:`, error);
     }
@@ -1309,24 +1230,20 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
 
   // Auto-save to Services table
   private async autoSaveServiceField(fieldName: string, value: any) {
-    console.log(`[ProjectDetails] autoSaveServiceField(${fieldName}, ${value}) called for serviceId=${this.serviceId}`);
 
     if (!this.serviceId) {
       console.error(`Cannot save ${fieldName} - No ServiceID! ServiceID is: ${this.serviceId}`);
       return;
     }
 
-    console.log(`[ProjectDetails] Saving service field ${fieldName}:`, value);
 
     // Update local data immediately (for instant UI feedback)
     this.serviceData[fieldName] = value;
-    console.log(`[ProjectDetails] this.serviceData[${fieldName}] set to:`, this.serviceData[fieldName]);
 
     // WEBAPP MODE: Save directly to API
     if (environment.isWeb) {
       try {
         await firstValueFrom(this.caspioService.updateService(this.serviceId, { [fieldName]: value }));
-        console.log(`[ProjectDetails] WEBAPP: Service field ${fieldName} saved to API`);
         this.showSaveStatus(`${fieldName} saved`, 'success');
       } catch (error) {
         console.error(`[ProjectDetails] WEBAPP: Error saving to API:`, error);
@@ -1337,16 +1254,13 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // MOBILE MODE: Update IndexedDB cache, sync later
     try {
-      console.log(`[ProjectDetails] Calling offlineTemplate.updateService...`);
       await this.offlineTemplate.updateService(this.serviceId, { [fieldName]: value });
-      console.log(`[ProjectDetails] Service field ${fieldName} saved to IndexedDB - SUCCESS`);
     } catch (error) {
       console.error(`[ProjectDetails] Error saving to IndexedDB:`, error);
     }
 
     // Show appropriate status message
     const isOnline = this.offlineService.isOnline();
-    console.log(`[ProjectDetails] isOnline = ${isOnline}`);
     if (isOnline) {
       this.showSaveStatus(`${fieldName} saved`, 'success');
     } else {
@@ -1366,6 +1280,7 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   async showToast(message: string, color: string = 'primary') {
+    if (color === 'success' || color === 'info') return;
     const toast = await this.toastController.create({
       message,
       duration: 2000,

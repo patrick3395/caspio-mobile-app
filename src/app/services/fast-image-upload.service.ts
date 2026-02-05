@@ -109,11 +109,6 @@ export class FastImageUploadService {
     const startTime = performance.now();
     const originalSize = file.size;
 
-    console.log(`[FastImageUpload] Starting upload:`, {
-      uploadId,
-      fileName: file.name,
-      originalSize: `${(originalSize / 1024 / 1024).toFixed(2)}MB`
-    });
 
     try {
       // STAGE 1: Compress image aggressively
@@ -128,11 +123,6 @@ export class FastImageUploadService {
         ? this.CAMERA_PHOTO_OPTIONS
         : this.SMALL_IMAGE_OPTIONS;
 
-      console.log(`[FastImageUpload] Compressing with options:`, {
-        isLargeImage,
-        targetMaxMB: options.maxSizeMB,
-        targetMaxDimension: options.maxWidthOrHeight
-      });
 
       const compressedBlob = await this.imageCompression.compressImage(file, options);
 
@@ -140,12 +130,6 @@ export class FastImageUploadService {
       const compressedSize = compressedBlob.size;
       const compressionRatio = ((1 - compressedSize / originalSize) * 100).toFixed(1);
 
-      console.log(`[FastImageUpload] Compression complete:`, {
-        originalSize: `${(originalSize / 1024 / 1024).toFixed(2)}MB`,
-        compressedSize: `${(compressedSize / 1024).toFixed(0)}KB`,
-        reduction: `${compressionRatio}%`,
-        time: `${compressionElapsed.toFixed(0)}ms`
-      });
 
       // Convert blob to File
       const compressedFile = new File(
@@ -168,12 +152,6 @@ export class FastImageUploadService {
       const uploadElapsed = performance.now() - uploadStart;
       const totalElapsed = performance.now() - startTime;
 
-      console.log(`[FastImageUpload] Upload complete:`, {
-        uploadTime: `${uploadElapsed.toFixed(0)}ms`,
-        totalTime: `${totalElapsed.toFixed(0)}ms`,
-        uploadedSize: `${(compressedSize / 1024).toFixed(0)}KB`,
-        savingsVsOriginal: `${compressionRatio}%`
-      });
 
       // STAGE 3: Complete
       this.updateProgress(uploadId, { stage: 'complete', progress: 100 });

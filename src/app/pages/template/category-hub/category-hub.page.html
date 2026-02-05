@@ -7,13 +7,13 @@
     </div>
 
     <!-- Visual Location Dropdown (EFE only) -->
-    <div *ngIf="!loading && shouldShowVisualLocationDropdown()" class="visual-location-section">
-      <div class="form-group" [class.filled]="getVisualLocationFieldValue()">
+    <div *ngIf="!loading && showVisualLocationDropdown" class="visual-location-section">
+      <div class="form-group" [class.filled]="visualLocationFieldValue">
         <label>
           Where will you provide the Visuals<span class="required">*</span>
         </label>
         <select
-          [ngModel]="getVisualLocationFieldValue()"
+          [ngModel]="visualLocationFieldValue"
           (ngModelChange)="onVisualLocationChange($event)"
           class="styled-input">
           <option value="">-- Select --</option>
@@ -28,15 +28,15 @@
     </div>
 
     <!-- Disabled State (when visuals provided elsewhere) -->
-    <div *ngIf="!loading && shouldShowVisualLocationDropdown() && isVisualsDisabled()" class="disabled-message">
+    <div *ngIf="!loading && showVisualLocationDropdown && visualsDisabled" class="disabled-message">
       <ion-icon name="information-circle-outline"></ion-icon>
       <p>Visual assessment is provided in Property Inspection Report</p>
     </div>
 
     <!-- Categories List -->
-    <div *ngIf="!loading && shouldShowCategories() && categories.length > 0" class="categories-container">
+    <div *ngIf="!loading && showCategories && categories.length > 0" class="categories-container">
       <ion-card
-        *ngFor="let category of categories"
+        *ngFor="let category of categories; trackBy: trackByCategoryName"
         class="navigation-card"
         button="true"
         (click)="navigateToCategory(category.name)">
@@ -66,14 +66,14 @@
     </div>
 
     <!-- Empty Offline State -->
-    <div *ngIf="!loading && shouldShowCategories() && categories.length === 0 && !isOnline" class="empty-offline">
+    <div *ngIf="!loading && showCategories && categories.length === 0 && !isOnline" class="empty-offline">
       <ion-icon name="cloud-offline-outline"></ion-icon>
       <p>You're offline</p>
       <p class="empty-subtitle">Connect to internet to sync category data</p>
     </div>
 
     <!-- Empty State -->
-    <div *ngIf="!loading && shouldShowCategories() && categories.length === 0 && isOnline" class="empty-message">
+    <div *ngIf="!loading && showCategories && categories.length === 0 && isOnline" class="empty-message">
       <ion-icon name="folder-open-outline"></ion-icon>
       <p>No categories available</p>
     </div>

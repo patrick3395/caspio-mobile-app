@@ -74,11 +74,9 @@ export class LbwMainPage implements OnInit {
     // Get IDs from parent route (container level)
     // Route structure: lbw/:projectId/:serviceId -> (main hub is here)
     this.route.parent?.params.subscribe(async params => {
-      console.log('[LBW Main] Route params from parent:', params);
       this.projectId = params['projectId'];
       this.serviceId = params['serviceId'];
 
-      console.log('[LBW Main] ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
 
       if (!this.projectId || !this.serviceId) {
         console.error('[LBW Main] Missing projectId or serviceId');
@@ -100,7 +98,6 @@ export class LbwMainPage implements OnInit {
       // Mark that changes may have been made
       if (this.isReportFinalized) {
         this.hasChangesAfterFinalization = true;
-        console.log('[LBW Main] Marked changes after finalization');
       }
       // Non-blocking - don't await
       this.checkCanFinalize();
@@ -119,7 +116,6 @@ export class LbwMainPage implements OnInit {
                                   status === 'Report Finalized' ||
                                   status === 'Updated' ||
                                   status === 'Under Review';
-        console.log('[LBW Main] Report finalized status (from cache):', this.isReportFinalized, 'Status:', status);
         return;
       }
 
@@ -133,7 +129,6 @@ export class LbwMainPage implements OnInit {
                                   status === 'Updated' ||
                                   status === 'Under Review';
 
-        console.log('[LBW Main] Report finalized status (from API):', this.isReportFinalized, 'Status:', status);
       }
     } catch (error) {
       console.error('[LBW Main] Error checking finalized status:', error);
@@ -146,14 +141,12 @@ export class LbwMainPage implements OnInit {
       const cachedStatus = await this.indexedDb.getCachedGlobalData('status');
       if (cachedStatus && cachedStatus.length > 0) {
         this.statusOptions = cachedStatus;
-        console.log('[LBW Main] Loaded status options (from cache):', this.statusOptions.length);
         return;
       }
 
       // Fallback to API if not in cache
       const statusData: any = await this.caspioService.get('/tables/LPS_Status/records').toPromise();
       this.statusOptions = statusData?.Result || [];
-      console.log('[LBW Main] Loaded status options (from API):', this.statusOptions.length);
     } catch (error) {
       console.error('[LBW Main] Error loading status options:', error);
     }
@@ -162,7 +155,6 @@ export class LbwMainPage implements OnInit {
   getStatusAdminByClient(statusClient: string): string {
     const statusRecord = this.statusOptions.find(s => s.Status_Client === statusClient);
     if (statusRecord && statusRecord.Status_Admin) {
-      console.log(`[LBW Main] Status mapping: "${statusClient}" -> "${statusRecord.Status_Admin}"`);
       return statusRecord.Status_Admin;
     }
     console.warn(`[LBW Main] Status_Admin not found for "${statusClient}", using fallback`);
@@ -184,11 +176,9 @@ export class LbwMainPage implements OnInit {
       // If report is finalized, only enable if changes have been made
       if (this.isReportFinalized) {
         this.canFinalize = this.hasChangesAfterFinalization && validationResult.isComplete;
-        console.log('[LBW Main] Report finalized. Has changes:', this.hasChangesAfterFinalization, 'Can update:', this.canFinalize);
       } else {
         // For initial finalization, enable if all fields complete
         this.canFinalize = validationResult.isComplete;
-        console.log('[LBW Main] Can finalize:', this.canFinalize);
       }
     } catch (error) {
       console.error('[LBW Main] Error checking finalize status:', error);
@@ -206,8 +196,6 @@ export class LbwMainPage implements OnInit {
   }
 
   async finalizeReport() {
-    console.log('[LBW Main] Starting finalization validation...');
-    console.log('[LBW Main] Is finalized:', this.isReportFinalized, 'Has changes:', this.hasChangesAfterFinalization);
     
     // If report is finalized but no changes made, show message
     if (this.isReportFinalized && !this.hasChangesAfterFinalization) {
@@ -251,7 +239,6 @@ export class LbwMainPage implements OnInit {
           buttons: ['OK']
         });
         await alert.present();
-        console.log('[LBW Main] Alert shown with', validationResult.incompleteFields.length, 'missing fields');
       } else {
         // All fields complete - show confirmation dialog
         const isUpdate = this.isReportFinalized;
@@ -261,7 +248,6 @@ export class LbwMainPage implements OnInit {
           ? 'All required fields have been completed. Your report is ready to be updated.'
           : 'All required fields have been completed. Ready to finalize?';
         
-        console.log('[LBW Main] All fields complete, showing confirmation');
         const alert = await this.alertController.create({
           header: headerText,
           message: messageText,
@@ -299,11 +285,9 @@ export class LbwMainPage implements OnInit {
 
     try {
       // Step 1: Check for unsynced images and force sync them
-      console.log('[LBW Main] Checking for unsynced images...');
       const imageStatus = await this.localImageService.getServiceImageSyncStatus(this.serviceId);
 
       if (imageStatus.pending > 0) {
-        console.log(`[LBW Main] Found ${imageStatus.pending} unsynced images, forcing sync...`);
         loading.message = `Syncing ${imageStatus.pending} image(s)...`;
 
         // Trigger background sync to process pending uploads
@@ -340,7 +324,6 @@ export class LbwMainPage implements OnInit {
       }
 
       // Step 2: Update image pointers to remote URLs
-      console.log('[LBW Main] Updating image pointers to remote URLs...');
       loading.message = 'Updating image references...';
       await this.localImageService.updateImagePointersToRemote(this.serviceId);
 
@@ -380,22 +363,17 @@ export class LbwMainPage implements OnInit {
         Status: statusAdminValue  // Use StatusAdmin value from Status table
       };
 
-      console.log('[LBW Main] Updating service status:', updateData);
       const response = await this.caspioService.updateService(this.serviceId, updateData).toPromise();
-      console.log('[LBW Main] Update response:', response);
 
       // Clear caches
-      console.log('[LBW Main] Clearing caches for project:', this.projectId);
       this.cache.clearProjectRelatedCaches(this.projectId);
       this.cache.clearByPattern('projects_active');
       this.cache.clearByPattern('projects_all');
 
       // Clean up local blob data after successful finalization
       // This frees device storage while preserving metadata (captions, annotations, remoteUrl)
-      console.log('[LBW Main] Cleaning up local blob data...');
       loading.message = 'Freeing device storage...';
       const cleanupResult = await this.localImageService.cleanupBlobDataAfterFinalization(this.serviceId);
-      console.log('[LBW Main] Blob cleanup complete:', cleanupResult);
 
       // Reset change tracking
       this.hasChangesAfterFinalization = false;
@@ -412,7 +390,6 @@ export class LbwMainPage implements OnInit {
           text: 'OK',
           handler: () => {
             // Navigate back to project detail
-            console.log('[LBW Main] Navigating to project detail');
             this.navController.navigateBack(['/project', this.projectId]);
           }
         }]

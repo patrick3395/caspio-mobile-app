@@ -188,29 +188,21 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   private restoreStateFromCache(): boolean {
     if (!this.projectId) {
-      console.log('❌ No projectId for cache restoration');
       return false;
     }
 
     const cached = ProjectDetailPage.detailStateCache.get(this.projectId);
     if (!cached) {
-      console.log('❌ No cache found for project:', this.projectId);
       return false;
     }
 
     const cacheAge = Date.now() - cached.timestamp;
     if (cacheAge > ProjectDetailPage.DETAIL_CACHE_TTL) {
-      console.log('⏰ Cache expired (age:', cacheAge, 'ms, TTL:', ProjectDetailPage.DETAIL_CACHE_TTL, 'ms)');
       ProjectDetailPage.detailStateCache.delete(this.projectId);
       return false;
     }
 
     try {
-      console.log('💾 Restoring from cache:', {
-        projectId: this.projectId,
-        cachedServicesCount: cached.selectedServices?.length || 0,
-        cachedServices: cached.selectedServices
-      });
 
       this.project = ProjectDetailPage.deepClone(cached.project);
       this.isReadOnly = cached.isReadOnly;
@@ -250,8 +242,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.loadingDocuments = false;
       this.error = '';
 
-      console.log('✅ Cache restored, selectedServices count:', this.selectedServices?.length || 0);
-      console.log('✅ Deliverables table visible:', this.showDeliverablesTable);
 
       return true;
     } catch (error) {
@@ -509,31 +499,22 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   async ionViewWillEnter() {
-    console.log('[ProjectDetail] ========== ionViewWillEnter START ==========');
-    console.log('[ProjectDetail] Checking for finalized state...');
-    console.log('[ProjectDetail] Current selectedServices count:', this.selectedServices.length);
-    console.log('[ProjectDetail] Current pendingFinalizedServiceId:', this.pendingFinalizedServiceId);
 
     // BULLETPROOF: Check localStorage for finalized service info
     const storedData = localStorage.getItem('pendingFinalizedService');
-    console.log('[ProjectDetail] Stored navigation data:', storedData);
 
     if (storedData) {
       try {
         const navigationData = JSON.parse(storedData);
-        console.log('[ProjectDetail] Parsed navigation data:', navigationData);
 
         // Check if this data is for this project and is recent (within 10 seconds)
         const age = Date.now() - navigationData.timestamp;
-        console.log('[ProjectDetail] Navigation data age:', age, 'ms');
 
         if (age < 10000) {
-          console.log('[ProjectDetail] ✅ Valid finalized service data found!');
 
           // CRITICAL: Check if we're on the CORRECT project page
           if (navigationData.projectId !== this.projectId) {
             console.warn('[ProjectDetail] ⚠️ Navigation data is for project', navigationData.projectId, 'but we are on project', this.projectId);
-            console.log('[ProjectDetail] Updating to CORRECT project:', navigationData.projectId);
 
             // Update projectId to load the correct project's data
             this.projectId = navigationData.projectId;
@@ -545,7 +526,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             ProjectDetailPage.detailStateCache.delete(this.projectId);
 
             // Continue with the loading process below
-            console.log('[ProjectDetail] Updated projectId to', this.projectId, ', continuing with load...');
           }
 
           // Clear the localStorage item immediately so we don't process it again
@@ -553,39 +533,29 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
           // Store for later - will apply after services are loaded
           this.pendingFinalizedServiceId = navigationData.finalizedServiceId;
-          console.log('[ProjectDetail] Set pendingFinalizedServiceId:', this.pendingFinalizedServiceId);
 
           // CRITICAL: Clear ALL caches to force fresh data load
-          console.log('[ProjectDetail] Clearing static cache for this project');
           ProjectDetailPage.detailStateCache.delete(this.projectId);
 
-          console.log('[ProjectDetail] Clearing all project caches...');
           this.foundationData.clearAllCaches();
 
           // WEB FIX: Clear pending requests to prevent deduplication issues
-          console.log('[ProjectDetail] Clearing pending requests to prevent deduplication...');
           this.caspioService.clearPendingRequests();
 
           // FORCE a complete reload from server
-          console.log('[ProjectDetail] Force reloading project data from server...');
           await this.loadProject();
-          console.log('[ProjectDetail] ✅ Reload complete, data should be fresh');
 
           // WEB FIX: Force multiple change detections for web browsers
           if (this.platform.isWeb()) {
-            console.log('[ProjectDetail] Web platform detected, forcing change detection...');
             this.changeDetectorRef.markForCheck();
             setTimeout(() => {
               this.changeDetectorRef.markForCheck();
-              console.log('[ProjectDetail] Second change detection complete');
             }, 100);
             setTimeout(() => {
               this.changeDetectorRef.markForCheck();
-              console.log('[ProjectDetail] Third change detection complete');
             }, 500);
           }
         } else {
-          console.log('[ProjectDetail] Navigation data is stale, ignoring');
           localStorage.removeItem('pendingFinalizedService');
         }
       } catch (e) {
@@ -593,10 +563,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         localStorage.removeItem('pendingFinalizedService');
       }
     } else {
-      console.log('[ProjectDetail] No stored navigation data found');
     }
 
-    console.log('[ProjectDetail] ========== ionViewWillEnter END ==========');
   }
 
   ngOnDestroy(): void {
@@ -798,13 +766,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // Apply pending finalized service flag if present
       if (this.pendingFinalizedServiceId) {
-        console.log('[ProjectDetail] Applying finalized flag. Looking for serviceId:', this.pendingFinalizedServiceId);
-        console.log('[ProjectDetail] Available services:', this.selectedServices.map(s => ({
-          serviceId: s.serviceId,
-          typeName: s.typeName,
-          ReportFinalized: s.ReportFinalized,
-          Status: s.Status
-        })));
 
         // Try both string and number comparison
         const service = this.selectedServices.find(s =>
@@ -814,8 +775,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         );
 
         if (service) {
-          console.log('[ProjectDetail] Found service, updating finalized status:', service.typeName);
-          console.log('[ProjectDetail] Service BEFORE:', { ReportFinalized: service.ReportFinalized, Status: service.Status });
 
           // Update ReportFinalized flag and Status (Status already loaded from DB, but ensure consistency)
           service.ReportFinalized = true;
@@ -829,10 +788,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // Mark that changes have been made (for Re-Submit button)
           if (service.serviceId) {
             this.changesAfterSubmission[service.serviceId] = true;
-            console.log('[ProjectDetail] Report finalized/updated - marked changes for re-submit');
           }
 
-          console.log('[ProjectDetail] Service AFTER:', { ReportFinalized: service.ReportFinalized, Status: service.Status });
           this.changeDetectorRef.markForCheck();
         } else {
           console.warn('[ProjectDetail] Service not found with serviceId:', this.pendingFinalizedServiceId);
@@ -1088,12 +1045,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         
         // Debug logging for status and datetime
         if (service.Status) {
-          console.log('[ProjectDetail FAST PATH] Service Status Data:', {
-            typeName: offer?.TypeName,
-            Status: service.Status,
-            StatusDateTime: service.StatusDateTime,
-            rawService: service
-          });
         }
         
         return {
@@ -1120,12 +1071,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // Apply pending finalized service flag if present
       if (this.pendingFinalizedServiceId) {
-        console.log('[ProjectDetail] Applying finalized flag. Looking for serviceId:', this.pendingFinalizedServiceId);
-        console.log('[ProjectDetail] Available services:', this.selectedServices.map(s => ({
-          serviceId: s.serviceId,
-          typeName: s.typeName,
-          ReportFinalized: s.ReportFinalized
-        })));
 
         // Try both string and number comparison
         const service = this.selectedServices.find(s =>
@@ -1135,13 +1080,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         );
 
         if (service) {
-          console.log('[ProjectDetail] Found service, setting ReportFinalized to true:', service.typeName);
           service.ReportFinalized = true;
           
           // Mark that changes have been made (for Re-Submit button)
           if (service.serviceId) {
             this.changesAfterSubmission[service.serviceId] = true;
-            console.log('[ProjectDetail] Report finalized - marked changes for re-submit');
           }
           
           this.changeDetectorRef.markForCheck();
@@ -1369,21 +1312,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         StatusEng: createdStatus // Set StatusEng to "Created" (using StatusAdmin from Status table)
       };
 
-      console.log('🔧 Creating service with data:', {
-        serviceData,
-        statusMapping: { 
-          Status: { StatusClient: "In Progress", StatusAdmin: inProgressStatus },
-          StatusEng: { StatusClient: "Created", StatusAdmin: createdStatus }
-        },
-        projectPK_ID: this.project?.PK_ID,
-        projectProjectID: this.project?.ProjectID,
-        routeProjectId: this.projectId,
-        offer: { OffersID: offer.OffersID, TypeID: offer.TypeID, TypeName: offer.TypeName }
-      });
 
       const newService = await this.caspioService.createService(serviceData).toPromise();
 
-      console.log('✅ Service created successfully:', newService);
       
       // Caspio returns the service instantly - get the ID
       if (!newService || (!newService.PK_ID && !newService.ServiceID)) {
@@ -1408,12 +1339,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         StatusDateTime: new Date().toISOString()  // Set current timestamp
       };
       
-      console.log('✅ Local selection object created with:', {
-        serviceId: selection.serviceId,
-        Status: selection.Status,
-        StatusEng: selection.StatusEng,
-        StatusDateTime: selection.StatusDateTime
-      });
       
       this.selectedServices.push(selection);
       this.updateDocumentsList();
@@ -1432,7 +1357,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // CRITICAL: Clear all caches to ensure fresh data on page reload
       // Clear the static component cache (in-memory)
       ProjectDetailPage.detailStateCache.delete(this.projectId);
-      console.log('🗑️ Cleared component cache for project:', this.projectId);
 
       // Clear the ProjectsService cache for this specific project
       this.projectsService.clearProjectDetailCache(this.projectId);
@@ -1512,7 +1436,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       () => this.caspioService.deleteService(serviceId),
       () => {
         // On success
-        console.log('✅ Service deleted successfully');
 
         // Track mutation for automatic cache invalidation
         this.mutationTracker.trackServiceMutation(
@@ -1643,13 +1566,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // If already submitted (Status = "Under Review"), only enable if changes have been made
     if (this.hasBeenSubmitted(service)) {
       const hasChanges = this.changesAfterSubmission[service.serviceId || ''] === true;
-      console.log(`[SubmitButton] ${service.typeName} already submitted. Has changes: ${hasChanges}`);
       return hasChanges;
     }
 
     // For EFE reports, enable if ReportFinalized is true (works for both initial submission and updates)
     if (service.ReportFinalized) {
-      console.log(`[SubmitButton] ${service.typeName} enabled: ReportFinalized = true`);
       return true;
     }
 
@@ -1666,10 +1587,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           )
         );
         const enabled = !!requiredDoc;
-        console.log(`[SubmitButton] ${service.typeName} (${isDCR ? 'DCR' : 'EIR'}) enabled: ${enabled}, required doc found: ${requiredDoc?.title || 'none'}`);
         return enabled;
       }
-      console.log(`[SubmitButton] ${service.typeName} (${isDCR ? 'DCR' : 'EIR'}) - no serviceDoc found`);
     }
 
     return false;
@@ -1895,19 +1814,12 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const response = await this.caspioService.get<any>('/tables/LPS_Status/records').toPromise();
       if (response && response.Result) {
         this.statusOptions = response.Result;
-        console.log('[Status Table] Loaded status options:', this.statusOptions);
-        console.log('[Status Table] Sample record structure:', this.statusOptions[0]);
-        console.log('[Status Table] All StatusID -> Status_Client mappings:',
-          this.statusOptions.map((s: any) => ({ StatusID: s.StatusID, PK_ID: s.PK_ID, Status_Client: s.Status_Client, Status_Admin: s.Status_Admin }))
-        );
 
         // Verify "Created" exists
         const createdRecord = this.statusOptions.find((s: any) => s.Status_Client === 'Created');
-        console.log('[Status Table] "Created" record found:', createdRecord);
 
         // Verify "In Progress" exists
         const inProgressRecord = this.statusOptions.find((s: any) => s.Status_Client === 'In Progress');
-        console.log('[Status Table] "In Progress" record found:', inProgressRecord);
       }
     } catch (error) {
       console.error('Error loading status options:', error);
@@ -1921,7 +1833,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       return;
     }
 
-    console.log('[Status] Status options not loaded, loading now...');
 
     // Try loading up to 3 times with small delays
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -1929,7 +1840,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         await this.loadStatusOptions();
 
         if (this.statusOptions && this.statusOptions.length > 0) {
-          console.log(`[Status] Successfully loaded status options on attempt ${attempt}`);
           return;
         }
 
@@ -1950,14 +1860,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   // Helper method to get Status_Admin value by Status_Client lookup
   getStatusAdminByClient(statusClient: string): string {
-    console.log(`[Status Lookup] Looking for Status_Client: "${statusClient}"`);
-    console.log(`[Status Lookup] Available options:`, this.statusOptions);
     
     const statusRecord = this.statusOptions.find(s => s.Status_Client === statusClient);
-    console.log(`[Status Lookup] Found record:`, statusRecord);
     
     if (statusRecord && statusRecord.Status_Admin) {
-      console.log(`[Status Lookup] Returning Status_Admin: "${statusRecord.Status_Admin}"`);
       return statusRecord.Status_Admin;
     }
     // Fallback to StatusClient if Status_Admin not found
@@ -1990,7 +1896,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const statusIdStr = String(statusId);
     const statusRecord = this.statusOptions.find(s => String(s.StatusID) === statusIdStr);
     if (statusRecord && statusRecord.Status_Client) {
-      console.log(`[Status Lookup] StatusID ${statusId} -> Status_Client: "${statusRecord.Status_Client}"`);
       return statusRecord.Status_Client;
     }
     console.warn(`[Status Lookup] No Status_Client found for StatusID: ${statusId}`);
@@ -2012,11 +1917,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         const statusRecord = this.statusOptions.find(s => s.Status_Admin === value);
         if (statusRecord && statusRecord.StatusID) {
           updateData.StatusID = statusRecord.StatusID;
-          console.log(`[Deliverables] StatusEng changed to "${value}", updating StatusID to ${statusRecord.StatusID}`);
         }
         if (value === 'Complete') {
           updateData.Status = 'Complete';
-          console.log('[Deliverables] StatusEng changed to Complete, also updating Status to Complete');
         }
       }
 
@@ -2058,7 +1961,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Step 1: Upload file to Caspio Files storage
       const uploadResult = await this.caspioService.uploadFile(file).toPromise();
 
-      console.log('Upload result:', uploadResult);
 
       // Extract file path from various possible response formats
       let filePath = null;
@@ -2084,7 +1986,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         filePath = '/' + filePath;
       }
 
-      console.log('Using file path:', filePath);
 
       // Step 2: Update the Services record with the file path in the Deliverable field
       await this.caspioService.updateService(service.serviceId, {
@@ -2178,17 +2079,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // Use the Deliverable path we already have in the service object
       const filePath = service.Deliverable;
-      console.log('Fetching deliverable from path:', filePath);
 
       // Fetch the actual file using the Deliverable field path
       const fileData = await this.caspioService.getFileFromPath(filePath).toPromise();
 
-      console.log('File data received:', {
-        hasUrl: !!fileData?.url,
-        type: fileData?.type,
-        urlLength: fileData?.url?.length,
-        urlPreview: fileData?.url?.substring(0, 100)
-      });
 
       // Dismiss loading
       try {
@@ -2213,7 +2107,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const isPDF = filePath.toLowerCase().includes('.pdf') ||
                    fileData.type === 'application/pdf';
 
-      console.log('Opening file:', { filename, isPDF, fileType: fileData.type });
 
       if (isPDF) {
         // Use PDF viewer for PDFs
@@ -3461,17 +3354,12 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         Notes: 'Link added from mobile'
       };
 
-      console.log('[AddLink] Creating link attachment with data:', attachmentData);
-      console.log('[AddLink] ServiceID:', this.selectedServiceDoc.serviceId);
-      console.log('[AddLink] Before create - existingAttachments count:', this.existingAttachments.length);
 
       // Pass serviceId as second parameter to createAttachment
       const response = await this.caspioService.createAttachment(attachmentData, this.selectedServiceDoc.serviceId).toPromise();
 
-      console.log('[AddLink] Response from Caspio:', response);
 
       if (response && (response.PK_ID || response.AttachID)) {
-        console.log('[AddLink] Link created successfully, reloading attachments...');
 
         // Reload attachments from database to ensure UI matches server state
         // Cache was automatically cleared by CaspioService, so this gets fresh data
@@ -3632,16 +3520,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         Notes: 'Link added from mobile'
       };
 
-      console.log('[Link Create] Creating attachment:', attachmentData);
-      console.log('[Link Create] ServiceID:', serviceDoc.serviceId);
-      console.log('[Link Create] Before create - existingAttachments count:', this.existingAttachments.length);
 
       const response = await this.caspioService.createAttachment(attachmentData, serviceDoc.serviceId).toPromise();
 
-      console.log('[Link Create] Response from Caspio:', response);
 
       if (response && (response.PK_ID || response.AttachID)) {
-        console.log('[Link Create] Link created successfully, reloading attachments...');
 
         // Reload attachments from database to ensure UI matches server state
         // Cache was automatically cleared by CaspioService, so this gets fresh data
@@ -4798,13 +4681,6 @@ Troubleshooting:
    * Returns the URL string if document is a link, null otherwise
    */
   private extractLinkUrl(doc: DocumentItem): string | null {
-    console.log('🔍 [extractLinkUrl] Checking document:', {
-      title: doc.title,
-      isLink: doc.isLink,
-      linkName: doc.linkName,
-      filename: doc.filename,
-      attachmentUrl: doc.attachmentUrl
-    });
     
     // Check if explicitly marked as link AND has a valid URL in linkName
     if (doc.isLink && doc.linkName) {
@@ -4812,7 +4688,6 @@ Troubleshooting:
       // Only return if it's actually a URL (not a file path or vercel link)
       if ((linkName.startsWith('http://') || linkName.startsWith('https://')) && 
           !linkName.includes('vercel.app')) {
-        console.log('✅ [extractLinkUrl] Found link via isLink flag:', linkName);
         return linkName;
       }
     }
@@ -4829,7 +4704,6 @@ Troubleshooting:
       
       if (looksLikeUrl && !isVercelLink && !isFilePath) {
         const url = linkName.startsWith('http') ? linkName : `https://${linkName}`;
-        console.log('✅ [extractLinkUrl] Found link via linkName:', url);
         return url;
       }
     }
@@ -4846,12 +4720,10 @@ Troubleshooting:
       
       if (looksLikeUrl && !isVercelLink && !isFilePath) {
         const url = filename.startsWith('http') ? filename : `https://${filename}`;
-        console.log('✅ [extractLinkUrl] Found link via filename:', url);
         return url;
       }
     }
     
-    console.log('❌ [extractLinkUrl] No valid link found');
     return null;
   }
 
@@ -4860,44 +4732,32 @@ Troubleshooting:
     
     // Debug logging for custom links
     if (attachment.Title && attachment.Title.includes('Custom Document')) {
-      console.log('🔍 Determining if custom document is link:', {
-        title: attachment.Title,
-        hasAttachment: !!attachment.Attachment,
-        attachmentValue: attachment.Attachment,
-        hasLink: !!attachment.Link,
-        linkValue: attachment.Link
-      });
     }
     
     // If the Link field contains a URL (starts with http/https), it's a link
     if (attachment.Link && typeof attachment.Link === 'string') {
       const link = attachment.Link.toLowerCase().trim();
       if (link.startsWith('http://') || link.startsWith('https://')) {
-        console.log('✅ Identified as link (URL format):', attachment.Title);
         return true;
       }
     }
     
     // If there's no Attachment field but there's a Link field, it's likely a link
     if (!attachment.Attachment && attachment.Link) {
-      console.log('✅ Identified as link (no attachment, has link):', attachment.Title);
       return true;
     }
     
     // If there's an Attachment field with actual content, it's likely a file
     if (attachment.Attachment && attachment.Attachment.trim() !== '') {
-      console.log('❌ Identified as file (has attachment):', attachment.Title);
       return false;
     }
     
     // If there's a Link field but no meaningful Attachment field, it's likely a link
     if (attachment.Link && (!attachment.Attachment || attachment.Attachment.trim() === '')) {
-      console.log('✅ Identified as link (link field present, no attachment):', attachment.Title);
       return true;
     }
     
     // Default to false (file) if we can't determine
-    console.log('❌ Default to file (can\'t determine):', attachment.Title);
     return false;
   }
 
@@ -5082,6 +4942,7 @@ Troubleshooting:
   }
 
   private async showToast(message: string, color: string = 'primary') {
+    if (color === 'success' || color === 'info') return;
     const toast = await this.toastController.create({
       message,
       duration: color === 'danger' ? 5000 : 2000, // Show errors longer
@@ -6009,7 +5870,6 @@ Time: ${debugInfo.timestamp}
     await loading.present();
 
     try {
-      console.log('[Submit Report] Submitting service:', service.serviceId, service.typeName);
 
       if (!service.serviceId) {
         throw new Error('Service ID not found');
@@ -6025,7 +5885,6 @@ Time: ${debugInfo.timestamp}
         StatusDateTime: submittedDateTime
       };
 
-      console.log('[Submit Report] Updating Services table:', updateData);
 
       await this.caspioService.put(
         `/tables/LPS_Services/records?q.where=PK_ID='${service.serviceId}'`,
@@ -6040,7 +5899,6 @@ Time: ${debugInfo.timestamp}
       // Reset change tracking - button should be grayed out until next change
       if (service.serviceId) {
         this.changesAfterSubmission[service.serviceId] = false;
-        console.log('[Submit Report] Reset changesAfterSubmission to false');
       }
 
       await loading.dismiss();

@@ -92,7 +92,6 @@ export class ImageLoadingQueueService {
     // Check cache first
     const cached = this.requestCache.get(request.url);
     if (cached) {
-      console.log('[ImageQueue] 🎯 Cache hit:', request.id);
       this.stats.cacheHits++;
       if (request.onSuccess) {
         request.onSuccess(cached);
@@ -102,7 +101,6 @@ export class ImageLoadingQueueService {
 
     // Check if already in queue or loading
     if (this.isInQueue(request.id) || this.activeRequests.has(request.id)) {
-      console.log('[ImageQueue] ⚠️ Already queued or loading:', request.id);
       return;
     }
 
@@ -115,12 +113,6 @@ export class ImageLoadingQueueService {
     this.queue.push(fullRequest);
     this.sortQueue();
 
-    console.log('[ImageQueue] ➕ Enqueued:', {
-      id: request.id,
-      priority: ImagePriority[request.priority],
-      queueSize: this.queue.length,
-      activeRequests: this.activeRequests.size
-    });
 
     this.stats.totalRequests++;
 
@@ -134,7 +126,6 @@ export class ImageLoadingQueueService {
   cancel(id: string): void {
     const index = this.queue.findIndex(r => r.id === id);
     if (index > -1) {
-      console.log('[ImageQueue] ❌ Cancelled:', id);
       this.queue.splice(index, 1);
     }
   }
@@ -145,7 +136,6 @@ export class ImageLoadingQueueService {
   updatePriority(id: string, newPriority: ImagePriority): void {
     const request = this.queue.find(r => r.id === id);
     if (request) {
-      console.log('[ImageQueue] 🔄 Priority updated:', id, ImagePriority[request.priority], '→', ImagePriority[newPriority]);
       request.priority = newPriority;
       this.sortQueue();
       this.processQueue();
@@ -156,7 +146,6 @@ export class ImageLoadingQueueService {
    * Clear all pending requests
    */
   clearQueue(): void {
-    console.log('[ImageQueue] 🗑️ Clearing queue:', this.queue.length, 'requests');
     this.queue = [];
   }
 
@@ -190,7 +179,6 @@ export class ImageLoadingQueueService {
    * Clear all cached images
    */
   clearCache(): void {
-    console.log('[ImageQueue] 🗑️ Clearing cache:', this.requestCache.size, 'entries');
     this.requestCache.clear();
   }
 
@@ -203,7 +191,6 @@ export class ImageLoadingQueueService {
       const request = this.queue.shift();
       if (!request) break;
 
-      console.log('[ImageQueue] 🚀 Loading:', request.id, `(Priority: ${ImagePriority[request.priority]})`);
 
       this.loadImage(request);
     }
@@ -224,7 +211,6 @@ export class ImageLoadingQueueService {
       const data = await promise;
       const loadTime = performance.now() - startTime;
 
-      console.log('[ImageQueue] ✅ Loaded:', request.id, `(${loadTime.toFixed(0)}ms)`);
 
       // Cache the result
       this.requestCache.set(request.url, data);

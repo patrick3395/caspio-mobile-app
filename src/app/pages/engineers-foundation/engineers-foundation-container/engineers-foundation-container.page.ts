@@ -146,7 +146,6 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
         try {
           const needsRehydration = await this.foundationData.needsRehydration(newServiceId);
           if (needsRehydration) {
-            console.log('[EF Container] Service needs rehydration - starting...');
 
             // Show loading screen for rehydration
             this.templateReady = false;
@@ -156,7 +155,6 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
             const result = await this.foundationData.rehydrateService(newServiceId);
 
             if (result.success) {
-              console.log(`[EF Container] Rehydration complete: ${result.restored.visuals} visuals, ${result.restored.efeRooms} rooms`);
             } else {
               console.error(`[EF Container] Rehydration failed: ${result.error}`);
             }
@@ -169,7 +167,6 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
       // US-002 FIX: Only show loading and re-download if this is a NEW service
       // CRITICAL: Never show loading overlay for same service - even if templateReady is false
       if (isNewService || isFirstLoad) {
-        console.log('[EF Container] New service detected, downloading template data...');
 
         // CRITICAL: Force loading screen to render before starting download
         this.templateReady = false;
@@ -187,7 +184,6 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
         // This ensures any subsequent route param emissions don't trigger reload
         EngineersFoundationContainerPage.lastLoadedServiceId = newServiceId;
       } else {
-        console.log('[EF Container] Same service (' + newServiceId + '), skipping re-download to prevent hard refresh');
         // CRITICAL: Must set templateReady=true when skipping download, otherwise loading screen persists
         this.templateReady = true;
         this.changeDetectorRef.detectChanges();
@@ -220,7 +216,6 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
     // But we also want to know so we can potentially refresh UI
     const visualSub = this.backgroundSync.visualSyncComplete$.subscribe(event => {
       if (event.serviceId === this.serviceId) {
-        console.log('[EF Container] Visual synced:', event);
         // Cache is already refreshed by BackgroundSyncService
       }
     });
@@ -228,7 +223,6 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
 
     // When photos sync, cache is automatically refreshed
     const photoSub = this.backgroundSync.photoUploadComplete$.subscribe(event => {
-      console.log('[EF Container] Photo upload complete:', event);
       // Cache is already refreshed by BackgroundSyncService
     });
     this.syncSubscriptions.push(photoSub);
@@ -236,7 +230,6 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
     // When service data syncs, trigger a full cache refresh
     const serviceSub = this.backgroundSync.serviceDataSyncComplete$.subscribe(event => {
       if (event.serviceId === this.serviceId || event.projectId === this.projectId) {
-        console.log('[EF Container] Service/Project data synced:', event);
         // Cache is already refreshed by BackgroundSyncService.updateCacheAfterSync()
       }
     });
@@ -255,27 +248,22 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
 
       if (!currentService) {
         // Fallback to API (especially needed in web mode where template download is skipped)
-        console.log('[EF Container] No cached service, fetching from API...');
         currentService = await firstValueFrom(this.caspioService.getService(this.serviceId, false));
       }
 
       if (!currentService) {
-        console.log('[EF Container] Could not load current service from cache or API');
         return;
       }
 
       // Convert TypeID to string for consistent comparison
       const currentTypeId = String(currentService.TypeID);
-      console.log(`[EF Container] Current service TypeID: ${currentTypeId}`);
 
       // Get all services for this project
       const allServices = await firstValueFrom(this.caspioService.getServicesByProject(this.projectId));
-      console.log(`[EF Container] Found ${allServices?.length || 0} total services for project`);
 
       // Debug: log all services and their TypeIDs
       if (allServices) {
         allServices.forEach((s: any) => {
-          console.log(`[EF Container] Service ${s.PK_ID || s.ServiceID}: TypeID=${s.TypeID}`);
         });
       }
 
@@ -290,7 +278,6 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
           return idA - idB;
         });
 
-      console.log(`[EF Container] Same type services count: ${sameTypeServices.length}`);
       this.totalEFEServices = sameTypeServices.length;
 
       // Find the index of the current service
@@ -300,7 +287,6 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
 
       this.serviceInstanceNumber = currentIndex >= 0 ? currentIndex + 1 : 1;
 
-      console.log(`[EF Container] Service instance: ${this.serviceInstanceNumber} of ${this.totalEFEServices} EFE services`);
 
       // Mark as loaded and update breadcrumbs with new instance number
       this.serviceInstanceLoaded = true;
@@ -505,19 +491,14 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
    */
   private async downloadTemplateData(): Promise<void> {
     if (!this.serviceId) {
-      console.log('[EF Container] loadTemplate: no serviceId, skipping');
       this.templateReady = true;
       this.changeDetectorRef.detectChanges();
       return;
     }
 
-    console.log(`[EF Container] ========== TEMPLATE LOAD ==========`);
-    console.log(`[EF Container] ServiceID: ${this.serviceId}, ProjectID: ${this.projectId}`);
-    console.log(`[EF Container] Online: ${this.offlineService.isOnline()}`);
 
     // WEBAPP MODE: Skip template download - pages will fetch directly from API
     if (environment.isWeb) {
-      console.log('[EF Container] WEBAPP MODE: Skipping template download - pages fetch from API directly');
       this.templateReady = true;
       this.downloadProgress = 'Ready';
       this.changeDetectorRef.detectChanges();
@@ -529,7 +510,6 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
     this.templateReady = false;
     this.downloadProgress = 'Loading template data...';
     this.changeDetectorRef.detectChanges();
-    console.log('[EF Container] Loading screen should now be visible');
 
     const isOnline = this.offlineService.isOnline();
 
@@ -541,10 +521,8 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
       try {
         this.downloadProgress = 'Syncing template data...';
         this.changeDetectorRef.detectChanges();
-        console.log('[EF Container] Online - downloading fresh template data...');
 
         await this.offlineTemplate.downloadTemplateForOffline(this.serviceId, 'EFE', this.projectId);
-        console.log('[EF Container] ✅ Template data synced successfully');
         
         // OPTIMIZATION: Removed blocking ensureImagesCached() call
         // Images now download in background via OfflineTemplateService.downloadImagesInBackground()
@@ -555,7 +533,6 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
         
         this.downloadProgress = 'Template ready!';
         this.changeDetectorRef.detectChanges();
-        console.log('[EF Container] ✅ Template fully loaded (images caching in background)');
       } catch (error: any) {
         console.warn('[EF Container] Template download failed:', error);
         this.downloadProgress = 'Sync failed - checking cached data...';
@@ -564,20 +541,17 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
         // Check if we have cached data to fall back to
         const hasCachedData = await this.verifyCachedDataExists();
         if (hasCachedData) {
-          console.log('[EF Container] Using cached data after sync failure');
           this.downloadProgress = 'Using cached data (sync failed)';
           this.changeDetectorRef.detectChanges();
         } else {
           // Try fallback download
           try {
-            console.log('[EF Container] Trying fallback pre-cache...');
             this.downloadProgress = 'Attempting fallback sync...';
             this.changeDetectorRef.detectChanges();
             await Promise.all([
               this.offlineCache.refreshAllTemplates(),
               this.offlineCache.preCacheServiceData(this.serviceId)
             ]);
-            console.log('[EF Container] Fallback completed');
             this.downloadProgress = 'Template ready (partial sync)';
             this.changeDetectorRef.detectChanges();
           } catch (fallbackError) {
@@ -591,12 +565,10 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
       // OFFLINE: Check for cached data
       this.downloadProgress = 'Offline - loading cached data...';
       this.changeDetectorRef.detectChanges();
-      console.log('[EF Container] Offline - checking for cached data...');
       
       const hasCachedData = await this.verifyCachedDataExists();
       
       if (hasCachedData) {
-        console.log('[EF Container] ✅ Cached data found - ready for offline use');
         this.downloadProgress = 'Working offline with cached data';
         this.changeDetectorRef.detectChanges();
         await this.verifyDownloadedData();
@@ -610,7 +582,6 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
     // Always mark as ready - let user proceed
     this.templateReady = true;
     this.changeDetectorRef.detectChanges();
-    console.log('[EF Container] Template ready, loading screen hidden');
   }
 
   /**
@@ -620,71 +591,52 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
   private async verifyDownloadedData(): Promise<void> {
     // OPTIMIZATION: Skip verification in production - saves 8 IndexedDB reads
     if (environment.production) {
-      console.log('[EF Container] Skipping data verification in production mode');
       return;
     }
 
-    console.log('\n╔════════════════════════════════════════════════════════════════╗');
-    console.log('║         📋 VERIFYING CACHED DATA IN INDEXEDDB                   ║');
-    console.log('╠════════════════════════════════════════════════════════════════╣');
 
     try {
       // Check Visual Templates (Structural System categories)
       const visualTemplates = await this.indexedDb.getCachedTemplates('visual');
       const visualTemplateCount = visualTemplates?.length || 0;
       const categories = Array.from(new Set(visualTemplates?.map((t: any) => t.Category) || []));
-      console.log(`║  📋 Visual Templates:        ${String(visualTemplateCount).padStart(5)} templates in ${categories.length} categories  ║`);
       if (categories.length > 0) {
-        console.log(`║     Categories: ${categories.slice(0, 3).join(', ')}${categories.length > 3 ? '...' : ''}`);
       }
 
       // Check EFE Templates (Room definitions)
       const efeTemplates = await this.indexedDb.getCachedTemplates('efe');
       const efeTemplateCount = efeTemplates?.length || 0;
-      console.log(`║  🏠 EFE Templates:           ${String(efeTemplateCount).padStart(5)} room templates                 ║`);
 
       // Check Service Visuals
       const serviceVisuals = await this.indexedDb.getCachedServiceData(this.serviceId, 'visuals');
       const visualCount = serviceVisuals?.length || 0;
-      console.log(`║  🔍 Service Visuals:         ${String(visualCount).padStart(5)} existing items                  ║`);
 
       // Check EFE Rooms
       const efeRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms');
       const roomCount = efeRooms?.length || 0;
-      console.log(`║  📐 EFE Rooms:               ${String(roomCount).padStart(5)} rooms                            ║`);
 
       // Check Service Record
       const serviceRecord = await this.indexedDb.getCachedServiceRecord(this.serviceId);
       const hasService = serviceRecord ? 'YES' : 'NO';
-      console.log(`║  📝 Service Record:            ${hasService.padStart(3)}                                ║`);
 
       // Check Project Record
       const projectRecord = await this.indexedDb.getCachedProjectRecord(this.projectId);
       const hasProject = projectRecord ? 'YES' : 'NO';
-      console.log(`║  📝 Project Record:            ${hasProject.padStart(3)}                                ║`);
 
       // Check Global Data
       const servicesDrop = await this.indexedDb.getCachedGlobalData('services_drop');
       const projectsDrop = await this.indexedDb.getCachedGlobalData('projects_drop');
       const status = await this.indexedDb.getCachedGlobalData('status');
-      console.log(`║  📋 Services_Drop:           ${String(servicesDrop?.length || 0).padStart(5)} options                        ║`);
-      console.log(`║  📋 Projects_Drop:           ${String(projectsDrop?.length || 0).padStart(5)} options                        ║`);
-      console.log(`║  🏷️ Status:                   ${String(status?.length || 0).padStart(5)} options                        ║`);
 
-      console.log('╠════════════════════════════════════════════════════════════════╣');
       
       // Summary verdict
       const allGood = visualTemplateCount > 0 && efeTemplateCount > 0 && serviceRecord && projectRecord;
       if (allGood) {
-        console.log('║  ✅ ALL REQUIRED DATA CACHED - READY FOR OFFLINE USE            ║');
       } else {
-        console.log('║  ⚠️ SOME DATA MAY BE MISSING - CHECK ABOVE                       ║');
       }
-      console.log('╚════════════════════════════════════════════════════════════════╝\n');
 
     } catch (error) {
       console.error('║  ❌ ERROR VERIFYING CACHED DATA:', error);
-      console.log('╚════════════════════════════════════════════════════════════════╝\n');
     }
   }
 
@@ -700,39 +652,30 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
    * If any are missing, returns false to trigger re-download.
    */
   private async verifyCachedDataExists(): Promise<boolean> {
-    console.log('[EF Container] Verifying cached data exists...');
     try {
       // Check for visual templates (required for Structural Systems)
       const visualTemplates = await this.indexedDb.getCachedTemplates('visual');
       if (!visualTemplates || visualTemplates.length === 0) {
-        console.log('[EF Container] ❌ No visual templates cached');
         return false;
       }
-      console.log(`[EF Container] ✅ Visual templates: ${visualTemplates.length}`);
 
       // Check for EFE templates (required for Elevation Plot room definitions)
       const efeTemplates = await this.indexedDb.getCachedTemplates('efe');
       if (!efeTemplates || efeTemplates.length === 0) {
-        console.log('[EF Container] ❌ No EFE templates cached');
         return false;
       }
-      console.log(`[EF Container] ✅ EFE templates: ${efeTemplates.length}`);
 
       // Check for service record (required for project context)
       const serviceRecord = await this.indexedDb.getCachedServiceRecord(this.serviceId);
       if (!serviceRecord) {
-        console.log('[EF Container] ❌ No service record cached');
         return false;
       }
-      console.log(`[EF Container] ✅ Service record cached`);
 
       // STANDARDIZED: Check if EFE room data is available
       // If online and no rooms cached, let getEFERooms() fetch them
       // If offline and no rooms, that's acceptable (may be a new service)
       const efeRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms');
-      console.log(`[EF Container] EFE rooms in cache: ${efeRooms?.length || 0}`);
 
-      console.log('[EF Container] ✅ All required cached data verified');
       return true;
     } catch (error) {
       console.error('[EF Container] Error verifying cached data:', error);
@@ -746,7 +689,6 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
    */
   private async ensureImagesCached(): Promise<void> {
     try {
-      console.log('[EF Container] Ensuring images are cached...');
       
       let cachedCount = 0;
       let skippedCount = 0;
@@ -771,7 +713,6 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
         }
       }
       
-      console.log(`[EF Container] Visual image caching: ${cachedCount} new, ${skippedCount} existing, ${queuedCount} queued`);
       
       // PART 2: Cache EFE point attachments (Elevation Plot)
       let efeCachedCount = 0;
@@ -806,8 +747,6 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
         }
       }
       
-      console.log(`[EF Container] EFE image caching: ${efeCachedCount} new, ${efeSkippedCount} existing, ${efeQueuedCount} queued`);
-      console.log(`[EF Container] Total: ${cachedCount + efeCachedCount} new, ${skippedCount + efeSkippedCount} existing`);
     } catch (error) {
       console.warn('[EF Container] Image caching check failed (non-critical):', error);
     }

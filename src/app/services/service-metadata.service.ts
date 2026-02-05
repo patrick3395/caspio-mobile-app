@@ -20,7 +20,6 @@ import { db, ServiceMetadata, PurgeState } from './caspio-db';
 export class ServiceMetadataService {
 
   constructor() {
-    console.log('[ServiceMetadata] Service initialized');
   }
 
   /**
@@ -38,7 +37,6 @@ export class ServiceMetadataService {
         updatedAt: Date.now()
       };
       await db.serviceMetadata.put(updated);
-      console.log('[ServiceMetadata] Service accessed:', serviceId);
       return updated;
     }
 
@@ -57,7 +55,6 @@ export class ServiceMetadataService {
     };
 
     await db.serviceMetadata.add(metadata);
-    console.log('[ServiceMetadata] Service initialized:', serviceId);
     return metadata;
   }
 
@@ -120,7 +117,6 @@ export class ServiceMetadataService {
         lastServerAckRevision: revision,
         updatedAt: Date.now()
       });
-      console.log('[ServiceMetadata] Server ACK revision updated:', serviceId, 'rev:', revision);
     }
   }
 
@@ -136,7 +132,6 @@ export class ServiceMetadataService {
         lastServerAckRevision: existing.lastLocalRevision,
         updatedAt: Date.now()
       });
-      console.log('[ServiceMetadata] Revisions synced:', serviceId, 'rev:', existing.lastLocalRevision);
     }
   }
 
@@ -268,7 +263,6 @@ export class ServiceMetadataService {
     const safe = reasons.length === 0;
 
     if (!safe) {
-      console.log('[ServiceMetadata] Purge blocked for:', serviceId, 'reasons:', reasons);
     }
 
     return { safe, reasons };
@@ -313,7 +307,6 @@ export class ServiceMetadataService {
       };
       await db.serviceMetadata.add(metadata);
     }
-    console.log('[ServiceMetadata] Purge state set:', serviceId, state);
   }
 
   /**
@@ -328,6 +321,5 @@ export class ServiceMetadataService {
    */
   async deleteServiceMetadata(serviceId: string): Promise<void> {
     await db.serviceMetadata.delete(serviceId);
-    console.log('[ServiceMetadata] Metadata deleted:', serviceId);
   }
 }

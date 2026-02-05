@@ -132,7 +132,6 @@ export class ErrorBoundaryComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
 
     // Log for debugging
-    console.log('[ErrorBoundary] Showing error modal:', error.type, error.message);
   }
 
   dismiss(): void {

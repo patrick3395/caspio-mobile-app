@@ -67,7 +67,6 @@ export class UnsavedChangesService {
     };
 
     window.addEventListener('beforeunload', this.beforeUnloadListener);
-    console.log('[UnsavedChanges] Browser protection initialized');
   }
 
   /**
@@ -81,7 +80,6 @@ export class UnsavedChangesService {
     if (component) {
       this.currentComponent = component;
     }
-    console.log('[UnsavedChanges] Page marked as dirty');
   }
 
   /**
@@ -93,7 +91,6 @@ export class UnsavedChangesService {
 
     this.isDirtySubject.next(false);
     this.currentComponent = null;
-    console.log('[UnsavedChanges] Page marked as clean');
   }
 
   /**
@@ -133,7 +130,6 @@ export class UnsavedChangesService {
             role: 'cancel',
             cssClass: 'secondary',
             handler: () => {
-              console.log('[UnsavedChanges] User chose to stay');
               this.isShowingDialog = false;
               resolve(false);
             }
@@ -143,7 +139,6 @@ export class UnsavedChangesService {
             role: 'destructive',
             cssClass: 'danger',
             handler: () => {
-              console.log('[UnsavedChanges] User chose to leave');
               this.isShowingDialog = false;
               this.markClean(); // Clear dirty state since user is leaving
               resolve(true);

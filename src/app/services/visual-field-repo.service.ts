@@ -40,7 +40,6 @@ export class VisualFieldRepoService {
    * @param dropdownData - Optional array of dropdown options from LPS_Services_Visuals_Drop (cached)
    */
   async seedFromTemplates(serviceId: string, category: string, templates: any[], dropdownData?: any[]): Promise<void> {
-    console.log(`[VisualFieldRepo] Seeding ${templates.length} templates for ${category}`);
 
     // Filter templates for this category
     const categoryTemplates = templates.filter(t =>
@@ -48,7 +47,6 @@ export class VisualFieldRepoService {
     );
 
     if (categoryTemplates.length === 0) {
-      console.log('[VisualFieldRepo] No templates to seed for this category');
       return;
     }
 
@@ -75,7 +73,6 @@ export class VisualFieldRepoService {
           options.push('Other');
         }
       });
-      console.log(`[VisualFieldRepo] Built dropdown options map for ${Object.keys(dropdownOptionsMap).length} templates`);
     }
 
     // Check which fields already exist (don't overwrite user data)
@@ -148,9 +145,7 @@ export class VisualFieldRepoService {
       await db.transaction('rw', db.visualFields, async () => {
         await db.visualFields.bulkAdd(newFields);
       });
-      console.log(`[VisualFieldRepo] Seeded ${newFields.length} new fields`);
     } else {
-      console.log('[VisualFieldRepo] All fields already exist, no seeding needed');
     }
   }
 
@@ -170,7 +165,6 @@ export class VisualFieldRepoService {
       return;
     }
 
-    console.log(`[VisualFieldRepo] Merging ${categoryVisuals.length} existing visuals for ${category}`);
 
     const now = Date.now();
 
@@ -203,7 +197,6 @@ export class VisualFieldRepoService {
       }
     }
 
-    console.log(`[VisualFieldRepo] Found ${existingFields.length} existing fields for matching`);
 
     // Apply updates/inserts in transaction
     await db.transaction('rw', db.visualFields, async () => {
@@ -244,7 +237,6 @@ export class VisualFieldRepoService {
             updatedAt: now,
             dirty: false
           });
-          console.log(`[VisualFieldRepo] Updated visualField by template match: ${visualName}`);
         } else {
           // No template match - create entry anyway (handles custom visuals)
           // Use visualId as the "templateId" since we don't have the real one
@@ -272,12 +264,10 @@ export class VisualFieldRepoService {
             dirty: false
           };
           await db.visualFields.add(newField);
-          console.log(`[VisualFieldRepo] Created visualField (custom/no template): ${visualName}`);
         }
       }
     });
 
-    console.log(`[VisualFieldRepo] Merged ${categoryVisuals.length} visuals for ${category}`);
   }
 
   // ============================================================================
@@ -412,7 +402,6 @@ export class VisualFieldRepoService {
           dirty: true
         };
         await db.visualFields.add(newField);
-        console.log(`[VisualFieldRepo] Created new field for custom visual: ${key}`);
       }
     });
 
@@ -531,7 +520,6 @@ export class VisualFieldRepoService {
    */
   async clearFieldsForService(serviceId: string): Promise<void> {
     await db.visualFields.where('serviceId').equals(serviceId).delete();
-    console.log(`[VisualFieldRepo] Cleared all fields for service: ${serviceId}`);
   }
 
   /**
@@ -547,7 +535,6 @@ export class VisualFieldRepoService {
         }
       }
     });
-    console.log(`[VisualFieldRepo] Marked all fields clean for service: ${serviceId}`);
   }
 
   /**
@@ -555,6 +542,5 @@ export class VisualFieldRepoService {
    */
   async clearAll(): Promise<void> {
     await db.visualFields.clear();
-    console.log('[VisualFieldRepo] Cleared all visual fields');
   }
 }

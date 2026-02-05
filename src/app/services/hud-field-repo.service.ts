@@ -35,7 +35,6 @@ export class HudFieldRepoService {
    * Idempotent - won't overwrite existing user data
    */
   async seedFromTemplates(serviceId: string, category: string, templates: any[], dropdownData?: any[]): Promise<void> {
-    console.log(`[HudFieldRepo] Seeding ${templates.length} templates for ${category}`);
 
     // Filter templates for this category (HUD uses TypeID=1 for checklist items)
     const categoryTemplates = templates.filter(t =>
@@ -43,7 +42,6 @@ export class HudFieldRepoService {
     );
 
     if (categoryTemplates.length === 0) {
-      console.log('[HudFieldRepo] No templates to seed for this category');
       return;
     }
 
@@ -69,7 +67,6 @@ export class HudFieldRepoService {
           options.push('Other');
         }
       });
-      console.log(`[HudFieldRepo] Built dropdown options map for ${Object.keys(dropdownOptionsMap).length} templates`);
     }
 
     // Check which fields already exist (don't overwrite user data)
@@ -136,9 +133,7 @@ export class HudFieldRepoService {
       await db.transaction('rw', db.hudFields, async () => {
         await db.hudFields.bulkAdd(newFields);
       });
-      console.log(`[HudFieldRepo] Seeded ${newFields.length} new fields`);
     } else {
-      console.log('[HudFieldRepo] All fields already exist, no seeding needed');
     }
   }
 
@@ -154,7 +149,6 @@ export class HudFieldRepoService {
       return;
     }
 
-    console.log(`[HudFieldRepo] Merging ${categoryHuds.length} existing HUD records for ${category}`);
 
     const now = Date.now();
 
@@ -184,7 +178,6 @@ export class HudFieldRepoService {
       }
     }
 
-    console.log(`[HudFieldRepo] Found ${existingFields.length} existing fields for matching`);
 
     await db.transaction('rw', db.hudFields, async () => {
       for (const hud of categoryHuds) {
@@ -218,7 +211,6 @@ export class HudFieldRepoService {
             updatedAt: now,
             dirty: false
           });
-          console.log(`[HudFieldRepo] Updated hudField by template match: ${hudName}`);
         } else {
           // No template match - create entry (handles custom HUD items)
           const syntheticTemplateId = hudId || Date.now();
@@ -245,12 +237,10 @@ export class HudFieldRepoService {
             dirty: false
           };
           await db.hudFields.add(newField);
-          console.log(`[HudFieldRepo] Created hudField (custom/no template): ${hudName}`);
         }
       }
     });
 
-    console.log(`[HudFieldRepo] Merged ${categoryHuds.length} HUD records for ${category}`);
   }
 
   // ============================================================================
@@ -402,7 +392,6 @@ export class HudFieldRepoService {
       await db.hudFields.add(newField);
     }
 
-    console.log(`[HudFieldRepo] Created HUD with tempId: ${tempId}`);
     return tempId;
   }
 
@@ -432,7 +421,6 @@ export class HudFieldRepoService {
       await db.hudFields.delete(existing.id!);
     }
 
-    console.log(`[HudFieldRepo] Deleted/deselected HUD: ${key}`);
   }
 
   /**
@@ -448,7 +436,6 @@ export class HudFieldRepoService {
       dirty: false
     });
 
-    console.log(`[HudFieldRepo] Marked synced: ${key} -> ${hudId}`);
   }
 
   /**

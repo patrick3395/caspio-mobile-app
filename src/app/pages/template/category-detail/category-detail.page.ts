@@ -515,7 +515,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
             answer: f.answer?.substring(0, 30)
           })).filter(f => f.csaId || f.dteId || f.lbwId || f.tempCsaId || f.tempDteId || f.tempLbwId);
           if (recordIdsDebug.length > 0) {
-            console.log(`[LIVEQUERY-DEBUG] Fields with record IDs:`, recordIdsDebug);
           }
 
           // FIX: Only show UI after first liveQuery emission to prevent "No Items" flash
@@ -2349,24 +2348,25 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         this.visualDropdownOptions[item.templateId] = options;
       }
 
+      // Use Set for O(1) lookups instead of Array.includes() O(n)
+      const optionsSet = new Set(options);
+
       // Parse the saved answers
       const savedAnswers = item.answer.split(',').map(a => a.trim()).filter(a => a);
 
-      // Find answers that aren't in the current options (these are custom options)
-      for (const answer of savedAnswers) {
-        if (!options.includes(answer)) {
-          // This is a custom option - add it before "None" and "Other"
-          const noneIndex = options.indexOf('None');
-          if (noneIndex > -1) {
-            options.splice(noneIndex, 0, answer);
-          } else {
-            const otherIndex = options.indexOf('Other');
-            if (otherIndex > -1) {
-              options.splice(otherIndex, 0, answer);
-            } else {
-              options.push(answer);
-            }
-          }
+      // Collect custom options that aren't in the current options
+      const customOptions = savedAnswers.filter(a => !optionsSet.has(a));
+
+      if (customOptions.length > 0) {
+        // Find insertion point: before "None", then "Other", then end
+        const noneIndex = options.indexOf('None');
+        const otherIndex = options.indexOf('Other');
+        const insertIndex = noneIndex > -1 ? noneIndex : (otherIndex > -1 ? otherIndex : options.length);
+
+        // Insert all custom options at once
+        options.splice(insertIndex, 0, ...customOptions);
+
+        for (const answer of customOptions) {
           this.logDebug('DROPDOWN', `Restored custom option: "${answer}" for templateId ${item.templateId}`);
         }
       }
@@ -2649,7 +2649,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     const key = `${category}_${itemId}`;
     let selectedOptions = item.answer ? item.answer.split(',').map(o => o.trim()).filter(o => o) : [];
 
-    console.log('[OPTION] Toggled:', option, 'Checked:', isChecked, 'for', key);
 
     if (isChecked) {
       // Handle "None" being mutually exclusive
@@ -2700,7 +2699,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
     const itemId = this.getItemLookupId(item);
     const key = `${category}_${itemId}`;
-    console.log('[OTHER] Adding custom option:', customValue, 'for', key);
 
     // Get current options for this template
     let options = this.visualDropdownOptions[item.templateId];
@@ -2717,7 +2715,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
     // Check if this value already exists in options
     if (options.includes(customValue)) {
-      console.log(`[OTHER] Option "${customValue}" already exists`);
       // Just select it if not already selected
       if (!selectedOptions.includes(customValue)) {
         selectedOptions.push(customValue);
@@ -2735,7 +2732,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           options.push(customValue);
         }
       }
-      console.log(`[OTHER] Added custom option: "${customValue}"`);
 
       // Select the new custom value
       selectedOptions.push(customValue);
@@ -2835,13 +2831,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
     // DEBUG: Log the visualId being used for sync
     const isTempId = String(visualId).startsWith('temp_');
-    console.log(`[MULTISELECT-DEBUG] saveMultiSelectAnswer:`, {
-      key,
-      visualId,
-      isTempId,
-      answer: item.answer,
-      visualRecordIdsMap: JSON.stringify(this.visualRecordIds)
-    });
 
     // For temp IDs, update the pending request data so changes sync when the record syncs
     // dataProvider.updateVisual handles temp IDs by calling updatePendingRequestData
@@ -3765,7 +3754,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         [this.config!.templateIdFieldName]: item.templateId
       };
 
-      console.log('[CategoryDetail] Creating visual with data:', visualData);
 
       // Use unified dataProvider - handles webapp/mobile differences internally
       const visualRecord = {
@@ -3781,10 +3769,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
       const createdVisual = await this.dataProvider.createVisual(this.config!, visualRecord);
 
-      console.log('[CategoryDetail] Create response:', createdVisual);
       // dataProvider returns normalized VisualRecord with id property
       const visualId = createdVisual?.id;
-      console.log('[CategoryDetail] Extracted visualId:', visualId);
 
       if (visualId) {
         this.visualRecordIds[key] = String(visualId);
@@ -4215,12 +4201,12 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         this.debugLogs = this.debugLogs.slice(0, 100);
       }
     }
-    console.log(`[GenericCategoryDetail] [${type}] ${message}`);
   }
 
   // ==================== Utilities ====================
 
   private async showToast(message: string, color: string = 'primary'): Promise<void> {
+    if (color === 'success' || color === 'info') return;
     const toast = await this.toastController.create({
       message,
       duration: 3000,

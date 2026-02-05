@@ -37,7 +37,6 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
   ) {}
 
   ngOnInit() {
-    console.log('PayPal Payment Modal initialized with invoice:', this.invoice);
     // If in save-only mode, automatically check the save for autopay checkbox
     if (this.saveForAutopayOnly) {
       this.saveForAutopay = true;
@@ -52,7 +51,6 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
   private waitForPayPalSDK(retries = 0, maxRetries = 20) {
     // Check if PayPal SDK is loaded
     if (typeof paypal !== 'undefined') {
-      console.log('PayPal SDK loaded successfully');
       this.sdkLoading = false;
       this.renderPayPalButton();
       return;
@@ -67,7 +65,6 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
     }
 
     // Retry after 250ms
-    console.log(`Waiting for PayPal SDK... (attempt ${retries + 1}/${maxRetries})`);
     setTimeout(() => {
       this.waitForPayPalSDK(retries + 1, maxRetries);
     }, 250);
@@ -93,7 +90,6 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
    * Uses server-side order creation with vault configuration
    */
   private renderVaultOnlyButton() {
-    console.log('Rendering vault-only PayPal button (server-side vault method)');
 
     paypal.Buttons({
       style: {
@@ -106,7 +102,6 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
 
       // Create order server-side with vault configuration
       createOrder: async () => {
-        console.log('Creating verification order via server...');
         try {
           const response = await firstValueFrom(
             this.caspioService.createPayPalOrderWithVault(
@@ -114,7 +109,6 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
               'Payment Method Verification - LPS Foundations'
             )
           );
-          console.log('Server created order:', response.orderId);
           return response.orderId;
         } catch (error) {
           console.error('Failed to create order:', error);
@@ -124,7 +118,6 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
 
       // On approval - capture via server to get vault token
       onApprove: async (data: any) => {
-        console.log('Verification order approved:', data);
         this.isLoading = true;
 
         try {
@@ -132,7 +125,6 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
           const captureResult = await firstValueFrom(
             this.caspioService.capturePayPalOrder(data.orderID)
           );
-          console.log('Server capture result:', captureResult);
 
           const vaultToken = captureResult.vaultToken;
 
@@ -141,7 +133,6 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
             throw new Error('Failed to save payment method - no vault token received');
           }
 
-          console.log('Vault token received:', vaultToken);
 
           // Save the payment method to the company record and enable autopay
           if (this.companyId) {
@@ -156,7 +147,6 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
                 }
               )
             );
-            console.log('Payment method saved and autopay enabled for company:', this.companyId);
           }
 
           this.paymentCompleted = true;
@@ -185,7 +175,6 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
 
       // On cancel
       onCancel: (data: any) => {
-        console.log('Verification cancelled:', data);
         this.showCancelled();
       },
 
@@ -254,7 +243,6 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
 
         try {
           const order = await actions.order.capture();
-          console.log('Payment successful:', order);
 
           // Check if vault token was saved (for autopay)
           let vaultToken: string | null = null;
@@ -264,7 +252,6 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
             const vaultInfo = order?.payment_source?.paypal?.attributes?.vault;
             if (vaultInfo?.id) {
               vaultToken = vaultInfo.id;
-              console.log('Vault token received:', vaultToken);
 
               // Save the payment method to the company record
               try {
@@ -278,7 +265,6 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
                     }
                   )
                 );
-                console.log('Payment method saved for company:', this.companyId);
               } catch (saveError) {
                 console.error('Failed to save payment method:', saveError);
                 // Don't fail the payment, just log the error
@@ -319,7 +305,6 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
 
       // On cancel
       onCancel: (data: any) => {
-        console.log('Payment cancelled:', data);
         this.showCancelled();
       },
 
@@ -391,7 +376,6 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
     // Manually set innerHTML after alert is presented
     setTimeout(() => {
       const messageElement = document.querySelector('.zelle-info-alert .alert-message');
-      console.log('Message Element Found:', messageElement);
       
       if (messageElement) {
         messageElement.innerHTML = `
@@ -402,7 +386,6 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
             <div class="zelle-number">Phone: (512) 298-9395</div>
           </div>
         `;
-        console.log('HTML set successfully. InnerHTML:', messageElement.innerHTML);
       } else {
         console.error('Could not find message element');
       }

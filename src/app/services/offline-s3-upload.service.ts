@@ -28,7 +28,6 @@ export class OfflineS3UploadService {
     drawingsData: string = '',
     caption: string = ''
   ): Promise<{tempAttachId: string, thumbnailUrl: string}> {
-    console.log('[OfflineS3] Queuing visual photo upload');
 
     // Generate temp ID for this attachment
     const tempAttachId = this.tempId.generateTempId('image' as any);
@@ -107,7 +106,6 @@ export class OfflineS3UploadService {
 
     // Sync will happen on next 60-second interval (batched sync)
 
-    console.log('[OfflineS3] Photo queued with 3-step process');
 
     // Return temp data for immediate UI display
     return {

@@ -280,7 +280,6 @@ export class LbwProjectDetailsPage implements OnInit {
             this.inAttendanceSelections.forEach(selection => {
               if (selection && selection !== 'Other' && selection !== 'None' && !this.inAttendanceOptions.includes(selection)) {
                 // Add missing custom selection to options
-                console.log(`[LBW ProjectDetails] Adding missing InAttendance selection to options: "${selection}"`);
                 this.inAttendanceOptions.push(selection);
               }
             });
@@ -327,7 +326,6 @@ export class LbwProjectDetailsPage implements OnInit {
             this.secondFoundationRoomsSelections.forEach(selection => {
               if (selection && selection !== 'Other' && selection !== 'None' && !this.secondFoundationRoomsOptions.includes(selection)) {
                 // Add missing custom selection to options
-                console.log(`[LBW ProjectDetails] Adding missing SecondFoundationRooms selection to options: "${selection}"`);
                 this.secondFoundationRoomsOptions.push(selection);
               }
             });
@@ -350,7 +348,6 @@ export class LbwProjectDetailsPage implements OnInit {
             this.thirdFoundationRoomsSelections.forEach(selection => {
               if (selection && selection !== 'Other' && selection !== 'None' && !this.thirdFoundationRoomsOptions.includes(selection)) {
                 // Add missing custom selection to options
-                console.log(`[LBW ProjectDetails] Adding missing ThirdFoundationRooms selection to options: "${selection}"`);
                 this.thirdFoundationRoomsOptions.push(selection);
               }
             });
@@ -512,7 +509,6 @@ export class LbwProjectDetailsPage implements OnInit {
 
     // Check if this value already exists in options
     if (this.inAttendanceOptions.includes(customValue)) {
-      console.log(`[LBW ProjectDetails] InAttendance option "${customValue}" already exists`);
       // Just select it if not already selected
       if (!this.inAttendanceSelections.includes(customValue)) {
         this.inAttendanceSelections.push(customValue);
@@ -531,7 +527,6 @@ export class LbwProjectDetailsPage implements OnInit {
           this.inAttendanceOptions.push(customValue);
         }
       }
-      console.log(`[LBW ProjectDetails] Added custom InAttendance option: "${customValue}"`);
 
       // Select the new custom value
       if (!this.inAttendanceSelections) {
@@ -675,7 +670,6 @@ export class LbwProjectDetailsPage implements OnInit {
 
     // Check if this value already exists in options
     if (this.secondFoundationRoomsOptions.includes(customValue)) {
-      console.log(`[LBW ProjectDetails] SecondFoundationRooms option "${customValue}" already exists`);
       // Just select it if not already selected
       if (!this.secondFoundationRoomsSelections.includes(customValue)) {
         this.secondFoundationRoomsSelections.push(customValue);
@@ -693,7 +687,6 @@ export class LbwProjectDetailsPage implements OnInit {
           this.secondFoundationRoomsOptions.push(customValue);
         }
       }
-      console.log(`[LBW ProjectDetails] Added custom SecondFoundationRooms option: "${customValue}"`);
 
       // Select the new custom value
       if (!this.secondFoundationRoomsSelections) {
@@ -772,7 +765,6 @@ export class LbwProjectDetailsPage implements OnInit {
 
     // Check if this value already exists in options
     if (this.thirdFoundationRoomsOptions.includes(customValue)) {
-      console.log(`[LBW ProjectDetails] ThirdFoundationRooms option "${customValue}" already exists`);
       // Just select it if not already selected
       if (!this.thirdFoundationRoomsSelections.includes(customValue)) {
         this.thirdFoundationRoomsSelections.push(customValue);
@@ -790,7 +782,6 @@ export class LbwProjectDetailsPage implements OnInit {
           this.thirdFoundationRoomsOptions.push(customValue);
         }
       }
-      console.log(`[LBW ProjectDetails] Added custom ThirdFoundationRooms option: "${customValue}"`);
 
       // Select the new custom value
       if (!this.thirdFoundationRoomsSelections) {
@@ -894,6 +885,7 @@ export class LbwProjectDetailsPage implements OnInit {
   }
 
   async showToast(message: string, color: string = 'primary') {
+    if (color === 'success' || color === 'info') return;
     const toast = await this.toastController.create({
       message,
       duration: 2000,

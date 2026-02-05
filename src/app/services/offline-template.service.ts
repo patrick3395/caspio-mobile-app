@@ -52,15 +52,12 @@ export class OfflineTemplateService {
    * Call this from pages that need templates to ensure they're available.
    */
   async ensureVisualTemplatesReady(): Promise<any[]> {
-    console.log('[OfflineTemplate] ensureVisualTemplatesReady() called');
     
     // Check if we have cached templates FIRST (instant return for offline)
     try {
       const cached = await this.indexedDb.getCachedTemplates('visual');
-      console.log('[OfflineTemplate] IndexedDB getCachedTemplates result:', cached ? `${cached.length} templates` : 'null/undefined');
       
       if (cached && cached.length > 0) {
-        console.log(`[OfflineTemplate] ✅ ensureVisualTemplatesReady: ${cached.length} templates already cached`);
         return cached;
       }
     } catch (dbError) {
@@ -69,14 +66,12 @@ export class OfflineTemplateService {
 
     // CRITICAL: If offline and no cache, return empty immediately - don't wait for downloads
     if (!this.offlineService.isOnline()) {
-      console.log('[OfflineTemplate] ⚠️ Offline with no cached templates - returning empty');
       return [];
     }
 
     // Only wait for downloads if ONLINE (they might complete soon)
     for (const [key, promise] of this.downloadPromises.entries()) {
       if (key.startsWith('EFE_')) {
-        console.log(`[OfflineTemplate] ensureVisualTemplatesReady: waiting for download ${key}...`);
         try {
           // Add timeout to prevent hanging
           const timeoutPromise = new Promise<void>((_, reject) => 
@@ -89,7 +84,6 @@ export class OfflineTemplateService {
         // Check again after download completes
         const afterDownload = await this.indexedDb.getCachedTemplates('visual');
         if (afterDownload && afterDownload.length > 0) {
-          console.log(`[OfflineTemplate] ensureVisualTemplatesReady: ${afterDownload.length} templates available after download`);
           return afterDownload;
         }
       }
@@ -97,11 +91,9 @@ export class OfflineTemplateService {
 
     // No cache, no download in progress - fetch directly if online
     if (this.offlineService.isOnline()) {
-      console.log('[OfflineTemplate] ensureVisualTemplatesReady: fetching from API...');
       try {
         const templates = await firstValueFrom(this.caspioService.getServicesVisualsTemplates());
         await this.indexedDb.cacheTemplates('visual', templates);
-        console.log(`[OfflineTemplate] ensureVisualTemplatesReady: fetched and cached ${templates.length} templates`);
         return templates;
       } catch (error) {
         console.error('[OfflineTemplate] ensureVisualTemplatesReady: API fetch failed:', error);
@@ -122,15 +114,12 @@ export class OfflineTemplateService {
    * Call this from pages that need EFE templates to ensure they're available.
    */
   async ensureEFETemplatesReady(): Promise<any[]> {
-    console.log('[OfflineTemplate] ensureEFETemplatesReady() called');
     
     // Check if we have cached templates FIRST (instant return for offline)
     try {
       const cached = await this.indexedDb.getCachedTemplates('efe');
-      console.log('[OfflineTemplate] IndexedDB getCachedTemplates(efe) result:', cached ? `${cached.length} templates` : 'null/undefined');
       
       if (cached && cached.length > 0) {
-        console.log(`[OfflineTemplate] ✅ ensureEFETemplatesReady: ${cached.length} templates already cached`);
         return cached;
       }
     } catch (dbError) {
@@ -139,14 +128,12 @@ export class OfflineTemplateService {
 
     // CRITICAL: If offline and no cache, return empty immediately - don't wait for downloads
     if (!this.offlineService.isOnline()) {
-      console.log('[OfflineTemplate] ⚠️ Offline with no cached EFE templates - returning empty');
       return [];
     }
 
     // Only wait for downloads if ONLINE (they might complete soon)
     for (const [key, promise] of this.downloadPromises.entries()) {
       if (key.startsWith('EFE_')) {
-        console.log(`[OfflineTemplate] ensureEFETemplatesReady: waiting for download ${key}...`);
         try {
           // Add timeout to prevent hanging
           const timeoutPromise = new Promise<void>((_, reject) => 
@@ -159,7 +146,6 @@ export class OfflineTemplateService {
         // Check again after download completes
         const afterDownload = await this.indexedDb.getCachedTemplates('efe');
         if (afterDownload && afterDownload.length > 0) {
-          console.log(`[OfflineTemplate] ensureEFETemplatesReady: ${afterDownload.length} templates available after download`);
           return afterDownload;
         }
       }
@@ -167,11 +153,9 @@ export class OfflineTemplateService {
 
     // No cache, no download in progress - fetch directly if online
     if (this.offlineService.isOnline()) {
-      console.log('[OfflineTemplate] ensureEFETemplatesReady: fetching from API...');
       try {
         const templates = await firstValueFrom(this.caspioService.getServicesEFETemplates());
         await this.indexedDb.cacheTemplates('efe', templates);
-        console.log(`[OfflineTemplate] ensureEFETemplatesReady: fetched and cached ${templates.length} templates`);
         return templates;
       } catch (error) {
         console.error('[OfflineTemplate] ensureEFETemplatesReady: API fetch failed:', error);
@@ -210,14 +194,11 @@ export class OfflineTemplateService {
    * @returns HUD templates array, or empty array if offline with no cache
    */
   async ensureHudTemplatesReady(): Promise<any[]> {
-    console.log('[OfflineTemplate] ensureHudTemplatesReady() called');
 
     // WEBAPP: Network-first with no local caching
     if (environment.isWeb) {
-      console.log('[OfflineTemplate] WEBAPP mode - fetching HUD templates from API (no caching)');
       try {
         const templates = await firstValueFrom(this.caspioService.getServicesHUDTemplates());
-        console.log(`[OfflineTemplate] ✅ WEBAPP: Fetched ${templates?.length || 0} HUD templates`);
         return templates || [];
       } catch (error) {
         console.error('[OfflineTemplate] WEBAPP: HUD templates API fetch failed:', error);
@@ -237,15 +218,12 @@ export class OfflineTemplateService {
 
         // HUD-012: Cache invalidation on version change
         if (!isVersionValid) {
-          console.log(`[OfflineTemplate] HUD template version mismatch (cached: ${cachedMeta.version}, current: ${OfflineTemplateService.HUD_TEMPLATE_VERSION}) - invalidating cache`);
           await this.indexedDb.invalidateTemplateCache('hud');
           await this.indexedDb.invalidateTemplateCache('hud_dropdown');
         } else if (cachedMeta.templates && cachedMeta.templates.length > 0) {
-          console.log(`[OfflineTemplate] ✅ ensureHudTemplatesReady: ${cachedMeta.templates.length} templates cached (age: ${Math.round(cacheAge / 1000 / 60)} min)`);
 
           // If cache is stale but valid, trigger background refresh when online
           if (!isCacheValid && this.offlineService.isOnline()) {
-            console.log('[OfflineTemplate] HUD cache stale - triggering background refresh');
             this.backgroundRefreshHudTemplates();
           }
 
@@ -258,14 +236,12 @@ export class OfflineTemplateService {
 
     // CRITICAL: If offline and no cache, return empty immediately - don't wait for downloads
     if (!this.offlineService.isOnline()) {
-      console.log('[OfflineTemplate] ⚠️ Offline with no cached HUD templates - returning empty');
       return [];
     }
 
     // Only wait for downloads if ONLINE (they might complete soon)
     for (const [key, promise] of this.downloadPromises.entries()) {
       if (key.startsWith('HUD_')) {
-        console.log(`[OfflineTemplate] ensureHudTemplatesReady: waiting for download ${key}...`);
         try {
           // Add timeout to prevent hanging
           const timeoutPromise = new Promise<void>((_, reject) =>
@@ -278,7 +254,6 @@ export class OfflineTemplateService {
         // Check again after download completes
         const afterDownload = await this.indexedDb.getCachedTemplates('hud');
         if (afterDownload && afterDownload.length > 0) {
-          console.log(`[OfflineTemplate] ensureHudTemplatesReady: ${afterDownload.length} templates available after download`);
           return afterDownload;
         }
       }
@@ -286,11 +261,9 @@ export class OfflineTemplateService {
 
     // No cache, no download in progress - fetch directly if online
     if (this.offlineService.isOnline()) {
-      console.log('[OfflineTemplate] ensureHudTemplatesReady: fetching from API...');
       try {
         const templates = await firstValueFrom(this.caspioService.getServicesHUDTemplates());
         await this.indexedDb.cacheTemplates('hud', templates, OfflineTemplateService.HUD_TEMPLATE_VERSION);
-        console.log(`[OfflineTemplate] ensureHudTemplatesReady: fetched and cached ${templates.length} templates`);
         return templates;
       } catch (error) {
         console.error('[OfflineTemplate] ensureHudTemplatesReady: API fetch failed:', error);
@@ -311,14 +284,11 @@ export class OfflineTemplateService {
    * @returns HUD dropdown options array, or empty array if offline with no cache
    */
   async ensureHudDropdownReady(): Promise<any[]> {
-    console.log('[OfflineTemplate] ensureHudDropdownReady() called');
 
     // WEBAPP: Network-first with no local caching
     if (environment.isWeb) {
-      console.log('[OfflineTemplate] WEBAPP mode - fetching HUD dropdown from API (no caching)');
       try {
         const dropdown = await firstValueFrom(this.caspioService.getServicesHUDDrop());
-        console.log(`[OfflineTemplate] ✅ WEBAPP: Fetched ${dropdown?.length || 0} HUD dropdown options`);
         return dropdown || [];
       } catch (error) {
         console.error('[OfflineTemplate] WEBAPP: HUD dropdown API fetch failed:', error);
@@ -331,7 +301,6 @@ export class OfflineTemplateService {
       const cached = await this.indexedDb.getCachedTemplates('hud_dropdown');
 
       if (cached && cached.length > 0) {
-        console.log(`[OfflineTemplate] ✅ ensureHudDropdownReady: ${cached.length} dropdown options cached`);
         return cached;
       }
     } catch (dbError) {
@@ -340,16 +309,13 @@ export class OfflineTemplateService {
 
     // CRITICAL: If offline and no cache, return empty immediately
     if (!this.offlineService.isOnline()) {
-      console.log('[OfflineTemplate] ⚠️ Offline with no cached HUD dropdown - returning empty');
       return [];
     }
 
     // No cache - fetch from API
-    console.log('[OfflineTemplate] ensureHudDropdownReady: fetching from API...');
     try {
       const dropdown = await firstValueFrom(this.caspioService.getServicesHUDDrop());
       await this.indexedDb.cacheTemplates('hud_dropdown', dropdown || [], OfflineTemplateService.HUD_TEMPLATE_VERSION);
-      console.log(`[OfflineTemplate] ensureHudDropdownReady: fetched and cached ${dropdown?.length || 0} dropdown options`);
       return dropdown || [];
     } catch (error) {
       console.error('[OfflineTemplate] ensureHudDropdownReady: API fetch failed:', error);
@@ -365,17 +331,14 @@ export class OfflineTemplateService {
     // Fire and forget - don't await
     const refreshJob = async () => {
       try {
-        console.log('[OfflineTemplate] [BG] Starting HUD template background refresh...');
 
         // Fetch fresh templates
         const templates = await firstValueFrom(this.caspioService.getServicesHUDTemplates());
         await this.indexedDb.cacheTemplates('hud', templates, OfflineTemplateService.HUD_TEMPLATE_VERSION);
-        console.log(`[OfflineTemplate] [BG] ✅ HUD templates refreshed: ${templates.length} templates`);
 
         // Also refresh dropdown options
         const dropdown = await firstValueFrom(this.caspioService.getServicesHUDDrop());
         await this.indexedDb.cacheTemplates('hud_dropdown', dropdown || [], OfflineTemplateService.HUD_TEMPLATE_VERSION);
-        console.log(`[OfflineTemplate] [BG] ✅ HUD dropdown refreshed: ${dropdown?.length || 0} options`);
 
       } catch (error) {
         console.warn('[OfflineTemplate] [BG] HUD template background refresh failed:', error);
@@ -393,19 +356,15 @@ export class OfflineTemplateService {
    */
   async downloadTemplateForOffline(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE' | 'CSA', projectId?: string): Promise<void> {
     const cacheKey = `${templateType}_${serviceId}`;
-    console.log(`[OfflineTemplate] downloadTemplateForOffline(${serviceId}, ${templateType}) called`);
 
     // Already downloading? Return existing promise
     if (this.downloadPromises.has(cacheKey)) {
-      console.log(`[OfflineTemplate] Already downloading ${cacheKey}, waiting...`);
       return this.downloadPromises.get(cacheKey);
     }
 
     // Already ready? Check if data exists in IndexedDB
     const isReady = await this.isTemplateReady(serviceId, templateType);
-    console.log(`[OfflineTemplate] isTemplateReady(${serviceId}, ${templateType}) = ${isReady}`);
     if (isReady) {
-      console.log(`[OfflineTemplate] Template ${cacheKey} already cached - NOT downloading again`);
       this.downloadStatus.set(cacheKey, 'ready');
       // Don't refresh here - it would overwrite offline changes before sync completes
       return;
@@ -419,7 +378,6 @@ export class OfflineTemplateService {
     }
 
     // Start download
-    console.log(`[OfflineTemplate] Starting download for ${cacheKey}...`);
     this.downloadStatus.set(cacheKey, 'downloading');
 
     const downloadPromise = this.performDownload(serviceId, templateType, cacheKey, projectId);
@@ -428,7 +386,6 @@ export class OfflineTemplateService {
     try {
       await downloadPromise;
       this.downloadStatus.set(cacheKey, 'ready');
-      console.log(`[OfflineTemplate] Download complete for ${cacheKey}`);
     } catch (error) {
       this.downloadStatus.set(cacheKey, 'error');
       console.error(`[OfflineTemplate] Download failed for ${cacheKey}:`, error);
@@ -453,7 +410,6 @@ export class OfflineTemplateService {
     }
 
     const cacheKey = `${templateType}_${serviceId}`;
-    console.log(`[OfflineTemplate] Force refreshing ${cacheKey}...`);
 
     // Clear the download status to allow re-download
     this.downloadStatus.delete(cacheKey);
@@ -471,29 +427,22 @@ export class OfflineTemplateService {
     // CRITICAL: Clear Dexie field tables to ensure fresh cloud data replaces local data
     // This fixes the issue where deleted backend data wasn't being removed locally
     // The pages will re-initialize from fresh data when the user navigates back
-    console.log(`[OfflineTemplate] Clearing Dexie field tables for service ${serviceId}...`);
 
     // Clear EFE fields (rooms and points)
     const deletedEfeCount = await db.efeFields.where('serviceId').equals(serviceId).delete();
-    console.log(`[OfflineTemplate] Cleared ${deletedEfeCount} efeFields records`);
 
     // Clear visual fields
     const deletedVisualCount = await db.visualFields.where('serviceId').equals(serviceId).delete();
-    console.log(`[OfflineTemplate] Cleared ${deletedVisualCount} visualFields records`);
 
     // Clear template-specific field tables based on templateType
     if (templateType === 'HUD') {
       const deletedHudCount = await db.hudFields.where('serviceId').equals(serviceId).delete();
-      console.log(`[OfflineTemplate] Cleared ${deletedHudCount} hudFields records`);
     } else if (templateType === 'LBW') {
       const deletedLbwCount = await db.lbwFields.where('serviceId').equals(serviceId).delete();
-      console.log(`[OfflineTemplate] Cleared ${deletedLbwCount} lbwFields records`);
     } else if (templateType === 'DTE') {
       const deletedDteCount = await db.dteFields.where('serviceId').equals(serviceId).delete();
-      console.log(`[OfflineTemplate] Cleared ${deletedDteCount} dteFields records`);
     } else if (templateType === 'CSA') {
       const deletedCsaCount = await db.csaFields.where('serviceId').equals(serviceId).delete();
-      console.log(`[OfflineTemplate] Cleared ${deletedCsaCount} csaFields records`);
     }
 
     // Re-download fresh data from cloud into cachedServiceData
@@ -514,17 +463,12 @@ export class OfflineTemplateService {
       dataType: 'efe_rooms'
     });
 
-    console.log(`[OfflineTemplate] Force refresh complete for ${cacheKey}`);
   }
 
   /**
    * Perform the actual download of all template data
    */
   private async performDownload(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE' | 'CSA', cacheKey: string, projectId?: string): Promise<void> {
-    console.log('╔════════════════════════════════════════════════════════════════╗');
-    console.log('║         OFFLINE TEMPLATE DOWNLOAD STARTING                      ║');
-    console.log(`║  Service: ${String(serviceId).padEnd(10)} | Type: ${templateType.padEnd(5)} | Key: ${cacheKey.padEnd(15)}  ║`);
-    console.log('╚════════════════════════════════════════════════════════════════╝');
 
     // Track what we download for final summary
     const downloadSummary = {
@@ -549,38 +493,31 @@ export class OfflineTemplateService {
       const downloads: Promise<any>[] = [];
 
       // 1. Visual Templates (Structural System categories - comments, limitations, deficiencies)
-      console.log('\n[1/9] 📋 Downloading VISUAL TEMPLATES (Structural System categories)...');
       downloads.push(
         firstValueFrom(this.caspioService.getServicesVisualsTemplates())
           .then(async (templates) => {
             downloadSummary.visualTemplates = templates?.length || 0;
             await this.indexedDb.cacheTemplates('visual', templates);
-            console.log(`    ✅ Visual Templates: ${downloadSummary.visualTemplates} templates cached`);
-            console.log(`    📦 Categories include: ${[...new Set(templates?.map((t: any) => t.Category) || [])].slice(0, 5).join(', ')}...`);
             return templates;
           })
       );
 
       // 1b. Visual Dropdown Options (multi-select options for Walls, Crawlspace, etc.)
-      console.log('[1b/9] 📋 Downloading VISUAL DROPDOWN OPTIONS (multi-select options)...');
       downloads.push(
         firstValueFrom(this.caspioService.getServicesVisualsDrop())
           .then(async (dropdownData) => {
             downloadSummary.visualDropdownOptions = dropdownData?.length || 0;
             await this.indexedDb.cacheTemplates('visual_dropdown', dropdownData || []);
-            console.log(`    ✅ Visual Dropdown Options: ${downloadSummary.visualDropdownOptions} options cached`);
             return dropdownData;
           })
       );
 
       // 2. EFE Templates (room templates with elevation points)
-      console.log('[2/8] 🏠 Downloading EFE TEMPLATES (Room elevation templates)...');
       downloads.push(
         firstValueFrom(this.caspioService.getServicesEFETemplates())
           .then(async (templates) => {
             downloadSummary.efeTemplates = templates?.length || 0;
             await this.indexedDb.cacheTemplates('efe', templates);
-            console.log(`    ✅ EFE Templates: ${downloadSummary.efeTemplates} room templates cached`);
             return templates;
           })
       );
@@ -589,17 +526,14 @@ export class OfflineTemplateService {
       let collectedVisualAttachments: any[] = [];
       
       // 3. Service-specific visuals AND their attachments (existing items for this service)
-      console.log('[3/8] 🔍 Downloading SERVICE VISUALS (existing structural items for this service)...');
       downloads.push(
         firstValueFrom(this.caspioService.getServicesVisualsByServiceId(serviceId))
           .then(async (visuals) => {
             downloadSummary.serviceVisuals = visuals?.length || 0;
             await this.indexedDb.cacheServiceData(serviceId, 'visuals', visuals);
-            console.log(`    ✅ Service Visuals: ${downloadSummary.serviceVisuals} existing items cached`);
             
             // CRITICAL: Also cache attachments for each visual (needed for photo counts offline)
             if (visuals && visuals.length > 0) {
-              console.log(`    📸 Caching photo attachments for ${visuals.length} visuals...`);
               
               const attachmentPromises = visuals.map(async (visual: any) => {
                 const visualId = visual.VisualID || visual.PK_ID;
@@ -623,10 +557,8 @@ export class OfflineTemplateService {
               });
               const counts = await Promise.all(attachmentPromises);
               downloadSummary.visualAttachments = counts.reduce((a, b) => a + b, 0);
-              console.log(`    ✅ Visual Attachments: ${downloadSummary.visualAttachments} attachment records cached`);
               // NOTE: Image download moved to background (non-blocking) - see below
             } else {
-              console.log('    ℹ️ No existing visuals - new template (this is normal)');
             }
             return visuals;
           })
@@ -637,7 +569,6 @@ export class OfflineTemplateService {
       
       // 4. For EFE: Also download rooms, points, and point attachments
       if (templateType === 'EFE') {
-        console.log('[4/8] 📐 Downloading EFE DATA (rooms, points, and point attachments)...');
         downloads.push(
           this.downloadEFEDataWithSummary(serviceId, downloadSummary).then(efeAttachments => {
             // Collect EFE attachments for BACKGROUND image download (non-blocking)
@@ -647,24 +578,20 @@ export class OfflineTemplateService {
       }
 
       // 5. Service record itself
-      console.log('[5/8] 📝 Downloading SERVICE RECORD...');
       downloads.push(
         this.safeCacheServiceRecord(serviceId, projectId)
           .then(() => {
             downloadSummary.serviceRecord = true;
             downloadSummary.projectRecord = true;
-            console.log('    ✅ Service and Project records cached');
           })
       );
 
       // 6. Global dropdown data - Services_Drop
-      console.log('[6/8] 📋 Downloading SERVICES_DROP (dropdown options)...');
       downloads.push(
         firstValueFrom(this.caspioService.getServicesDrop())
           .then(async (data) => {
             downloadSummary.servicesDrop = data?.length || 0;
             await this.indexedDb.cacheGlobalData('services_drop', data);
-            console.log(`    ✅ Services_Drop: ${downloadSummary.servicesDrop} dropdown options cached`);
             return data;
           })
           .catch(err => {
@@ -674,13 +601,11 @@ export class OfflineTemplateService {
       );
 
       // 7. Global dropdown data - Projects_Drop
-      console.log('[7/8] 📋 Downloading PROJECTS_DROP (dropdown options)...');
       downloads.push(
         firstValueFrom(this.caspioService.getProjectsDrop())
           .then(async (data) => {
             downloadSummary.projectsDrop = data?.length || 0;
             await this.indexedDb.cacheGlobalData('projects_drop', data);
-            console.log(`    ✅ Projects_Drop: ${downloadSummary.projectsDrop} dropdown options cached`);
             return data;
           })
           .catch(err => {
@@ -690,14 +615,12 @@ export class OfflineTemplateService {
       );
 
       // 8. Status options for finalization
-      console.log('[8/9] 🏷️ Downloading STATUS OPTIONS...');
       downloads.push(
         firstValueFrom(this.caspioService.get('/tables/LPS_Status/records'))
           .then(async (response: any) => {
             const statusData = response?.Result || [];
             downloadSummary.statusOptions = statusData.length;
             await this.indexedDb.cacheGlobalData('status', statusData);
-            console.log(`    ✅ Status Options: ${downloadSummary.statusOptions} options cached`);
             return statusData;
           })
           .catch(err => {
@@ -708,13 +631,11 @@ export class OfflineTemplateService {
 
       // 9. EFE Drop options (FDF dropdown for elevation plots)
       if (templateType === 'EFE') {
-        console.log('[9/9] 📋 Downloading EFE_DROP (FDF dropdown options)...');
         downloads.push(
           firstValueFrom(this.caspioService.getServicesEFEDrop())
             .then(async (data) => {
               downloadSummary.efeDrop = data?.length || 0;
               await this.indexedDb.cacheGlobalData('efe_drop', data);
-              console.log(`    ✅ EFE_Drop (FDF options): ${downloadSummary.efeDrop} options cached`);
               return data;
             })
             .catch(err => {
@@ -726,13 +647,11 @@ export class OfflineTemplateService {
 
       // HUD-012: Download HUD templates and dropdown options when template type is HUD
       if (templateType === 'HUD') {
-        console.log('[HUD] 🏠 Downloading HUD TEMPLATES...');
         downloads.push(
           firstValueFrom(this.caspioService.getServicesHUDTemplates())
             .then(async (templates) => {
               const count = templates?.length || 0;
               await this.indexedDb.cacheTemplates('hud', templates || [], OfflineTemplateService.HUD_TEMPLATE_VERSION);
-              console.log(`    ✅ HUD Templates: ${count} templates cached`);
               return templates;
             })
             .catch(err => {
@@ -741,13 +660,11 @@ export class OfflineTemplateService {
             })
         );
 
-        console.log('[HUD] 📋 Downloading HUD_DROP (dropdown options)...');
         downloads.push(
           firstValueFrom(this.caspioService.getServicesHUDDrop())
             .then(async (data) => {
               const count = data?.length || 0;
               await this.indexedDb.cacheTemplates('hud_dropdown', data || [], OfflineTemplateService.HUD_TEMPLATE_VERSION);
-              console.log(`    ✅ HUD_Drop (dropdown options): ${count} options cached`);
               return data;
             })
             .catch(err => {
@@ -759,13 +676,11 @@ export class OfflineTemplateService {
 
       // LBW-001: Download LBW templates and dropdown options when template type is LBW
       if (templateType === 'LBW') {
-        console.log('[LBW] 🏗️ Downloading LBW TEMPLATES...');
         downloads.push(
           firstValueFrom(this.caspioService.getServicesLBWTemplates())
             .then(async (templates) => {
               const count = templates?.length || 0;
               await this.indexedDb.cacheTemplates('lbw', templates || [], OfflineTemplateService.LBW_TEMPLATE_VERSION);
-              console.log(`    ✅ LBW Templates: ${count} templates cached`);
               return templates;
             })
             .catch(err => {
@@ -774,13 +689,11 @@ export class OfflineTemplateService {
             })
         );
 
-        console.log('[LBW] 📋 Downloading LBW_DROP (dropdown options)...');
         downloads.push(
           firstValueFrom(this.caspioService.getServicesLBWDrop())
             .then(async (data) => {
               const count = data?.length || 0;
               await this.indexedDb.cacheTemplates('lbw_dropdown', data || [], OfflineTemplateService.LBW_TEMPLATE_VERSION);
-              console.log(`    ✅ LBW_Drop (dropdown options): ${count} options cached`);
               return data;
             })
             .catch(err => {
@@ -790,17 +703,14 @@ export class OfflineTemplateService {
         );
 
         // Download existing LBW records for this service
-        console.log('[LBW] 📝 Downloading LBW RECORDS for service...');
         downloads.push(
           firstValueFrom(this.caspioService.getServicesLBWByServiceId(serviceId))
             .then(async (records) => {
               const count = records?.length || 0;
               await this.indexedDb.cacheServiceData(serviceId, 'lbw_records', records || []);
-              console.log(`    ✅ LBW Records: ${count} records cached for service ${serviceId}`);
 
               // Also download attachments for LBW records
               if (records && records.length > 0) {
-                console.log('[LBW] 📸 Downloading LBW ATTACHMENTS...');
                 const attachmentPromises = records.map(async (record: any) => {
                   const lbwId = record.LBWID || record.PK_ID;
                   if (lbwId) {
@@ -821,7 +731,6 @@ export class OfflineTemplateService {
                 });
                 const allAttachments = await Promise.all(attachmentPromises);
                 const totalAttachments = allAttachments.flat().length;
-                console.log(`    ✅ LBW Attachments: ${totalAttachments} attachments cached`);
               }
 
               return records;
@@ -835,13 +744,11 @@ export class OfflineTemplateService {
 
       // CSA-001: Download CSA templates and dropdown options when template type is CSA
       if (templateType === 'CSA') {
-        console.log('[CSA] 📊 Downloading CSA TEMPLATES...');
         downloads.push(
           firstValueFrom(this.caspioService.getServicesCSATemplates())
             .then(async (templates) => {
               const count = templates?.length || 0;
               await this.indexedDb.cacheTemplates('csa', templates || [], OfflineTemplateService.CSA_TEMPLATE_VERSION);
-              console.log(`    ✅ CSA Templates: ${count} templates cached`);
               return templates;
             })
             .catch(err => {
@@ -850,13 +757,11 @@ export class OfflineTemplateService {
             })
         );
 
-        console.log('[CSA] 📋 Downloading CSA_DROP (dropdown options)...');
         downloads.push(
           firstValueFrom(this.caspioService.getServicesCSADrop())
             .then(async (data) => {
               const count = data?.length || 0;
               await this.indexedDb.cacheTemplates('csa_dropdown', data || [], OfflineTemplateService.CSA_TEMPLATE_VERSION);
-              console.log(`    ✅ CSA_Drop (dropdown options): ${count} options cached`);
               return data;
             })
             .catch(err => {
@@ -866,17 +771,14 @@ export class OfflineTemplateService {
         );
 
         // Download existing CSA records for this service
-        console.log('[CSA] 📝 Downloading CSA RECORDS for service...');
         downloads.push(
           firstValueFrom(this.caspioService.getServicesCSAByServiceId(serviceId))
             .then(async (records) => {
               const count = records?.length || 0;
               await this.indexedDb.cacheServiceData(serviceId, 'csa_records', records || []);
-              console.log(`    ✅ CSA Records: ${count} records cached for service ${serviceId}`);
 
               // Also download attachments for CSA records
               if (records && records.length > 0) {
-                console.log('[CSA] 📸 Downloading CSA ATTACHMENTS...');
                 const attachmentPromises = records.map(async (record: any) => {
                   const csaId = record.CSAID || record.PK_ID;
                   if (csaId) {
@@ -897,7 +799,6 @@ export class OfflineTemplateService {
                 });
                 const allAttachments = await Promise.all(attachmentPromises);
                 const totalAttachments = allAttachments.flat().length;
-                console.log(`    ✅ CSA Attachments: ${totalAttachments} attachments cached`);
               }
 
               return records;
@@ -918,31 +819,10 @@ export class OfflineTemplateService {
       // Template is ready for use immediately, images will cache in background
       const totalImages = collectedVisualAttachments.length + collectedEfeAttachments.length;
       if (totalImages > 0) {
-        console.log(`    🖼️ Starting BACKGROUND image download for ${totalImages} images...`);
         this.downloadImagesInBackground(collectedVisualAttachments, collectedEfeAttachments, serviceId);
       }
 
       // Print final summary
-      console.log('\n╔════════════════════════════════════════════════════════════════╗');
-      console.log('║            📦 TEMPLATE DOWNLOAD COMPLETE                        ║');
-      console.log('╠════════════════════════════════════════════════════════════════╣');
-      console.log(`║  📋 Visual Templates (Structural System):  ${String(downloadSummary.visualTemplates).padStart(5)} templates    ║`);
-      console.log(`║  📋 Visual Dropdown Options (multi-sel):   ${String(downloadSummary.visualDropdownOptions).padStart(5)} options      ║`);
-      console.log(`║  🏠 EFE Templates (Room definitions):      ${String(downloadSummary.efeTemplates).padStart(5)} templates    ║`);
-      console.log(`║  🔍 Service Visuals (existing items):      ${String(downloadSummary.serviceVisuals).padStart(5)} items        ║`);
-      console.log(`║  📸 Visual Attachments (photos):           ${String(downloadSummary.visualAttachments).padStart(5)} photos       ║`);
-      console.log(`║  📐 EFE Rooms:                             ${String(downloadSummary.efeRooms).padStart(5)} rooms        ║`);
-      console.log(`║  📍 EFE Points:                            ${String(downloadSummary.efePoints).padStart(5)} points       ║`);
-      console.log(`║  🖼️ EFE Point Attachments:                 ${String(downloadSummary.efePointAttachments).padStart(5)} photos       ║`);
-      console.log(`║  📝 Service Record:                        ${downloadSummary.serviceRecord ? '  YES' : '   NO'}             ║`);
-      console.log(`║  📝 Project Record:                        ${downloadSummary.projectRecord ? '  YES' : '   NO'}             ║`);
-      console.log(`║  📋 Services_Drop options:                 ${String(downloadSummary.servicesDrop).padStart(5)} options      ║`);
-      console.log(`║  📋 Projects_Drop options:                 ${String(downloadSummary.projectsDrop).padStart(5)} options      ║`);
-      console.log(`║  🏷️ Status options:                        ${String(downloadSummary.statusOptions).padStart(5)} options      ║`);
-      console.log(`║  📋 EFE_Drop (FDF) options:                ${String(downloadSummary.efeDrop).padStart(5)} options      ║`);
-      console.log('╠════════════════════════════════════════════════════════════════╣');
-      console.log('║  ✅ TEMPLATE IS READY FOR OFFLINE USE                           ║');
-      console.log('╚════════════════════════════════════════════════════════════════╝\n');
 
     } catch (error) {
       console.error('╔════════════════════════════════════════════════════════════════╗');
@@ -970,8 +850,6 @@ export class OfflineTemplateService {
     
     // Log database diagnostics for debugging mobile issues
     const diagnostics = await this.indexedDb.getDatabaseDiagnostics();
-    console.log(`    🖼️ Starting image download (platform: ${isNative ? 'mobile' : 'web'}, count: ${attachments.length})`);
-    console.log(`    📊 DB Status: version=${diagnostics.version}, cachedPhotosStore=${diagnostics.hasCachedPhotosStore}, existingPhotos=${diagnostics.cachedPhotosCount}`);
 
     // OPTIMIZATION: Batch check all cached photo IDs upfront (single IndexedDB read)
     const cachedPhotoIds = await this.indexedDb.getAllCachedPhotoIds();
@@ -996,7 +874,6 @@ export class OfflineTemplateService {
       return true;
     });
     
-    console.log(`    📊 Batch cache check: ${skippedCount} already cached, ${toDownload.length} to download`);
     
     // Download only missing images in batches
     for (let i = 0; i < toDownload.length; i += batchSize) {
@@ -1016,7 +893,6 @@ export class OfflineTemplateService {
             await this.indexedDb.cachePhotoPointer(attachId, serviceId, matchingImage.localBlobId, s3Key);
             successCount++;
             if (isNative) {
-              console.log(`    ✅ [Mobile] Cached pointer ${attachId} (Dexie-first)`);
             }
             return;
           }
@@ -1028,7 +904,6 @@ export class OfflineTemplateService {
           successCount++;
 
           if (isNative) {
-            console.log(`    ✅ [Mobile] Cached image ${attachId} (from S3)`);
           }
         } catch (err: any) {
           console.warn(`    ⚠️ Failed to cache image ${attachId}:`, err?.message || err);
@@ -1040,11 +915,9 @@ export class OfflineTemplateService {
       
       // Progress update for large batches
       if (toDownload.length > 10) {
-        console.log(`    📊 Progress: ${Math.min(i + batchSize, toDownload.length)}/${toDownload.length} images (${successCount} new, ${failCount} failed)`);
       }
     }
 
-    console.log(`    📸 Image caching complete: ${successCount} new, ${skippedCount} already cached, ${failCount} failed (platform: ${isNative ? 'mobile' : 'web'})`);
   }
 
   /**
@@ -1062,19 +935,14 @@ export class OfflineTemplateService {
       try {
         // Download visual images
         if (visualAttachments.length > 0) {
-          console.log(`    🖼️ [BG] Downloading ${visualAttachments.length} visual images...`);
           await this.downloadAndCacheImages(visualAttachments, serviceId);
-          console.log(`    ✅ [BG] Visual images cached`);
         }
         
         // Download EFE images
         if (efeAttachments.length > 0) {
-          console.log(`    🖼️ [BG] Downloading ${efeAttachments.length} EFE images...`);
           await this.downloadAndCacheEFEImages(efeAttachments, serviceId);
-          console.log(`    ✅ [BG] EFE images cached`);
         }
         
-        console.log(`    ✅ [BG] All background image downloads complete`);
       } catch (error) {
         console.warn('    ⚠️ [BG] Background image download error:', error);
         // Don't throw - this is background, don't affect user experience
@@ -1148,7 +1016,6 @@ export class OfflineTemplateService {
     const rooms = await firstValueFrom(this.caspioService.getServicesEFE(serviceId));
     summary.efeRooms = rooms?.length || 0;
     await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', rooms);
-    console.log(`    ✅ EFE Rooms: ${summary.efeRooms} rooms cached`);
 
     // Collect all point IDs for attachment download
     const allPointIds: string[] = [];
@@ -1176,9 +1043,7 @@ export class OfflineTemplateService {
 
       const pointCounts = await Promise.all(pointPromises);
       summary.efePoints = pointCounts.reduce((a, b) => a + b, 0);
-      console.log(`    ✅ EFE Points: ${summary.efePoints} points across ${summary.efeRooms} rooms`);
     } else {
-      console.log('    ℹ️ No EFE rooms yet - new template (this is normal)');
     }
 
     // Collect all EFE attachments for BACKGROUND image download (non-blocking)
@@ -1186,7 +1051,6 @@ export class OfflineTemplateService {
 
     // Download attachment RECORDS for all points (but not images yet)
     if (allPointIds.length > 0) {
-      console.log(`    📸 Caching attachments for ${allPointIds.length} points...`);
       
       // Fetch attachments in batches
       const batchSize = 20; // OPTIMIZATION: Increased from 10
@@ -1217,7 +1081,6 @@ export class OfflineTemplateService {
       }
       
       summary.efePointAttachments = totalAttachments;
-      console.log(`    ✅ EFE Point Attachments: ${summary.efePointAttachments} attachment records cached`);
       // NOTE: Image download moved to background (non-blocking) - handled by caller
     }
     
@@ -1239,7 +1102,6 @@ export class OfflineTemplateService {
     let skippedCount = 0;
     const isNative = Capacitor.isNativePlatform();
     
-    console.log(`    🖼️ Starting EFE image download (platform: ${isNative ? 'mobile' : 'web'}, count: ${attachments.length})`);
 
     // OPTIMIZATION: Batch check all cached photo IDs upfront (single IndexedDB read)
     const cachedPhotoIds = await this.indexedDb.getAllCachedPhotoIds();
@@ -1264,7 +1126,6 @@ export class OfflineTemplateService {
       return true;
     });
     
-    console.log(`    📊 EFE batch cache check: ${skippedCount} already cached, ${toDownload.length} to download`);
 
     // Download only missing images in batches
     for (let i = 0; i < toDownload.length; i += batchSize) {
@@ -1284,7 +1145,6 @@ export class OfflineTemplateService {
             await this.indexedDb.cachePhotoPointer(attachId, serviceId, matchingImage.localBlobId, s3Key);
             successCount++;
             if (isNative) {
-              console.log(`    ✅ [Mobile] Cached EFE pointer ${attachId} (Dexie-first)`);
             }
             return;
           }
@@ -1296,7 +1156,6 @@ export class OfflineTemplateService {
           successCount++;
 
           if (isNative) {
-            console.log(`    ✅ [Mobile] Cached EFE image ${attachId} (from S3)`);
           }
         } catch (err: any) {
           console.warn(`    ⚠️ Failed to cache EFE image ${attachId}:`, err?.message || err);
@@ -1308,11 +1167,9 @@ export class OfflineTemplateService {
       
       // Progress update for large batches
       if (toDownload.length > 10) {
-        console.log(`    📊 EFE Progress: ${Math.min(i + batchSize, toDownload.length)}/${toDownload.length} (${successCount} new, ${failCount} failed)`);
       }
     }
 
-    console.log(`    📸 EFE image caching: ${successCount} new, ${skippedCount} already cached, ${failCount} failed (platform: ${isNative ? 'mobile' : 'web'})`);
   }
 
   /**
@@ -1321,57 +1178,43 @@ export class OfflineTemplateService {
    * This prevents overwriting offline changes during template download
    */
   private async safeCacheServiceRecord(serviceId: string, projectId?: string): Promise<void> {
-    console.log(`[OfflineTemplate] safeCacheServiceRecord(${serviceId}) called`);
     try {
       // Check if there are pending OR syncing UPDATE requests for this service
       // Use getAllRequests() to include 'syncing' status (not just 'pending')
       const allRequests = await this.indexedDb.getAllRequests();
-      console.log(`[OfflineTemplate] safeCacheServiceRecord(${serviceId}): found ${allRequests.length} total requests`);
 
       const serviceUpdateRequests = allRequests.filter(r =>
         r.type === 'UPDATE' &&
         r.endpoint.includes('LPS_Services') &&
         r.endpoint.includes(`PK_ID=${serviceId}`)
       );
-      console.log(`[OfflineTemplate] safeCacheServiceRecord(${serviceId}): service update requests:`, serviceUpdateRequests.map(r => ({ status: r.status, data: r.data })));
 
       const hasPendingServiceUpdates = serviceUpdateRequests.some(r =>
         r.status === 'pending' || r.status === 'syncing'
       );
-      console.log(`[OfflineTemplate] safeCacheServiceRecord(${serviceId}): hasPendingServiceUpdates = ${hasPendingServiceUpdates}`);
 
       // Get existing local cache (may have offline changes)
       const existingLocalService = await this.indexedDb.getCachedServiceRecord(serviceId);
-      console.log(`[OfflineTemplate] safeCacheServiceRecord(${serviceId}): existingLocalService =`, existingLocalService ? JSON.stringify(existingLocalService).substring(0, 200) : 'null');
 
       // Fetch fresh data from API - BYPASS localStorage cache to get latest from server
-      console.log(`[OfflineTemplate] safeCacheServiceRecord(${serviceId}): fetching from API...`);
       const apiService = await firstValueFrom(this.caspioService.getService(serviceId, false));
-      console.log(`[OfflineTemplate] safeCacheServiceRecord(${serviceId}): apiService =`, apiService ? JSON.stringify(apiService).substring(0, 200) : 'null');
 
       if (hasPendingServiceUpdates && existingLocalService) {
         // Merge: Start with API data, then overlay local changes
         // This preserves any fields that were updated locally but not yet synced
-        console.log('[OfflineTemplate] Service has pending updates - merging with local changes');
 
         // Extract the pending update data to identify changed fields
         const pendingServiceUpdates = serviceUpdateRequests
           .filter(r => r.status === 'pending' || r.status === 'syncing')
           .reduce((acc, r) => ({ ...acc, ...r.data }), {});
-        console.log(`[OfflineTemplate] safeCacheServiceRecord(${serviceId}): pendingServiceUpdates =`, pendingServiceUpdates);
 
         // Merged service = API base + pending local changes
         const mergedService = { ...apiService, ...pendingServiceUpdates };
-        console.log(`[OfflineTemplate] safeCacheServiceRecord(${serviceId}): mergedService =`, JSON.stringify(mergedService).substring(0, 200));
         await this.indexedDb.cacheServiceRecord(serviceId, mergedService);
-        console.log('[OfflineTemplate] Service record cached (merged with local changes)');
       } else if (apiService) {
         // No pending updates - safe to use API data directly
-        console.log(`[OfflineTemplate] safeCacheServiceRecord(${serviceId}): NO pending updates - caching API data directly`);
         await this.indexedDb.cacheServiceRecord(serviceId, apiService);
-        console.log('[OfflineTemplate] Service record cached');
       } else {
-        console.log(`[OfflineTemplate] safeCacheServiceRecord(${serviceId}): apiService is null - not caching`);
       }
 
       // Also cache the project (same logic)
@@ -1406,7 +1249,6 @@ export class OfflineTemplateService {
 
       if (hasPendingProjectUpdates && existingLocalProject) {
         // Merge API data with pending local changes
-        console.log('[OfflineTemplate] Project has pending updates - merging with local changes');
 
         const pendingProjectUpdates = allRequests
           .filter(r => r.type === 'UPDATE' && (r.status === 'pending' || r.status === 'syncing') && r.endpoint.includes('LPS_Projects') && r.endpoint.includes(`PK_ID=${projectId}`))
@@ -1414,10 +1256,8 @@ export class OfflineTemplateService {
 
         const mergedProject = { ...apiProject, ...pendingProjectUpdates };
         await this.indexedDb.cacheProjectRecord(projectId, mergedProject);
-        console.log('[OfflineTemplate] Project record cached (merged with local changes)');
       } else if (apiProject) {
         await this.indexedDb.cacheProjectRecord(projectId, apiProject);
-        console.log('[OfflineTemplate] Project record cached');
       }
     } catch (err) {
       console.warn('[OfflineTemplate] Could not cache project:', err);
@@ -1436,7 +1276,6 @@ export class OfflineTemplateService {
     // First check the download flag (must be first - early exit)
     const hasDownloadFlag = await this.indexedDb.isTemplateDownloaded(serviceId, templateType);
     if (!hasDownloadFlag) {
-      console.log(`[OfflineTemplate] isTemplateReady(${serviceId}, ${templateType}): No download flag`);
       return false;
     }
 
@@ -1452,47 +1291,40 @@ export class OfflineTemplateService {
 
     // Check visual templates
     if (!visualTemplates || visualTemplates.length === 0) {
-      console.log(`[OfflineTemplate] isTemplateReady: Download flag set but visual templates missing - forcing re-download`);
       await this.indexedDb.removeTemplateDownloadStatus(serviceId, templateType);
       return false;
     }
 
     // Check EFE templates (only for EFE template type)
     if (templateType === 'EFE' && (!efeTemplates || efeTemplates.length === 0)) {
-      console.log(`[OfflineTemplate] isTemplateReady: Download flag set but EFE templates missing - forcing re-download`);
       await this.indexedDb.removeTemplateDownloadStatus(serviceId, templateType);
       return false;
     }
 
     // Check HUD templates (only for HUD template type)
     if (templateType === 'HUD' && (!hudTemplates || hudTemplates.length === 0)) {
-      console.log(`[OfflineTemplate] isTemplateReady: Download flag set but HUD templates missing - forcing re-download`);
       await this.indexedDb.removeTemplateDownloadStatus(serviceId, templateType);
       return false;
     }
 
     // Check LBW templates (only for LBW template type)
     if (templateType === 'LBW' && (!lbwTemplates || lbwTemplates.length === 0)) {
-      console.log(`[OfflineTemplate] isTemplateReady: Download flag set but LBW templates missing - forcing re-download`);
       await this.indexedDb.removeTemplateDownloadStatus(serviceId, templateType);
       return false;
     }
 
     // Check CSA templates (only for CSA template type)
     if (templateType === 'CSA' && (!csaTemplates || csaTemplates.length === 0)) {
-      console.log(`[OfflineTemplate] isTemplateReady: Download flag set but CSA templates missing - forcing re-download`);
       await this.indexedDb.removeTemplateDownloadStatus(serviceId, templateType);
       return false;
     }
 
     // Check service record
     if (!serviceRecord) {
-      console.log(`[OfflineTemplate] isTemplateReady: Download flag set but service record missing - forcing re-download`);
       await this.indexedDb.removeTemplateDownloadStatus(serviceId, templateType);
       return false;
     }
 
-    console.log(`[OfflineTemplate] isTemplateReady(${serviceId}, ${templateType}): ✅ All data verified`);
     return true;
   }
 
@@ -1501,14 +1333,12 @@ export class OfflineTemplateService {
    * Called when template is already cached but we want fresh data
    */
   private async refreshServiceAndProjectRecords(serviceId: string, projectId?: string): Promise<void> {
-    console.log('[OfflineTemplate] Refreshing service/project records from server...');
 
     try {
       // Fetch service record - bypass localStorage cache to get fresh data
       const service = await firstValueFrom(this.caspioService.getService(serviceId, false));
       if (service) {
         await this.indexedDb.cacheServiceRecord(serviceId, service);
-        console.log('[OfflineTemplate] Service record refreshed');
 
         // Also refresh project if we have the ID - bypass cache
         const pId = projectId || service?.ProjectID;
@@ -1516,7 +1346,6 @@ export class OfflineTemplateService {
           const project = await firstValueFrom(this.caspioService.getProject(String(pId), false));
           if (project) {
             await this.indexedDb.cacheProjectRecord(String(pId), project);
-            console.log('[OfflineTemplate] Project record refreshed');
           }
         }
       }
@@ -1564,10 +1393,8 @@ export class OfflineTemplateService {
   async getVisualTemplates(): Promise<any[]> {
     // WEBAPP MODE: Always fetch from API to see synced data from mobile
     if (environment.isWeb) {
-      console.log('[OfflineTemplate] WEBAPP MODE: Fetching visual templates directly from API');
       try {
         const templates = await firstValueFrom(this.caspioService.getServicesVisualsTemplates());
-        console.log(`[OfflineTemplate] WEBAPP: Loaded ${templates?.length || 0} visual templates from server`);
         return templates || [];
       } catch (error) {
         console.error('[OfflineTemplate] WEBAPP: API fetch failed for visual templates:', error);
@@ -1578,18 +1405,15 @@ export class OfflineTemplateService {
     // MOBILE MODE: First try IndexedDB cache
     const cached = await this.indexedDb.getCachedTemplates('visual');
     if (cached && cached.length > 0) {
-      console.log(`[OfflineTemplate] Visual templates from cache: ${cached.length}`);
       return cached;
     }
 
     // Cache empty - try API if online
     if (this.offlineService.isOnline()) {
-      console.log('[OfflineTemplate] Visual templates cache empty, fetching from API...');
       try {
         const templates = await firstValueFrom(this.caspioService.getServicesVisualsTemplates());
         // Cache for future offline use
         await this.indexedDb.cacheTemplates('visual', templates);
-        console.log(`[OfflineTemplate] Visual templates fetched and cached: ${templates.length}`);
         return templates;
       } catch (error) {
         console.error('[OfflineTemplate] Failed to fetch visual templates:', error);
@@ -1609,10 +1433,8 @@ export class OfflineTemplateService {
   async getEFETemplates(): Promise<any[]> {
     // WEBAPP MODE: Always fetch from API to see synced data from mobile
     if (environment.isWeb) {
-      console.log('[OfflineTemplate] WEBAPP MODE: Fetching EFE templates directly from API');
       try {
         const templates = await firstValueFrom(this.caspioService.getServicesEFETemplates());
-        console.log(`[OfflineTemplate] WEBAPP: Loaded ${templates?.length || 0} EFE templates from server`);
         return templates || [];
       } catch (error) {
         console.error('[OfflineTemplate] WEBAPP: API fetch failed for EFE templates:', error);
@@ -1623,18 +1445,15 @@ export class OfflineTemplateService {
     // MOBILE MODE: First try IndexedDB cache
     const cached = await this.indexedDb.getCachedTemplates('efe');
     if (cached && cached.length > 0) {
-      console.log(`[OfflineTemplate] EFE templates from cache: ${cached.length}`);
       return cached;
     }
 
     // Cache empty - try API if online
     if (this.offlineService.isOnline()) {
-      console.log('[OfflineTemplate] EFE templates cache empty, fetching from API...');
       try {
         const templates = await firstValueFrom(this.caspioService.getServicesEFETemplates());
         // Cache for future offline use
         await this.indexedDb.cacheTemplates('efe', templates);
-        console.log(`[OfflineTemplate] EFE templates fetched and cached: ${templates.length}`);
         return templates;
       } catch (error) {
         console.error('[OfflineTemplate] Failed to fetch EFE templates:', error);
@@ -1655,10 +1474,8 @@ export class OfflineTemplateService {
   async getVisualsByService(serviceId: string): Promise<any[]> {
     // WEBAPP MODE: Always fetch from API to see synced data from mobile
     if (environment.isWeb) {
-      console.log(`[OfflineTemplate] WEBAPP MODE: Fetching visuals directly from API for ${serviceId}`);
       try {
         const freshVisuals = await firstValueFrom(this.caspioService.getServicesVisualsByServiceId(serviceId));
-        console.log(`[OfflineTemplate] WEBAPP: Loaded ${freshVisuals?.length || 0} visuals from server`);
         return freshVisuals || [];
       } catch (error) {
         console.error(`[OfflineTemplate] WEBAPP: API fetch failed for visuals:`, error);
@@ -1676,7 +1493,6 @@ export class OfflineTemplateService {
 
     // 3. Return immediately if we have data
     if (merged.length > 0) {
-      console.log(`[OfflineTemplate] Visuals: ${cached.length} cached + ${pending.length} pending (instant)`);
 
       // 4. Background refresh (non-blocking) when online
       if (this.offlineService.isOnline()) {
@@ -1688,7 +1504,6 @@ export class OfflineTemplateService {
     // 5. Cache empty - fetch from API if online (blocking only when no cache)
     if (this.offlineService.isOnline()) {
       try {
-        console.log(`[OfflineTemplate] No cached visuals, fetching from API...`);
         const freshVisuals = await firstValueFrom(this.caspioService.getServicesVisualsByServiceId(serviceId));
         await this.indexedDb.cacheServiceData(serviceId, 'visuals', freshVisuals);
         return [...freshVisuals, ...pending];
@@ -1697,7 +1512,6 @@ export class OfflineTemplateService {
       }
     }
 
-    console.log(`[OfflineTemplate] No visuals available (offline, no cache)`);
     return pending; // Return any pending items at least
   }
 
@@ -1710,18 +1524,10 @@ export class OfflineTemplateService {
   async getHudByService(serviceId: string): Promise<any[]> {
     // WEBAPP MODE: Always fetch fresh from API (bypass cache) to see latest edits
     if (environment.isWeb) {
-      console.log(`[OfflineTemplate] WEBAPP MODE: Fetching HUD records from LPS_Services_HUD where ServiceID=${serviceId} (bypassing cache)`);
       try {
         // Pass bypassCache=true to get fresh data after title/description edits
         const freshHud = await firstValueFrom(this.caspioService.getServicesHUDByServiceId(serviceId, true));
-        console.log(`[OfflineTemplate] WEBAPP: Loaded ${freshHud?.length || 0} HUD records from server`);
         if (freshHud && freshHud.length > 0) {
-          console.log(`[OfflineTemplate] WEBAPP: First HUD record:`, {
-            HUDID: freshHud[0].HUDID,
-            ServiceID: freshHud[0].ServiceID,
-            Name: freshHud[0].Name,
-            Category: freshHud[0].Category
-          });
         }
         return freshHud || [];
       } catch (error) {
@@ -1740,7 +1546,6 @@ export class OfflineTemplateService {
 
     // 3. Return immediately if we have data
     if (merged.length > 0) {
-      console.log(`[OfflineTemplate] HUD: ${cached.length} cached + ${pending.length} pending (instant)`);
 
       // 4. Background refresh (non-blocking) when online
       if (this.offlineService.isOnline()) {
@@ -1752,7 +1557,6 @@ export class OfflineTemplateService {
     // 5. Cache empty - fetch from API if online (blocking only when no cache)
     if (this.offlineService.isOnline()) {
       try {
-        console.log(`[OfflineTemplate] No cached HUD records, fetching from API...`);
         const freshHud = await firstValueFrom(this.caspioService.getServicesHUDByServiceId(serviceId));
         await this.indexedDb.cacheServiceData(serviceId, 'hud', freshHud);
         return [...freshHud, ...pending];
@@ -1762,7 +1566,6 @@ export class OfflineTemplateService {
     }
 
     // 6. Offline with no cache - return pending only
-    console.log(`[OfflineTemplate] Offline with no HUD cache, returning ${pending.length} pending`);
     return pending;
   }
 
@@ -1813,7 +1616,6 @@ export class OfflineTemplateService {
         );
 
         if (pendingHudUpdates.size > 0) {
-          console.log(`[OfflineTemplate] Found ${pendingHudUpdates.size} pending UPDATE requests for HUD:`, [...pendingHudUpdates]);
         }
       } catch (pendingErr) {
         console.warn('[OfflineTemplate] Failed to check pending requests (continuing without):', pendingErr);
@@ -1837,7 +1639,6 @@ export class OfflineTemplateService {
           return; // Preserve cache with local changes
         }
         // No local changes - clear cache (data was deleted on server)
-        console.log(`[OfflineTemplate] API returned empty, no local changes - clearing HUD cache for ${serviceId}`);
         await this.indexedDb.cacheServiceData(serviceId, 'hud', []);
         this.backgroundRefreshComplete$.next({ serviceId, dataType: 'hud' });
         return;
@@ -1849,7 +1650,6 @@ export class OfflineTemplateService {
           console.warn(`[OfflineTemplate] ⚠️ API returned ${freshHud.length} HUD records but cache has ${existingCache.length} with local changes - protecting cache`);
           return; // Preserve cache with local changes
         }
-        console.log(`[OfflineTemplate] API returned ${freshHud.length} HUD records (was ${existingCache.length}), no local changes - updating cache`);
       }
 
       // Build a map of locally updated HUD records that should NOT be overwritten
@@ -1873,7 +1673,6 @@ export class OfflineTemplateService {
           if (vId) localUpdates.set(vId, hud);
           if (tempId) localUpdates.set(tempId, hud);
           const reason = hud._localUpdate ? '_localUpdate flag' : 'pending UPDATE request';
-          console.log(`[OfflineTemplate] Preserving local HUD HUDID=${hudId} PK_ID=${pkId} (${reason}, Notes: ${hud.Notes})`);
         }
       }
 
@@ -1886,7 +1685,6 @@ export class OfflineTemplateService {
         const localVersion = localUpdates.get(hudId) || localUpdates.get(pkId) || localUpdates.get(vId);
         if (localVersion) {
           // Keep local version since it has pending changes not yet on server
-          console.log(`[OfflineTemplate] Keeping local version of HUD HUDID=${hudId} PK_ID=${pkId} with Notes: ${localVersion.Notes}`);
           return localVersion;
         }
         return serverHud;
@@ -1897,7 +1695,6 @@ export class OfflineTemplateService {
       const finalHud = [...mergedHud, ...tempHud];
 
       await this.indexedDb.cacheServiceData(serviceId, 'hud', finalHud);
-      console.log(`[OfflineTemplate] Background HUD refresh: ${freshHud.length} server records, ${localUpdates.size} local updates preserved, ${tempHud.length} temp records for ${serviceId}`);
 
       // Notify pages that fresh data is available
       this.backgroundRefreshComplete$.next({ serviceId, dataType: 'hud' });
@@ -1919,19 +1716,11 @@ export class OfflineTemplateService {
   async getLbwByService(serviceId: string): Promise<any[]> {
     // WEBAPP MODE: Always fetch from API to see synced data from mobile
     if (environment.isWeb) {
-      console.log(`[OfflineTemplate] WEBAPP MODE: Fetching LBW records from LPS_Services_LBW where ServiceID=${serviceId}`);
       try {
         // WEBAPP FIX: Bypass cache to ensure we get fresh data from server
         // This fixes the issue where deleted records still appear due to stale cache
         const freshLbw = await firstValueFrom(this.caspioService.getServicesLBWByServiceId(serviceId, true));
-        console.log(`[OfflineTemplate] WEBAPP: Loaded ${freshLbw?.length || 0} LBW records from server`);
         if (freshLbw && freshLbw.length > 0) {
-          console.log(`[OfflineTemplate] WEBAPP: First LBW record:`, {
-            LBWID: freshLbw[0].LBWID,
-            ServiceID: freshLbw[0].ServiceID,
-            Name: freshLbw[0].Name,
-            Category: freshLbw[0].Category
-          });
         }
         return freshLbw || [];
       } catch (error) {
@@ -1950,7 +1739,6 @@ export class OfflineTemplateService {
 
     // 3. Return immediately if we have data
     if (merged.length > 0) {
-      console.log(`[OfflineTemplate] LBW: ${cached.length} cached + ${pending.length} pending (instant)`);
 
       // 4. Background refresh (non-blocking) when online
       if (this.offlineService.isOnline()) {
@@ -1962,7 +1750,6 @@ export class OfflineTemplateService {
     // 5. Cache empty - fetch from API if online (blocking only when no cache)
     if (this.offlineService.isOnline()) {
       try {
-        console.log(`[OfflineTemplate] No cached LBW records, fetching from API...`);
         const freshLbw = await firstValueFrom(this.caspioService.getServicesLBWByServiceId(serviceId));
         await this.indexedDb.cacheServiceData(serviceId, 'lbw_records', freshLbw);
         return [...freshLbw, ...pending];
@@ -1972,7 +1759,6 @@ export class OfflineTemplateService {
     }
 
     // 6. Offline with no cache - return pending only
-    console.log(`[OfflineTemplate] Offline with no LBW cache, returning ${pending.length} pending`);
     return pending;
   }
 
@@ -2022,7 +1808,6 @@ export class OfflineTemplateService {
         );
 
         if (pendingLbwUpdates.size > 0) {
-          console.log(`[OfflineTemplate] Found ${pendingLbwUpdates.size} pending UPDATE requests for LBW:`, [...pendingLbwUpdates]);
         }
       } catch (pendingErr) {
         console.warn('[OfflineTemplate] Failed to check pending requests (continuing without):', pendingErr);
@@ -2046,7 +1831,6 @@ export class OfflineTemplateService {
           return; // Preserve cache with local changes
         }
         // No local changes - clear cache (data was deleted on server)
-        console.log(`[OfflineTemplate] API returned empty, no local changes - clearing LBW cache for ${serviceId}`);
         await this.indexedDb.cacheServiceData(serviceId, 'lbw_records', []);
         this.backgroundRefreshComplete$.next({ serviceId, dataType: 'lbw_records' });
         return;
@@ -2058,7 +1842,6 @@ export class OfflineTemplateService {
           console.warn(`[OfflineTemplate] ⚠️ API returned ${freshLbw.length} LBW records but cache has ${existingCache.length} with local changes - protecting cache`);
           return; // Preserve cache with local changes
         }
-        console.log(`[OfflineTemplate] API returned ${freshLbw.length} LBW records (was ${existingCache.length}), no local changes - updating cache`);
       }
 
       // Build a map of locally updated LBW records that should NOT be overwritten
@@ -2078,7 +1861,6 @@ export class OfflineTemplateService {
           if (pkId) localUpdates.set(pkId, lbw);
           if (tempId) localUpdates.set(tempId, lbw);
           const reason = lbw._localUpdate ? '_localUpdate flag' : 'pending UPDATE request';
-          console.log(`[OfflineTemplate] Preserving local LBW LBWID=${lbwId} PK_ID=${pkId} (${reason}, Notes: ${lbw.Notes})`);
         }
       }
 
@@ -2090,7 +1872,6 @@ export class OfflineTemplateService {
         const localVersion = localUpdates.get(lbwId) || localUpdates.get(pkId);
         if (localVersion) {
           // Keep local version since it has pending changes not yet on server
-          console.log(`[OfflineTemplate] Keeping local version of LBW LBWID=${lbwId} PK_ID=${pkId} with Notes: ${localVersion.Notes}`);
           return localVersion;
         }
         return serverLbw;
@@ -2101,7 +1882,6 @@ export class OfflineTemplateService {
       const finalLbw = [...mergedLbw, ...tempLbw];
 
       await this.indexedDb.cacheServiceData(serviceId, 'lbw_records', finalLbw);
-      console.log(`[OfflineTemplate] Background LBW refresh: ${freshLbw.length} server records, ${localUpdates.size} local updates preserved, ${tempLbw.length} temp records for ${serviceId}`);
 
       // Notify pages that fresh data is available
       this.backgroundRefreshComplete$.next({ serviceId, dataType: 'lbw_records' });
@@ -2119,10 +1899,8 @@ export class OfflineTemplateService {
   async getLbwTemplates(): Promise<any[]> {
     // WEBAPP MODE: Always fetch from API
     if (environment.isWeb) {
-      console.log('[OfflineTemplate] WEBAPP MODE: Fetching LBW templates directly from API');
       try {
         const templates = await firstValueFrom(this.caspioService.getServicesLBWTemplates());
-        console.log(`[OfflineTemplate] WEBAPP: Loaded ${templates?.length || 0} LBW templates from server`);
         return templates || [];
       } catch (error) {
         console.error('[OfflineTemplate] WEBAPP: API fetch failed for LBW templates:', error);
@@ -2136,7 +1914,6 @@ export class OfflineTemplateService {
 
     // 2. Return immediately if we have data
     if (cached && cached.length > 0) {
-      console.log(`[OfflineTemplate] LBW Templates: ${cached.length} (instant from cache)`);
 
       // 3. Background refresh when online
       if (this.offlineService.isOnline()) {
@@ -2148,10 +1925,8 @@ export class OfflineTemplateService {
     // 4. Cache empty - fetch from API if online (blocking only when no cache)
     if (this.offlineService.isOnline()) {
       try {
-        console.log('[OfflineTemplate] No cached LBW templates, fetching from API...');
         const templates = await firstValueFrom(this.caspioService.getServicesLBWTemplates());
         await this.indexedDb.cacheTemplates('lbw', templates || [], OfflineTemplateService.LBW_TEMPLATE_VERSION);
-        console.log(`[OfflineTemplate] LBW Templates cached: ${templates?.length || 0}`);
         return templates || [];
       } catch (error) {
         console.error('[OfflineTemplate] LBW Templates API fetch failed:', error);
@@ -2159,7 +1934,6 @@ export class OfflineTemplateService {
     }
 
     // 5. Offline with no cache
-    console.log('[OfflineTemplate] No LBW templates available (offline, no cache)');
     return [];
   }
 
@@ -2169,15 +1943,12 @@ export class OfflineTemplateService {
   private refreshLbwTemplatesInBackground(): void {
     const refreshJob = async () => {
       try {
-        console.log('[OfflineTemplate] [BG] Starting LBW template background refresh...');
         const templates = await firstValueFrom(this.caspioService.getServicesLBWTemplates());
         await this.indexedDb.cacheTemplates('lbw', templates || [], OfflineTemplateService.LBW_TEMPLATE_VERSION);
-        console.log(`[OfflineTemplate] [BG] ✅ LBW templates refreshed: ${templates?.length || 0} templates`);
 
         // Also refresh dropdown options
         const dropdown = await firstValueFrom(this.caspioService.getServicesLBWDrop());
         await this.indexedDb.cacheTemplates('lbw_dropdown', dropdown || [], OfflineTemplateService.LBW_TEMPLATE_VERSION);
-        console.log(`[OfflineTemplate] [BG] ✅ LBW dropdown refreshed: ${dropdown?.length || 0} options`);
       } catch (error) {
         console.warn('[OfflineTemplate] [BG] LBW template background refresh failed:', error);
       }
@@ -2192,10 +1963,8 @@ export class OfflineTemplateService {
   async getLbwDropdownOptions(): Promise<any[]> {
     // WEBAPP MODE: Always fetch from API
     if (environment.isWeb) {
-      console.log('[OfflineTemplate] WEBAPP MODE: Fetching LBW dropdown directly from API');
       try {
         const dropdown = await firstValueFrom(this.caspioService.getServicesLBWDrop());
-        console.log(`[OfflineTemplate] WEBAPP: Loaded ${dropdown?.length || 0} LBW dropdown options from server`);
         return dropdown || [];
       } catch (error) {
         console.error('[OfflineTemplate] WEBAPP: API fetch failed for LBW dropdown:', error);
@@ -2207,24 +1976,20 @@ export class OfflineTemplateService {
     const cached = await this.indexedDb.getCachedTemplates('lbw_dropdown');
 
     if (cached && cached.length > 0) {
-      console.log(`[OfflineTemplate] LBW Dropdown: ${cached.length} (instant from cache)`);
       return cached;
     }
 
     // Cache empty - fetch from API if online
     if (this.offlineService.isOnline()) {
       try {
-        console.log('[OfflineTemplate] No cached LBW dropdown, fetching from API...');
         const dropdown = await firstValueFrom(this.caspioService.getServicesLBWDrop());
         await this.indexedDb.cacheTemplates('lbw_dropdown', dropdown || [], OfflineTemplateService.LBW_TEMPLATE_VERSION);
-        console.log(`[OfflineTemplate] LBW Dropdown cached: ${dropdown?.length || 0}`);
         return dropdown || [];
       } catch (error) {
         console.error('[OfflineTemplate] LBW Dropdown API fetch failed:', error);
       }
     }
 
-    console.log('[OfflineTemplate] No LBW dropdown available (offline, no cache)');
     return [];
   }
 
@@ -2245,10 +2010,8 @@ export class OfflineTemplateService {
   async getDteTemplates(): Promise<any[]> {
     // WEBAPP: Network-first with no local caching
     if (environment.isWeb) {
-      console.log('[OfflineTemplate] WEBAPP MODE: Fetching DTE templates directly from API');
       try {
         const templates = await firstValueFrom(this.caspioService.getServicesDTETemplates());
-        console.log(`[OfflineTemplate] WEBAPP: Loaded ${templates?.length || 0} DTE templates from server`);
         return templates || [];
       } catch (error) {
         console.error('[OfflineTemplate] WEBAPP: API fetch failed for DTE templates:', error);
@@ -2261,7 +2024,6 @@ export class OfflineTemplateService {
 
     // Return immediately if we have data
     if (cached && cached.length > 0) {
-      console.log(`[OfflineTemplate] DTE Templates: ${cached.length} (instant from cache)`);
 
       // Background refresh when online
       if (this.offlineService.isOnline()) {
@@ -2273,17 +2035,14 @@ export class OfflineTemplateService {
     // No cache - fetch from API if online (blocking)
     if (this.offlineService.isOnline()) {
       try {
-        console.log('[OfflineTemplate] No cached DTE templates, fetching from API...');
         const templates = await firstValueFrom(this.caspioService.getServicesDTETemplates());
         await this.indexedDb.cacheTemplates('dte', templates || [], OfflineTemplateService.DTE_TEMPLATE_VERSION);
-        console.log(`[OfflineTemplate] DTE Templates cached: ${templates?.length || 0}`);
         return templates || [];
       } catch (error) {
         console.error('[OfflineTemplate] DTE Templates API fetch failed:', error);
       }
     }
 
-    console.log('[OfflineTemplate] No DTE templates available (offline, no cache)');
     return [];
   }
 
@@ -2293,15 +2052,12 @@ export class OfflineTemplateService {
   private refreshDteTemplatesInBackground(): void {
     const refreshJob = async () => {
       try {
-        console.log('[OfflineTemplate] [BG] Starting DTE template background refresh...');
         const templates = await firstValueFrom(this.caspioService.getServicesDTETemplates());
         await this.indexedDb.cacheTemplates('dte', templates || [], OfflineTemplateService.DTE_TEMPLATE_VERSION);
-        console.log(`[OfflineTemplate] [BG] ✅ DTE templates refreshed: ${templates?.length || 0} templates`);
 
         // Also refresh dropdown options
         const dropdown = await firstValueFrom(this.caspioService.getServicesDTEDrop());
         await this.indexedDb.cacheTemplates('dte_dropdown', dropdown || [], OfflineTemplateService.DTE_TEMPLATE_VERSION);
-        console.log(`[OfflineTemplate] [BG] ✅ DTE dropdown refreshed: ${dropdown?.length || 0} options`);
       } catch (error) {
         console.warn('[OfflineTemplate] [BG] DTE template background refresh failed:', error);
       }
@@ -2316,10 +2072,8 @@ export class OfflineTemplateService {
   async getDteDropdownOptions(): Promise<any[]> {
     // WEBAPP: Network-first with no local caching
     if (environment.isWeb) {
-      console.log('[OfflineTemplate] WEBAPP MODE: Fetching DTE dropdown directly from API');
       try {
         const dropdown = await firstValueFrom(this.caspioService.getServicesDTEDrop());
-        console.log(`[OfflineTemplate] WEBAPP: Loaded ${dropdown?.length || 0} DTE dropdown options from server`);
         return dropdown || [];
       } catch (error) {
         console.error('[OfflineTemplate] WEBAPP: API fetch failed for DTE dropdown:', error);
@@ -2331,24 +2085,20 @@ export class OfflineTemplateService {
     const cached = await this.indexedDb.getCachedTemplates('dte_dropdown');
 
     if (cached && cached.length > 0) {
-      console.log(`[OfflineTemplate] DTE Dropdown: ${cached.length} (instant from cache)`);
       return cached;
     }
 
     // No cache - fetch from API if online
     if (this.offlineService.isOnline()) {
       try {
-        console.log('[OfflineTemplate] No cached DTE dropdown, fetching from API...');
         const dropdown = await firstValueFrom(this.caspioService.getServicesDTEDrop());
         await this.indexedDb.cacheTemplates('dte_dropdown', dropdown || [], OfflineTemplateService.DTE_TEMPLATE_VERSION);
-        console.log(`[OfflineTemplate] DTE Dropdown cached: ${dropdown?.length || 0}`);
         return dropdown || [];
       } catch (error) {
         console.error('[OfflineTemplate] DTE Dropdown API fetch failed:', error);
       }
     }
 
-    console.log('[OfflineTemplate] No DTE dropdown available (offline, no cache)');
     return [];
   }
 
@@ -2361,18 +2111,10 @@ export class OfflineTemplateService {
   async getDteByService(serviceId: string): Promise<any[]> {
     // WEBAPP MODE: Always fetch from API to see synced data from mobile
     if (environment.isWeb) {
-      console.log(`[OfflineTemplate] WEBAPP MODE: Fetching DTE records from LPS_Services_DTE where ServiceID=${serviceId}`);
       try {
         // WEBAPP FIX: Bypass cache to ensure we get fresh data from server
         const freshDte = await firstValueFrom(this.caspioService.getServicesDTEByServiceId(serviceId, true));
-        console.log(`[OfflineTemplate] WEBAPP: Loaded ${freshDte?.length || 0} DTE records from server`);
         if (freshDte && freshDte.length > 0) {
-          console.log(`[OfflineTemplate] WEBAPP: First DTE record:`, {
-            DTEID: freshDte[0].DTEID,
-            ServiceID: freshDte[0].ServiceID,
-            Name: freshDte[0].Name,
-            Category: freshDte[0].Category
-          });
         }
         return freshDte || [];
       } catch (error) {
@@ -2391,7 +2133,6 @@ export class OfflineTemplateService {
 
     // 3. Return immediately if we have data
     if (merged.length > 0) {
-      console.log(`[OfflineTemplate] DTE: ${cached.length} cached + ${pending.length} pending (instant)`);
 
       // 4. Background refresh (non-blocking) when online
       if (this.offlineService.isOnline()) {
@@ -2403,7 +2144,6 @@ export class OfflineTemplateService {
     // 5. Cache empty - fetch from API if online (blocking only when no cache)
     if (this.offlineService.isOnline()) {
       try {
-        console.log(`[OfflineTemplate] No cached DTE records, fetching from API...`);
         const freshDte = await firstValueFrom(this.caspioService.getServicesDTEByServiceId(serviceId));
         await this.indexedDb.cacheServiceData(serviceId, 'dte', freshDte);
         return [...freshDte, ...pending];
@@ -2413,7 +2153,6 @@ export class OfflineTemplateService {
     }
 
     // 6. Offline with no cache - return pending only
-    console.log(`[OfflineTemplate] Offline with no DTE cache, returning ${pending.length} pending`);
     return pending;
   }
 
@@ -2463,7 +2202,6 @@ export class OfflineTemplateService {
         );
 
         if (pendingDteUpdates.size > 0) {
-          console.log(`[OfflineTemplate] Found ${pendingDteUpdates.size} pending UPDATE requests for DTE:`, [...pendingDteUpdates]);
         }
       } catch (pendingErr) {
         console.warn('[OfflineTemplate] Failed to check pending requests (continuing without):', pendingErr);
@@ -2487,7 +2225,6 @@ export class OfflineTemplateService {
           return; // Preserve cache with local changes
         }
         // No local changes - clear cache (data was deleted on server)
-        console.log(`[OfflineTemplate] API returned empty, no local changes - clearing DTE cache for ${serviceId}`);
         await this.indexedDb.cacheServiceData(serviceId, 'dte', []);
         this.backgroundRefreshComplete$.next({ serviceId, dataType: 'dte' });
         return;
@@ -2499,7 +2236,6 @@ export class OfflineTemplateService {
           console.warn(`[OfflineTemplate] ⚠️ API returned ${freshDte.length} DTE records but cache has ${existingCache.length} with local changes - protecting cache`);
           return; // Preserve cache with local changes
         }
-        console.log(`[OfflineTemplate] API returned ${freshDte.length} DTE records (was ${existingCache.length}), no local changes - updating cache`);
       }
 
       // Build a map of locally updated DTE records that should NOT be overwritten
@@ -2519,7 +2255,6 @@ export class OfflineTemplateService {
           if (pkId) localUpdates.set(pkId, dte);
           if (tempId) localUpdates.set(tempId, dte);
           const reason = dte._localUpdate ? '_localUpdate flag' : 'pending UPDATE request';
-          console.log(`[OfflineTemplate] Preserving local DTE DTEID=${dteId} PK_ID=${pkId} (${reason}, Notes: ${dte.Notes})`);
         }
       }
 
@@ -2531,7 +2266,6 @@ export class OfflineTemplateService {
         const localVersion = localUpdates.get(dteId) || localUpdates.get(pkId);
         if (localVersion) {
           // Keep local version since it has pending changes not yet on server
-          console.log(`[OfflineTemplate] Keeping local version of DTE DTEID=${dteId} PK_ID=${pkId} with Notes: ${localVersion.Notes}`);
           return localVersion;
         }
         return serverDte;
@@ -2542,7 +2276,6 @@ export class OfflineTemplateService {
       const finalDte = [...mergedDte, ...tempDte];
 
       await this.indexedDb.cacheServiceData(serviceId, 'dte', finalDte);
-      console.log(`[OfflineTemplate] Background DTE refresh: ${freshDte.length} server records, ${localUpdates.size} local updates preserved, ${tempDte.length} temp records for ${serviceId}`);
 
       // Notify pages that fresh data is available
       this.backgroundRefreshComplete$.next({ serviceId, dataType: 'dte' });
@@ -2562,10 +2295,8 @@ export class OfflineTemplateService {
   async getCsaTemplates(): Promise<any[]> {
     // WEBAPP: Network-first with no local caching
     if (environment.isWeb) {
-      console.log('[OfflineTemplate] WEBAPP MODE: Fetching CSA templates directly from API');
       try {
         const templates = await firstValueFrom(this.caspioService.getServicesCSATemplates());
-        console.log(`[OfflineTemplate] WEBAPP: Loaded ${templates?.length || 0} CSA templates from server`);
         return templates || [];
       } catch (error) {
         console.error('[OfflineTemplate] WEBAPP: API fetch failed for CSA templates:', error);
@@ -2578,7 +2309,6 @@ export class OfflineTemplateService {
 
     // Return immediately if we have data
     if (cached && cached.length > 0) {
-      console.log(`[OfflineTemplate] CSA Templates: ${cached.length} (instant from cache)`);
 
       // Background refresh when online
       if (this.offlineService.isOnline()) {
@@ -2590,17 +2320,14 @@ export class OfflineTemplateService {
     // No cache - fetch from API if online (blocking)
     if (this.offlineService.isOnline()) {
       try {
-        console.log('[OfflineTemplate] No cached CSA templates, fetching from API...');
         const templates = await firstValueFrom(this.caspioService.getServicesCSATemplates());
         await this.indexedDb.cacheTemplates('csa', templates || [], OfflineTemplateService.CSA_TEMPLATE_VERSION);
-        console.log(`[OfflineTemplate] CSA Templates cached: ${templates?.length || 0}`);
         return templates || [];
       } catch (error) {
         console.error('[OfflineTemplate] CSA Templates API fetch failed:', error);
       }
     }
 
-    console.log('[OfflineTemplate] No CSA templates available (offline, no cache)');
     return [];
   }
 
@@ -2610,15 +2337,12 @@ export class OfflineTemplateService {
   private refreshCsaTemplatesInBackground(): void {
     const refreshJob = async () => {
       try {
-        console.log('[OfflineTemplate] [BG] Starting CSA template background refresh...');
         const templates = await firstValueFrom(this.caspioService.getServicesCSATemplates());
         await this.indexedDb.cacheTemplates('csa', templates || [], OfflineTemplateService.CSA_TEMPLATE_VERSION);
-        console.log(`[OfflineTemplate] [BG] ✅ CSA templates refreshed: ${templates?.length || 0} templates`);
 
         // Also refresh dropdown options
         const dropdown = await firstValueFrom(this.caspioService.getServicesCSADrop());
         await this.indexedDb.cacheTemplates('csa_dropdown', dropdown || [], OfflineTemplateService.CSA_TEMPLATE_VERSION);
-        console.log(`[OfflineTemplate] [BG] ✅ CSA dropdown refreshed: ${dropdown?.length || 0} options`);
       } catch (error) {
         console.warn('[OfflineTemplate] [BG] CSA template background refresh failed:', error);
       }
@@ -2633,10 +2357,8 @@ export class OfflineTemplateService {
   async getCsaDropdownOptions(): Promise<any[]> {
     // WEBAPP: Network-first with no local caching
     if (environment.isWeb) {
-      console.log('[OfflineTemplate] WEBAPP MODE: Fetching CSA dropdown directly from API');
       try {
         const dropdown = await firstValueFrom(this.caspioService.getServicesCSADrop());
-        console.log(`[OfflineTemplate] WEBAPP: Loaded ${dropdown?.length || 0} CSA dropdown options from server`);
         return dropdown || [];
       } catch (error) {
         console.error('[OfflineTemplate] WEBAPP: API fetch failed for CSA dropdown:', error);
@@ -2648,24 +2370,20 @@ export class OfflineTemplateService {
     const cached = await this.indexedDb.getCachedTemplates('csa_dropdown');
 
     if (cached && cached.length > 0) {
-      console.log(`[OfflineTemplate] CSA Dropdown: ${cached.length} (instant from cache)`);
       return cached;
     }
 
     // No cache - fetch from API if online
     if (this.offlineService.isOnline()) {
       try {
-        console.log('[OfflineTemplate] No cached CSA dropdown, fetching from API...');
         const dropdown = await firstValueFrom(this.caspioService.getServicesCSADrop());
         await this.indexedDb.cacheTemplates('csa_dropdown', dropdown || [], OfflineTemplateService.CSA_TEMPLATE_VERSION);
-        console.log(`[OfflineTemplate] CSA Dropdown cached: ${dropdown?.length || 0}`);
         return dropdown || [];
       } catch (error) {
         console.error('[OfflineTemplate] CSA Dropdown API fetch failed:', error);
       }
     }
 
-    console.log('[OfflineTemplate] No CSA dropdown available (offline, no cache)');
     return [];
   }
 
@@ -2678,18 +2396,10 @@ export class OfflineTemplateService {
   async getCsaByService(serviceId: string): Promise<any[]> {
     // WEBAPP MODE: Always fetch from API to see synced data from mobile
     if (environment.isWeb) {
-      console.log(`[OfflineTemplate] WEBAPP MODE: Fetching CSA records from LPS_Services_CSA where ServiceID=${serviceId}`);
       try {
         // WEBAPP FIX: Bypass cache to ensure we get fresh data from server
         const freshCsa = await firstValueFrom(this.caspioService.getServicesCSAByServiceId(serviceId, true));
-        console.log(`[OfflineTemplate] WEBAPP: Loaded ${freshCsa?.length || 0} CSA records from server`);
         if (freshCsa && freshCsa.length > 0) {
-          console.log(`[OfflineTemplate] WEBAPP: First CSA record:`, {
-            CSAID: freshCsa[0].CSAID,
-            ServiceID: freshCsa[0].ServiceID,
-            Name: freshCsa[0].Name,
-            Category: freshCsa[0].Category
-          });
         }
         return freshCsa || [];
       } catch (error) {
@@ -2708,7 +2418,6 @@ export class OfflineTemplateService {
 
     // 3. Return immediately if we have data
     if (merged.length > 0) {
-      console.log(`[OfflineTemplate] CSA: ${cached.length} cached + ${pending.length} pending (instant)`);
 
       // 4. Background refresh (non-blocking) when online
       if (this.offlineService.isOnline()) {
@@ -2720,7 +2429,6 @@ export class OfflineTemplateService {
     // 5. Cache empty - fetch from API if online (blocking only when no cache)
     if (this.offlineService.isOnline()) {
       try {
-        console.log(`[OfflineTemplate] No cached CSA records, fetching from API...`);
         const freshCsa = await firstValueFrom(this.caspioService.getServicesCSAByServiceId(serviceId));
         await this.indexedDb.cacheServiceData(serviceId, 'csa_records', freshCsa);
         return [...freshCsa, ...pending];
@@ -2730,7 +2438,6 @@ export class OfflineTemplateService {
     }
 
     // 6. Offline with no cache - return pending only
-    console.log(`[OfflineTemplate] Offline with no CSA cache, returning ${pending.length} pending`);
     return pending;
   }
 
@@ -2780,7 +2487,6 @@ export class OfflineTemplateService {
         );
 
         if (pendingCsaUpdates.size > 0) {
-          console.log(`[OfflineTemplate] Found ${pendingCsaUpdates.size} pending UPDATE requests for CSA:`, [...pendingCsaUpdates]);
         }
       } catch (pendingErr) {
         console.warn('[OfflineTemplate] Failed to check pending requests (continuing without):', pendingErr);
@@ -2804,7 +2510,6 @@ export class OfflineTemplateService {
           return; // Preserve cache with local changes
         }
         // No local changes - clear cache (data was deleted on server)
-        console.log(`[OfflineTemplate] API returned empty, no local changes - clearing CSA cache for ${serviceId}`);
         await this.indexedDb.cacheServiceData(serviceId, 'csa_records', []);
         this.backgroundRefreshComplete$.next({ serviceId, dataType: 'dte' }); // Using 'dte' as placeholder since 'csa' not in type
         return;
@@ -2816,7 +2521,6 @@ export class OfflineTemplateService {
           console.warn(`[OfflineTemplate] ⚠️ API returned ${freshCsa.length} CSA records but cache has ${existingCache.length} with local changes - protecting cache`);
           return; // Preserve cache with local changes
         }
-        console.log(`[OfflineTemplate] API returned ${freshCsa.length} CSA records (was ${existingCache.length}), no local changes - updating cache`);
       }
 
       // Build a map of locally updated CSA records that should NOT be overwritten
@@ -2836,7 +2540,6 @@ export class OfflineTemplateService {
           if (pkId) localUpdates.set(pkId, csa);
           if (tempId) localUpdates.set(tempId, csa);
           const reason = csa._localUpdate ? '_localUpdate flag' : 'pending UPDATE request';
-          console.log(`[OfflineTemplate] Preserving local CSA CSAID=${csaId} PK_ID=${pkId} (${reason}, Notes: ${csa.Notes})`);
         }
       }
 
@@ -2848,7 +2551,6 @@ export class OfflineTemplateService {
         const localVersion = localUpdates.get(csaId) || localUpdates.get(pkId);
         if (localVersion) {
           // Keep local version since it has pending changes not yet on server
-          console.log(`[OfflineTemplate] Keeping local version of CSA CSAID=${csaId} PK_ID=${pkId} with Notes: ${localVersion.Notes}`);
           return localVersion;
         }
         return serverCsa;
@@ -2859,7 +2561,6 @@ export class OfflineTemplateService {
       const finalCsa = [...mergedCsa, ...tempCsa];
 
       await this.indexedDb.cacheServiceData(serviceId, 'csa_records', finalCsa);
-      console.log(`[OfflineTemplate] Background CSA refresh: ${freshCsa.length} server records, ${localUpdates.size} local updates preserved, ${tempCsa.length} temp records for ${serviceId}`);
 
       // Notify pages that fresh data is available
       this.backgroundRefreshComplete$.next({ serviceId, dataType: 'dte' }); // Using 'dte' as placeholder
@@ -2880,16 +2581,13 @@ export class OfflineTemplateService {
 
     // Skip for temp IDs - they won't have server data
     if (key.startsWith('temp_')) {
-      console.log(`[OfflineTemplate] Skipping for temp visual ${key}`);
       return [];
     }
 
     // WEBAPP MODE: Always fetch from API to see synced data from mobile
     if (environment.isWeb) {
-      console.log(`[OfflineTemplate] WEBAPP MODE: Fetching attachments directly from API for visual ${key}`);
       try {
         const attachments = await firstValueFrom(this.caspioService.getServiceVisualsAttachByVisualId(key));
-        console.log(`[OfflineTemplate] WEBAPP: Loaded ${attachments?.length || 0} attachments for visual ${key}`);
         return attachments || [];
       } catch (error) {
         console.error(`[OfflineTemplate] WEBAPP: API fetch failed for attachments:`, error);
@@ -2903,7 +2601,6 @@ export class OfflineTemplateService {
 
     // 2. Return immediately if we have data
     if (cached && cached.length > 0) {
-      console.log(`[OfflineTemplate] Attachments for ${key}: ${cached.length} (instant from cache)`);
 
       // 3. Background refresh (non-blocking) when online
       if (this.offlineService.isOnline()) {
@@ -2915,7 +2612,6 @@ export class OfflineTemplateService {
     // 4. Cache empty - fetch from API if online (blocking only when no cache)
     if (this.offlineService.isOnline()) {
       try {
-        console.log(`[OfflineTemplate] No cached attachments for ${key}, fetching from API...`);
         const attachments = await firstValueFrom(this.caspioService.getServiceVisualsAttachByVisualId(key));
         await this.indexedDb.cacheServiceData(key, 'visual_attachments', attachments || []);
         return attachments || [];
@@ -2941,14 +2637,11 @@ export class OfflineTemplateService {
    * 5. If offline and empty: return empty with offline indicator
    */
   async getEFERooms(serviceId: string): Promise<any[]> {
-    console.log(`[OfflineTemplate] getEFERooms(${serviceId}) called`);
 
     // WEBAPP MODE: Always fetch from API to see synced data from mobile
     if (environment.isWeb) {
-      console.log(`[OfflineTemplate] WEBAPP MODE: Fetching EFE rooms directly from API for ${serviceId}`);
       try {
         const freshRooms = await firstValueFrom(this.caspioService.getServicesEFE(serviceId));
-        console.log(`[OfflineTemplate] WEBAPP: Loaded ${freshRooms?.length || 0} EFE rooms from server`);
         return freshRooms || [];
       } catch (error) {
         console.error(`[OfflineTemplate] WEBAPP: API fetch failed for EFE rooms:`, error);
@@ -2959,7 +2652,6 @@ export class OfflineTemplateService {
     // MOBILE MODE: Cache-first pattern
     // 1. Read from cache IMMEDIATELY
     const cached = await this.indexedDb.getCachedServiceData(serviceId, 'efe_rooms') || [];
-    console.log(`[OfflineTemplate] getEFERooms: ${cached.length} rooms in cache`);
 
     // 2. Merge with pending offline rooms
     const pending = await this.indexedDb.getPendingEFEByService(serviceId);
@@ -2973,7 +2665,6 @@ export class OfflineTemplateService {
         _localOnly: true,
         _syncing: true,
       }));
-    console.log(`[OfflineTemplate] getEFERooms: ${pendingRooms.length} pending rooms`);
 
     // CRITICAL FIX: Deduplicate rooms - pending rooms have latest local changes (e.g., FDF selection)
     // and should override cached versions. Use a Map keyed by room identifier to ensure uniqueness.
@@ -2995,7 +2686,6 @@ export class OfflineTemplateService {
 
     // 3. Return immediately if we have data
     if (merged.length > 0) {
-      console.log(`[OfflineTemplate] ✅ EFE Rooms: ${cached.length} cached + ${pendingRooms.length} pending (instant)`);
 
       // Background refresh (non-blocking) when online
       if (this.offlineService.isOnline()) {
@@ -3008,19 +2698,16 @@ export class OfflineTemplateService {
     // This is the first-load scenario where we MUST block until data is available
     if (this.offlineService.isOnline()) {
       try {
-        console.log(`[OfflineTemplate] ⏳ No cached EFE rooms, fetching from API (BLOCKING)...`);
         const freshRooms = await firstValueFrom(this.caspioService.getServicesEFE(serviceId));
 
         // Cache the fetched data
         await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', freshRooms || []);
 
-        console.log(`[OfflineTemplate] ✅ Fetched and cached ${freshRooms?.length || 0} EFE rooms from API`);
         return [...(freshRooms || []), ...pendingRooms];
       } catch (error) {
         console.error(`[OfflineTemplate] ❌ API fetch failed for EFE rooms:`, error);
       }
     } else {
-      console.log(`[OfflineTemplate] ⚠️ Offline and no cached EFE rooms - returning empty`);
     }
 
     // 5. Return pending rooms only (may be empty)
@@ -3038,10 +2725,8 @@ export class OfflineTemplateService {
 
     // WEBAPP MODE: Always fetch from API to see synced data from mobile
     if (environment.isWeb && !isTemp) {
-      console.log(`[OfflineTemplate] WEBAPP MODE: Fetching EFE points directly from API for room ${roomId}`);
       try {
         const freshPoints = await firstValueFrom(this.caspioService.getServicesEFEPoints(roomId));
-        console.log(`[OfflineTemplate] WEBAPP: Loaded ${freshPoints?.length || 0} EFE points from server`);
         return freshPoints || [];
       } catch (error) {
         console.error(`[OfflineTemplate] WEBAPP: API fetch failed for EFE points:`, error);
@@ -3067,7 +2752,6 @@ export class OfflineTemplateService {
 
     // 3. Return immediately if we have data
     if (merged.length > 0) {
-      console.log(`[OfflineTemplate] EFE Points for ${roomId}: ${cached.length} cached + ${pendingPoints.length} pending (instant)`);
 
       // 4. Background refresh (non-blocking) when online - skip for temp rooms
       if (!isTemp && this.offlineService.isOnline()) {
@@ -3079,7 +2763,6 @@ export class OfflineTemplateService {
     // 5. Cache empty - fetch from API if online and not temp (blocking only when no cache)
     if (!isTemp && this.offlineService.isOnline()) {
       try {
-        console.log(`[OfflineTemplate] No cached EFE points for ${roomId}, fetching from API...`);
         const freshPoints = await firstValueFrom(this.caspioService.getServicesEFEPoints(roomId));
         await this.indexedDb.cacheServiceData(roomId, 'efe_points', freshPoints || []);
         return [...(freshPoints || []), ...pendingPoints];
@@ -3105,16 +2788,13 @@ export class OfflineTemplateService {
 
     // Skip for temp point IDs - they won't have server data
     if (key.startsWith('temp_')) {
-      console.log(`[OfflineTemplate] Skipping for temp point ${key}`);
       return [];
     }
 
     // WEBAPP MODE: Always fetch from API to see synced data from mobile
     if (environment.isWeb) {
-      console.log(`[OfflineTemplate] WEBAPP MODE: Fetching EFE attachments directly from API for point ${key}`);
       try {
         const attachments = await firstValueFrom(this.caspioService.getServicesEFEAttachments(key));
-        console.log(`[OfflineTemplate] WEBAPP: Loaded ${attachments?.length || 0} EFE attachments for point ${key}`);
         return attachments || [];
       } catch (error) {
         console.error(`[OfflineTemplate] WEBAPP: API fetch failed for EFE attachments:`, error);
@@ -3128,7 +2808,6 @@ export class OfflineTemplateService {
 
     // 2. Return immediately if we have data
     if (cached && cached.length > 0) {
-      console.log(`[OfflineTemplate] EFE attachments for ${key}: ${cached.length} (instant from cache)`);
 
       // 3. Background refresh (non-blocking) when online
       if (this.offlineService.isOnline()) {
@@ -3140,7 +2819,6 @@ export class OfflineTemplateService {
     // 4. Cache empty - fetch from API if online (blocking only when no cache)
     if (this.offlineService.isOnline()) {
       try {
-        console.log(`[OfflineTemplate] No cached EFE attachments for ${key}, fetching from API...`);
         const attachments = await firstValueFrom(this.caspioService.getServicesEFEAttachments(key));
         await this.indexedDb.cacheServiceData(key, 'efe_point_attachments', attachments || []);
         return attachments || [];
@@ -3158,14 +2836,11 @@ export class OfflineTemplateService {
    * WEBAPP MODE (isWeb=true): Always fetches from API to show synced data from mobile
    */
   async getService(serviceId: string): Promise<any | null> {
-    console.log(`[OfflineTemplate] getService(${serviceId}) called`);
 
     // WEBAPP MODE: Always fetch from API to see synced data from mobile
     if (environment.isWeb) {
-      console.log(`[OfflineTemplate] WEBAPP MODE: Fetching service ${serviceId} directly from API`);
       try {
         const service = await firstValueFrom(this.caspioService.getService(serviceId, false));
-        console.log(`[OfflineTemplate] WEBAPP: Loaded service from server`);
         return service;
       } catch (error) {
         console.error(`[OfflineTemplate] WEBAPP: API fetch failed for service:`, error);
@@ -3175,7 +2850,6 @@ export class OfflineTemplateService {
 
     // MOBILE MODE: Read from IndexedDB cache
     const result = await this.indexedDb.getCachedServiceRecord(serviceId);
-    console.log(`[OfflineTemplate] getService(${serviceId}) returning:`, result ? JSON.stringify(result).substring(0, 200) : 'null');
     return result;
   }
 
@@ -3209,7 +2883,6 @@ export class OfflineTemplateService {
           );
           
           if (pendingVisualUpdates.size > 0) {
-            console.log(`[OfflineTemplate] Found ${pendingVisualUpdates.size} pending UPDATE requests for visuals:`, [...pendingVisualUpdates]);
           }
         } catch (pendingErr) {
           console.warn('[OfflineTemplate] Failed to check pending requests (continuing without):', pendingErr);
@@ -3233,7 +2906,6 @@ export class OfflineTemplateService {
             return; // Preserve cache with local changes
           }
           // No local changes - clear cache (data was deleted on server)
-          console.log(`[OfflineTemplate] API returned empty, no local changes - clearing visuals cache for ${serviceId}`);
           await this.indexedDb.cacheServiceData(serviceId, 'visuals', []);
           this.backgroundRefreshComplete$.next({ serviceId, dataType: 'visuals' });
           return;
@@ -3245,7 +2917,6 @@ export class OfflineTemplateService {
             console.warn(`[OfflineTemplate] ⚠️ API returned ${freshVisuals.length} visuals but cache has ${existingCache.length} with local changes - protecting cache`);
             return; // Preserve cache with local changes
           }
-          console.log(`[OfflineTemplate] API returned ${freshVisuals.length} visuals (was ${existingCache.length}), no local changes - updating cache`);
         }
         
         // Build a map of locally updated visuals that should NOT be overwritten
@@ -3267,7 +2938,6 @@ export class OfflineTemplateService {
             if (vId) localUpdates.set(vId, visual);
             if (tempId) localUpdates.set(tempId, visual);
             const reason = visual._localUpdate ? '_localUpdate flag' : 'pending UPDATE request';
-            console.log(`[OfflineTemplate] Preserving local version PK_ID=${pkId} VisualID=${vId} (${reason}, Notes: ${visual.Notes})`);
           }
         }
         
@@ -3279,7 +2949,6 @@ export class OfflineTemplateService {
           const localVersion = localUpdates.get(pkId) || localUpdates.get(vId);
           if (localVersion) {
             // Keep local version since it has pending changes not yet on server
-            console.log(`[OfflineTemplate] Keeping local version of visual PK_ID=${pkId} with Notes: ${localVersion.Notes}`);
             return localVersion;
           }
           return serverVisual;
@@ -3290,7 +2959,6 @@ export class OfflineTemplateService {
         const finalVisuals = [...mergedVisuals, ...tempVisuals];
         
         await this.indexedDb.cacheServiceData(serviceId, 'visuals', finalVisuals);
-        console.log(`[OfflineTemplate] Background refresh: ${freshVisuals.length} server visuals, ${localUpdates.size} local updates preserved, ${tempVisuals.length} temp visuals for ${serviceId}`);
         
         // Notify pages that fresh data is available
         this.backgroundRefreshComplete$.next({ serviceId, dataType: 'visuals' });
@@ -3327,7 +2995,6 @@ export class OfflineTemplateService {
             return; // Preserve cache with local changes
           }
           // No local changes - clear cache (data was deleted on server)
-          console.log(`[OfflineTemplate] API returned empty, no local changes - clearing attachments cache for visual ${visualId}`);
           await this.indexedDb.cacheServiceData(visualId, 'visual_attachments', []);
           this.backgroundRefreshComplete$.next({ serviceId: visualId, dataType: 'visual_attachments' });
           return;
@@ -3339,7 +3006,6 @@ export class OfflineTemplateService {
             console.warn(`[OfflineTemplate] ⚠️ API returned ${freshAttachments.length} attachments but cache has ${existingCache.length} with local changes - protecting cache`);
             return; // Preserve cache with local changes
           }
-          console.log(`[OfflineTemplate] API returned ${freshAttachments.length} attachments (was ${existingCache.length}), no local changes - updating cache`);
         }
         
         const localUpdates = new Map<string, any>();
@@ -3368,7 +3034,6 @@ export class OfflineTemplateService {
         const finalAttachments = [...mergedAttachments, ...pendingAttachments];
         
         await this.indexedDb.cacheServiceData(visualId, 'visual_attachments', finalAttachments);
-        console.log(`[OfflineTemplate] Background refresh: ${freshAttachments?.length || 0} attachments + ${pendingAttachments.length} pending for visual ${visualId}`);
         
         // Notify pages that fresh data is available
         this.backgroundRefreshComplete$.next({ serviceId: visualId, dataType: 'visual_attachments' });
@@ -3404,7 +3069,6 @@ export class OfflineTemplateService {
             return; // Preserve cache with local changes
           }
           // No local changes - clear cache (data was deleted on server)
-          console.log(`[OfflineTemplate] API returned empty, no local changes - clearing EFE rooms cache for ${serviceId}`);
           await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', []);
           this.backgroundRefreshComplete$.next({ serviceId, dataType: 'efe_rooms' });
           return;
@@ -3416,7 +3080,6 @@ export class OfflineTemplateService {
             console.warn(`[OfflineTemplate] ⚠️ API returned ${freshRooms.length} rooms but cache has ${existingCache.length} with local changes - protecting cache`);
             return; // Preserve cache with local changes
           }
-          console.log(`[OfflineTemplate] API returned ${freshRooms.length} rooms (was ${existingCache.length}), no local changes - updating cache`);
         }
         
         const localUpdates = new Map<string, any>();
@@ -3427,11 +3090,6 @@ export class OfflineTemplateService {
             // Use both EFEID and PK_ID as keys since ID types can vary
             const roomId = String(room.EFEID || room.PK_ID || room._tempId);
             localUpdates.set(roomId, room);
-            console.log(`[OfflineTemplate] Preserving local updates for room ${roomId}:`, {
-              FDF: room.FDF,
-              Location: room.Location,
-              Notes: room.Notes
-            });
           }
         }
         
@@ -3456,14 +3114,12 @@ export class OfflineTemplateService {
             }
             return room;
           });
-          console.log(`[OfflineTemplate] Merged ${localUpdates.size} local updates with server data`);
         }
         
         // Include temp rooms that aren't in the server response yet
         const finalRooms = [...mergedRooms, ...tempRooms];
         
         await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', finalRooms);
-        console.log(`[OfflineTemplate] Background refresh: ${freshRooms?.length || 0} EFE rooms + ${tempRooms.length} temp rooms for ${serviceId}`);
         
         // Notify pages that fresh data is available
         this.backgroundRefreshComplete$.next({ serviceId, dataType: 'efe_rooms' });
@@ -3499,7 +3155,6 @@ export class OfflineTemplateService {
             return; // Preserve cache with local changes
           }
           // No local changes - clear cache (data was deleted on server)
-          console.log(`[OfflineTemplate] API returned empty, no local changes - clearing EFE points cache for room ${roomId}`);
           await this.indexedDb.cacheServiceData(roomId, 'efe_points', []);
           this.backgroundRefreshComplete$.next({ serviceId: roomId, dataType: 'efe_points' });
           return;
@@ -3511,7 +3166,6 @@ export class OfflineTemplateService {
             console.warn(`[OfflineTemplate] ⚠️ API returned ${freshPoints.length} points but cache has ${existingCache.length} with local changes - protecting cache`);
             return; // Preserve cache with local changes
           }
-          console.log(`[OfflineTemplate] API returned ${freshPoints.length} points (was ${existingCache.length}), no local changes - updating cache`);
         }
         
         const localUpdates = new Map<string, any>();
@@ -3542,14 +3196,12 @@ export class OfflineTemplateService {
             }
             return point;
           });
-          console.log(`[OfflineTemplate] Merged ${localUpdates.size} local point updates with server data`);
         }
         
         // Include temp points that aren't in the server response yet
         const finalPoints = [...mergedPoints, ...tempPoints];
         
         await this.indexedDb.cacheServiceData(roomId, 'efe_points', finalPoints);
-        console.log(`[OfflineTemplate] Background refresh: ${freshPoints?.length || 0} EFE points + ${tempPoints.length} temp points for room ${roomId}`);
         
         // Notify pages that fresh data is available
         this.backgroundRefreshComplete$.next({ serviceId: roomId, dataType: 'efe_points' });
@@ -3585,7 +3237,6 @@ export class OfflineTemplateService {
             return; // Preserve cache with local changes
           }
           // No local changes - clear cache (data was deleted on server)
-          console.log(`[OfflineTemplate] API returned empty, no local changes - clearing EFE attachments cache for point ${pointId}`);
           await this.indexedDb.cacheServiceData(pointId, 'efe_point_attachments', []);
           this.backgroundRefreshComplete$.next({ serviceId: pointId, dataType: 'efe_point_attachments' });
           return;
@@ -3597,7 +3248,6 @@ export class OfflineTemplateService {
             console.warn(`[OfflineTemplate] ⚠️ API returned ${freshAttachments.length} EFE attachments but cache has ${existingCache.length} with local changes - protecting cache`);
             return; // Preserve cache with local changes
           }
-          console.log(`[OfflineTemplate] API returned ${freshAttachments.length} EFE attachments (was ${existingCache.length}), no local changes - updating cache`);
         }
         
         const localUpdates = new Map<string, any>();
@@ -3626,7 +3276,6 @@ export class OfflineTemplateService {
         const finalAttachments = [...mergedAttachments, ...pendingAttachments];
         
         await this.indexedDb.cacheServiceData(pointId, 'efe_point_attachments', finalAttachments);
-        console.log(`[OfflineTemplate] Background refresh: ${freshAttachments?.length || 0} EFE attachments + ${pendingAttachments.length} pending for point ${pointId}`);
         
         // Notify pages that fresh data is available
         this.backgroundRefreshComplete$.next({ serviceId: pointId, dataType: 'efe_point_attachments' });
@@ -3702,7 +3351,6 @@ export class OfflineTemplateService {
     const existingVisuals = await this.indexedDb.getCachedServiceData(serviceId, 'visuals') || [];
     await this.indexedDb.cacheServiceData(serviceId, 'visuals', [...existingVisuals, visual]);
 
-    console.log(`[OfflineTemplate] Created visual ${tempId} (pending sync)`);
     return visual;
   }
 
@@ -3719,7 +3367,6 @@ export class OfflineTemplateService {
       if (!updated) {
         // No pending request found - visual may have been synced already
         // Look up the real VisualID from cached visuals
-        console.log(`[OfflineTemplate] No pending request for temp ID ${visualId}, looking up real VisualID...`);
 
         let realVisualId: string | null = null;
 
@@ -3729,10 +3376,8 @@ export class OfflineTemplateService {
 
         if (matchingVisual && matchingVisual.VisualID && !String(matchingVisual.VisualID).startsWith('temp_')) {
           realVisualId = matchingVisual.VisualID;
-          console.log(`[OfflineTemplate] Found real VisualID ${realVisualId} from cache _tempId match`);
         } else if (matchingVisual && matchingVisual.PK_ID && !String(matchingVisual.PK_ID).startsWith('temp_')) {
           realVisualId = matchingVisual.PK_ID;
-          console.log(`[OfflineTemplate] Found real PK_ID ${realVisualId} from cache _tempId match`);
         }
 
         // Fallback: Check visualFields table (Dexie) for real visualId
@@ -3749,7 +3394,6 @@ export class OfflineTemplateService {
 
             if (fieldWithTempId?.visualId && !String(fieldWithTempId.visualId).startsWith('temp_')) {
               realVisualId = fieldWithTempId.visualId;
-              console.log(`[OfflineTemplate] Found real visualId ${realVisualId} from visualFields table`);
             } else if (fieldWithTempId) {
               // No real visualId stored - look up by templateId + category in cached visuals
               const visualByTemplate = cachedVisuals.find((v: any) =>
@@ -3760,7 +3404,6 @@ export class OfflineTemplateService {
 
               if (visualByTemplate) {
                 realVisualId = visualByTemplate.VisualID || visualByTemplate.PK_ID;
-                console.log(`[OfflineTemplate] Found real visualId ${realVisualId} by template match`);
 
                 // Update the visualField with the real ID for future lookups
                 if (fieldWithTempId.id) {
@@ -3787,7 +3430,6 @@ export class OfflineTemplateService {
             status: 'pending',
             priority: 'normal',
           });
-          console.log('[OfflineTemplate] Queued visual update for synced VisualID:', realVisualId);
         } else {
           console.warn(`[OfflineTemplate] ⚠️ Could not find real VisualID for temp ID ${visualId} - visual may not have synced yet`);
         }
@@ -3804,7 +3446,6 @@ export class OfflineTemplateService {
         status: 'pending',
         priority: 'normal',
       });
-      console.log('[OfflineTemplate] Queued visual update for VisualID:', visualId);
     }
 
     // Update local cache with _localUpdate flag to preserve during background refresh
@@ -3818,7 +3459,6 @@ export class OfflineTemplateService {
       
       if (pkMatch || visualIdMatch || tempMatch) {
         matchFound = true;
-        console.log(`[OfflineTemplate] Updating visual in cache: PK_ID=${v.PK_ID}, VisualID=${v.VisualID}, updates=`, updates);
         // Add _localUpdate flag so background refresh won't overwrite
         return { ...v, ...updates, _localUpdate: true };
       }
@@ -3832,7 +3472,6 @@ export class OfflineTemplateService {
     
     await this.indexedDb.cacheServiceData(serviceId, 'visuals', updatedVisuals);
 
-    console.log(`[OfflineTemplate] Updated visual ${visualId} with _localUpdate flag (pending sync), matchFound=${matchFound}`);
   }
 
   /**
@@ -3879,7 +3518,6 @@ export class OfflineTemplateService {
     const existingRooms = await this.indexedDb.getCachedServiceData(serviceId, 'efe_rooms') || [];
     await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', [...existingRooms, room]);
 
-    console.log(`[OfflineTemplate] Created EFE room ${tempId} (pending sync)`);
     return room;
   }
 
@@ -3918,7 +3556,6 @@ export class OfflineTemplateService {
       const roomRequest = [...pending, ...allRequests].find(r => r.tempId === roomId);
       if (roomRequest) {
         dependencies = [roomRequest.requestId];
-        console.log(`[OfflineTemplate] Point ${tempId} depends on room request ${roomRequest.requestId}`);
       } else {
         console.warn(`[OfflineTemplate] Room request not found for ${roomId}, point may sync before room!`);
       }
@@ -3944,7 +3581,6 @@ export class OfflineTemplateService {
     const existingPoints = await this.indexedDb.getCachedServiceData(cacheKey, 'efe_points') || [];
     await this.indexedDb.cacheServiceData(cacheKey, 'efe_points', [...existingPoints, point]);
 
-    console.log(`[OfflineTemplate] Created EFE point ${tempId} for room ${roomId} (deps: ${dependencies.length > 0 ? dependencies[0] : 'none'})`);
     return point;
   }
 
@@ -3952,7 +3588,6 @@ export class OfflineTemplateService {
    * Update service record - saves to IndexedDB and queues for sync
    */
   async updateService(serviceId: string, updates: any): Promise<void> {
-    console.log(`[OfflineTemplate] updateService(${serviceId}) called with updates:`, updates);
 
     // Queue the update - serviceId param is actually PK_ID from route
     await this.indexedDb.addPendingRequest({
@@ -3964,20 +3599,16 @@ export class OfflineTemplateService {
       status: 'pending',
       priority: 'normal',
     });
-    console.log(`[OfflineTemplate] updateService(${serviceId}): pending request added`);
 
     // Update local cache - ALWAYS update, even if no existing record
     const existingService = await this.indexedDb.getCachedServiceRecord(serviceId);
-    console.log(`[OfflineTemplate] updateService(${serviceId}): existingService =`, existingService ? JSON.stringify(existingService).substring(0, 200) : 'null');
 
     const updatedService = existingService
       ? { ...existingService, ...updates }
       : { PK_ID: serviceId, ...updates };
-    console.log(`[OfflineTemplate] updateService(${serviceId}): updatedService =`, JSON.stringify(updatedService).substring(0, 200));
 
     await this.indexedDb.cacheServiceRecord(serviceId, updatedService);
 
-    console.log(`[OfflineTemplate] updateService(${serviceId}): DONE - service cached`);
   }
 
   /**
@@ -4002,7 +3633,6 @@ export class OfflineTemplateService {
       : { PK_ID: projectId, ...updates };
     await this.indexedDb.cacheProjectRecord(projectId, updatedProject);
 
-    console.log(`[OfflineTemplate] Updated project ${projectId} (pending sync)`);
   }
 
   /**
@@ -4013,10 +3643,8 @@ export class OfflineTemplateService {
   async getProject(projectId: string): Promise<any | null> {
     // WEBAPP MODE: Always fetch from API to see synced data from mobile
     if (environment.isWeb) {
-      console.log(`[OfflineTemplate] WEBAPP MODE: Fetching project ${projectId} directly from API`);
       try {
         const project = await firstValueFrom(this.caspioService.getProject(projectId, false));
-        console.log(`[OfflineTemplate] WEBAPP: Loaded project from server`);
         return project;
       } catch (error) {
         console.error(`[OfflineTemplate] WEBAPP: API fetch failed for project:`, error);
@@ -4041,10 +3669,8 @@ export class OfflineTemplateService {
   async getServicesDrop(): Promise<any[]> {
     // WEBAPP MODE: Always fetch from API
     if (environment.isWeb) {
-      console.log('[OfflineTemplate] WEBAPP MODE: Fetching Services_Drop directly from API');
       try {
         const data = await firstValueFrom(this.caspioService.getServicesDrop());
-        console.log('[OfflineTemplate] WEBAPP: Loaded Services_Drop from server:', data?.length || 0);
         return data || [];
       } catch (error) {
         console.error('[OfflineTemplate] WEBAPP: API fetch failed for Services_Drop:', error);
@@ -4055,7 +3681,6 @@ export class OfflineTemplateService {
     // MOBILE MODE: Try IndexedDB first
     const cached = await this.indexedDb.getCachedGlobalData('services_drop');
     if (cached && cached.length > 0) {
-      console.log('[OfflineTemplate] Loaded Services_Drop from cache:', cached.length);
       return cached;
     }
 
@@ -4064,7 +3689,6 @@ export class OfflineTemplateService {
       try {
         const data = await firstValueFrom(this.caspioService.getServicesDrop());
         await this.indexedDb.cacheGlobalData('services_drop', data);
-        console.log('[OfflineTemplate] Fetched and cached Services_Drop:', data.length);
         return data;
       } catch (error) {
         console.error('[OfflineTemplate] Failed to fetch Services_Drop:', error);
@@ -4084,10 +3708,8 @@ export class OfflineTemplateService {
   async getProjectsDrop(): Promise<any[]> {
     // WEBAPP MODE: Always fetch from API
     if (environment.isWeb) {
-      console.log('[OfflineTemplate] WEBAPP MODE: Fetching Projects_Drop directly from API');
       try {
         const data = await firstValueFrom(this.caspioService.getProjectsDrop());
-        console.log('[OfflineTemplate] WEBAPP: Loaded Projects_Drop from server:', data?.length || 0);
         return data || [];
       } catch (error) {
         console.error('[OfflineTemplate] WEBAPP: API fetch failed for Projects_Drop:', error);
@@ -4098,7 +3720,6 @@ export class OfflineTemplateService {
     // MOBILE MODE: Try IndexedDB first
     const cached = await this.indexedDb.getCachedGlobalData('projects_drop');
     if (cached && cached.length > 0) {
-      console.log('[OfflineTemplate] Loaded Projects_Drop from cache:', cached.length);
       return cached;
     }
 
@@ -4107,7 +3728,6 @@ export class OfflineTemplateService {
       try {
         const data = await firstValueFrom(this.caspioService.getProjectsDrop());
         await this.indexedDb.cacheGlobalData('projects_drop', data);
-        console.log('[OfflineTemplate] Fetched and cached Projects_Drop:', data.length);
         return data;
       } catch (error) {
         console.error('[OfflineTemplate] Failed to fetch Projects_Drop:', error);
@@ -4126,7 +3746,6 @@ export class OfflineTemplateService {
     // Try IndexedDB first
     const cached = await this.indexedDb.getCachedGlobalData('status');
     if (cached && cached.length > 0) {
-      console.log('[OfflineTemplate] Loaded Status options from cache:', cached.length);
       return cached;
     }
 
@@ -4136,7 +3755,6 @@ export class OfflineTemplateService {
         const response: any = await firstValueFrom(this.caspioService.get('/tables/LPS_Status/records'));
         const data = response?.Result || [];
         await this.indexedDb.cacheGlobalData('status', data);
-        console.log('[OfflineTemplate] Fetched and cached Status options:', data.length);
         return data;
       } catch (error) {
         console.error('[OfflineTemplate] Failed to fetch Status options:', error);
@@ -4154,7 +3772,6 @@ export class OfflineTemplateService {
     // Try IndexedDB first
     const cached = await this.indexedDb.getCachedGlobalData('efe_drop');
     if (cached && cached.length > 0) {
-      console.log('[OfflineTemplate] Loaded EFE_Drop options from cache:', cached.length);
       return cached;
     }
 
@@ -4163,7 +3780,6 @@ export class OfflineTemplateService {
       try {
         const data = await firstValueFrom(this.caspioService.getServicesEFEDrop());
         await this.indexedDb.cacheGlobalData('efe_drop', data);
-        console.log('[OfflineTemplate] Fetched and cached EFE_Drop options:', data?.length || 0);
         return data || [];
       } catch (error) {
         console.error('[OfflineTemplate] Failed to fetch EFE_Drop options:', error);
@@ -4202,7 +3818,6 @@ export class OfflineTemplateService {
     // Store mapping for dependent items (photos)
     await this.indexedDb.mapTempId(tempId, realId, 'visual');
 
-    console.log(`[OfflineTemplate] Visual synced: ${tempId} → ${realId}`);
   }
 
   /**
@@ -4232,7 +3847,6 @@ export class OfflineTemplateService {
     // Store mapping for dependent items (points)
     await this.indexedDb.mapTempId(tempId, realId, 'efe_room');
 
-    console.log(`[OfflineTemplate] EFE Room synced: ${tempId} → ${realId}`);
   }
 
   /**
@@ -4240,11 +3854,9 @@ export class OfflineTemplateService {
    */
   async refreshFromServer(serviceId: string): Promise<void> {
     if (!this.offlineService.isOnline()) {
-      console.log('[OfflineTemplate] Cannot refresh - offline');
       return;
     }
 
-    console.log('[OfflineTemplate] Refreshing cache from server...');
 
     try {
       // Re-download all data
@@ -4258,7 +3870,6 @@ export class OfflineTemplateService {
         this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', rooms),
       ]);
 
-      console.log('[OfflineTemplate] Cache refreshed from server');
     } catch (error) {
       console.error('[OfflineTemplate] Error refreshing cache:', error);
     }

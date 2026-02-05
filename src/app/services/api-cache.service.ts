@@ -136,14 +136,12 @@ export class ApiCacheService {
 
     // Case 1: Fresh cache hit - return immediately
     if (entry && now < entry.staleAt) {
-      console.log(`[ApiCache] 🟢 Fresh cache hit: ${cacheKey}`);
       this.incrementStats('hits');
       return of(entry.data);
     }
 
     // Case 2: Stale cache hit - return cached, revalidate in background
     if (entry && now < entry.expiresAt && !entry.isRevalidating) {
-      console.log(`[ApiCache] 🟡 Stale cache hit, revalidating: ${cacheKey}`);
       this.incrementStats('hits');
       this.incrementStats('revalidations');
 
@@ -157,7 +155,6 @@ export class ApiCacheService {
     }
 
     // Case 3: Expired or no cache - fetch with deduplication
-    console.log(`[ApiCache] 🔴 Cache miss: ${cacheKey}`);
     this.incrementStats('misses');
 
     return this.fetchWithDeduplication(cacheKey, requestFn, options);
@@ -177,7 +174,6 @@ export class ApiCacheService {
 
     // If identical request is in flight within dedup window, share it
     if (existing && (now - existing.timestamp) < this.DEDUP_WINDOW) {
-      console.log(`[ApiCache] 🔄 Deduplicating request: ${cacheKey}`);
       return existing.observable;
     }
 
@@ -214,7 +210,6 @@ export class ApiCacheService {
   ): void {
     requestFn().subscribe({
       next: (data) => {
-        console.log(`[ApiCache] ✅ Background revalidation complete: ${cacheKey}`);
         this.setCache(cacheKey, data, options);
 
         // Notify subscribers of cache update
@@ -288,7 +283,6 @@ export class ApiCacheService {
   invalidate(cacheKey: string): void {
     if (!environment.isWeb) return;
 
-    console.log(`[ApiCache] ❌ Invalidating: ${cacheKey}`);
     this.cache.delete(cacheKey);
     this.removeFromLocalStorage(cacheKey);
     this.inFlightRequests.delete(cacheKey);
@@ -301,7 +295,6 @@ export class ApiCacheService {
   invalidatePattern(pattern: string): void {
     if (!environment.isWeb) return;
 
-    console.log(`[ApiCache] ❌ Invalidating pattern: ${pattern}`);
 
     // Invalidate memory cache
     const keysToDelete: string[] = [];
@@ -322,7 +315,6 @@ export class ApiCacheService {
       }
     });
 
-    console.log(`[ApiCache] Invalidated ${keysToDelete.length} entries`);
   }
 
   /**
@@ -346,7 +338,6 @@ export class ApiCacheService {
   clearAll(): void {
     if (!environment.isWeb) return;
 
-    console.log('[ApiCache] 🗑️ Clearing all cache');
     this.cache.clear();
     this.inFlightRequests.clear();
     this.clearLocalStorageCache();
@@ -368,7 +359,6 @@ export class ApiCacheService {
     const key = `${entityType}::${entityId}`;
     const newVersion = (this.entityVersions.get(key) || 0) + 1;
     this.entityVersions.set(key, newVersion);
-    console.log(`[ApiCache] 📈 Entity version incremented: ${key} → ${newVersion}`);
   }
 
   // ==========================================
@@ -419,7 +409,6 @@ export class ApiCacheService {
         }
       });
 
-      console.log(`[ApiCache] Loaded ${this.cache.size} entries from localStorage`);
     } catch (e) {
       console.warn('[ApiCache] Failed to load from localStorage:', e);
     }

@@ -57,7 +57,6 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
     if (parentParams) {
       this.projectId = parentParams['projectId'] || '';
       this.serviceId = parentParams['serviceId'] || '';
-      console.log('[StructuralHub] Got params from snapshot:', this.projectId, this.serviceId);
 
       if (this.projectId && this.serviceId) {
         this.loadData();
@@ -73,7 +72,6 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
       if (newProjectId !== this.projectId || newServiceId !== this.serviceId) {
         this.projectId = newProjectId;
         this.serviceId = newServiceId;
-        console.log('[StructuralHub] ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
 
         if (this.projectId && this.serviceId) {
           this.loadData();
@@ -92,7 +90,6 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
    * DEXIE-FIRST: liveQuery handles reactive updates, no manual reload needed
    */
   async ionViewWillEnter() {
-    console.log('[StructuralHub] ionViewWillEnter - liveQuery handles counts automatically');
 
     // Ensure liveQuery subscription is active (may have been cleaned up)
     if (this.initialLoadComplete && this.serviceId && !this.visualFieldsSubscription) {
@@ -111,11 +108,9 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
   }
 
   private async loadData() {
-    console.log('[StructuralHub] loadData() starting...');
 
     // WEBAPP MODE: Load from API to see synced data from mobile
     if (environment.isWeb) {
-      console.log('[StructuralHub] WEBAPP MODE: Loading data from API');
       await this.loadDataFromAPI();
       return;
     }
@@ -130,7 +125,6 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
     this.loading = false;
     this.isOnline = this.offlineService.isOnline();
     this.changeDetectorRef.detectChanges();
-    console.log('[StructuralHub] ✅ Loading set to false immediately');
 
     // Read templates and service data (these are fast IndexedDB reads)
     const [templates, cachedService] = await Promise.all([
@@ -145,7 +139,6 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
 
     if (cachedService) {
       this.serviceData = cachedService;
-      console.log('[StructuralHub] ✅ Service loaded from cache');
     }
 
     // Extract categories from templates (pure CPU operation)
@@ -155,7 +148,6 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
 
     this.initialLoadComplete = true;
     this.changeDetectorRef.detectChanges();
-    console.log('[StructuralHub] ✅ Data loaded');
 
     // DEXIE-FIRST: Subscribe to liveQuery for reactive count updates
     // This automatically updates counts when visualFields change
@@ -189,7 +181,6 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
   private extractCategoriesFromTemplates() {
     // Filter for visual templates (TypeID=1)
     const visualTemplates = this.cachedTemplates.filter((t: any) => t.TypeID === 1);
-    console.log('[StructuralHub] ✅ Visual templates:', visualTemplates.length);
 
     // Extract unique categories - pure CPU operation, instant
     const categoriesSet = new Set<string>();
@@ -211,7 +202,6 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
     }));
 
     this.isEmpty = this.categories.length === 0;
-    console.log('[StructuralHub] ✅ Categories extracted:', this.categories.length);
   }
 
   /**
@@ -240,7 +230,6 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
         // Guard against processing after destruction
         if (this.isDestroyed) return;
 
-        console.log('[StructuralHub] DEXIE-FIRST: liveQuery update -', visualFields.length, 'fields');
 
         // Calculate counts per category from visualFields
         const counts: { [category: string]: { comments: number; limitations: number; deficiencies: number } } = {};
@@ -304,9 +293,7 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
 
       // Set service data (contains StructStat field for "Where will you provide visuals")
       this.serviceData = serviceData || {};
-      console.log(`[StructuralHub] WEBAPP: Loaded serviceData, StructStat=${this.serviceData.StructStat}`);
 
-      console.log(`[StructuralHub] WEBAPP: Loaded ${templates?.length || 0} templates, ${visuals?.length || 0} visuals from API`);
 
       // Filter for visual templates (TypeID=1)
       const visualTemplates = (templates || []).filter((t: any) => t.TypeID === 1);
@@ -354,7 +341,6 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
       this.isEmpty = this.categories.length === 0;
       this.hasPendingSync = false;
 
-      console.log(`[StructuralHub] WEBAPP: ${this.categories.length} categories loaded`);
     } catch (error) {
       console.error('[StructuralHub] WEBAPP: Error loading data:', error);
     } finally {
@@ -414,7 +400,6 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
       return;
     }
 
-    console.log(`[StructuralHub] Saving service field ${fieldName}:`, value);
 
     const updateData = { [fieldName]: value };
 
@@ -422,11 +407,9 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
       if (environment.isWeb) {
         // WEBAPP: Direct API call
         await this.caspioService.updateService(this.serviceId, updateData).toPromise();
-        console.log(`[StructuralHub] WEBAPP: Successfully saved ${fieldName} to API`);
       } else {
         // MOBILE: Use OfflineTemplateService to save to IndexedDB and queue for sync
         await this.offlineTemplate.updateService(this.serviceId, updateData);
-        console.log(`[StructuralHub] MOBILE: Successfully saved ${fieldName} to IndexedDB`);
       }
     } catch (error) {
       console.error(`[StructuralHub] Error saving ${fieldName}:`, error);

@@ -153,7 +153,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     this.configSubscription = this.templateConfigService.config$.subscribe(config => {
       if (config) {
         this.config = config;
-        console.log(`[GenericVisualDetail] Config loaded for template: ${config.id}`);
       }
     });
 
@@ -167,7 +166,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       this.changeDetectorRef.detectChanges();
     } else {
       if (this.serviceId && this.templateId) {
-        console.log('[GenericVisualDetail] ionViewWillEnter MOBILE: Reloading data');
         this.loadVisualData();
       }
     }
@@ -224,11 +222,9 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     const rawCategory = categoryParams?.['category'] || '';
     this.categoryName = rawCategory ? decodeURIComponent(rawCategory) : '';
     this.routeCategory = this.categoryName;
-    console.log('[GenericVisualDetail] Category from route:', rawCategory, '-> decoded:', this.categoryName);
 
     // Get project/service IDs from container
     let containerParams = this.route.parent?.parent?.snapshot?.params;
-    console.log('[GenericVisualDetail] Container params (p.p):', containerParams);
 
     if (containerParams) {
       this.projectId = containerParams['projectId'] || '';
@@ -238,7 +234,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     // Fallback: Try one more level up
     if (!this.projectId || !this.serviceId) {
       containerParams = this.route.parent?.parent?.parent?.snapshot?.params;
-      console.log('[GenericVisualDetail] Container params (p.p.p):', containerParams);
       if (containerParams) {
         this.projectId = this.projectId || containerParams['projectId'] || '';
         this.serviceId = this.serviceId || containerParams['serviceId'] || '';
@@ -252,22 +247,17 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
     if (queryParams[visualIdParamName]) {
       this.visualId = queryParams[visualIdParamName];
-      console.log(`[GenericVisualDetail] ${visualIdParamName} from query params:`, this.visualId);
     }
 
     // Get actualServiceId from query params
     if (queryParams['actualServiceId']) {
       this.actualServiceId = queryParams['actualServiceId'];
-      console.log('[GenericVisualDetail] actualServiceId from query params:', this.actualServiceId);
     }
 
-    console.log('[GenericVisualDetail] Final values - Template:', this.config?.id, 'Category:', this.categoryName,
-      'ProjectId:', this.projectId, 'ServiceId:', this.serviceId, 'VisualId:', this.visualId);
 
     // Subscribe to templateId changes
     this.routeSubscription = this.route.params.subscribe(params => {
       this.templateId = parseInt(params['templateId'], 10);
-      console.log('[GenericVisualDetail] TemplateId from route:', this.templateId);
       this.loadVisualData();
     });
   }
@@ -284,11 +274,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     // This prevents the "Visual item not found" flash
     this.loading = true;
 
-    console.log('[GenericVisualDetail] ========== loadVisualData START ==========');
-    console.log('[GenericVisualDetail] Template:', this.config.id);
-    console.log('[GenericVisualDetail] serviceId:', this.serviceId);
-    console.log('[GenericVisualDetail] templateId:', this.templateId);
-    console.log('[GenericVisualDetail] visualId:', this.visualId || '(none)');
 
     // WEBAPP: Load via API
     if (environment.isWeb) {
@@ -311,13 +296,11 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
       // If we have a visual ID from query params, use it directly
       if (this.visualId) {
-        console.log('[GenericVisualDetail] WEBAPP DIRECT: Using visualId from query params:', this.visualId);
 
         // Load visual by ID
         const visual = await this.dataAdapter.getVisualByIdWithConfig(this.config, this.visualId);
 
         if (visual) {
-          console.log('[GenericVisualDetail] WEBAPP: Found visual:', visual.Name);
           this.item = this.convertRecordToItem(visual);
           this.categoryName = visual.Category || this.categoryName;
           this.editableTitle = this.item.name;
@@ -331,10 +314,8 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         }
       } else {
         // No visual ID - try to match by templateId
-        console.log('[GenericVisualDetail] WEBAPP: No visualId, using priority-based matching');
 
         const visuals = await this.dataAdapter.getVisualsWithConfig(this.config, queryServiceId);
-        console.log('[GenericVisualDetail] WEBAPP: Loaded', visuals.length, 'records');
 
         // Try to find matching visual
         let visual = this.findMatchingVisual(visuals);
@@ -345,7 +326,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           this.categoryName = visual.Category || this.categoryName;
           this.editableTitle = this.item.name;
           this.editableText = this.item.text;
-          console.log('[GenericVisualDetail] WEBAPP: Matched visual:', this.item.name);
         } else {
           // Load from templates
           await this.loadFromTemplates();
@@ -391,8 +371,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       // Guard after async
       if (this.isDestroyed) return;
 
-      console.log('[GenericVisualDetail] DEXIE-FIRST: Field found:', !!field, 'templateId:', this.templateId,
-        'allFields count:', allFields.length, 'config:', this.config?.id);
 
       // STEP 2: If field exists, use it IMMEDIATELY (this is the Dexie-first pattern)
       if (field) {
@@ -402,10 +380,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         this.visualId = tempId || realId || '';
 
         // Debug: Log all ID fields for this template type
-        console.log(`[GenericVisualDetail] DEXIE-FIRST: ${this.config?.id} field IDs:`,
-          'tempId:', tempId, 'realId:', realId,
-          'field.tempHudId:', field.tempHudId, 'field.hudId:', field.hudId,
-          'field.tempVisualId:', field.tempVisualId, 'field.visualId:', field.visualId);
 
         // Create item from Dexie field data (NOT from template - that's stale!)
         this.item = this.convertGenericFieldToItem(field);
@@ -417,7 +391,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         this.loading = false;
         this.safeDetectChanges();
 
-        console.log('[GenericVisualDetail] DEXIE-FIRST: Instant load from field:', this.item.name, 'visualId:', this.visualId);
 
         // Load photos immediately (don't wait)
         this.loadPhotosMobile().catch(err => {
@@ -444,7 +417,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         this.editableTitle = this.item.name;
         this.editableText = this.item.text;
         this.categoryName = template.Category || this.categoryName;
-        console.log('[GenericVisualDetail] FALLBACK: Loaded from template:', this.item.name);
       } else {
         // No field AND no template - create minimal item
         console.warn('[GenericVisualDetail] No Dexie field or template found for templateId:', this.templateId);
@@ -620,7 +592,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     // For syncing, prefer realId (the record has already been synced to backend)
     // Only use tempId if realId doesn't exist (record not yet synced)
     const syncId = realId || tempId || this.visualId;
-    console.log(`[GenericVisualDetail] getIdForSync: realId=${realId}, tempId=${tempId}, using=${syncId}`);
     return syncId;
   }
 
@@ -640,7 +611,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       this.categoryName = template.Category || this.categoryName;
       this.editableTitle = this.item.name;
       this.editableText = this.item.text;
-      console.log('[GenericVisualDetail] Loaded from template:', this.item.name);
     } else {
       console.error('[GenericVisualDetail] Template not found for templateId:', this.templateId);
     }
@@ -657,7 +627,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       String(v[this.config!.idFieldName] || v.PK_ID) === String(this.templateId)
     );
     if (visual) {
-      console.log('[GenericVisualDetail] PRIORITY 1: Found by ID as templateId');
       return visual;
     }
 
@@ -668,7 +637,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       String(v.TemplateID) === String(this.templateId)
     );
     if (visual) {
-      console.log('[GenericVisualDetail] PRIORITY 2: Found by TemplateID field');
       return visual;
     }
 
@@ -805,7 +773,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         if (newVisualId && newVisualId !== this.lastKnownVisualId) {
           this.lastKnownVisualId = String(newVisualId);
           this.visualId = String(newVisualId);
-          console.log('[GenericVisualDetail] MOBILE: visualId updated to:', this.visualId);
           await this.loadPhotos();
           this.safeDetectChanges();
         }
@@ -842,26 +809,22 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
    */
   private async loadPhotosWebapp() {
     if (!this.config || !this.visualId) {
-      console.log('[GenericVisualDetail] WEBAPP: No visualId, skipping photo load');
       this.photos = [];
       return;
     }
 
     const attachments = await this.dataAdapter.getAttachmentsWithConfig(this.config, this.visualId);
-    console.log('[GenericVisualDetail] WEBAPP: Loaded', attachments.length, 'attachments');
 
     this.photos = [];
     for (const att of attachments || []) {
       // Check Attachment first (S3 key), then Photo (legacy Caspio Files API)
       let displayUrl = att.Attachment || att.Photo || att.url || att.displayUrl || 'assets/img/photo-placeholder.svg';
 
-      console.log('[GenericVisualDetail] WEBAPP: Processing attachment:', att.AttachID);
 
       // If it's an S3 key, get signed URL
       if (displayUrl && this.caspioService.isS3Key && this.caspioService.isS3Key(displayUrl)) {
         try {
           displayUrl = await this.caspioService.getS3FileUrl(displayUrl);
-          console.log('[GenericVisualDetail] WEBAPP: Got S3 signed URL for:', att.AttachID);
         } catch (e) {
           console.warn('[GenericVisualDetail] WEBAPP: Could not get S3 URL:', e);
         }
@@ -878,12 +841,9 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         if (cachedAnnotated && hasServerAnnotations) {
           thumbnailUrl = cachedAnnotated;
           hasAnnotations = true;
-          console.log(`[GenericVisualDetail] WEBAPP: Using cached annotated image for ${attachId}`);
         } else if (cachedAnnotated && !hasServerAnnotations) {
-          console.log(`[GenericVisualDetail] WEBAPP: Clearing stale cached annotated image for ${attachId}`);
           await this.indexedDb.deleteCachedAnnotatedImage(attachId);
         } else if (hasServerAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
-          console.log(`[GenericVisualDetail] WEBAPP: Rendering annotations for ${attachId}...`);
           const renderedUrl = await renderAnnotationsOnPhoto(displayUrl, att.Drawings);
           if (renderedUrl && renderedUrl !== displayUrl) {
             thumbnailUrl = renderedUrl;
@@ -945,7 +905,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       try {
         const cachedAnnotatedImages = await this.indexedDb.getAllCachedAnnotatedImagesForService();
         this.bulkAnnotatedImagesMap = cachedAnnotatedImages;
-        console.log('[GenericVisualDetail] Loaded', cachedAnnotatedImages.size, 'cached annotated images into memory');
       } catch (e) {
         console.warn('[GenericVisualDetail] Could not load cached annotated images:', e);
       }
@@ -965,10 +924,8 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     this.visualId = tempId || realId || this.visualId || '';
     this.lastKnownVisualId = this.visualId;
 
-    console.log('[GenericVisualDetail] PHOTO LOAD: tempId:', tempId, 'realId:', realId, 'visualId:', this.visualId);
 
     if (!this.visualId && !tempId && !realId) {
-      console.log('[GenericVisualDetail] MOBILE: No visualId found, cannot load photos');
       this.photos = [];
       return;
     }
@@ -997,7 +954,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       if (mappedTempId) idsToSearch.add(String(mappedTempId));
     }
 
-    console.log('[GenericVisualDetail] OPTIMIZED: Searching for photos with ALL IDs:', Array.from(idsToSearch));
 
     // Single-pass search with all possible IDs
     let localImages: any[] = [];
@@ -1008,7 +964,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       localImages = await db.localImages.where('entityId').equals(searchId).toArray();
       if (localImages.length > 0) {
         foundWithId = searchId;
-        console.log('[GenericVisualDetail] OPTIMIZED: Found', localImages.length, 'photos with entityId:', searchId);
       }
     }
 
@@ -1017,9 +972,7 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
     // Log final result
     if (localImages.length > 0) {
-      console.log('[GenericVisualDetail] OPTIMIZED: Total photos:', localImages.length, 'foundWithId:', foundWithId);
     } else {
-      console.log('[GenericVisualDetail] OPTIMIZED: No photos found. Searched IDs:', Array.from(idsToSearch));
     }
 
     // Guard after async operations
@@ -1072,7 +1025,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       } as PhotoItem & { _localBlobId?: number };
     });
 
-    console.log('[GenericVisualDetail] MOBILE: Showing', this.photos.length, 'photos immediately');
 
     // STEP 2: Trigger UI update immediately so photos show
     this.safeDetectChanges();
@@ -1160,7 +1112,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
     if (!this.isDestroyed) {
       this.safeDetectChanges();
-      console.log('[GenericVisualDetail] MOBILE: Finished loading all photo blobs');
     }
   }
 
@@ -1195,7 +1146,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       if (environment.isWeb) {
         if (this.isValidVisualId(this.visualId)) {
           await this.dataAdapter.updateVisual(this.visualId, caspioUpdate, this.actualServiceId || this.serviceId);
-          console.log('[GenericVisualDetail] WEBAPP: Updated via API:', this.visualId);
         }
       } else {
         // MOBILE: Get the best ID for syncing (prefers realId over tempId)
@@ -1216,12 +1166,10 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
         // Update Dexie for instant local display
         await this.genericFieldRepo.setField(this.config!, this.serviceId, actualCategory, this.templateId, dexieUpdate);
-        console.log('[GenericVisualDetail] MOBILE: Updated Dexie:', dexieUpdate);
 
         // Queue sync to backend using the best available ID
         if (this.isValidVisualId(syncId)) {
           await this.dataAdapter.updateVisualWithConfig(this.config!, syncId, caspioUpdate, this.serviceId);
-          console.log('[GenericVisualDetail] MOBILE: Queued sync for:', syncId);
         }
       }
 
@@ -1252,7 +1200,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         // WEBAPP: Update via API
         if (this.isValidVisualId(this.visualId)) {
           await this.dataAdapter.updateVisual(this.visualId, { Name: this.editableTitle }, this.actualServiceId || this.serviceId);
-          console.log('[GenericVisualDetail] WEBAPP: Updated title via API');
         }
       } else {
         // MOBILE: Get the best ID for syncing (prefers realId over tempId)
@@ -1273,12 +1220,10 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
         // Update Dexie for instant local display
         await this.genericFieldRepo.setField(this.config!, this.serviceId, actualCategory, this.templateId, dexieUpdate);
-        console.log('[GenericVisualDetail] MOBILE: Updated title in Dexie');
 
         // Queue sync to backend using the best available ID
         if (this.isValidVisualId(syncId)) {
           await this.dataAdapter.updateVisualWithConfig(this.config!, syncId, { Name: this.editableTitle }, this.serviceId);
-          console.log('[GenericVisualDetail] MOBILE: Queued title sync for:', syncId);
         }
       }
 
@@ -1303,7 +1248,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         // WEBAPP: Update via API
         if (this.isValidVisualId(this.visualId)) {
           await this.dataAdapter.updateVisual(this.visualId, { Text: this.editableText }, this.actualServiceId || this.serviceId);
-          console.log('[GenericVisualDetail] WEBAPP: Updated text via API');
         }
       } else {
         // MOBILE: Get the best ID for syncing (prefers realId over tempId)
@@ -1324,12 +1268,10 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
         // Update Dexie for instant local display
         await this.genericFieldRepo.setField(this.config!, this.serviceId, actualCategory, this.templateId, dexieUpdate);
-        console.log('[GenericVisualDetail] MOBILE: Updated text in Dexie');
 
         // Queue sync to backend using the best available ID
         if (this.isValidVisualId(syncId)) {
           await this.dataAdapter.updateVisualWithConfig(this.config!, syncId, { Text: this.editableText }, this.serviceId);
-          console.log('[GenericVisualDetail] MOBILE: Queued text sync for:', syncId);
         }
       }
 
@@ -1358,7 +1300,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       // Use getIdForSync to get the best entityId (prefers realId over tempId)
       // This ensures photos are properly associated with the synced visual record
       const entityId = await this.getIdForSync();
-      console.log('[GenericVisualDetail] addPhotoFromCamera: using entityId:', entityId, '(visualId was:', this.visualId, ')');
 
       const config: PhotoCaptureConfig = {
         entityType: this.config.entityType,
@@ -1405,7 +1346,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       // Use getIdForSync to get the best entityId (prefers realId over tempId)
       // This ensures photos are properly associated with the synced visual record
       const entityId = await this.getIdForSync();
-      console.log('[GenericVisualDetail] addPhotoFromGallery: using entityId:', entityId, '(visualId was:', this.visualId, ')');
 
       const config: PhotoCaptureConfig = {
         entityType: this.config.entityType,
@@ -1515,7 +1455,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       // Works for both webapp and mobile - unified approach
       const photoId = photo.attachId || photo.imageId || photo.id;
       await this.dataAdapter.deleteAttachmentWithConfig(this.config!, photoId);
-      console.log('[GenericVisualDetail] Deleted attachment:', photoId);
 
       // Also try alternate IDs to ensure cleanup (photos may have multiple IDs)
       if (photo.imageId && photo.imageId !== photoId) {
@@ -1554,7 +1493,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
     if (isLocalFirstPhoto && !environment.isWeb) {
       const localImageId = photo.imageId || photo.id;
-      console.log('[GenericVisualDetail] LocalImage detected, refreshing from Dexie:', localImageId);
 
       try {
         // Get fresh LocalImage from Dexie
@@ -1564,7 +1502,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           // Update drawings with fresh data from Dexie
           if (localImage.drawings && localImage.drawings.length > 10) {
             freshDrawings = localImage.drawings;
-            console.log('[GenericVisualDetail] Loaded fresh drawings from Dexie:', localImage.drawings.length, 'chars');
           }
 
           // Get FULL RESOLUTION original blob URL for the annotator
@@ -1576,7 +1513,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
             if (blob) {
               const blobObj = new Blob([blob.data], { type: blob.contentType });
               fullResUrl = URL.createObjectURL(blobObj);
-              console.log('[GenericVisualDetail] Got FULL RESOLUTION blob URL for annotator');
             }
           }
 
@@ -1585,7 +1521,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
             try {
               fullResUrl = await this.caspioService.getS3FileUrl(localImage.remoteS3Key);
               if (fullResUrl) {
-                console.log('[GenericVisualDetail] Got FULL RESOLUTION from S3');
               }
             } catch (s3Err) {
               console.warn('[GenericVisualDetail] S3 fetch failed:', s3Err);
@@ -1600,7 +1535,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           // Update original URL for the annotator (NOT the flattened thumbnail)
           if (fullResUrl && fullResUrl !== 'assets/img/photo-placeholder.svg') {
             originalUrlForEditor = fullResUrl;
-            console.log('[GenericVisualDetail] Using ORIGINAL image URL for annotator (not flattened)');
           }
         }
       } catch (err) {
@@ -1628,7 +1562,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           Annotation: caption,
           Drawings: compressedDrawings
         });
-        console.log('[GenericVisualDetail] WEBAPP: Updated annotation via API for:', photoId);
       },
       onUpdatePhoto: (result: ViewPhotoResult) => {
         // Find photo in array
@@ -1658,7 +1591,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
             if (this.photos[photoIndex].imageId && this.photos[photoIndex].imageId !== result.photoId) {
               this.bulkAnnotatedImagesMap.set(String(this.photos[photoIndex].imageId), result.annotatedUrl);
             }
-            console.log('[GenericVisualDetail] Cached annotated thumbnail in memory map for:', result.photoId);
 
             // ANNOTATION FIX: Also cache to IndexedDB for persistence across page navigation
             // This ensures TIER 2 lookup works in category-detail after returning
@@ -1666,7 +1598,7 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
             fetch(result.annotatedUrl)
               .then(r => r.blob())
               .then(blob => this.indexedDb.cacheAnnotatedImage(String(cacheKey), blob))
-              .then(() => console.log('[GenericVisualDetail] Cached annotated image to IndexedDB for:', cacheKey))
+              .then(() => {})
               .catch(err => console.warn('[GenericVisualDetail] Failed to cache annotated to IndexedDB:', err));
           }
           this.changeDetectorRef.detectChanges();
@@ -1893,7 +1825,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           await firstValueFrom(
             this.caspioService.put(`/tables/${attachTable}/records?q.where=AttachID=${attachId}`, updateData)
           );
-          console.log('[GenericVisualDetail] WEBAPP: Updated caption via API:', attachId, 'table:', attachTable);
         }
         this.changeDetectorRef.detectChanges();
         return;
@@ -1901,7 +1832,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
       // MOBILE MODE: Update in localImages (Dexie)
       await db.localImages.update(photo.id, { caption, updatedAt: Date.now() });
-      console.log('[GenericVisualDetail] MOBILE: Updated caption in Dexie');
 
       // SYNC FIX: Queue caption update for background sync
       // This ensures caption changes appear in the sync modal
@@ -1914,7 +1844,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         caption: caption,
         drawings: photo.drawings || ''
       });
-      console.log('[GenericVisualDetail] MOBILE: Queued caption for sync:', attachId, 'type:', attachType);
 
       this.changeDetectorRef.detectChanges();
     } catch (error) {
@@ -1959,6 +1888,7 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
   }
 
   private async showToast(message: string, color: string = 'primary') {
+    if (color === 'success' || color === 'info') return;
     const toast = await this.toastController.create({
       message,
       duration: 2000,

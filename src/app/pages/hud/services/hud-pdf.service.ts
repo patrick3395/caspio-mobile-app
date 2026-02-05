@@ -53,7 +53,6 @@ export class HudPdfService {
   async generatePDF(projectId: string, serviceId: string): Promise<void> {
     // Prevent multiple simultaneous PDF generation attempts
     if (this.isPDFGenerating) {
-      console.log('[PDF Service] PDF generation already in progress');
       return;
     }
 
@@ -102,7 +101,6 @@ export class HudPdfService {
               if (environment.isWeb) {
                 this.retryNotification.resumeNotifications();
               }
-              console.log('[PDF Service] User cancelled PDF generation');
               return true;
             }
           }
@@ -128,7 +126,6 @@ export class HudPdfService {
         }
       }
 
-      console.log('[PDF Service] Starting PDF generation for:', { projectId, serviceId });
 
       // Check cache first (5-minute cache)
       const cacheKey = this.cache.getApiCacheKey('pdf_data', {
@@ -140,17 +137,14 @@ export class HudPdfService {
       const cachedData = this.cache.get(cacheKey);
 
       if (cachedData) {
-        console.log('[PDF Service] ⚡ Using cached PDF data - fast path!');
         updateProgress(50, 'Loading from cache...');
         ({ structuralSystemsData, elevationPlotData, projectInfo } = cachedData);
       } else {
-        console.log('[PDF Service] Loading fresh PDF data...');
         updateProgress(5, 'Loading project data...');
         const startTime = Date.now();
 
         // Check if user cancelled
         if (cancelRequested) {
-          console.log('[PDF Service] Cancelled before data fetch');
           return;
         }
 
@@ -198,7 +192,6 @@ export class HudPdfService {
           }, this.cache.CACHE_TIMES.MEDIUM);
 
           const loadTime = Date.now() - startTime;
-          console.log(`[PDF Service] Cached PDF data for reuse (5 min expiry) - loaded in ${loadTime}ms`);
         } catch (dataError) {
           console.error('[PDF Service] Fatal error loading PDF data:', dataError);
           // Use fallback empty data to prevent errors
@@ -217,32 +210,22 @@ export class HudPdfService {
 
       // Check if user cancelled
       if (cancelRequested) {
-        console.log('[PDF Service] Cancelled after data fetch');
         return;
       }
 
-      console.log('[PDF Service] Data loaded, now loading PDF preview component...');
       updateProgress(55, 'Loading PDF preview...');
 
       // Load PDF preview component
       const PdfPreviewComponent = await this.loadPdfPreview();
 
-      console.log('[PDF Service] PDF preview component loaded:', !!PdfPreviewComponent);
 
       // Load primary photo after component is loaded
       updateProgress(70, 'Processing cover photo...');
       await this.loadPrimaryPhoto(projectInfo);
 
-      console.log('[PDF Service] Primary photo processed:', {
-        hasPrimaryPhoto: !!projectInfo.primaryPhoto,
-        hasPrimaryPhotoBase64: !!projectInfo.primaryPhotoBase64,
-        primaryPhotoType: typeof projectInfo.primaryPhoto,
-        primaryPhotoPreview: projectInfo.primaryPhoto?.substring(0, 50)
-      });
 
       // Check if user cancelled
       if (cancelRequested) {
-        console.log('[PDF Service] Cancelled after component load');
         return;
       }
 
@@ -254,11 +237,6 @@ export class HudPdfService {
 
       updateProgress(85, 'Preparing PDF document...');
 
-      console.log('[PDF Service] Creating PDF modal with data:', {
-        projectInfo: !!projectInfo,
-        structuralData: structuralSystemsData?.length || 0,
-        elevationData: elevationPlotData?.length || 0
-      });
 
       // Create and present the PDF modal
       const modal = await this.modalController.create({
@@ -279,15 +257,12 @@ export class HudPdfService {
 
       // Check if user cancelled
       if (cancelRequested) {
-        console.log('[PDF Service] Cancelled before modal present');
         return;
       }
 
       updateProgress(95, 'Opening PDF...');
 
-      console.log('[PDF Service] Presenting PDF modal...');
       await modal.present();
-      console.log('[PDF Service] PDF modal presented successfully');
 
       // Dismiss loading immediately after modal is presented
       setTimeout(async () => {
@@ -353,7 +328,6 @@ export class HudPdfService {
    * Replicates prepareProjectInfo from original hud-container.page.ts
    */
   private async prepareProjectInfo(projectId: string, serviceId: string): Promise<any> {
-    console.log('[PDF Service] Preparing project info...');
 
     // Fetch project and service data
     const [projectData, serviceData] = await Promise.all([
@@ -361,7 +335,6 @@ export class HudPdfService {
       firstValueFrom(this.caspioService.getServiceById(serviceId))
     ]);
 
-    console.log('[PDF Service] ✓ Project info loaded');
 
     // Get primary photo
     let primaryPhoto = (projectData as any)?.PrimaryPhoto || null;
@@ -429,7 +402,6 @@ export class HudPdfService {
    * Replicates prepareStructuralSystemsData from original hud-container.page.ts
    */
   private async prepareStructuralSystemsData(serviceId: string): Promise<any[]> {
-    console.log('[PDF Service] Preparing structural systems data...');
 
     const result = [];
 
@@ -471,7 +443,6 @@ export class HudPdfService {
       const category = visual.Category || 'Other';
       const kind = visual.Kind || visual.Type || 'Comment'; // Use Kind field (fallback to Type or Comment)
       
-      console.log('[PDF Service] Visual:', visual.Name, 'Category:', category, 'Kind:', kind);
 
       if (organizedData[category]) {
         if (kind === 'Comment') {
@@ -596,10 +567,6 @@ export class HudPdfService {
     const totalLimitations = result.reduce((sum, cat) => sum + cat.limitations.length, 0);
     const totalDeficiencies = result.reduce((sum, cat) => sum + cat.deficiencies.length, 0);
 
-    console.log(`[PDF Service] ✓ Structural systems loaded: ${result.length} categories with ${totalItems} total items`);
-    console.log(`[PDF Service]   - Comments: ${totalComments}`);
-    console.log(`[PDF Service]   - Limitations: ${totalLimitations}`);
-    console.log(`[PDF Service]   - Deficiencies: ${totalDeficiencies}`);
 
     return result;
   }
@@ -609,7 +576,6 @@ export class HudPdfService {
    * Replicates prepareElevationPlotData from original hud-container.page.ts
    */
   private async prepareElevationPlotData(serviceId: string): Promise<any[]> {
-    console.log('[PDF Service] Preparing elevation plot data...');
 
     const result: any[] = [];
 
@@ -620,7 +586,6 @@ export class HudPdfService {
     const allRooms = await this.hudData.getEFEByService(serviceId);
 
     if (!allRooms || allRooms.length === 0) {
-      console.log('[PDF Service] No elevation rooms found');
       return result;
     }
 
@@ -661,11 +626,9 @@ export class HudPdfService {
 
                 // Check if photoPath is already a data URL (local image)
                 if (photoPath.startsWith('data:') || photoPath.startsWith('blob:')) {
-                  console.log(`[PDF Service] FDF ${photoType.key} already has local URL`);
                   base64Data = photoPath;
                 } else if (this.caspioService.isS3Key(photoPath)) {
                   // S3 key - fetch from S3
-                  console.log(`[PDF Service] Loading FDF ${photoType.key} from S3:`, photoPath);
                   try {
                     const s3Url = await this.caspioService.getS3FileUrl(photoPath);
                     if (s3Url) {
@@ -752,7 +715,6 @@ export class HudPdfService {
 
                 if (existingUrl && (existingUrl.startsWith('data:') || existingUrl.startsWith('blob:'))) {
                   // Already have a usable local URL
-                  console.log('[PDF Service] Using existing local URL for point attachment:', attachId);
                   finalUrl = existingUrl;
                 } else if (!environment.isWeb && attachId) {
                   // MOBILE: Try to get from IndexedDB cached photos first
@@ -761,7 +723,6 @@ export class HudPdfService {
                     if (drawingsData) {
                       const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(String(attachId));
                       if (cachedAnnotated) {
-                        console.log('[PDF Service] Using cached ANNOTATED image for point:', attachId);
                         finalUrl = cachedAnnotated;
                       }
                     }
@@ -770,7 +731,6 @@ export class HudPdfService {
                     if (!finalUrl) {
                       const cachedPhoto = await this.indexedDb.getCachedPhoto(String(attachId));
                       if (cachedPhoto) {
-                        console.log('[PDF Service] Using cached photo for point:', attachId);
                         finalUrl = cachedPhoto;
                       }
                     }
@@ -781,7 +741,6 @@ export class HudPdfService {
                       if (localImage) {
                         const displayUrl = await this.localImageService.getDisplayUrl(localImage);
                         if (displayUrl && !displayUrl.includes('placeholder')) {
-                          console.log('[PDF Service] Using LocalImage display URL for point:', attachment.imageId);
                           finalUrl = displayUrl;
                         }
                       }
@@ -795,7 +754,6 @@ export class HudPdfService {
                 if (!finalUrl && photoPath) {
                   if (this.caspioService.isS3Key(photoPath)) {
                     // S3 key - fetch from S3
-                    console.log('[PDF Service] Loading point photo from S3:', photoPath);
                     try {
                       const s3Url = await this.caspioService.getS3FileUrl(photoPath);
                       if (s3Url) {
@@ -848,7 +806,6 @@ export class HudPdfService {
       result.push(roomResult);
     }
 
-    console.log(`[PDF Service] ✓ Elevation plots loaded: ${result.length} rooms`);
 
     return result;
   }
@@ -879,7 +836,6 @@ export class HudPdfService {
 
         if (existingUrl && (existingUrl.startsWith('data:') || existingUrl.startsWith('blob:'))) {
           // Already have a usable local URL
-          console.log('[PDF Service] Using existing local URL for attachment:', attachId);
           finalUrl = existingUrl;
           conversionSuccess = true;
         } else if (!environment.isWeb && attachId) {
@@ -889,7 +845,6 @@ export class HudPdfService {
             if (drawings) {
               const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(String(attachId));
               if (cachedAnnotated) {
-                console.log('[PDF Service] Using cached ANNOTATED image for:', attachId);
                 finalUrl = cachedAnnotated;
                 conversionSuccess = true;
               }
@@ -899,7 +854,6 @@ export class HudPdfService {
             if (!finalUrl) {
               const cachedPhoto = await this.indexedDb.getCachedPhoto(String(attachId));
               if (cachedPhoto) {
-                console.log('[PDF Service] Using cached photo from IndexedDB for:', attachId);
                 finalUrl = cachedPhoto;
                 conversionSuccess = true;
               }
@@ -911,7 +865,6 @@ export class HudPdfService {
               if (localImage) {
                 const displayUrl = await this.localImageService.getDisplayUrl(localImage);
                 if (displayUrl && !displayUrl.includes('placeholder')) {
-                  console.log('[PDF Service] Using LocalImage display URL for:', attachment.imageId);
                   finalUrl = displayUrl;
                   conversionSuccess = true;
                 }
@@ -931,7 +884,6 @@ export class HudPdfService {
             try {
               // Check if this is an S3 key (starts with 'uploads/')
               if (this.caspioService.isS3Key(serverPath)) {
-                console.log('[PDF Service] Loading from S3 for:', serverPath);
                 const s3Url = await this.caspioService.getS3FileUrl(serverPath);
                 if (s3Url) {
                   // Fetch the image and convert to base64 for PDF embedding
@@ -947,7 +899,6 @@ export class HudPdfService {
                 }
               } else if (serverPath.startsWith('/')) {
                 // Caspio file path - use Files API
-                console.log('[PDF Service] Falling back to API for:', serverPath);
                 const base64Data = await firstValueFrom(this.caspioService.getImageFromFilesAPI(serverPath));
                 if (base64Data && base64Data.startsWith('data:')) {
                   finalUrl = base64Data;
@@ -972,11 +923,9 @@ export class HudPdfService {
         // Render annotations if we have a valid URL and drawings data
         if (finalUrl && drawings) {
           try {
-            console.log('[PDF Service] Rendering annotations for visual attachment:', attachId);
             const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawings, { quality: 0.9, format: 'jpeg', fabric });
             if (annotatedUrl && annotatedUrl !== finalUrl) {
               finalUrl = annotatedUrl;
-              console.log('[PDF Service] ✓ Annotations rendered successfully for:', attachId);
             }
           } catch (renderError) {
             console.error('[PDF Service] Error rendering visual photo annotation:', renderError);
@@ -1013,11 +962,6 @@ export class HudPdfService {
    * Load primary photo for project - DEXIE-FIRST approach for mobile
    */
   private async loadPrimaryPhoto(projectInfo: any): Promise<void> {
-    console.log('[PDF Service] loadPrimaryPhoto called with:', {
-      hasPrimaryPhoto: !!projectInfo?.primaryPhoto,
-      primaryPhotoType: typeof projectInfo?.primaryPhoto,
-      primaryPhotoStart: projectInfo?.primaryPhoto?.substring(0, 50)
-    });
 
     if (projectInfo?.primaryPhoto && typeof projectInfo.primaryPhoto === 'string') {
       let convertedPhotoData: string | null = null;
@@ -1025,11 +969,9 @@ export class HudPdfService {
 
       if (projectInfo.primaryPhoto.startsWith('data:')) {
         // Already base64 - use directly
-        console.log('[PDF Service] Primary photo already base64');
         convertedPhotoData = projectInfo.primaryPhoto;
       } else if (projectInfo.primaryPhoto.startsWith('blob:')) {
         // Blob URL - convert to base64
-        console.log('[PDF Service] Converting blob URL to base64');
         try {
           const response = await fetch(projectInfo.primaryPhoto);
           const blob = await response.blob();
@@ -1040,7 +982,6 @@ export class HudPdfService {
             reader.readAsDataURL(blob);
           });
           convertedPhotoData = base64;
-          console.log('[PDF Service] ✓ Blob converted to base64');
         } catch (error) {
           console.error('[PDF Service] ✗ Error converting blob URL:', error);
         }
@@ -1053,7 +994,6 @@ export class HudPdfService {
           try {
             const cachedPhoto = await this.indexedDb.getCachedPhoto(cacheKey);
             if (cachedPhoto) {
-              console.log('[PDF Service] ✓ Using cached primary photo from IndexedDB');
               convertedPhotoData = cachedPhoto;
             }
           } catch (cacheError) {
@@ -1063,18 +1003,15 @@ export class HudPdfService {
 
         // FALLBACK: Load from API
         if (!convertedPhotoData) {
-          console.log('[PDF Service] Converting Caspio file path to base64:', projectInfo.primaryPhoto);
           try {
             const imageData = await firstValueFrom(this.caspioService.getImageFromFilesAPI(projectInfo.primaryPhoto));
             if (imageData && typeof imageData === 'string' && imageData.startsWith('data:')) {
               convertedPhotoData = imageData;
-              console.log('[PDF Service] ✓ Primary photo converted successfully, size:', Math.round(imageData.length / 1024), 'KB');
 
               // Cache for future use (mobile only)
               if (!environment.isWeb && projectId && projectInfo.serviceId) {
                 try {
                   await this.indexedDb.cachePhoto(cacheKey, projectInfo.serviceId, imageData);
-                  console.log('[PDF Service] ✓ Primary photo cached for offline use');
                 } catch (cacheErr) {
                   console.warn('[PDF Service] Failed to cache primary photo:', cacheErr);
                 }
@@ -1087,19 +1024,16 @@ export class HudPdfService {
           }
         }
       } else {
-        console.log('[PDF Service] Primary photo has unknown format:', projectInfo.primaryPhoto.substring(0, 50));
       }
 
       // Set both fields so PDF component can use either one
       if (convertedPhotoData) {
         projectInfo.primaryPhotoBase64 = convertedPhotoData;
         projectInfo.primaryPhoto = convertedPhotoData;
-        console.log('[PDF Service] ✓ Primary photo fields set on projectInfo');
       } else {
         console.warn('[PDF Service] ✗ No converted photo data - photo will not appear in PDF');
       }
     } else {
-      console.log('[PDF Service] No primary photo to load');
     }
   }
 
@@ -1108,9 +1042,7 @@ export class HudPdfService {
    */
   private async loadPdfPreview(): Promise<any> {
     try {
-      console.log('[PDF Service] Loading PDF preview component module...');
       const module = await import('../../../components/pdf-preview/pdf-preview.component');
-      console.log('[PDF Service] PDF preview component module loaded:', !!module.PdfPreviewComponent);
       return module.PdfPreviewComponent;
     } catch (error) {
       console.error('[PDF Service] Error loading PDF preview component:', error);
@@ -1148,14 +1080,12 @@ export class HudPdfService {
         // Try cached photo
         const cachedPhoto = await this.indexedDb.getCachedPhoto(cacheKey);
         if (cachedPhoto) {
-          console.log('[PDF Service] Using cached photo from IndexedDB for key:', cacheKey);
           return cachedPhoto;
         }
 
         // Try cached annotated image
         const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(cacheKey);
         if (cachedAnnotated) {
-          console.log('[PDF Service] Using cached annotated image for key:', cacheKey);
           return cachedAnnotated;
         }
       } catch (cacheError) {
@@ -1166,14 +1096,12 @@ export class HudPdfService {
     // FALLBACK: Load from API (for server paths)
     if (serverPath.startsWith('/')) {
       try {
-        console.log('[PDF Service] Loading from API:', serverPath);
         const base64Data = await firstValueFrom(this.caspioService.getImageFromFilesAPI(serverPath));
         if (base64Data && base64Data.startsWith('data:')) {
           // Cache for future use (mobile only)
           if (!environment.isWeb && cacheKey && serviceId) {
             try {
               await this.indexedDb.cachePhoto(cacheKey, serviceId, base64Data);
-              console.log('[PDF Service] Cached photo for future use:', cacheKey);
             } catch (cacheErr) {
               console.warn('[PDF Service] Failed to cache photo:', cacheErr);
             }

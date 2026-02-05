@@ -80,7 +80,6 @@ export class SmartSyncService implements OnDestroy {
     private ngZone: NgZone
   ) {
     this.startSmartSync();
-    console.log('[SmartSync] Service initialized');
   }
   
   ngOnDestroy(): void {
@@ -107,7 +106,6 @@ export class SmartSyncService implements OnDestroy {
     // Listen to online status changes
     this.onlineSubscription = this.offlineService.getOnlineStatus().subscribe((isOnline: boolean) => {
       if (isOnline) {
-        console.log('[SmartSync] Came online - triggering dirty sync');
         this.processDirtyItems();
       }
     });
@@ -140,7 +138,6 @@ export class SmartSyncService implements OnDestroy {
    */
   registerActiveService(serviceId: string): void {
     this.activeServices.add(serviceId);
-    console.log(`[SmartSync] Registered active service: ${serviceId}`);
   }
   
   /**
@@ -148,7 +145,6 @@ export class SmartSyncService implements OnDestroy {
    */
   unregisterActiveService(serviceId: string): void {
     this.activeServices.delete(serviceId);
-    console.log(`[SmartSync] Unregistered active service: ${serviceId}`);
   }
   
   /**
@@ -167,7 +163,6 @@ export class SmartSyncService implements OnDestroy {
       this.dirtyItems.set(serviceId, new Set());
     }
     this.dirtyItems.get(serviceId)!.add(key);
-    console.log(`[SmartSync] Marked dirty: ${serviceId} -> ${key}`);
     
     // Update pending count
     this.updatePendingCount();
@@ -220,7 +215,6 @@ export class SmartSyncService implements OnDestroy {
       : Infinity;
     
     if (timeSinceLastRefresh >= this.FULL_REFRESH_INTERVAL_MS) {
-      console.log('[SmartSync] Hourly refresh triggered');
       this.doFullRefresh();
     }
   }
@@ -248,7 +242,6 @@ export class SmartSyncService implements OnDestroy {
         
         // The BackgroundSyncService handles the actual sync
         // We just monitor and report status
-        console.log(`[SmartSync] ${pendingCount} pending items to sync`);
         
         // Wait a bit for background sync to process
         await new Promise(resolve => setTimeout(resolve, 2000));
@@ -275,12 +268,10 @@ export class SmartSyncService implements OnDestroy {
    */
   private async doFullRefresh(serviceId?: string): Promise<void> {
     if (!this.offlineService.isOnline()) {
-      console.log('[SmartSync] Cannot do full refresh - offline');
       return;
     }
     
     if (this.status.isFullRefreshInProgress) {
-      console.log('[SmartSync] Full refresh already in progress');
       return;
     }
     
@@ -288,7 +279,6 @@ export class SmartSyncService implements OnDestroy {
     this.emitEvent('full_refresh_start', 'Starting full cache refresh...');
     
     try {
-      console.log('[SmartSync] Starting full cache refresh...');
       
       // Refresh templates (global)
       await this.refreshTemplates();
@@ -303,7 +293,6 @@ export class SmartSyncService implements OnDestroy {
       
       this.status.lastFullRefresh = Date.now();
       this.emitEvent('full_refresh_complete', 'Cache refresh complete');
-      console.log('[SmartSync] Full cache refresh complete');
       
     } catch (error) {
       console.error('[SmartSync] Full refresh failed:', error);
@@ -324,14 +313,12 @@ export class SmartSyncService implements OnDestroy {
       const visualTemplates = await firstValueFrom(this.caspioService.getServicesVisualsTemplates());
       if (visualTemplates && visualTemplates.length > 0) {
         await this.indexedDb.cacheTemplates('visual', visualTemplates);
-        console.log(`[SmartSync] Refreshed ${visualTemplates.length} visual templates`);
       }
       
       // Refresh EFE templates
       const efeTemplates = await firstValueFrom(this.caspioService.getServicesEFETemplates());
       if (efeTemplates && efeTemplates.length > 0) {
         await this.indexedDb.cacheTemplates('efe', efeTemplates);
-        console.log(`[SmartSync] Refreshed ${efeTemplates.length} EFE templates`);
       }
     } catch (error) {
       console.warn('[SmartSync] Failed to refresh templates:', error);
@@ -351,7 +338,6 @@ export class SmartSyncService implements OnDestroy {
         const existingVisuals = await this.indexedDb.getCachedServiceData(serviceId, 'visuals') || [];
         const mergedVisuals = this.safeMerge(existingVisuals, visuals, 'PK_ID');
         await this.indexedDb.cacheServiceData(serviceId, 'visuals', mergedVisuals);
-        console.log(`[SmartSync] Refreshed ${visuals.length} visuals for service ${serviceId}`);
       }
       
       // Refresh EFE rooms
@@ -361,7 +347,6 @@ export class SmartSyncService implements OnDestroy {
         const existingRooms = await this.indexedDb.getCachedServiceData(serviceId, 'efe_rooms') || [];
         const mergedRooms = this.safeMerge(existingRooms, rooms, 'EFEID');
         await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', mergedRooms);
-        console.log(`[SmartSync] Refreshed ${rooms.length} EFE rooms for service ${serviceId}`);
       }
       
       // Notify that refresh is complete
@@ -387,7 +372,6 @@ export class SmartSyncService implements OnDestroy {
       allVisualCaches.forEach(cache => serviceIds.add(cache.serviceId));
       allEfeCaches.forEach(cache => serviceIds.add(cache.serviceId));
       
-      console.log(`[SmartSync] Refreshing ${serviceIds.size} cached services`);
       
       // Refresh each service (with concurrency limit)
       const serviceArray = Array.from(serviceIds);

@@ -340,7 +340,6 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
       serviceId: record.serviceId
     });
 
-    console.log('[MobileDataProvider] Created visual with temp ID:', tempId);
     return record;
   }
 
@@ -353,26 +352,15 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
     const isTempId = visualId.startsWith('temp_');
     const dbData = this.mapFromVisualRecord(config, updates);
 
-    console.log(`[MobileDataProvider] updateVisual called:`, {
-      templateType: config.id,
-      visualId,
-      isTempId,
-      updates,
-      dbData,
-      serviceId
-    });
 
     if (isTempId) {
       // Update the pending request data
-      console.log(`[MobileDataProvider] Updating existing pending request for temp ID: ${visualId}`);
       const updated = await this.indexedDb.updatePendingRequestData(visualId, dbData);
-      console.log(`[MobileDataProvider] updatePendingRequestData result: ${updated}`);
 
       // FIX: If temp ID no longer in pending queue (already synced), look up the real ID and create UPDATE request
       if (!updated) {
         const realId = await this.indexedDb.getRealId(visualId);
         if (realId) {
-          console.log(`[MobileDataProvider] Temp ID ${visualId} already synced, creating UPDATE for real ID: ${realId}`);
           const endpoint = `/tables/${config.tableName}/records?q.where=${config.idFieldName}=${realId}`;
           await this.indexedDb.addPendingRequest({
             type: 'UPDATE',
@@ -384,7 +372,6 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
             priority: 'normal',
             serviceId: serviceId
           });
-          console.log(`[MobileDataProvider] UPDATE request queued for real ID: ${realId}`);
         } else {
           console.warn(`[MobileDataProvider] Temp ID ${visualId} not in pending queue and no real ID mapping found - update lost!`);
         }
@@ -392,8 +379,6 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
     } else {
       // Queue update for background sync
       const endpoint = `/tables/${config.tableName}/records?q.where=${config.idFieldName}=${visualId}`;
-      console.log(`[MobileDataProvider] Creating UPDATE pending request for real ID: ${visualId}`);
-      console.log(`[MobileDataProvider] Endpoint: ${endpoint}`);
       await this.indexedDb.addPendingRequest({
         type: 'UPDATE',
         endpoint: `/api/caspio-proxy${endpoint}`,
@@ -404,7 +389,6 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
         priority: 'normal',
         serviceId: serviceId
       });
-      console.log(`[MobileDataProvider] UPDATE request queued successfully`);
     }
 
     return { id: visualId, ...updates } as VisualRecord;
@@ -586,14 +570,12 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
   async forceSyncNow(): Promise<void> {
     // Trigger background sync - the backgroundSync service handles this internally
     // No direct method available, sync runs automatically
-    console.log('[MobileDataProvider] forceSyncNow called - sync runs automatically');
   }
 
   // ==================== Cache Operations ====================
 
   async refreshCache(config: TemplateConfig, serviceId: string): Promise<void> {
     // Cache refresh is handled by OfflineTemplateService download methods
-    console.log('[MobileDataProvider] refreshCache called for service:', serviceId);
   }
 
   async clearCache(config: TemplateConfig, serviceId?: string): Promise<void> {
@@ -601,7 +583,6 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
     if (serviceId && config.id === 'efe') {
       await this.indexedDb.clearCachedServiceData(serviceId, 'visuals');
     }
-    console.log('[MobileDataProvider] clearCache called');
   }
 
   // ==================== Private Helpers ====================

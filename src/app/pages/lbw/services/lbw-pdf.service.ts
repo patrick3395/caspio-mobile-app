@@ -48,7 +48,6 @@ export class LbwPdfService {
   async generatePDF(projectId: string, serviceId: string): Promise<void> {
     // Prevent multiple simultaneous PDF generation attempts
     if (this.isPDFGenerating) {
-      console.log('[LBW PDF Service] PDF generation already in progress');
       return;
     }
 
@@ -95,7 +94,6 @@ export class LbwPdfService {
               if (environment.isWeb) {
                 this.retryNotification.resumeNotifications();
               }
-              console.log('[LBW PDF Service] User cancelled PDF generation');
               return true;
             }
           }
@@ -121,7 +119,6 @@ export class LbwPdfService {
         }
       }
 
-      console.log('[LBW PDF Service] Starting PDF generation for:', { projectId, serviceId });
 
       // Check cache first (5-minute cache)
       const cacheKey = this.cache.getApiCacheKey('hud_pdf_data', {
@@ -133,17 +130,14 @@ export class LbwPdfService {
       const cachedData = this.cache.get(cacheKey);
 
       if (cachedData) {
-        console.log('[LBW PDF Service] ⚡ Using cached PDF data - fast path!');
         updateProgress(50, 'Loading from cache...');
         ({ hudData, projectInfo } = cachedData);
       } else {
-        console.log('[LBW PDF Service] Loading fresh PDF data...');
         updateProgress(5, 'Loading project data...');
         const startTime = Date.now();
 
         // Check if user cancelled
         if (cancelRequested) {
-          console.log('[LBW PDF Service] Cancelled before data fetch');
           return;
         }
 
@@ -183,7 +177,6 @@ export class LbwPdfService {
           }, this.cache.CACHE_TIMES.MEDIUM);
 
           const loadTime = Date.now() - startTime;
-          console.log(`[LBW PDF Service] Cached PDF data for reuse (5 min expiry) - loaded in ${loadTime}ms`);
         } catch (dataError) {
           console.error('[LBW PDF Service] Fatal error loading PDF data:', dataError);
           // Use fallback empty data to prevent errors
@@ -201,32 +194,22 @@ export class LbwPdfService {
 
       // Check if user cancelled
       if (cancelRequested) {
-        console.log('[LBW PDF Service] Cancelled after data fetch');
         return;
       }
 
-      console.log('[LBW PDF Service] Data loaded, now loading PDF preview component...');
       updateProgress(55, 'Loading PDF preview...');
 
       // Load PDF preview component
       const PdfPreviewComponent = await this.loadPdfPreview();
 
-      console.log('[LBW PDF Service] PDF preview component loaded:', !!PdfPreviewComponent);
 
       // Load primary photo after component is loaded
       updateProgress(70, 'Processing cover photo...');
       await this.loadPrimaryPhoto(projectInfo);
 
-      console.log('[LBW PDF Service] Primary photo processed:', {
-        hasPrimaryPhoto: !!projectInfo.primaryPhoto,
-        hasPrimaryPhotoBase64: !!projectInfo.primaryPhotoBase64,
-        primaryPhotoType: typeof projectInfo.primaryPhoto,
-        primaryPhotoPreview: projectInfo.primaryPhoto?.substring(0, 50)
-      });
 
       // Check if user cancelled
       if (cancelRequested) {
-        console.log('[LBW PDF Service] Cancelled after component load');
         return;
       }
 
@@ -238,10 +221,6 @@ export class LbwPdfService {
 
       updateProgress(85, 'Preparing PDF document...');
 
-      console.log('[LBW PDF Service] Creating PDF modal with data:', {
-        projectInfo: !!projectInfo,
-        hudData: hudData?.length || 0
-      });
 
       // Create and present the PDF modal
       const modal = await this.modalController.create({
@@ -262,15 +241,12 @@ export class LbwPdfService {
 
       // Check if user cancelled
       if (cancelRequested) {
-        console.log('[LBW PDF Service] Cancelled before modal present');
         return;
       }
 
       updateProgress(95, 'Opening PDF...');
 
-      console.log('[LBW PDF Service] Presenting PDF modal...');
       await modal.present();
-      console.log('[LBW PDF Service] PDF modal presented successfully');
 
       // Dismiss loading immediately after modal is presented
       setTimeout(async () => {
@@ -335,7 +311,6 @@ export class LbwPdfService {
    * Prepare project information for PDF
    */
   private async prepareProjectInfo(projectId: string, serviceId: string): Promise<any> {
-    console.log('[LBW PDF Service] Preparing project info...');
 
     // Fetch project and service data
     const [projectData, serviceData] = await Promise.all([
@@ -343,7 +318,6 @@ export class LbwPdfService {
       firstValueFrom(this.caspioService.getServiceById(serviceId))
     ]);
 
-    console.log('[LBW PDF Service] ✓ Project info loaded');
 
     // Get primary photo
     let primaryPhoto = (projectData as any)?.PrimaryPhoto || null;
@@ -406,7 +380,6 @@ export class LbwPdfService {
    * Gathers all HUD visuals organized by category with photos
    */
   private async prepareLBWData(serviceId: string): Promise<any[]> {
-    console.log('[LBW PDF Service] Preparing HUD data...');
 
     const result = [];
 
@@ -414,14 +387,9 @@ export class LbwPdfService {
     // CRITICAL: Bypass cache to ensure we get the latest data for PDF
     const allVisuals = await this.lbwData.getVisualsByService(serviceId, true);
     
-    console.log('[LBW PDF Service] ========== HUD DATA DEBUG ==========');
-    console.log('[LBW PDF Service] ServiceID:', serviceId);
-    console.log('[LBW PDF Service] Total visuals fetched:', allVisuals?.length || 0);
     if (allVisuals && allVisuals.length > 0) {
-      console.log('[LBW PDF Service] Sample visual:', JSON.stringify(allVisuals[0], null, 2));
       // Log all category names for debugging
       const uniqueCategories = [...new Set(allVisuals.map((v: any) => v.Category))];
-      console.log('[LBW PDF Service] Unique categories in data:', uniqueCategories);
     } else {
       console.warn('[LBW PDF Service] ⚠️ NO HUD RECORDS FOUND! This is why PDF is empty.');
     }
@@ -439,11 +407,9 @@ export class LbwPdfService {
       
       // CRITICAL: Skip hidden visuals
       if (visual.Notes && visual.Notes.startsWith('HIDDEN')) {
-        console.log('[LBW PDF Service] Skipping hidden visual:', visual.Name);
         continue;
       }
       
-      console.log('[LBW PDF Service] Visual:', visual.Name, 'Category:', category, 'Kind:', kind);
 
       // Initialize category if not already present
       if (!organizedData[category]) {
@@ -468,7 +434,6 @@ export class LbwPdfService {
       }
     }
     
-    console.log('[LBW PDF Service] Found categories:', categoryOrder);
 
     // Load Fabric.js for annotation rendering
     const fabric = await this.fabricService.getFabric();
@@ -580,10 +545,6 @@ export class LbwPdfService {
     const totalLimitations = result.reduce((sum, cat) => sum + cat.limitations.length, 0);
     const totalDeficiencies = result.reduce((sum, cat) => sum + cat.deficiencies.length, 0);
 
-    console.log(`[LBW PDF Service] ✓ HUD data loaded: ${result.length} categories with ${totalItems} total items`);
-    console.log(`[LBW PDF Service]   - Comments: ${totalComments}`);
-    console.log(`[LBW PDF Service]   - Limitations: ${totalLimitations}`);
-    console.log(`[LBW PDF Service]   - Deficiencies: ${totalDeficiencies}`);
 
     return result;
   }
@@ -676,31 +637,22 @@ export class LbwPdfService {
    * Load primary photo for project
    */
   private async loadPrimaryPhoto(projectInfo: any): Promise<void> {
-    console.log('[LBW PDF Service] loadPrimaryPhoto called with:', {
-      hasPrimaryPhoto: !!projectInfo?.primaryPhoto,
-      primaryPhotoType: typeof projectInfo?.primaryPhoto,
-      primaryPhotoStart: projectInfo?.primaryPhoto?.substring(0, 50)
-    });
 
     if (projectInfo?.primaryPhoto && typeof projectInfo.primaryPhoto === 'string') {
       let convertedPhotoData: string | null = null;
 
       if (projectInfo.primaryPhoto.startsWith('data:')) {
-        console.log('[LBW PDF Service] Primary photo already base64');
         convertedPhotoData = projectInfo.primaryPhoto;
       } else if (projectInfo.primaryPhoto.startsWith('blob:')) {
-        console.log('[LBW PDF Service] Converting blob URL to base64');
         try {
           const response = await fetch(projectInfo.primaryPhoto);
           const blob = await response.blob();
           convertedPhotoData = await this.blobToBase64(blob);
-          console.log('[LBW PDF Service] ✓ Blob converted to base64');
         } catch (error) {
           console.error('[LBW PDF Service] ✗ Error converting blob URL:', error);
         }
       } else if (this.caspioService.isS3Key(projectInfo.primaryPhoto)) {
         // S3 key - fetch from S3
-        console.log('[LBW PDF Service] Loading primary photo from S3:', projectInfo.primaryPhoto);
         try {
           const s3Url = await this.caspioService.getS3FileUrl(projectInfo.primaryPhoto);
           if (s3Url) {
@@ -708,7 +660,6 @@ export class LbwPdfService {
             if (response.ok) {
               const blob = await response.blob();
               convertedPhotoData = await this.blobToBase64(blob);
-              console.log('[LBW PDF Service] ✓ S3 primary photo converted, size:', Math.round((convertedPhotoData?.length || 0) / 1024), 'KB');
             }
           }
         } catch (error) {
@@ -716,12 +667,10 @@ export class LbwPdfService {
         }
       } else if (projectInfo.primaryPhoto.startsWith('/')) {
         // Caspio file path - convert to base64
-        console.log('[LBW PDF Service] Converting Caspio file path to base64:', projectInfo.primaryPhoto);
         try {
           const imageData = await firstValueFrom(this.caspioService.getImageFromFilesAPI(projectInfo.primaryPhoto));
           if (imageData && typeof imageData === 'string' && imageData.startsWith('data:')) {
             convertedPhotoData = imageData;
-            console.log('[LBW PDF Service] ✓ Primary photo converted successfully, size:', Math.round(imageData.length / 1024), 'KB');
           } else {
             console.error('[LBW PDF Service] ✗ Primary photo conversion failed - invalid data');
           }
@@ -729,19 +678,16 @@ export class LbwPdfService {
           console.error('[LBW PDF Service] ✗ Error converting primary photo:', error);
         }
       } else {
-        console.log('[LBW PDF Service] Primary photo has unknown format:', projectInfo.primaryPhoto.substring(0, 50));
       }
 
       // Set both fields so PDF component can use either one
       if (convertedPhotoData) {
         projectInfo.primaryPhotoBase64 = convertedPhotoData;
         projectInfo.primaryPhoto = convertedPhotoData;
-        console.log('[LBW PDF Service] ✓ Primary photo fields set on projectInfo');
       } else {
         console.warn('[LBW PDF Service] ✗ No converted photo data - photo will not appear in PDF');
       }
     } else {
-      console.log('[LBW PDF Service] No primary photo to load');
     }
   }
 
@@ -750,9 +696,7 @@ export class LbwPdfService {
    */
   private async loadPdfPreview(): Promise<any> {
     try {
-      console.log('[LBW PDF Service] Loading PDF preview component module...');
       const module = await import('../../../components/pdf-preview/pdf-preview.component');
-      console.log('[LBW PDF Service] PDF preview component module loaded:', !!module.PdfPreviewComponent);
       return module.PdfPreviewComponent;
     } catch (error) {
       console.error('[LBW PDF Service] Error loading PDF preview component:', error);

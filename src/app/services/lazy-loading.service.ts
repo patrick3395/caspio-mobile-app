@@ -29,18 +29,15 @@ export class LazyLoadingService {
   loadComponent<T>(name: string, config: LazyComponentConfig): Observable<T> {
     // Check if already cached
     if (this.componentCache.has(name)) {
-      console.log(`🚀 Component cache hit: ${name}`);
       return of(this.componentCache.get(name));
     }
 
     // Check if already loading
     if (this.loadingPromises.has(name)) {
-      console.log(`🔄 Component already loading: ${name}`);
       return from(this.loadingPromises.get(name)!);
     }
 
     // Start loading
-    console.log(`📦 Loading component: ${name}`);
     const loadPromise = this.loadComponentInternal(name, config);
     this.loadingPromises.set(name, loadPromise);
 
@@ -55,7 +52,6 @@ export class LazyLoadingService {
         this.loadingPromises.delete(name);
         
         if (config.fallback) {
-          console.log(`🔄 Using fallback component for ${name}`);
           return of(config.fallback);
         }
         
@@ -73,7 +69,6 @@ export class LazyLoadingService {
       .map(([name, config]) => this.preloadComponent(name, config));
 
     await Promise.all(preloadPromises);
-    console.log('✅ Component preloading complete');
   }
 
   /**
@@ -85,7 +80,6 @@ export class LazyLoadingService {
     }
 
     try {
-      console.log(`🔄 Preloading component: ${name}`);
       const component = await this.loadComponentInternal(name, config);
       this.componentCache.set(name, component);
       this.preloadedComponents.add(name);
@@ -105,7 +99,6 @@ export class LazyLoadingService {
       const component = module.default || module[Object.keys(module)[0]];
       
       const loadTime = performance.now() - startTime;
-      console.log(`✅ Component ${name} loaded in ${loadTime.toFixed(2)}ms`);
       
       return component;
     } catch (error) {
@@ -143,7 +136,6 @@ export class LazyLoadingService {
     this.componentCache.clear();
     this.loadingPromises.clear();
     this.preloadedComponents.clear();
-    console.log('🧹 Component cache cleared');
   }
 
   /**

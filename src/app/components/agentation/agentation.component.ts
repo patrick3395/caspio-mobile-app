@@ -40,7 +40,6 @@ export class AgentationComponent implements OnInit, OnDestroy {
     try {
       this.root = ReactDOM.createRoot(this.containerRef.nativeElement);
       this.root.render(React.createElement(Agentation));
-      console.log('[Agentation] Visual feedback tool initialized for web');
     } catch (err) {
       console.warn('[Agentation] Failed to initialize:', err);
     }

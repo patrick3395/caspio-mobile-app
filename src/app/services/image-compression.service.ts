@@ -34,7 +34,6 @@ export class ImageCompressionService {
     try {
       // Skip compression for very small files (< 100KB)
       if (file.size < 100000) {
-        console.log(`[Compression] Skipping - file already small: ${originalSizeKB} KB`);
         return file;
       }
 
@@ -54,7 +53,6 @@ export class ImageCompressionService {
       const compressedSizeKB = (compressedFile.size / 1024).toFixed(1);
       const compressionRatio = ((1 - compressedFile.size / file.size) * 100).toFixed(1);
 
-      console.log(`[Compression] ✅ ${originalSizeKB} KB → ${compressedSizeKB} KB (${compressionRatio}% reduction)`);
 
       // STORAGE FIX: Warn if compression had minimal effect (possible failure or already compressed)
       if (compressedFile.size > file.size * 0.9) {

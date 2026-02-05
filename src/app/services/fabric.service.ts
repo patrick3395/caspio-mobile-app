@@ -22,6 +22,5 @@ export class FabricService {
 
   async ensureFabricLoaded(): Promise<void> {
     // No-op since fabric is statically imported and always available
-    console.log('[FabricService] Fabric already loaded (static import)');
   }
 }

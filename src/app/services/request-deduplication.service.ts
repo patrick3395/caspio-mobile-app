@@ -59,23 +59,19 @@ export class RequestDeduplicationService {
     const now = Date.now();
 
     if (existing && (now - existing.timestamp) < this.DEDUP_WINDOW) {
-      console.log('[RequestDedup] 🔄 Reusing existing request:', key);
       existing.refCount++;
       return existing.observable;
     }
 
-    console.log('[RequestDedup] 🚀 Starting new request:', key);
 
     // Create new shared request
     const observable = requestFn().pipe(
       shareReplay(1), // Share result with all subscribers
       tap(() => {
-        console.log('[RequestDedup] ✅ Request completed:', key);
       }),
       finalize(() => {
         // Clean up after a delay (allow for late subscribers)
         const timeout = setTimeout(() => {
-          console.log('[RequestDedup] 🗑️ Cleaning up request:', key);
           this.activeRequests.delete(key);
           this.requestCleanupTimeout.delete(key);
         }, this.DEDUP_WINDOW);
@@ -100,7 +96,6 @@ export class RequestDeduplicationService {
    * Call this after mutations to ensure fresh data is fetched
    */
   invalidate(key: string): void {
-    console.log('[RequestDedup] ❌ Invalidating request:', key);
     this.activeRequests.delete(key);
 
     const timeout = this.requestCleanupTimeout.get(key);
@@ -114,7 +109,6 @@ export class RequestDeduplicationService {
    * Invalidate requests by pattern
    */
   invalidatePattern(pattern: string): void {
-    console.log('[RequestDedup] ❌ Invalidating requests matching:', pattern);
 
     const keysToInvalidate = Array.from(this.activeRequests.keys()).filter(key =>
       key.includes(pattern)
@@ -127,7 +121,6 @@ export class RequestDeduplicationService {
    * Clear all cached requests
    */
   clear(): void {
-    console.log('[RequestDedup] 🗑️ Clearing all cached requests');
 
     this.requestCleanupTimeout.forEach(timeout => clearTimeout(timeout));
     this.requestCleanupTimeout.clear();

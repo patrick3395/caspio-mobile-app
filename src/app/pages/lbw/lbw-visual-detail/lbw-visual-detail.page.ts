@@ -120,7 +120,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
       // MOBILE: Reload data when returning to this page (sync may have happened)
       // This ensures we show fresh data after sync completes
       if (this.serviceId && this.templateId) {
-        console.log('[LbwVisualDetail] ionViewWillEnter MOBILE: Reloading data');
         this.loadVisualData();
       }
     }
@@ -160,12 +159,10 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
     const rawCategory = categoryParams?.['category'] || '';
     this.categoryName = rawCategory ? decodeURIComponent(rawCategory) : '';
     this.routeCategory = this.categoryName;  // Store original route category for back navigation
-    console.log('[LbwVisualDetail] Category from route:', rawCategory, '-> decoded:', this.categoryName);
 
     // Get project/service IDs from container (go up through to container)
     // Try parent?.parent first (category -> container)
     let containerParams = this.route.parent?.parent?.snapshot?.params;
-    console.log('[LbwVisualDetail] Container params (p.p):', containerParams);
 
     if (containerParams) {
       this.projectId = containerParams['projectId'] || '';
@@ -175,7 +172,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
     // Fallback: Try one more level up if needed
     if (!this.projectId || !this.serviceId) {
       containerParams = this.route.parent?.parent?.parent?.snapshot?.params;
-      console.log('[LbwVisualDetail] Container params (p.p.p):', containerParams);
       if (containerParams) {
         this.projectId = this.projectId || containerParams['projectId'] || '';
         this.serviceId = this.serviceId || containerParams['serviceId'] || '';
@@ -186,15 +182,12 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
     const queryParams = this.route.snapshot.queryParams;
     if (queryParams['lbwId']) {
       this.lbwId = queryParams['lbwId'];
-      console.log('[LbwVisualDetail] LBWID from query params:', this.lbwId);
     }
 
-    console.log('[LbwVisualDetail] Final values - Category:', this.categoryName, 'ProjectId:', this.projectId, 'ServiceId:', this.serviceId, 'LbwId:', this.lbwId);
 
     // Get templateId from current route
     this.routeSubscription = this.route.params.subscribe(params => {
       this.templateId = parseInt(params['templateId'], 10);
-      console.log('[LbwVisualDetail] TemplateId from route:', this.templateId);
       this.loadVisualData();
     });
   }
@@ -212,29 +205,19 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
     // Store LBWID from query params (if provided by category detail page)
     let lbwIdFromQueryParams = this.lbwId;
 
-    console.log('[LbwVisualDetail] ========== loadVisualData START ==========');
-    console.log('[LbwVisualDetail] serviceId:', this.serviceId);
-    console.log('[LbwVisualDetail] projectId:', this.projectId);
-    console.log('[LbwVisualDetail] templateId:', this.templateId);
-    console.log('[LbwVisualDetail] categoryName:', this.categoryName);
-    console.log('[LbwVisualDetail] lbwId (from query):', lbwIdFromQueryParams || '(none)');
 
     // WEBAPP SIMPLE FIX: If we have lbwId from query params, just use it directly
     // Don't bother with complex matching - load photos for this LBWID
     if (environment.isWeb && lbwIdFromQueryParams) {
-      console.log('[LbwVisualDetail] WEBAPP DIRECT: Using lbwId from query params:', lbwIdFromQueryParams);
       this.lbwId = lbwIdFromQueryParams;
 
       // Load visual data for display
       try {
         const lbwRecords = await this.lbwData.getVisualsByService(this.serviceId);
-        console.log('[LbwVisualDetail] WEBAPP DIRECT: Loaded', lbwRecords.length, 'LBW records');
-        console.log('[LbwVisualDetail] WEBAPP DIRECT: Looking for LBWID:', lbwIdFromQueryParams);
 
         const visual = lbwRecords.find((v: any) => String(v.LBWID || v.PK_ID) === String(lbwIdFromQueryParams));
 
         if (visual) {
-          console.log('[LbwVisualDetail] WEBAPP DIRECT: Found visual:', visual.Name, 'LBWID:', visual.LBWID);
           const originalTemplateId = visual.TemplateID || visual.LBWTemplateID || visual.VisualTemplateID || this.templateId;
           if (!isNaN(originalTemplateId) && originalTemplateId > 0) {
             this.templateId = originalTemplateId;
@@ -256,11 +239,9 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
           this.categoryName = visual.Category || this.categoryName;
           this.editableTitle = this.item.name;
           this.editableText = this.item.text;
-          console.log('[LbwVisualDetail] WEBAPP DIRECT: Loaded visual:', this.item.name);
         } else {
           // Visual not found in LBW records - create minimal item so photos can still display
           console.warn('[LbwVisualDetail] WEBAPP DIRECT: Visual not found in LBW records, creating minimal item');
-          console.log('[LbwVisualDetail] WEBAPP DIRECT: Available LBWIDs:', lbwRecords.map((v: any) => v.LBWID || v.PK_ID));
 
           this.item = {
             id: lbwIdFromQueryParams,
@@ -315,38 +296,30 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
     try {
       // WEBAPP MODE: Load from server API to see synced data from mobile
       if (environment.isWeb) {
-        console.log('[LbwVisualDetail] WEBAPP MODE: Loading LBW data from server');
 
         const lbwRecords = await this.lbwData.getVisualsByService(this.serviceId);
-        console.log('[LbwVisualDetail] WEBAPP: Loaded', lbwRecords.length, 'LBW records for ServiceID:', this.serviceId);
 
         // DEXIE-FIRST: Load templates from cache to get the Name and Category for matching (fallback)
         const templates = await this.offlineTemplate.getLbwTemplates();
-        console.log('[LbwVisualDetail] WEBAPP: Loaded', templates.length, 'templates');
         const template = templates.find((t: any) =>
           (t.TemplateID || t.PK_ID) == this.templateId
         );
-        console.log('[LbwVisualDetail] WEBAPP: Template found for templateId', this.templateId, ':', template ? template.Name : '(NOT FOUND)');
 
         // PRIORITY 1: Find by LBWID from query params (most reliable - direct record lookup)
         // This ensures we find the record even if Name was edited
         let visual: any = null;
         if (lbwIdFromQueryParams) {
-          console.log('[LbwVisualDetail] WEBAPP: Looking for visual by LBWID:', lbwIdFromQueryParams);
           visual = lbwRecords.find((v: any) =>
             String(v.LBWID || v.PK_ID) === String(lbwIdFromQueryParams)
           );
-          console.log('[LbwVisualDetail] WEBAPP: Visual found by LBWID:', visual ? 'YES' : 'NO');
         }
 
         // PRIORITY 1.5: For custom visuals, templateId might BE the LBWID - try matching directly
         if (!visual && this.templateId > 0) {
-          console.log('[LbwVisualDetail] WEBAPP: Looking for visual by templateId as LBWID:', this.templateId);
           visual = lbwRecords.find((v: any) =>
             String(v.LBWID || v.PK_ID) === String(this.templateId)
           );
           if (visual) {
-            console.log('[LbwVisualDetail] WEBAPP: Found custom visual by LBWID:', this.templateId);
             this.lbwId = String(visual.LBWID || visual.PK_ID);
           }
         }
@@ -361,7 +334,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
             String(v.TemplateID) === templateIdToMatch
           );
           if (visual) {
-            console.log('[LbwVisualDetail] WEBAPP: Matched LBW record by templateId:', templateIdToMatch);
           }
         }
 
@@ -371,7 +343,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
             v.Name === template.Name && v.Category === template.Category
           );
           if (visual) {
-            console.log('[LbwVisualDetail] WEBAPP: Matched LBW record by name+category:', template.Name, template.Category);
           }
         }
 
@@ -383,7 +354,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
           if (categoryVisuals.length === 1) {
             // Only ONE visual in category - safe to use it
             visual = categoryVisuals[0];
-            console.log('[LbwVisualDetail] WEBAPP: PRIORITY 4 FALLBACK - Using only visual in category:', visual.LBWID, 'Name:', visual.Name);
           } else if (categoryVisuals.length > 1) {
             // Multiple visuals - don't guess, log warning
             console.warn('[LbwVisualDetail] WEBAPP: PRIORITY 4 SKIPPED - Multiple visuals in category (' + categoryVisuals.length + '). No lbwId provided, cannot determine correct visual.');
@@ -417,10 +387,8 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
           this.categoryName = actualCategory; // Update to actual category for photo queries
           this.editableTitle = this.item.name;
           this.editableText = this.item.text;
-          console.log('[LbwVisualDetail] WEBAPP: Loaded LBW record:', this.item.name, 'LBWID:', this.lbwId, '(visual LBWID:', visualLbwId, ') Category:', actualCategory);
         } else if (template) {
           // No LBW record found - use template (already loaded above)
-          console.log('[LbwVisualDetail] WEBAPP: LBW record not found, using template data');
           const effectiveTemplateId = template.TemplateID || template.PK_ID;
           const actualCategory = template.Category || '';
           this.item = {
@@ -438,12 +406,10 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
           this.categoryName = actualCategory; // Update to actual category
           this.editableTitle = this.item.name;
           this.editableText = this.item.text;
-          console.log('[LbwVisualDetail] WEBAPP: Loaded from template:', this.item.name, 'Category:', actualCategory);
 
           // CRITICAL: Ensure we have the LBWID from query params for loading photos
           if (lbwIdFromQueryParams) {
             this.lbwId = lbwIdFromQueryParams;
-            console.log('[LbwVisualDetail] WEBAPP: Using LBWID from query params for photos:', this.lbwId);
           }
         } else {
           // Neither visual nor template found - this is the error case
@@ -463,7 +429,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
       // MOBILE MODE: Match EFE pattern exactly
       // 1. Try to load from Dexie visualFields first
       // 2. Fallback to cached templates
-      console.log('[LbwVisualDetail] MOBILE MODE: Loading data from Dexie');
 
       // Query visualFields by serviceId, then filter by templateId
       const allFields = await db.visualFields
@@ -479,8 +444,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
         Number(t.TemplateID || t.PK_ID) === this.templateId
       );
 
-      console.log('[LbwVisualDetail] MOBILE: Field found:', !!field, 'templateName:', field?.templateName);
-      console.log('[LbwVisualDetail] MOBILE: Template found:', !!template, 'Name:', template?.Name);
 
       // CRITICAL: If field exists but templateName is empty (old data), use template.Name as fallback
       if (field && field.templateName) {
@@ -497,7 +460,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
           this.lbwId = field.visualId || field.tempVisualId || '';
         }
 
-        console.log('[LbwVisualDetail] MOBILE: Loaded from Dexie field:', this.item.name, 'category:', this.categoryName, 'lbwId:', this.lbwId);
       } else if (field && template) {
         // Field exists but templateName is empty - merge field data with template name
         // This handles data created before templateName was stored
@@ -527,7 +489,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
           this.lbwId = field.visualId || field.tempVisualId || '';
         }
 
-        console.log('[LbwVisualDetail] MOBILE: Merged field+template - Name:', this.item.name, 'category:', this.categoryName, 'lbwId:', this.lbwId);
       } else if (template) {
         // No field exists - use template (item not yet selected)
         const effectiveTemplateId = template.TemplateID || template.PK_ID;
@@ -555,7 +516,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
           this.lbwId = lbwIdFromQueryParams;
         }
 
-        console.log('[LbwVisualDetail] MOBILE: Loaded from template:', this.item.name, 'category:', this.categoryName);
       } else {
         console.warn('[LbwVisualDetail] MOBILE: No field or template found for ID:', this.templateId);
       }
@@ -616,8 +576,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
 
           // Only update if different (avoid unnecessary UI updates)
           if (this.item.name !== newName || this.item.text !== newText) {
-            console.log('[LbwVisualDetail] liveQuery: Field changed, updating item');
-            console.log('[LbwVisualDetail] liveQuery: Name:', this.item.name, '->', newName);
 
             this.item.name = newName;
             this.item.text = newText;
@@ -629,13 +587,11 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
 
         // If lbwId changed (sync completed), update item.id and reload photos with correct entityId
         if (lbwIdChanged) {
-          console.log('[LbwVisualDetail] liveQuery: LbwId changed from', this.lastKnownLbwId, 'to', currentLbwId, '- reloading photos');
           this.lastKnownLbwId = currentLbwId;
 
           // Update item.id reference to new visualId (temp -> real ID transition)
           if (this.item) {
             this.item.id = field.visualId || field.tempVisualId || this.item.id;
-            console.log('[LbwVisualDetail] liveQuery: Updated item.id to', this.item.id);
           }
 
           // Note: Don't set this.lbwId here - let loadPhotos() do it from fresh field data
@@ -648,7 +604,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
       }
     });
 
-    console.log('[LbwVisualDetail] Subscribed to visualField changes');
   }
 
   private convertFieldToItem(field: VisualField): VisualItem {
@@ -675,8 +630,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
     try {
       // WEBAPP MODE: DIRECT API CALL - no caching, no Dexie
       if (environment.isWeb) {
-        console.log('[LbwVisualDetail] ========== DIRECT API PHOTO LOAD ==========');
-        console.log('[LbwVisualDetail] lbwId:', this.lbwId);
 
         if (!this.lbwId) {
           console.error('[LbwVisualDetail] ❌ lbwId is EMPTY - cannot load photos!');
@@ -687,7 +640,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
 
         // DIRECT API CALL - bypass all caching layers
         const apiUrl = `${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_LBW_Attach/records?q.where=LBWID=${this.lbwId}&q.limit=100`;
-        console.log('[LbwVisualDetail] API URL:', apiUrl);
 
         const response = await fetch(apiUrl);
         if (!response.ok) {
@@ -699,9 +651,7 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
 
         const data = await response.json();
         const attachments = data.Result || [];
-        console.log(`[LbwVisualDetail] ✅ API returned ${attachments.length} attachments`);
         if (attachments.length > 0) {
-          console.log('[LbwVisualDetail] First attachment:', JSON.stringify(attachments[0]));
         }
 
         this.photos = [];
@@ -710,18 +660,11 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
           // Check Attachment first (S3 key), then Photo (legacy Caspio Files API)
           let displayUrl = att.Attachment || att.attachment || att.Photo || att.photo || att.url || att.displayUrl || 'assets/img/photo-placeholder.svg';
 
-          console.log('[LbwVisualDetail] WEBAPP: Processing attachment:', {
-            AttachID: att.AttachID,
-            Attachment: att.Attachment,
-            Photo: att.Photo,
-            displayUrl
-          });
 
           // If it's an S3 key, get signed URL
           if (displayUrl && this.caspioService.isS3Key && this.caspioService.isS3Key(displayUrl)) {
             try {
               displayUrl = await this.caspioService.getS3FileUrl(displayUrl);
-              console.log('[LbwVisualDetail] WEBAPP: Got S3 signed URL for:', att.AttachID);
             } catch (e) {
               console.warn('[LbwVisualDetail] WEBAPP: Could not get S3 URL:', e);
             }
@@ -741,14 +684,11 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
               // Server has annotations AND we have a cached image - use the cached version
               thumbnailUrl = cachedAnnotated;
               hasAnnotations = true;
-              console.log(`[LbwVisualDetail] WEBAPP: Using cached annotated image for ${attachId} (server has Drawings)`);
             } else if (cachedAnnotated && !hasServerAnnotations) {
               // Cached image exists but server has NO annotations - cache is stale, clear it
-              console.log(`[LbwVisualDetail] WEBAPP: Clearing stale cached annotated image for ${attachId} (server has no Drawings)`);
               await this.indexedDb.deleteCachedAnnotatedImage(attachId);
             } else if (hasServerAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
               // No cached image but server has Drawings - render annotations on the fly
-              console.log(`[LbwVisualDetail] WEBAPP: Rendering annotations for ${attachId}...`);
               const renderedUrl = await renderAnnotationsOnPhoto(displayUrl, att.Drawings);
               if (renderedUrl && renderedUrl !== displayUrl) {
                 thumbnailUrl = renderedUrl;
@@ -760,7 +700,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
                 } catch (cacheErr) {
                   console.warn('[LbwVisualDetail] WEBAPP: Failed to cache annotated image:', cacheErr);
                 }
-                console.log(`[LbwVisualDetail] WEBAPP: Rendered and cached annotations for ${attachId}`);
               }
             }
           } catch (annotErr) {
@@ -804,12 +743,10 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
       this.lastKnownLbwId = this.lbwId;
 
       if (!this.lbwId) {
-        console.log('[LbwVisualDetail] MOBILE: No lbwId found, cannot load photos');
         this.photos = [];
         return;
       }
 
-      console.log('[LbwVisualDetail] MOBILE: Loading photos for lbwId:', this.lbwId, 'field tempVisualId:', field?.tempVisualId, 'visualId:', field?.visualId);
 
       // DEXIE-FIRST: Load local images from IndexedDB using lbwId as entityId
       // DIRECT Dexie query - matching EFE pattern EXACTLY (no service wrapper)
@@ -823,7 +760,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
 
       if (localImages.length > 0) {
         foundAtTier = 1;
-        console.log('[LbwVisualDetail] MOBILE: TIER 1 (primary) - Found', localImages.length, 'photos with lbwId:', this.lbwId);
       }
 
       // FALLBACK 1: If no photos found and we have both tempVisualId and visualId, try the other ID
@@ -832,14 +768,12 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
       if (localImages.length === 0 && field?.tempVisualId && field?.visualId) {
         const alternateId = (this.lbwId === field.tempVisualId) ? field.visualId : field.tempVisualId;
         if (alternateId && alternateId !== this.lbwId) {
-          console.log('[LbwVisualDetail] MOBILE: No photos found, trying alternate ID:', alternateId);
           localImages = await db.localImages
             .where('entityId')
             .equals(alternateId)
             .toArray();
           if (localImages.length > 0) {
             foundAtTier = 2;
-            console.log('[LbwVisualDetail] MOBILE: TIER 2 (alternate ID) - Found', localImages.length, 'photos with alternateId:', alternateId);
           }
         }
       }
@@ -850,14 +784,12 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
       if (localImages.length === 0 && field?.tempVisualId) {
         const mappedRealId = await this.indexedDb.getRealId(field.tempVisualId);
         if (mappedRealId) {
-          console.log('[LbwVisualDetail] MOBILE: Trying mapped realId from tempIdMappings:', mappedRealId);
           localImages = await db.localImages
             .where('entityId')
             .equals(mappedRealId)
             .toArray();
           if (localImages.length > 0) {
             foundAtTier = 3;
-            console.log('[LbwVisualDetail] MOBILE: TIER 3 (tempIdMappings) - Found', localImages.length, 'photos with mappedRealId:', mappedRealId);
             // Update VisualField with realId so future lookups work directly
             this.visualFieldRepo.setField(this.serviceId, this.categoryName, this.templateId, {
               visualId: mappedRealId
@@ -873,23 +805,19 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
       if (localImages.length === 0 && field?.visualId && !field?.tempVisualId) {
         const reverseLookupTempId = await this.indexedDb.getTempId(field.visualId);
         if (reverseLookupTempId) {
-          console.log('[LbwVisualDetail] MOBILE: REVERSE LOOKUP - realId:', field.visualId, '-> tempId:', reverseLookupTempId);
           localImages = await db.localImages
             .where('entityId')
             .equals(reverseLookupTempId)
             .toArray();
           if (localImages.length > 0) {
             foundAtTier = 4;
-            console.log('[LbwVisualDetail] MOBILE: TIER 4 (reverse lookup) - Found', localImages.length, 'photos with reverseLookupTempId:', reverseLookupTempId);
           }
         }
       }
 
       // Log final result with tier information
       if (foundAtTier > 0) {
-        console.log('[LbwVisualDetail] MOBILE: Photos found at TIER', foundAtTier, '- Total:', localImages.length, 'photos');
       } else {
-        console.log('[LbwVisualDetail] MOBILE: No photos found after all 4 tiers for lbwId:', this.lbwId);
       }
 
       // Convert to PhotoItem format
@@ -923,7 +851,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
           const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(img.imageId);
           if (cachedAnnotated) {
             displayUrl = cachedAnnotated;
-            console.log('[LbwVisualDetail] MOBILE: Using cached annotated image for:', img.imageId);
           }
         }
 
@@ -951,7 +878,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
         const pendingCaption = captionMap.get(img.imageId) || captionMap.get(img.attachId || '');
         if (pendingCaption !== undefined) {
           caption = pendingCaption;
-          console.log('[LbwVisualDetail] MOBILE: Using pending caption for:', img.imageId, ':', pendingCaption.substring(0, 30));
         }
 
         this.photos.push({
@@ -1021,7 +947,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
         // WEBAPP: Direct API update
         if (this.isValidLbwId(this.lbwId)) {
           await this.lbwData.updateVisual(this.lbwId, caspioUpdate, this.serviceId);
-          console.log('[LbwVisualDetail] WEBAPP: ✅ Updated via API:', this.lbwId, caspioUpdate);
         } else {
           console.warn('[LbwVisualDetail] WEBAPP: No valid lbwId, cannot save');
         }
@@ -1037,12 +962,10 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
           this.templateId,
           dexieUpdate
         );
-        console.log('[LbwVisualDetail] MOBILE: ✅ Updated Dexie field:', dexieUpdate);
 
         // Queue update to Caspio for background sync (only if valid lbwId)
         if (this.isValidLbwId(this.lbwId)) {
           await this.lbwData.updateVisual(this.lbwId, caspioUpdate, this.serviceId);
-          console.log('[LbwVisualDetail] MOBILE: ✅ Queued update for sync:', this.lbwId, caspioUpdate);
         }
       }
 
@@ -1080,7 +1003,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
         // WEBAPP: Direct API update
         if (this.isValidLbwId(this.lbwId)) {
           await this.lbwData.updateVisual(this.lbwId, { Name: this.editableTitle }, this.serviceId);
-          console.log('[LbwVisualDetail] WEBAPP: ✅ Updated title via API:', this.lbwId);
         } else {
           console.warn('[LbwVisualDetail] WEBAPP: No valid lbwId, cannot save title');
         }
@@ -1096,12 +1018,10 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
           this.templateId,
           dexieUpdate
         );
-        console.log('[LbwVisualDetail] MOBILE: ✅ Updated title in Dexie with visualId:', this.lbwId);
 
         // Queue update to Caspio for background sync (only if valid lbwId)
         if (this.isValidLbwId(this.lbwId)) {
           await this.lbwData.updateVisual(this.lbwId, { Name: this.editableTitle }, this.serviceId);
-          console.log('[LbwVisualDetail] MOBILE: ✅ Queued title update for sync:', this.lbwId);
         }
       }
 
@@ -1133,7 +1053,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
         // WEBAPP: Direct API update
         if (this.isValidLbwId(this.lbwId)) {
           await this.lbwData.updateVisual(this.lbwId, { Text: this.editableText }, this.serviceId);
-          console.log('[LbwVisualDetail] WEBAPP: ✅ Updated text via API:', this.lbwId);
         } else {
           console.warn('[LbwVisualDetail] WEBAPP: No valid lbwId, cannot save text');
         }
@@ -1149,12 +1068,10 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
           this.templateId,
           dexieUpdate
         );
-        console.log('[LbwVisualDetail] MOBILE: ✅ Updated text in Dexie with visualId:', this.lbwId);
 
         // Queue update to Caspio for background sync (only if valid lbwId)
         if (this.isValidLbwId(this.lbwId)) {
           await this.lbwData.updateVisual(this.lbwId, { Text: this.editableText }, this.serviceId);
-          console.log('[LbwVisualDetail] MOBILE: ✅ Queued text update for sync:', this.lbwId);
         }
       }
 
@@ -1358,10 +1275,8 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
       // DEXIE-FIRST: Queue deletion for background sync if already synced to Caspio
       if (localImage?.attachId) {
         await this.lbwData.deleteVisualPhoto(localImage.attachId);
-        console.log('[LbwVisualDetail] ✅ Queued photo deletion to Caspio:', localImage.attachId);
       }
 
-      console.log('[LbwVisualDetail] Photo removed successfully');
     } catch (error) {
       console.error('[LbwVisualDetail] Error deleting photo:', error);
     }
@@ -1582,7 +1497,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
             Annotation: caption,
             Drawings: photo.drawings || ''
           }));
-          console.log('[LbwVisualDetail] WEBAPP: ✅ Updated caption via API (preserved drawings):', attachId);
         }
         this.changeDetectorRef.detectChanges();
         return;
@@ -1594,7 +1508,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
       if (updateCount === 0) {
         console.warn('[LbwVisualDetail] Caption update found no matching record for photo.id:', photo.id);
       } else {
-        console.log('[LbwVisualDetail] ✅ Caption saved to localImages:', photo.id);
       }
 
       // Get the localImage to check status
@@ -1611,7 +1524,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
         localImage?.drawings || '',
         { serviceId: this.serviceId, lbwId: this.lbwId }
       );
-      console.log('[LbwVisualDetail] ✅ Queued caption update:', attachId, localImage?.attachId ? '(synced)' : '(pending photo sync)');
 
       this.changeDetectorRef.detectChanges();
     } catch (error) {
@@ -1634,7 +1546,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
     if (photo.drawings && photo.drawings.length > 10) {
       try {
         existingAnnotations = decompressAnnotationData(photo.drawings);
-        console.log('[LbwVisualDetail] Found existing annotations from drawings');
       } catch (e) {
         console.warn('[LbwVisualDetail] Error loading annotations:', e);
       }
@@ -1668,26 +1579,17 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
     const hasAnnotationData = data && (data.annotatedBlob || data.compressedAnnotationData || data.annotationsData);
 
     if (hasAnnotationData) {
-      console.log('[LbwVisualDetail] Annotation saved, processing...', data.canvasTainted ? '(canvas tainted - no image export)' : '');
 
       const annotatedBlob = data.blob || data.annotatedBlob;
       const annotationsData = data.annotationData || data.annotationsData;
       const newCaption = data.caption !== undefined ? data.caption : photo.caption;
 
       // Debug logging for annotation blob
-      console.log('[LbwVisualDetail] Annotation data received:', {
-        hasBlob: !!annotatedBlob,
-        blobSize: annotatedBlob?.size || 0,
-        hasAnnotationsData: !!annotationsData,
-        hasCompressedData: !!data.compressedAnnotationData,
-        photoId: photo.id
-      });
 
       // Create blob URL for immediate display (only if we have a blob)
       let newUrl: string | null = null;
       if (annotatedBlob) {
         newUrl = URL.createObjectURL(annotatedBlob);
-        console.log('[LbwVisualDetail] ✅ Created blob URL for annotated thumbnail:', newUrl.substring(0, 50) + '...');
       } else {
         console.warn('[LbwVisualDetail] ⚠️ No annotated blob returned - thumbnail will not update immediately');
       }
@@ -1716,7 +1618,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
             if (annotatedBlob && annotatedBlob.size > 0) {
               try {
                 await this.indexedDb.cacheAnnotatedImage(photo.id, annotatedBlob);
-                console.log('[LbwVisualDetail] WEBAPP: ✅ Cached annotated image for AttachID:', photo.id);
               } catch (cacheErr) {
                 console.warn('[LbwVisualDetail] WEBAPP: Failed to cache annotated image:', cacheErr);
               }
@@ -1727,7 +1628,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
               Annotation: newCaption,
               Drawings: compressedDrawings
             }));
-            console.log('[LbwVisualDetail] WEBAPP: ✅ Updated annotation via API for AttachID:', photo.id);
 
             // Show appropriate toast based on whether we could export the image
             if (data.canvasTainted) {
@@ -1740,13 +1640,11 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
               caption: newCaption,
               updatedAt: Date.now()
             });
-            console.log('[LbwVisualDetail] ✅ Updated LocalImages with drawings:', compressedDrawings.length, 'chars');
 
             // Cache annotated image for thumbnail display
             if (annotatedBlob && annotatedBlob.size > 0) {
               try {
                 await this.indexedDb.cacheAnnotatedImage(photo.id, annotatedBlob);
-                console.log('[LbwVisualDetail] ✅ Cached annotated image for:', photo.id);
               } catch (cacheErr) {
                 console.warn('[LbwVisualDetail] Failed to cache annotated image:', cacheErr);
               }
@@ -1762,9 +1660,7 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
                 compressedDrawings,
                 { serviceId: this.serviceId, lbwId: this.lbwId }
               );
-              console.log('[LbwVisualDetail] ✅ Queued annotation update to Caspio:', localImage.attachId);
             } else {
-              console.log('[LbwVisualDetail] Photo not yet synced, annotations stored locally for upload');
             }
           }
 
@@ -1772,12 +1668,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
           const updatedDisplayUrl = newUrl || this.photos[photoIndex].displayUrl;
           const updatedOriginalUrl = this.photos[photoIndex].originalUrl || photo.originalUrl || this.photos[photoIndex].displayUrl;
 
-          console.log('[LbwVisualDetail] Updating photo at index', photoIndex, ':', {
-            oldDisplayUrl: this.photos[photoIndex].displayUrl?.substring(0, 50),
-            newDisplayUrl: updatedDisplayUrl?.substring(0, 50),
-            hasNewUrl: !!newUrl,
-            originalUrl: updatedOriginalUrl?.substring(0, 50)
-          });
 
           this.photos[photoIndex] = {
             ...this.photos[photoIndex],
@@ -1789,7 +1679,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
           };
 
           this.changeDetectorRef.detectChanges();
-          console.log('[LbwVisualDetail] ✅ UI updated with annotated image, displayUrl changed:', !!newUrl);
 
         } catch (error) {
           console.error('[LbwVisualDetail] Error saving annotations:', error);
@@ -1817,6 +1706,7 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
   // ===== UTILITIES =====
 
   private async showToast(message: string, color: 'success' | 'danger' | 'warning' = 'success') {
+    if (color === 'success') return;
     const toast = await this.toastController.create({
       message,
       duration: 2000,

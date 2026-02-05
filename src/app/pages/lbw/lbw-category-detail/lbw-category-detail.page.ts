@@ -182,7 +182,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.projectId = parentParams['projectId'];
         this.serviceId = parentParams['serviceId'];
 
-        console.log('Category:', this.categoryName, 'ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
 
         if (this.projectId && this.serviceId && this.categoryName) {
           this.loadData();
@@ -195,7 +194,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   async ionViewWillEnter() {
-    console.log('[LBW] ionViewWillEnter - serviceId:', this.serviceId, 'categoryName:', this.categoryName);
 
     // Set up deferred subscriptions if not already done (HUD pattern)
     if (!this.localImagesSubscription && this.serviceId) {
@@ -205,7 +203,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // MOBILE MODE: Reload data from Dexie when returning to page
     // Sync may have completed while user was on visual-detail page
     if (!environment.isWeb && this.serviceId && this.categoryName && this.initialLoadComplete) {
-      console.log('[LBW] MOBILE: Reloading from Dexie on page return...');
       this.loading = false;
 
       // Merge Dexie visual fields to get latest edits
@@ -228,7 +225,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // This ensures photos and title/text edits made in visual-detail show here
     // CRITICAL: Only run after initial load is complete to avoid race condition
     if (environment.isWeb && this.serviceId && this.categoryName && this.initialLoadComplete) {
-      console.log('[LBW] WEBAPP: ionViewWillEnter - reloading data (after initial load)...');
       this.loading = false;
 
       // CRITICAL: Clear caches to force fresh data load
@@ -245,7 +241,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       this.changeDetectorRef.detectChanges();
     } else if (environment.isWeb && this.serviceId && this.categoryName && !this.initialLoadComplete) {
-      console.log('[LBW] WEBAPP: ionViewWillEnter - skipping (initial load not complete yet)');
     }
   }
 
@@ -279,7 +274,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     if (this.liveQueryDebounceTimer) {
       clearTimeout(this.liveQueryDebounceTimer);
     }
-    console.log('[LBW CATEGORY DETAIL] Component destroyed, but uploads continue in background');
   }
 
   /**
@@ -289,7 +283,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     this.taskSubscription = this.backgroundUploadService.getTaskUpdates().subscribe(task => {
       if (!task) return;
 
-      console.log('[UPLOAD UPDATE] Task:', task.id, 'Status:', task.status, 'Progress:', task.progress);
 
       const key = task.key;
       const tempPhotoId = task.tempPhotoId;
@@ -322,7 +315,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // Subscribe to LBW-specific photo upload completions (DEXIE-FIRST pattern)
     // This handles the case where LBW photos are uploaded via background sync
     this.backgroundSync.lbwPhotoUploadComplete$.subscribe(async (event) => {
-      console.log('[LBW PHOTO SYNC] LBW photo upload completed:', event.imageId, 'attachId:', event.attachId);
 
       // Find the photo in our visualPhotos by imageId
       for (const key of Object.keys(this.visualPhotos)) {
@@ -333,7 +325,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         );
 
         if (photoIndex !== -1) {
-          console.log('[LBW PHOTO SYNC] Found photo at key:', key, 'index:', photoIndex);
 
           // Update the photo with the real attachId
           this.visualPhotos[key][photoIndex].AttachID = event.attachId;
@@ -351,7 +342,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // Subscribe to background sync photo upload completions
     // This handles the case where photos are uploaded via IndexedDB queue (offline -> online)
     this.photoSyncSubscription = this.backgroundSync.photoUploadComplete$.subscribe(async (event) => {
-      console.log('[PHOTO SYNC] Photo upload completed:', event.tempFileId);
 
       // Find the photo in our visualPhotos by temp file ID
       for (const key of Object.keys(this.visualPhotos)) {
@@ -362,7 +352,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         );
 
         if (photoIndex !== -1) {
-          console.log('[PHOTO SYNC] Found photo at key:', key, 'index:', photoIndex);
 
           // Update the photo with the result from sync
           const result = event.result;
@@ -394,7 +383,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       if (event.operation !== 'create') return;
       if (!event.serviceId || event.serviceId !== this.serviceId) return;
 
-      console.log('[LBW SYNC] Visual synced:', event.lbwId, 'for service:', event.serviceId);
 
       // Find which key this visual belongs to by checking visualRecordIds
       for (const [key, visualId] of Object.entries(this.visualRecordIds)) {
@@ -404,7 +392,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // Check if this temp ID maps to the synced real ID
         const mappedRealId = await this.indexedDb.getRealId(String(visualId));
         if (mappedRealId && mappedRealId === event.lbwId) {
-          console.log('[LBW SYNC] Found matching key:', key, 'temp:', visualId, '-> real:', event.lbwId);
 
           // Update visualRecordIds with real ID
           const previousTempId = String(visualId);
@@ -425,7 +412,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 visualId: event.lbwId,
                 // Keep tempVisualId for fallback lookup until LocalImages.entityId is updated
               });
-              console.log('[LBW SYNC] Updated Dexie VisualField:', templateId, '-> visualId:', event.lbwId);
             } catch (err) {
               console.error('[LBW SYNC] Failed to update Dexie VisualField:', err);
             }
@@ -434,7 +420,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             const fieldToUpdate = this.lastConvertedFields.find(f => f.templateId === templateId);
             if (fieldToUpdate) {
               fieldToUpdate.visualId = event.lbwId;
-              console.log('[LBW SYNC] Updated lastConvertedFields for templateId:', templateId);
             }
           }
 
@@ -471,7 +456,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // Cooldown lasts 3 seconds - enough time for sync to complete
     this.localOperationCooldownTimer = setTimeout(() => {
       this.localOperationCooldown = false;
-      console.log('[LBW COOLDOWN] Local operation cooldown ended');
     }, 3000);
   }
 
@@ -479,9 +463,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
    * Update photo object after successful upload
    */
   private async updatePhotoAfterUpload(key: string, photoIndex: number, result: any, caption: string) {
-    console.log('[UPLOAD UPDATE] ========== Updating photo after upload ==========');
-    console.log('[UPLOAD UPDATE] Key:', key, 'Index:', photoIndex);
-    console.log('[UPLOAD UPDATE] Result:', JSON.stringify(result, null, 2));
 
     // Handle both direct result and Result array format
     const actualResult = result.Result && result.Result[0] ? result.Result[0] : result;
@@ -489,14 +470,11 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const uploadedPhotoUrl = actualResult.Photo || actualResult.thumbnailUrl || actualResult.url;
     let displayableUrl = uploadedPhotoUrl || '';
 
-    console.log('[UPLOAD UPDATE] S3 key:', s3Key);
 
     // Check if this is an S3 image
     if (s3Key && this.caspioService.isS3Key(s3Key)) {
       try {
-        console.log('[UPLOAD UPDATE] ✨ S3 image, fetching URL...');
         displayableUrl = await this.caspioService.getS3FileUrl(s3Key);
-        console.log('[UPLOAD UPDATE] ✅ Got S3 URL');
       } catch (err) {
         console.error('[UPLOAD UPDATE] ❌ S3 failed:', err);
         displayableUrl = 'assets/img/photo-placeholder.svg';
@@ -518,14 +496,11 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         displayableUrl = 'assets/img/photo-placeholder.svg';
       }
     } else {
-      console.log('[UPLOAD UPDATE] URL already displayable (data: or blob:)');
     }
 
-    console.log('[UPLOAD UPDATE] Final displayableUrl length:', displayableUrl?.length || 0);
 
     // Get AttachID from the actual result
     const attachId = actualResult.AttachID || actualResult.PK_ID || actualResult.id;
-    console.log('[UPLOAD UPDATE] Using AttachID:', attachId);
 
     // Revoke old blob URL
     const oldPhoto = this.visualPhotos[key][photoIndex];
@@ -550,23 +525,14 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       Annotation: caption || ''
     };
 
-    console.log('[UPLOAD UPDATE] ✅ Photo updated successfully');
-    console.log('[UPLOAD UPDATE] Updated photo object:', {
-      AttachID: this.visualPhotos[key][photoIndex].AttachID,
-      hasUrl: !!this.visualPhotos[key][photoIndex].url,
-      urlLength: this.visualPhotos[key][photoIndex].url?.length || 0
-    });
     
     this.changeDetectorRef.detectChanges();
-    console.log('[UPLOAD UPDATE] ✅ Change detection triggered');
   }
 
   private async loadData() {
-    console.log('[LOAD DATA] ========== STARTING CACHE-FIRST DATA LOAD ==========');
 
     // MOBILE MODE: Use DEXIE-first pattern - load from local storage, no spinners
     if (!environment.isWeb) {
-      console.log('[LOAD DATA] MOBILE MODE: Using DEXIE-first pattern');
       await this.loadDataFromCache();
       return;
     }
@@ -577,11 +543,9 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const hasCachedData = cachedVisuals && cachedVisuals.length > 0;
 
       if (hasCachedData) {
-        console.log('[LOAD DATA] ✅ Cache HIT - Found', cachedVisuals.length, 'cached visuals, loading instantly');
         // Don't show loading spinner - display cached data immediately
         this.loading = false;
       } else {
-        console.log('[LOAD DATA] ⏳ Cache MISS - No cached data, showing loading spinner');
         this.loading = true;
       }
 
@@ -603,28 +567,20 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       };
 
       // Load dropdown options for all templates (needed before loading templates)
-      console.log('[LOAD DATA] Step 1: Loading dropdown options...');
       await this.loadAllDropdownOptions();
 
       // Load templates for this category
-      console.log('[LOAD DATA] Step 2: Loading templates...');
       await this.loadCategoryTemplates();
 
       // Load existing visuals - use cache for instant display, background refresh for freshness
-      console.log('[LOAD DATA] Step 3: Loading existing visuals (cache-first)...');
       await this.loadExistingVisuals(!!hasCachedData);
 
       // Restore any pending photos from IndexedDB (offline uploads)
-      console.log('[LOAD DATA] Step 4: Restoring pending photos...');
       await this.restorePendingPhotosFromIndexedDB();
 
       // TITLE/TEXT FIX: Merge edited names and text from Dexie visualFields
-      console.log('[LOAD DATA] Step 5: Merging Dexie visualFields (title/text edits)...');
       await this.mergeDexieVisualFields();
 
-      console.log('[LOAD DATA] ========== DATA LOAD COMPLETE ==========');
-      console.log('[LOAD DATA] Final state - visualRecordIds:', this.visualRecordIds);
-      console.log('[LOAD DATA] Final state - selectedItems:', this.selectedItems);
 
       // Hide loading spinner (if it was shown)
       this.loading = false;
@@ -651,11 +607,9 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const dexieFields = await this.visualFieldRepo.getFieldsForCategory(this.serviceId, this.categoryName);
 
       if (!dexieFields || dexieFields.length === 0) {
-        console.log('[MERGE DEXIE] No Dexie fields found for category:', this.categoryName);
         return;
       }
 
-      console.log('[MERGE DEXIE] Found', dexieFields.length, 'Dexie fields for category:', this.categoryName);
 
       // Build a map of templateId -> dexieField for quick lookup
       const fieldMap = new Map<number, any>();
@@ -684,9 +638,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         const visualId = dexieField.visualId || dexieField.tempVisualId;
         if (visualId && !this.visualRecordIds[key] && !environment.isWeb) {
           this.visualRecordIds[key] = visualId;
-          console.log(`[MERGE DEXIE] Stored visualId from Dexie: ${key} = ${visualId}`);
         } else if (visualId && !this.visualRecordIds[key] && environment.isWeb) {
-          console.log(`[MERGE DEXIE] WEBAPP: Skipping stale visualId from Dexie: ${key} = ${visualId} (not in server data)`);
         }
 
         // TITLE/TEXT FIX: Restore edited name and text from Dexie
@@ -694,15 +646,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // This prevents stale Dexie data from overwriting correct server data
         if (!environment.isWeb) {
           if (dexieField.templateName && dexieField.templateName !== item.name) {
-            console.log(`[MERGE DEXIE] Restored title from Dexie - key: ${key}, old: "${item.name}", new: "${dexieField.templateName}"`);
             item.name = dexieField.templateName;
           }
           if (dexieField.templateText && dexieField.templateText !== item.text) {
-            console.log(`[MERGE DEXIE] Restored text from Dexie - key: ${key}`);
             item.text = dexieField.templateText;
           }
         } else {
-          console.log(`[MERGE DEXIE] WEBAPP: Skipping Dexie title/text merge - server is source of truth`);
         }
 
         // Restore selection state - CRITICAL: Update BOTH item.isSelected AND selectedItems map
@@ -743,12 +692,10 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           sortedOptions.push('Other');
 
           this.visualDropdownOptions[templateId] = sortedOptions;
-          console.log(`[MERGE DEXIE] WEBAPP: Merged custom dropdown options for templateId ${templateId}`);
         }
       }
 
       this.changeDetectorRef.detectChanges();
-      console.log('[MERGE DEXIE] Merge complete');
 
     } catch (error) {
       console.error('[MERGE DEXIE] Error merging Dexie fields:', error);
@@ -763,12 +710,10 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         template.Category === this.categoryName
       );
 
-      console.log(`[LBW CATEGORY] Found ${hudTemplates.length} templates for category:`, this.categoryName);
 
       // Organize templates by Kind (Type field in HUD is called "Kind")
       hudTemplates.forEach((template: any) => {
         // Log the Kind value to debug
-        console.log('[LBW CATEGORY] Template:', template.Name, 'PK_ID:', template.PK_ID, 'TemplateID:', template.TemplateID, 'Kind:', template.Kind, 'Type:', template.Type);
 
         const templateData: VisualItem = {
           id: template.PK_ID,
@@ -789,17 +734,13 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         const kind = template.Kind || template.Type || 'Comment';
         const kindLower = kind.toLowerCase().trim();
         
-        console.log('[LBW CATEGORY] Processing item:', template.Name, 'Kind value:', kind, 'Lowercased:', kindLower);
 
         if (kindLower === 'limitation' || kindLower === 'limitations') {
           this.organizedData.limitations.push(templateData);
-          console.log('[LBW CATEGORY] Added to Limitations');
         } else if (kindLower === 'deficiency' || kindLower === 'deficiencies') {
           this.organizedData.deficiencies.push(templateData);
-          console.log('[LBW CATEGORY] Added to Deficiencies');
         } else {
           this.organizedData.comments.push(templateData);
-          console.log('[LBW CATEGORY] Added to Comments/Information');
         }
 
         // Note: Dropdown options are already loaded via loadAllDropdownOptions()
@@ -809,11 +750,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Sort each section: multi-select first, then yes/no, then text (for uniform display)
       this.sortOrganizedDataByAnswerType();
 
-      console.log('[LBW CATEGORY] Organized data:', {
-        comments: this.organizedData.comments.length,
-        limitations: this.organizedData.limitations.length,
-        deficiencies: this.organizedData.deficiencies.length
-      });
 
     } catch (error) {
       console.error('Error loading category templates:', error);
@@ -829,7 +765,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     try {
       const dropdownData = await this.offlineTemplate.getLbwDropdownOptions();
 
-      console.log('[LBW CATEGORY] Loaded dropdown data:', dropdownData?.length || 0, 'rows');
       
       if (dropdownData && dropdownData.length > 0) {
         // Group dropdown options by TemplateID
@@ -848,8 +783,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           }
         });
         
-        console.log('[LBW CATEGORY] Grouped by TemplateID:', Object.keys(this.visualDropdownOptions).length, 'templates have options');
-        console.log('[LBW CATEGORY] All TemplateIDs with options:', Object.keys(this.visualDropdownOptions));
         
         // Add "Other" option to all multi-select dropdowns if not already present
         Object.entries(this.visualDropdownOptions).forEach(([templateId, options]) => {
@@ -857,7 +790,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           if (!optionsArray.includes('Other')) {
             optionsArray.push('Other');
           }
-          console.log(`[LBW CATEGORY] TemplateID ${templateId}: ${optionsArray.length} options -`, optionsArray.join(', '));
         });
       } else {
         console.warn('[LBW CATEGORY] No dropdown data received from API');
@@ -877,7 +809,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       return;
     }
 
-    console.log('[LBW CategoryDetail] Populating dropdown options from cache, count:', dropdownData.length);
 
     // Group dropdown options by TemplateID
     dropdownData.forEach((row: any) => {
@@ -912,7 +843,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       }
     });
 
-    console.log('[LBW CategoryDetail] Populated dropdown options for', Object.keys(this.visualDropdownOptions).length, 'templates from cache');
 
     // Trigger change detection to update UI immediately
     this.changeDetectorRef.detectChanges();
@@ -921,16 +851,11 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   private async loadExistingVisuals(useCacheFirst: boolean = false) {
     try {
       // Load all existing LBW visuals for this service and category
-      console.log('[LOAD EXISTING] ========== START ==========');
-      console.log('[LOAD EXISTING] ServiceID:', this.serviceId);
-      console.log('[LOAD EXISTING] Category to match:', this.categoryName);
-      console.log('[LOAD EXISTING] UseCacheFirst:', useCacheFirst);
 
       // WEBAPP API-FIRST: Save existing in-memory mappings before reload
       // This allows matching visuals even when Name has been edited (the mapping persists in memory)
       const existingMappings = environment.isWeb ? new Map(Object.entries(this.visualRecordIds)) : null;
       if (environment.isWeb) {
-        console.log(`[LOAD EXISTING] WEBAPP: Saved ${existingMappings?.size || 0} existing in-memory mappings`);
       }
 
       // CACHE-FIRST PATTERN: Use cached data for instant display, then refresh in background
@@ -943,14 +868,10 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.triggerBackgroundRefresh();
       }
 
-      console.log('[LOAD EXISTING] Total visuals:', allVisuals.length, useCacheFirst ? '(from cache)' : '(from API)');
-      console.log('[LOAD EXISTING] All visuals:', allVisuals);
       
       const categoryVisuals = allVisuals.filter((v: any) => v.Category === this.categoryName);
-      console.log('[LOAD EXISTING] Visuals for this category:', categoryVisuals.length);
 
       if (categoryVisuals.length > 0) {
-        console.log('[LOAD EXISTING] Category visuals full data:', categoryVisuals);
       }
 
       // Get all available template items
@@ -959,20 +880,11 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         ...this.organizedData.limitations,
         ...this.organizedData.deficiencies
       ];
-      console.log('[LOAD EXISTING] Available template items:', allItems.length);
-      console.log('[LOAD EXISTING] Template item names:', allItems.map(i => i.name));
 
       for (const visual of categoryVisuals) {
-        console.log('[LOAD EXISTING] ========== Processing Visual ==========');
-        console.log('[LOAD EXISTING] Visual LBWID:', visual.LBWID);
-        console.log('[LOAD EXISTING] Visual Name:', visual.Name);
-        console.log('[LOAD EXISTING] Visual Notes:', visual.Notes);
-        console.log('[LOAD EXISTING] Visual Answers:', visual.Answers);
-        console.log('[LOAD EXISTING] Visual Kind:', visual.Kind);
         
         // CRITICAL: Skip hidden visuals (soft delete - keeps photos but doesn't show in UI)
         if (visual.Notes && visual.Notes.startsWith('HIDDEN')) {
-          console.log('[LOAD EXISTING] ⚠️ Skipping hidden visual:', visual.Name);
 
           // Store visualRecordId so we can unhide it later if user reselects
           // CRITICAL: Only store if visual's category matches current category
@@ -997,7 +909,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             if (item) {
               const key = `${this.categoryName}_${item.id}`;
               this.visualRecordIds[key] = LBWID;
-              console.log('[LOAD EXISTING] Stored hidden visual ID for potential unhide:', key, '=', LBWID);
             }
           }
           continue;
@@ -1021,7 +932,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 return itemKey === key;
               });
               if (item) {
-                console.log(`[LOAD EXISTING] WEBAPP PRIORITY 1: Matched by in-memory mapping: LBWID=${LBWID} -> key=${key}`);
               }
               break;
             }
@@ -1035,17 +945,14 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // First try exact match
           item = allItems.find(i => i.name === visual.Name);
           if (item) {
-            console.log(`[LOAD EXISTING] PRIORITY 2: Matched by Name+Category (exact): "${visual.Name}" in "${visual.Category}"`);
           }
           // If no exact match, try case-insensitive match
           if (!item && visualName) {
             item = allItems.find(i => (i.name || '').trim().toLowerCase() === visualName);
             if (item) {
-              console.log(`[LOAD EXISTING] PRIORITY 2: Matched by Name+Category (case-insensitive): "${visual.Name}" -> "${item.name}"`);
             }
           }
         } else if (!item && visual.Category !== this.categoryName) {
-          console.log(`[LOAD EXISTING] Skipping visual from different category: "${visual.Name}" in "${visual.Category}" (current: "${this.categoryName}")`);
           continue;
         }
 
@@ -1056,37 +963,14 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         const visualTemplateId = visual.LBWTemplateID || visual.VisualTemplateID || visual.TemplateID || visual.FK_Template;
         if (!item && environment.isWeb && visualTemplateId) {
           const templateIdToMatch = String(visualTemplateId);
-          console.log(`[LOAD EXISTING] WEBAPP PRIORITY 3: Trying to match by TemplateID: ${templateIdToMatch}`);
-          console.log(`[LOAD EXISTING] WEBAPP PRIORITY 3: Visual fields - LBWTemplateID: ${visual.LBWTemplateID}, VisualTemplateID: ${visual.VisualTemplateID}, TemplateID: ${visual.TemplateID}, FK_Template: ${visual.FK_Template}`);
           item = allItems.find(i => String(i.templateId) === templateIdToMatch);
           if (item) {
-            console.log(`[LOAD EXISTING] WEBAPP PRIORITY 3: ✅ Matched by TemplateID: ${templateIdToMatch} -> "${item.name}"`);
           } else {
-            console.log(`[LOAD EXISTING] WEBAPP PRIORITY 3: ❌ No match found for TemplateID: ${templateIdToMatch}`);
-            console.log(`[LOAD EXISTING] WEBAPP PRIORITY 3: Available templateIds:`, allItems.map(i => ({ name: i.name, templateId: i.templateId })));
           }
         }
 
         // If no template match found, this is a CUSTOM visual - create dynamic item
         if (!item) {
-          console.log('[LOAD EXISTING] ⚠️ NO MATCH FOUND - Creating dynamic item for custom visual');
-          console.log('[LOAD EXISTING] ⚠️ VISUAL ALL FIELDS:', JSON.stringify(visual, null, 2));
-          console.log('[LOAD EXISTING] ⚠️ VISUAL KEY FIELDS:', {
-            LBWID: visual.LBWID,
-            Name: visual.Name,
-            Category: visual.Category,
-            Kind: visual.Kind,
-            Answers: visual.Answers,
-            TemplateID: visual.TemplateID,
-            LBWTemplateID: visual.LBWTemplateID,
-            VisualTemplateID: visual.VisualTemplateID
-          });
-          console.log('[LOAD EXISTING] ⚠️ AVAILABLE TEMPLATES:', allItems.map(i => ({
-            name: i.name,
-            id: i.id,
-            templateId: i.templateId,
-            answerType: i.answerType
-          })));
 
           // Create a dynamic VisualItem for custom visuals
           // Use the Name directly from the visual record - no fallback
@@ -1118,13 +1002,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           }
 
           item = customItem;
-          console.log('[LOAD EXISTING] ✅ Created and added custom item:', item.name);
         } else {
-          console.log('[LOAD EXISTING] ✅ Found matching template item:');
-          console.log('[LOAD EXISTING]   - Name:', item.name);
-          console.log('[LOAD EXISTING]   - ID:', item.id);
-          console.log('[LOAD EXISTING]   - TemplateID:', item.templateId);
-          console.log('[LOAD EXISTING]   - AnswerType:', item.answerType);
 
           // WEBAPP FIX: If this key already has a visual associated (different LBWID),
           // create a custom item to avoid overwriting. This handles multiple visuals
@@ -1133,8 +1011,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             const existingKey = `${this.categoryName}_${item.id}`;
             const existingLbwId = this.visualRecordIds[existingKey];
             if (existingLbwId && String(existingLbwId) !== String(LBWID)) {
-              console.log('[LOAD EXISTING] WEBAPP: Key collision detected - creating unique item');
-              console.log('[LOAD EXISTING] WEBAPP: Existing LBWID:', existingLbwId, 'New LBWID:', LBWID);
 
               // Create a custom item for this visual with a unique ID based on LBWID
               const customItem: VisualItem = {
@@ -1165,40 +1041,31 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               }
 
               item = customItem;
-              console.log('[LOAD EXISTING] WEBAPP: ✅ Created unique item for visual:', item.name, 'with id:', item.id);
             }
           }
         }
 
         const key = `${this.categoryName}_${item.id}`;
 
-        console.log('[LOAD EXISTING] Constructed key:', key);
-        console.log('[LOAD EXISTING] LBWID to store:', LBWID);
 
         // Mark as selected
         this.selectedItems[key] = true;
-        console.log('[LOAD EXISTING] ✅ selectedItems[' + key + '] = true');
 
         // Store visual record ID
         this.visualRecordIds[key] = LBWID;
-        console.log('[LOAD EXISTING] ✅ visualRecordIds[' + key + '] = ' + LBWID);
 
         // Update item with saved data from server
         item.answer = visual.Answers || '';
         item.otherValue = visual.OtherValue || '';
         item.lbwId = LBWID;  // Store LBWID directly on item for reliable navigation
-        console.log('[LOAD EXISTING] ✅ item.answer set to:', item.answer);
-        console.log('[LOAD EXISTING] ✅ item.lbwId set to:', LBWID);
 
         // WEBAPP FIX: Update name and text from server if edited in visual-detail
         // Server is source of truth for WEBAPP mode
         if (environment.isWeb) {
           if (visual.Name && visual.Name !== item.name) {
-            console.log('[LOAD EXISTING] WEBAPP: Updated name from server:', item.name, '->', visual.Name);
             item.name = visual.Name;
           }
           if (visual.Text && visual.Text !== item.text) {
-            console.log('[LOAD EXISTING] WEBAPP: Updated text from server');
             item.text = visual.Text;
           }
         }
@@ -1214,26 +1081,16 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       }
 
       // Load photos for all visuals
-      console.log('[LOAD EXISTING] environment.isWeb =', environment.isWeb);
-      console.log('[LOAD EXISTING] visualRecordIds count:', Object.keys(this.visualRecordIds).length);
 
       // ALWAYS load photos from API (was previously WEBAPP only, now unconditional for debugging)
       if (Object.keys(this.visualRecordIds).length > 0) {
-        console.log('[LOAD EXISTING] ✅ Loading photos from API for', Object.keys(this.visualRecordIds).length, 'visuals...');
         await this.loadPhotosFromAPI();
-        console.log('[LOAD EXISTING] ✅ Photo loading complete');
       } else {
-        console.log('[LOAD EXISTING] ⚠️ No visualRecordIds - skipping photo load');
       }
 
       // Sort each section: multi-select first, then yes/no, then text (for uniform display)
       this.sortOrganizedDataByAnswerType();
 
-      console.log('[LOAD EXISTING] ========== FINAL STATE ==========');
-      console.log('[LOAD EXISTING] visualRecordIds:', JSON.stringify(this.visualRecordIds));
-      console.log('[LOAD EXISTING] selectedItems:', JSON.stringify(this.selectedItems));
-      console.log('[LOAD EXISTING] Items with answers:', allItems.filter(i => i.answer).map(i => ({ name: i.name, answer: i.answer })));
-      console.log('[LOAD EXISTING] ========== END ==========');
 
     } catch (error) {
       console.error('[LOAD EXISTING] ❌ Error loading existing visuals:', error);
@@ -1245,21 +1102,17 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
    * This ensures data stays fresh while providing instant page loads
    */
   private triggerBackgroundRefresh(): void {
-    console.log('[BACKGROUND REFRESH] Scheduling background data refresh...');
     this.isRefreshing = true;
 
     // Use setTimeout to ensure this runs after the current render cycle
     setTimeout(async () => {
       try {
-        console.log('[BACKGROUND REFRESH] Starting background refresh...');
 
         // Fetch fresh data from API (bypass cache)
         const freshVisuals = await this.hudData.getVisualsByService(this.serviceId, true);
-        console.log('[BACKGROUND REFRESH] Fetched', freshVisuals.length, 'fresh visuals');
 
         // Cache the fresh data in IndexedDB for future instant loads
         await this.indexedDb.cacheServiceData(this.serviceId, 'lbw_records', freshVisuals);
-        console.log('[BACKGROUND REFRESH] Cached fresh data to IndexedDB');
 
         // Update UI with fresh data (preserving photos that are uploading)
         const categoryVisuals = freshVisuals.filter((v: any) => v.Category === this.categoryName);
@@ -1267,7 +1120,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         this.isRefreshing = false;
         this.changeDetectorRef.detectChanges();
-        console.log('[BACKGROUND REFRESH] ✅ Background refresh complete');
       } catch (error) {
         console.error('[BACKGROUND REFRESH] ❌ Error during background refresh:', error);
         this.isRefreshing = false;
@@ -1310,7 +1162,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // Found existing mapping - find the item that matches this key
           item = allItems.find(i => `${this.categoryName}_${i.id}` === key);
           if (item) {
-            console.log(`[PROCESS UPDATE] PRIORITY 1: Matched by LBWID mapping: ${LBWID} -> key=${key}`);
           }
           break;
         }
@@ -1320,7 +1171,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       if (!item) {
         item = allItems.find(i => i.name === visual.Name);
         if (item) {
-          console.log(`[PROCESS UPDATE] PRIORITY 2: Matched by name: "${visual.Name}"`);
         }
       }
 
@@ -1333,7 +1183,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         // Update name from server if changed (server is source of truth)
         if (visual.Name && visual.Name !== item.name) {
-          console.log(`[PROCESS UPDATE] Updated name from server: "${item.name}" -> "${visual.Name}"`);
           item.name = visual.Name;
         }
 
@@ -1360,7 +1209,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
    * PHASE 7.1: Set loading = false early for cache-first instant display
    */
   private async loadDataFromCache(): Promise<void> {
-    console.log('[LBW CategoryDetail] MOBILE MODE: loadDataFromCache() starting...');
 
     try {
       // ===== STEP 1: Load ALL data from cache IN PARALLEL (before showing page) =====
@@ -1384,7 +1232,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
         this.bulkLocalImagesMap.get(entityId)!.push(img);
       }
-      console.log(`[LBW CategoryDetail] MOBILE: Built bulkLocalImagesMap with ${this.bulkLocalImagesMap.size} entity groups from ${localImages.length} LocalImages`);
 
       // ===== STEP 3: Count photos from LocalImages (HUD pattern - instant display) =====
       // dexieFields provides templateId->visualId mapping, bulkLocalImagesMap provides actual images
@@ -1416,7 +1263,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
           if (localImages.length > 0) {
             this.photoCountsByKey[key] = localImages.length;
-            console.log(`[LBW PHOTO COUNT] Key: ${key}, visualId: ${visualId}, count: ${localImages.length}`);
           }
         }
 
@@ -1425,14 +1271,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           this.photoCountsByKey[key] = field.photoCount;
         }
       }
-      console.log(`[LBW CategoryDetail] MOBILE: Pre-loaded ${Object.keys(this.photoCountsByKey).length} photo counts from LocalImages`);
 
       // ===== STEP 4: Now safe to show page - photo counts are ready =====
       // PHASE 7.1: For MOBILE cache-first, don't show loading spinner
       this.loading = false;
       this.changeDetectorRef.detectChanges();
 
-      console.log(`[LBW CategoryDetail] MOBILE: Loaded ${templates?.length || 0} templates, ${visuals?.length || 0} LBW records, ${dropdownData?.length || 0} dropdown options from cache`);
 
       // INSTANT DROPDOWN OPTIONS: Populate dropdown options from cache immediately
       // This prevents "jumping" where multi-select options appear after a delay
@@ -1469,7 +1313,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           templateToVisualMap.set(field.templateId, visualId);
         }
       }
-      console.log(`[LBW CategoryDetail] MOBILE: Built templateId->visualId map with ${templateToVisualMap.size} entries from Dexie (category: ${this.categoryName})`);
 
       // Build organized data from templates and visuals
       const organizedData: { comments: VisualItem[]; limitations: VisualItem[]; deficiencies: VisualItem[] } = {
@@ -1493,7 +1336,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           if (effectiveVisualId.startsWith('temp_')) {
             const mappedRealId = await this.indexedDb.getRealId(effectiveVisualId);
             if (mappedRealId) {
-              console.log(`[LBW CategoryDetail] MOBILE: Resolved temp ID ${effectiveVisualId} -> real ID ${mappedRealId}`);
               effectiveVisualId = mappedRealId;
             }
           }
@@ -1501,7 +1343,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             String(v.LBWID || v.PK_ID) === effectiveVisualId
           );
           if (visual) {
-            console.log(`[LBW CategoryDetail] MOBILE: Matched visual by Dexie LBWID for template ${templateId}:`, effectiveVisualId);
           }
         }
 
@@ -1555,7 +1396,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       this.organizedData = organizedData;
 
-      console.log(`[LBW CategoryDetail] MOBILE: Organized - ${organizedData.comments.length} comments, ${organizedData.limitations.length} limitations, ${organizedData.deficiencies.length} deficiencies`);
 
       // DEXIE-FIRST: Load VisualFields from Dexie to restore local changes
       // dexieFields is already filtered by category from getFieldsForCategory() above
@@ -1580,7 +1420,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
             // TITLE/TEXT FIX: Restore edited name and text from Dexie
             if (dexieField.templateName && dexieField.templateName !== item.name) {
-              console.log(`[LBW CategoryDetail] MOBILE: Restored title from Dexie - key: ${key}, old: "${item.name}", new: "${dexieField.templateName}"`);
               item.name = dexieField.templateName;
             }
             if (dexieField.templateText && dexieField.templateText !== item.text) {
@@ -1613,7 +1452,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           }
         }
 
-        console.log(`[LBW CategoryDetail] MOBILE: Merged ${dexieFieldMap.size} VisualFields from Dexie`);
 
         // CUSTOM VISUAL FIX: Add custom visuals from Dexie that aren't in organizedData
         // dexieFields is already filtered by category from getFieldsForCategory()
@@ -1656,7 +1494,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               }
               this.selectedItems[key] = true;
 
-              console.log(`[LBW CategoryDetail] MOBILE: Added custom visual from Dexie: templateId=${field.templateId}, name="${customItem.name}"`);
             }
           }
         }
@@ -1669,7 +1506,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // MOBILE FIX: Populate lastConvertedFields from organizedData
       this.lastConvertedFields = this.buildConvertedFieldsFromOrganizedData(organizedData);
-      console.log(`[LBW CategoryDetail] MOBILE: Built ${this.lastConvertedFields.length} converted fields for photo matching`);
 
       // Load photos from Dexie (LocalImages table)
       await this.populatePhotosFromDexie(this.lastConvertedFields);
@@ -1762,13 +1598,11 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   private async populatePhotosFromDexie(fields: VisualField[]): Promise<void> {
     // MUTEX: Prevent concurrent calls
     if (this.isPopulatingPhotos) {
-      console.log('[LBW DEXIE-FIRST] Skipping - already populating photos (mutex)');
       return;
     }
     this.isPopulatingPhotos = true;
 
     try {
-      console.log('[LBW DEXIE-FIRST] Populating photos directly from Dexie...');
 
       // Load annotated images in background (non-blocking)
       if (this.bulkAnnotatedImagesMap.size === 0) {
@@ -1781,7 +1615,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // DIRECT DEXIE QUERY: Get ALL LocalImages for this service filtered by 'lbw' entity type
       const allLocalImages = await this.localImageService.getImagesForService(this.serviceId, 'lbw');
 
-      console.log(`[LBW DEXIE-FIRST] Found ${allLocalImages.length} LocalImages for service`);
 
       // Group by entityId for efficient lookup
       const localImagesMap = new Map<string, LocalImage[]>();
@@ -1822,7 +1655,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           if (mappedRealId) {
             localImages = localImagesMap.get(mappedRealId) || [];
             if (localImages.length > 0) {
-              console.log(`[LBW DEXIE-FIRST] TIER 3: Found ${localImages.length} photos via temp->real mapping for ${tempId}`);
             }
           }
         }
@@ -1833,7 +1665,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           if (reverseLookupTempId) {
             localImages = localImagesMap.get(reverseLookupTempId) || [];
             if (localImages.length > 0) {
-              console.log(`[LBW DEXIE-FIRST] TIER 4: Found ${localImages.length} photos via reverse lookup for ${realId}`);
             }
           }
         }
@@ -1970,7 +1801,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
       }
 
-      console.log(`[LBW DEXIE-FIRST] Populated ${photosAddedCount} photos from Dexie`);
     } finally {
       this.isPopulatingPhotos = false;
     }
@@ -1987,18 +1817,15 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     if (!this.serviceId) {
-      console.log('[LBW VISUALFIELDS] No serviceId, skipping subscription');
       return;
     }
 
-    console.log('[LBW VISUALFIELDS] Subscribing to VisualFields changes for service:', this.serviceId);
 
     // Subscribe to ALL VisualFields for this service
     this.visualFieldsSubscription = this.visualFieldRepo
       .getAllFieldsForService$(this.serviceId)
       .subscribe({
         next: async (fields) => {
-          console.log(`[LBW VISUALFIELDS] Received ${fields.length} fields from liveQuery`);
 
           // Store fresh fields as lastConvertedFields
           this.lastConvertedFields = fields;
@@ -2024,14 +1851,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               for (const item of allItems) {
                 // Match custom items by their id
                 if ((item as any).id === `custom_${visualId}` && item.templateId !== field.templateId) {
-                  console.log(`[LBW VISUALFIELDS] Updating custom item templateId: ${item.templateId} -> ${field.templateId}`);
                   item.templateId = field.templateId;
                 }
 
                 // Update item name from Dexie templateName
                 if ((item as any).id === `custom_${visualId}` && field.templateName) {
                   if (item.name !== field.templateName) {
-                    console.log(`[LBW VISUALFIELDS] Updating item name: "${item.name}" -> "${field.templateName}"`);
                     item.name = field.templateName;
                   }
                 }
@@ -2115,7 +1940,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       }
 
       if (updatedCount > 0) {
-        console.log(`[LBW DEXIE-FIRST] Refreshed ${updatedCount} fields with fresh IDs from Dexie`);
       }
     } catch (err) {
       console.error('[LBW DEXIE-FIRST] Failed to refresh lastConvertedFields:', err);
@@ -2133,27 +1957,22 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     if (!this.serviceId) {
-      console.log('[LBW LOCALIMAGES] No serviceId, skipping subscription');
       return;
     }
 
-    console.log('[LBW LOCALIMAGES] Subscribing to LocalImages changes for service:', this.serviceId, 'entityType: lbw');
 
     // Subscribe to LocalImages for this service with 'lbw' entity type
     this.localImagesSubscription = db.liveLocalImages$(this.serviceId, 'lbw').subscribe({
       next: async (images) => {
-        console.log(`[LBW LOCALIMAGES] Received ${images.length} images from liveQuery`);
 
         // RACE CONDITION FIX: Skip if camera capture is in progress
         // The camera method will add the photo to visualPhotos directly
         if (this.isCameraCaptureInProgress) {
-          console.log('[LBW LOCALIMAGES] Skipping - camera capture in progress');
           return;
         }
 
         // Skip if local operation cooldown is active
         if (this.localOperationCooldown) {
-          console.log('[LBW LOCALIMAGES] Skipping - local operation cooldown active');
           return;
         }
 
@@ -2163,7 +1982,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         // Only process if we have lastConvertedFields
         if (this.lastConvertedFields.length === 0) {
-          console.log('[LBW LOCALIMAGES] Skipping populate - no lastConvertedFields');
           return;
         }
 
@@ -2247,7 +2065,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       }
     }
 
-    console.log('[LBW LIVEQUERY] Updated bulkLocalImagesMap with', this.bulkLocalImagesMap.size, 'entity groups');
   }
 
   private findItemByName(name: string): VisualItem | undefined {
@@ -2299,19 +2116,15 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
    * WEBAPP: Direct API call to load photos - no caching, no Dexie
    */
   private async loadPhotosFromAPI(): Promise<void> {
-    console.log('[LBW PHOTOS] ========== DIRECT API PHOTO LOAD ==========');
-    console.log('[LBW PHOTOS] visualRecordIds:', JSON.stringify(this.visualRecordIds));
 
     // Get all visual IDs that have been selected
     for (const [key, lbwId] of Object.entries(this.visualRecordIds)) {
       if (!lbwId) continue;
 
-      console.log(`[LBW PHOTOS] Loading photos for key="${key}" lbwId="${lbwId}"`);
 
       try {
         // WEBAPP: DIRECT API CALL - no caching, no Dexie
         const apiUrl = `${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_LBW_Attach/records?q.where=LBWID=${lbwId}&q.limit=100`;
-        console.log('[LBW PHOTOS] API URL:', apiUrl);
 
         const response = await fetch(apiUrl);
         if (!response.ok) {
@@ -2321,9 +2134,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         const data = await response.json();
         const attachments = data.Result || [];
-        console.log(`[LBW PHOTOS] ✅ API returned ${attachments.length} attachments for LBWID ${lbwId}`);
         if (attachments.length > 0) {
-          console.log('[LBW PHOTOS] First attachment:', JSON.stringify(attachments[0]));
         }
 
         // Convert attachments to photo format
@@ -2331,12 +2142,10 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         for (const att of attachments || []) {
           // Debug: Log attachment fields to identify correct photo field
           if (attachments.length > 0 && photos.length === 0) {
-            console.log('[LBW] WEBAPP: Attachment fields:', Object.keys(att));
           }
 
           // Try multiple possible field names for the S3 key
           const rawPhotoValue = att.Attachment || att.attachment || att.Photo || att.photo || att.S3Key || att.s3Key || '';
-          console.log('[LBW] WEBAPP: Raw photo value for attach', att.AttachID || att.PK_ID, ':', rawPhotoValue?.substring(0, 100));
 
           let displayUrl = rawPhotoValue || 'assets/img/photo-placeholder.svg';
 
@@ -2347,15 +2156,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             if (isS3Key) {
               // S3 key - get signed URL
               try {
-                console.log('[LBW] WEBAPP: Getting signed URL for S3 key:', displayUrl);
                 displayUrl = await this.caspioService.getS3FileUrl(displayUrl);
-                console.log('[LBW] WEBAPP: Got signed URL:', displayUrl?.substring(0, 80));
               } catch (e) {
                 console.warn('[LBW] WEBAPP: Could not get S3 URL for key:', e);
                 displayUrl = 'assets/img/photo-placeholder.svg';
               }
             } else {
-              console.log('[LBW] WEBAPP: URL not recognized as S3 key, using as-is:', displayUrl?.substring(0, 50));
             }
           }
 
@@ -2370,11 +2176,9 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           if (cachedAnnotated) {
             thumbnailUrl = cachedAnnotated;
             hasAnnotations = true;
-            console.log(`[LBW] WEBAPP: Using cached annotated image for ${attachId}`);
           } else if (hasServerAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
             // No cached image but server has Drawings - render annotations on the fly
             try {
-              console.log(`[LBW] WEBAPP: Rendering annotations for ${attachId}...`);
               const renderedUrl = await renderAnnotationsOnPhoto(displayUrl, att.Drawings);
               if (renderedUrl && renderedUrl !== displayUrl) {
                 thumbnailUrl = renderedUrl;
@@ -2388,7 +2192,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 } catch (cacheErr) {
                   console.warn('[LBW] WEBAPP: Failed to cache annotated image:', cacheErr);
                 }
-                console.log(`[LBW] WEBAPP: Rendered and cached annotations for ${attachId}`);
               }
             } catch (renderErr) {
               console.warn(`[LBW] WEBAPP: Failed to render annotations for ${attachId}:`, renderErr);
@@ -2417,14 +2220,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         this.visualPhotos[key] = photos;
         this.photoCountsByKey[key] = photos.length;
-        console.log(`[LBW] WEBAPP: Stored ${photos.length} photos for key ${key}`);
       } catch (error) {
         console.error(`[LBW] WEBAPP: Error loading photos for LBW ${lbwId}:`, error);
       }
     }
 
     this.changeDetectorRef.detectChanges();
-    console.log('[LBW] WEBAPP MODE: Photo loading complete');
   }
 
   private async loadPhotosForVisual(LBWID: string, key: string) {
@@ -2438,7 +2239,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Get attachments from database
       const attachments = await this.hudData.getVisualAttachments(LBWID);
 
-      console.log('[LOAD PHOTOS] Found', attachments.length, 'photos for LBW', LBWID, 'key:', key, 'sync:', syncInProgress);
 
       // Set photo count immediately so skeleton loaders can be displayed
       this.photoCountsByKey[key] = attachments.length;
@@ -2447,13 +2247,10 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // CRITICAL: Don't reset photo array if it already has photos from uploads
         if (!this.visualPhotos[key]) {
           this.visualPhotos[key] = [];
-          console.log('[LOAD PHOTOS] Initialized empty photo array for', key);
         } else {
-          console.log('[LOAD PHOTOS] Photo array already exists with', this.visualPhotos[key].length, 'photos');
 
           // CRITICAL FIX: During sync, skip reload to prevent photos from disappearing
           if (syncInProgress) {
-            console.log('[LOAD PHOTOS] SYNC IN PROGRESS - preserving existing photos, skipping reload for', key);
             this.loadingPhotosByKey[key] = false;
             this.changeDetectorRef.detectChanges();
             return;
@@ -2463,7 +2260,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           const loadedPhotoIds = new Set(this.visualPhotos[key].map(p => p.AttachID));
           const allPhotosLoaded = attachments.every((a: any) => loadedPhotoIds.has(a.AttachID));
           if (allPhotosLoaded) {
-            console.log('[LOAD PHOTOS] All photos already loaded - skipping reload');
             this.loadingPhotosByKey[key] = false;
             this.changeDetectorRef.detectChanges();
             return;
@@ -2480,18 +2276,15 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // Check if photo already loaded
           const existingPhotoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === attach.AttachID);
           if (existingPhotoIndex !== -1) {
-            console.log('[LOAD PHOTOS] Photo', attach.AttachID, 'already loaded - skipping');
             continue;
           }
 
           await this.loadSinglePhoto(attach, key);
         }
 
-        console.log('[LOAD PHOTOS] Completed loading all photos for', key);
       } else {
         // CRITICAL FIX: During sync, don't clear photos even if attachments is empty
         if (syncInProgress && this.visualPhotos[key]?.length > 0) {
-          console.log('[LOAD PHOTOS] SYNC IN PROGRESS - preserving existing photos despite empty attachments for', key);
           this.loadingPhotosByKey[key] = false;
           this.changeDetectorRef.detectChanges();
           return;
@@ -2522,8 +2315,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const filePath = s3Key;
     const hasImageSource = !!s3Key;
 
-    console.log('[LOAD PHOTO] Loading:', attachId, 'key:', key, 's3Key:', s3Key, 'hasImageSource:', hasImageSource);
-    console.log('[LOAD PHOTO] Attachment record fields:', Object.keys(attach).join(', '));
     
     // TWO-FIELD APPROACH: Determine display state and URL
     let displayUrl = 'assets/img/photo-placeholder.svg';
@@ -2535,7 +2326,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     try {
       const localBlobUrl = await this.indexedDb.getPhotoBlobUrl(attachId);
       if (localBlobUrl) {
-        console.log('[LOAD PHOTO] ✅ Using local blob for:', attachId);
         displayUrl = localBlobUrl;
         imageUrl = localBlobUrl;
         displayState = 'local';
@@ -2548,7 +2338,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       try {
         const cachedImage = await this.indexedDb.getCachedPhoto(attachId);
         if (cachedImage) {
-          console.log('[LOAD PHOTO] ✅ Using cached image for:', attachId);
           displayUrl = cachedImage;
           imageUrl = cachedImage;
           displayState = 'cached';
@@ -2578,7 +2367,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       if (cachedAnnotated) {
         thumbnailUrl = cachedAnnotated;
         hasAnnotations = true;
-        console.log(`[LOAD PHOTO] Using cached annotated image for ${attachId}`);
       }
     }
 
@@ -2639,13 +2427,11 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     
     // STEP 4: If remote_loading, preload and transition in background
     if (displayState === 'remote_loading' && hasImageSource) {
-      console.log('[LOAD PHOTO] Starting remote preload for:', attachId, 'with s3Key:', s3Key);
       this.preloadAndTransition(attachId, s3Key, key, true).catch(err => {
         console.warn('[LOAD PHOTO] Preload failed:', attachId, err);
       });
     }
     
-    console.log('[LOAD PHOTO] ✅ Completed:', attachId, 'state:', displayState);
   }
 
   /**
@@ -2688,7 +2474,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           loading: false
         };
         this.changeDetectorRef.detectChanges();
-        console.log('[PRELOAD] ✅ Transitioned to cached:', attachId);
       }
     } catch (err) {
       console.warn('[PRELOAD] Failed:', attachId, err);
@@ -2734,7 +2519,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
    */
   private async restorePendingPhotosFromIndexedDB(): Promise<void> {
     try {
-      console.log('[RESTORE PENDING] Checking for pending data in IndexedDB...');
 
       // STEP 1: Restore pending VISUAL records first
       const pendingRequests = await this.indexedDb.getPendingRequests();
@@ -2746,7 +2530,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         r.data?.Category === this.categoryName
       );
 
-      console.log('[RESTORE PENDING] Found', pendingVisuals.length, 'pending visual records');
 
       for (const pendingVisual of pendingVisuals) {
         const visualData = pendingVisual.data;
@@ -2760,7 +2543,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         if (matchingItem) {
           const key = `${visualData.Category}_${matchingItem.id}`;
-          console.log('[RESTORE PENDING] Restoring visual:', key, 'tempId:', tempId);
           this.selectedItems[key] = true;
           this.visualRecordIds[key] = tempId || '';
           if (!this.visualPhotos[key]) {
@@ -2773,12 +2555,10 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const pendingPhotosMap = await this.indexedDb.getAllPendingPhotosGroupedByVisual();
 
       if (pendingPhotosMap.size === 0) {
-        console.log('[RESTORE PENDING] No pending photos found');
         this.changeDetectorRef.detectChanges();
         return;
       }
 
-      console.log('[RESTORE PENDING] Found pending photos for', pendingPhotosMap.size, 'visuals');
 
       for (const [visualId, photos] of pendingPhotosMap) {
         let matchingKey: string | null = null;
@@ -2803,11 +2583,9 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
 
         if (!matchingKey) {
-          console.log('[RESTORE PENDING] No matching key found for visual:', visualId);
           continue;
         }
 
-        console.log('[RESTORE PENDING] Restoring', photos.length, 'photos for key:', matchingKey);
 
         if (!this.visualPhotos[matchingKey]) {
           this.visualPhotos[matchingKey] = [];
@@ -2832,7 +2610,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       }
 
       this.changeDetectorRef.detectChanges();
-      console.log('[RESTORE PENDING] Pending data restored');
 
     } catch (error) {
       console.error('[RESTORE PENDING] Error restoring pending data:', error);
@@ -2940,7 +2717,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       item.isSelected = newState;
     }
 
-    console.log('[TOGGLE] Item:', key, 'Selected:', newState, 'actualCategory:', actualCategory);
 
     // Set cooldown to prevent cache invalidation from causing UI flash
     this.startLocalOperationCooldown();
@@ -2955,7 +2731,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         templateText: item?.text || item?.originalText || '',
         kind: (item?.type as 'Comment' | 'Limitation' | 'Deficiency') || 'Comment'
       });
-      console.log('[TOGGLE] Persisted isSelected to Dexie:', newState);
     } catch (err) {
       console.error('[TOGGLE] Failed to write to Dexie:', err);
     }
@@ -2968,17 +2743,14 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.savingItems[key] = true;
         try {
           await this.hudData.updateVisual(visualId, { Notes: '' }, this.serviceId);
-          console.log('[TOGGLE] Unhid visual:', visualId);
 
           // CRITICAL: Load photos for this visual since they weren't loaded when hidden
           if (!this.visualPhotos[key] || this.visualPhotos[key].length === 0) {
-            console.log('[TOGGLE] Loading photos for unhidden visual:', visualId);
             this.loadingPhotosByKey[key] = true;
             this.photoCountsByKey[key] = 0;
             this.changeDetectorRef.detectChanges();
 
             this.loadPhotosForVisual(visualId, key).then(() => {
-              console.log('[TOGGLE] Photos loaded for unhidden visual:', visualId);
               this.changeDetectorRef.detectChanges();
             }).catch(err => {
               console.error('[TOGGLE] Error loading photos for unhidden visual:', err);
@@ -3006,7 +2778,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // OFFLINE-FIRST: This now queues the update and returns immediately
           await this.hudData.updateVisual(visualId, { Notes: 'HIDDEN' }, this.serviceId);
           // Keep visualRecordIds and visualPhotos intact for when user reselects
-          console.log('[TOGGLE] Hid visual (queued for sync):', visualId);
         } catch (error) {
           console.error('[TOGGLE] Error hiding visual:', error);
           // Revert selection on error
@@ -3015,7 +2786,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.savingItems[key] = false;
       } else if (visualId && String(visualId).startsWith('temp_')) {
         // For temp IDs (created offline, not yet synced), just update local state
-        console.log('[TOGGLE] Hidden temp visual (not yet synced):', visualId);
       }
     }
     this.changeDetectorRef.detectChanges();
@@ -3091,7 +2861,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   async showFullText(item: VisualItem) {
-    console.log('[LBW] showFullText called for item:', item?.name, 'answerType:', item?.answerType);
 
     if (!item) {
       console.error('[LBW] showFullText called with null/undefined item');
@@ -3218,7 +2987,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                   try {
                     // TODO: Implement HUD visual update
                     // await this.hudData.updateVisual(visualId, { Text: data.description });
-                    console.log('[HUD TEXT EDIT] Updated visual text:', visualId, data.description);
                     this.changeDetectorRef.detectChanges();
                   } catch (error) {
                     console.error('[HUD TEXT EDIT] Error updating visual:', error);
@@ -3260,9 +3028,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
       ]
     });
-    console.log('[LBW] Alert created, presenting...');
     await alert.present();
-    console.log('[LBW] Alert presented successfully');
     } catch (error) {
       console.error('[LBW] Error in showFullText:', error);
       await this.showToast('Failed to open item details', 'danger');
@@ -3284,11 +3050,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // Debug logging to see what's available
     const templateIdStr = String(templateId);
     if (options.length === 0 && !this._loggedPhotoKeys.has(templateIdStr)) {
-      console.log('[GET DROPDOWN] No options found for TemplateID:', templateIdStr);
-      console.log('[GET DROPDOWN] Available TemplateIDs:', Object.keys(this.visualDropdownOptions));
       this._loggedPhotoKeys.add(templateIdStr);
     } else if (options.length > 0 && !this._loggedPhotoKeys.has(templateIdStr)) {
-      console.log('[GET DROPDOWN] TemplateID', templateIdStr, 'has', options.length, 'options:', options);
       this._loggedPhotoKeys.add(templateIdStr);
     }
 
@@ -3318,7 +3081,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       return;
     }
 
-    console.log('[CREATE VISUAL] ✅ Found item:', { id: item.id, templateId: item.templateId, name: item.name });
 
     this.savingItems[key] = true;
 
@@ -3344,12 +3106,10 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         TemplateID: templateIdInt
       };
 
-      console.log('[CREATE VISUAL] Creating LBW record with DEXIE-FIRST pattern:', lbwData);
 
       // DEXIE-FIRST: Use hudData.createVisual() which handles temp IDs and sync queue
       const result = await this.hudData.createVisual(lbwData);
 
-      console.log('[CREATE VISUAL] Response from createVisual:', result);
 
       // Extract LBWID (will be temp_lbw_xxx in mobile mode)
       const lbwId = String(result.LBWID || result.PK_ID || result.id || '');
@@ -3364,8 +3124,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.selectedItems[key] = true;
       item.lbwId = lbwId;  // Store LBWID directly on item for reliable navigation
 
-      console.log('[CREATE VISUAL] ✅ Created with LBWID:', lbwId);
-      console.log('[CREATE VISUAL] Stored in visualRecordIds[' + key + '] =', lbwId);
 
       // Initialize photo array
       this.visualPhotos[key] = [];
@@ -3383,7 +3141,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           kind: (item.type as 'Comment' | 'Limitation' | 'Deficiency') || 'Comment',
           isSelected: true
         });
-        console.log('[CREATE VISUAL] ✅ Persisted tempVisualId to Dexie:', lbwId, item.name);
 
         // MOBILE FIX: Update lastConvertedFields with the new lbwId
         const fieldIndex = this.lastConvertedFields.findIndex(f => f.templateId === templateId);
@@ -3392,7 +3149,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             ...this.lastConvertedFields[fieldIndex],
             tempVisualId: lbwId
           };
-          console.log('[CREATE VISUAL] Updated lastConvertedFields with tempVisualId:', lbwId);
         }
       } catch (err) {
         console.error('[CREATE VISUAL] Failed to persist tempVisualId to Dexie:', err);
@@ -3423,14 +3179,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const visualId = this.visualRecordIds[key];
     
     if (!visualId) {
-      console.log('[DELETE VISUAL] No visual ID found, nothing to delete');
       return;
     }
 
     this.savingItems[key] = true;
 
     try {
-      console.log('[DELETE VISUAL] Deleting HUD record:', visualId);
       await firstValueFrom(this.caspioService.deleteServicesLBW(visualId));
       
       // Clean up local state
@@ -3438,7 +3192,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       delete this.visualPhotos[key];
       delete this.photoCountsByKey[key];
       
-      console.log('[DELETE VISUAL] Deleted successfully');
     } catch (error) {
       console.error('[DELETE VISUAL] Error:', error);
     } finally {
@@ -3454,7 +3207,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const key = environment.isWeb
       ? `${actualCategory}_${item.id}`
       : `${actualCategory}_${item.templateId}`;
-    console.log('[ANSWER] Changed:', item.answer, 'for', key, 'item.id:', item.id);
 
     // DEXIE-FIRST: Write-through to visualFields for instant reactive update
     this.visualFieldRepo.setField(this.serviceId, actualCategory, item.templateId, {
@@ -3469,7 +3221,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     try {
       // Create or update visual record
       let visualId = this.visualRecordIds[key];
-      console.log('[ANSWER] Current visualId:', visualId);
 
       // If answer is empty/cleared, hide the visual instead of deleting
       if (!item.answer || item.answer === '') {
@@ -3479,7 +3230,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             Answers: '',
             Notes: 'HIDDEN'
           }, this.serviceId);
-          console.log('[ANSWER] Hid visual (queued for sync):', visualId);
         }
         this.savingItems[key] = false;
         this.changeDetectorRef.detectChanges();
@@ -3488,7 +3238,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       if (!visualId) {
         // Create new visual using DEXIE-FIRST pattern
-        console.log('[ANSWER] Creating new visual for key:', key);
         const serviceIdNum = parseInt(this.serviceId, 10);
         const templateIdInt = typeof item.templateId === 'string' ? parseInt(item.templateId, 10) : Number(item.templateId);
         const visualData = {
@@ -3502,7 +3251,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           TemplateID: templateIdInt
         };
 
-        console.log('[ANSWER] Creating with DEXIE-FIRST:', visualData);
 
         // DEXIE-FIRST: Use hudData.createVisual which handles temp IDs and queue
         const result = await this.hudData.createVisual(visualData);
@@ -3518,7 +3266,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           this.visualPhotos[key] = [];
           this.photoCountsByKey[key] = 0;
 
-          console.log('[ANSWER] ✅ Created visual with LBWID:', visualId);
 
           // DEXIE-FIRST: Persist tempVisualId AND templateName to VisualField
           try {
@@ -3530,7 +3277,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               kind: (item.type as 'Comment' | 'Limitation' | 'Deficiency') || 'Comment',
               category: actualCategory
             });
-            console.log('[ANSWER] ✅ Persisted tempVisualId to Dexie:', visualId, 'name:', item.name);
           } catch (err) {
             console.error('[ANSWER] Failed to persist tempVisualId:', err);
           }
@@ -3539,17 +3285,14 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
       } else if (!String(visualId).startsWith('temp_')) {
         // Update existing visual and unhide if it was hidden
-        console.log('[ANSWER] Updating existing visual:', visualId);
         // DEXIE-FIRST: Use hudData.updateVisual which handles queue
         await this.hudData.updateVisual(visualId, {
           Answers: item.answer || '',
           Notes: ''
         }, this.serviceId);
-        console.log('[ANSWER] ✅ Updated visual (queued for sync):', visualId);
 
         // CRITICAL: Load photos if visual was previously hidden
         if (!this.visualPhotos[key] || this.visualPhotos[key].length === 0) {
-          console.log('[ANSWER] Loading photos for unhidden visual:', visualId);
           this.loadPhotosForVisual(visualId, key).catch(err => {
             console.error('[ANSWER] Error loading photos:', err);
           });
@@ -3573,7 +3316,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       : `${actualCategory}_${item.templateId}`;
     const isChecked = event.detail.checked;
 
-    console.log('[OPTION] Toggled:', option, 'Checked:', isChecked, 'for', key, 'templateId:', item.templateId);
 
     // Update the answer string
     let selectedOptions: string[] = [];
@@ -3619,7 +3361,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     try {
       let visualId = this.visualRecordIds[key];
-      console.log('[OPTION] Current visualId for key', key, ':', visualId);
 
       // If all options are unchecked AND no "Other" value, hide the visual
       if ((!item.answer || item.answer === '') && (!item.otherValue || item.otherValue === '')) {
@@ -3629,7 +3370,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             Answers: '',
             Notes: 'HIDDEN'
           }, this.serviceId);
-          console.log('[OPTION] Hid visual (queued for sync):', visualId);
         }
         this.savingItems[key] = false;
         this.changeDetectorRef.detectChanges();
@@ -3638,7 +3378,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       if (!visualId) {
         // Create new visual using DEXIE-FIRST pattern
-        console.log('[OPTION] Creating new visual for key:', key);
         const serviceIdNum = parseInt(this.serviceId, 10);
         const templateIdInt = typeof item.templateId === 'string' ? parseInt(item.templateId, 10) : Number(item.templateId);
         const visualData = {
@@ -3652,7 +3391,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           TemplateID: templateIdInt
         };
 
-        console.log('[OPTION] Creating with DEXIE-FIRST:', visualData);
 
         // DEXIE-FIRST: Use hudData.createVisual which handles temp IDs and queue
         const result = await this.hudData.createVisual(visualData);
@@ -3668,7 +3406,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           this.visualPhotos[key] = [];
           this.photoCountsByKey[key] = 0;
 
-          console.log('[OPTION] ✅ Created visual with LBWID:', visualId);
 
           // DEXIE-FIRST: Persist tempVisualId AND templateName to VisualField
           try {
@@ -3680,7 +3417,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               kind: (item.type as 'Comment' | 'Limitation' | 'Deficiency') || 'Comment',
               category: actualCategory
             });
-            console.log('[OPTION] ✅ Persisted tempVisualId to Dexie:', visualId, 'name:', item.name);
           } catch (err) {
             console.error('[OPTION] Failed to persist tempVisualId:', err);
           }
@@ -3689,14 +3425,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
       } else if (!String(visualId).startsWith('temp_')) {
         // Update existing visual using DEXIE-FIRST pattern
-        console.log('[OPTION] Updating existing visual:', visualId);
         const notesValue = item.otherValue || '';
         // DEXIE-FIRST: Use hudData.updateVisual which handles queue
         await this.hudData.updateVisual(visualId, {
           Answers: item.answer,
           Notes: notesValue
         }, this.serviceId);
-        console.log('[OPTION] ✅ Updated visual (queued for sync):', visualId);
       }
     } catch (error) {
       console.error('[OPTION] ❌ Error saving option:', error);
@@ -3731,7 +3465,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     item.answer = selectedOptions.join(', ');
 
-    console.log('[OTHER CHANGE] Custom value:', item.otherValue, 'New answer:', item.answer);
 
     await this.onAnswerChange(category, item);
   }
@@ -3752,7 +3485,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const key = environment.isWeb
       ? `${actualCategory}_${item.id}`
       : `${actualCategory}_${item.templateId}`;
-    console.log('[OTHER] Adding custom option:', customValue, 'for', key, 'item.id:', item.id);
 
     // Get current options for this template
     let options = this.visualDropdownOptions[item.templateId];
@@ -3772,7 +3504,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Check if this value already exists in options
     if (options.includes(customValue)) {
-      console.log(`[OTHER] Option "${customValue}" already exists`);
       // Just select it if not already selected
       if (!selectedOptions.includes(customValue)) {
         selectedOptions.push(customValue);
@@ -3790,7 +3521,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           options.push(customValue);
         }
       }
-      console.log(`[OTHER] Added custom option: "${customValue}"`);
 
       // Select the new custom value
       selectedOptions.push(customValue);
@@ -3813,7 +3543,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       dropdownOptions: [...options]  // Save the updated options array to Dexie
     });
 
-    console.log('[OTHER] Saved dropdownOptions to Dexie for category:', category, 'options:', options);
 
     // Save to database
     this.savingItems[key] = true;
@@ -3849,14 +3578,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           isSelected: true
         });
 
-        console.log('[OTHER] Created visual:', newVisualId);
       } else {
         // Update existing visual
         await this.hudData.updateVisual(visualId, {
           Answers: item.answer,
           Notes: ''
         }, this.serviceId);
-        console.log('[OTHER] Updated visual:', visualId);
       }
     } catch (error) {
       console.error('[OTHER] Error saving custom option:', error);
@@ -4060,16 +3787,10 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     caption: string
   ): Promise<string | null> {
     try {
-      console.log(`[HUD PHOTO UPLOAD] Starting upload for LBWID ${LBWID}`);
 
       // Upload photo using HUD service
       const result = await this.hudData.uploadVisualPhoto(LBWID, photo, caption);
 
-      console.log(`[HUD PHOTO UPLOAD] Upload complete for LBWID ${LBWID}`);
-      console.log(`[HUD PHOTO UPLOAD] Full result object:`, JSON.stringify(result, null, 2));
-      console.log(`[HUD PHOTO UPLOAD] Result.Result:`, result.Result);
-      console.log(`[HUD PHOTO UPLOAD] AttachID:`, result.AttachID || result.Result?.[0]?.AttachID);
-      console.log(`[HUD PHOTO UPLOAD] Photo path:`, result.Photo || result.Result?.[0]?.Photo);
 
       if (tempId && this.visualPhotos[key]) {
         const photoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === tempId || p.id === tempId);
@@ -4086,16 +3807,11 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           const uploadedPhotoUrl = actualResult.Photo || actualResult.thumbnailUrl || actualResult.url; // Old Caspio path
           let displayableUrl = uploadedPhotoUrl || '';
 
-          console.log('[LBW PHOTO UPLOAD] Actual result:', actualResult);
-          console.log('[LBW PHOTO UPLOAD] S3 key:', s3Key);
-          console.log('[LBW PHOTO UPLOAD] Uploaded photo path (old):', uploadedPhotoUrl);
 
           // Check if this is an S3 image
           if (s3Key && this.caspioService.isS3Key(s3Key)) {
             try {
-              console.log('[LBW PHOTO UPLOAD] ✨ S3 image detected, fetching pre-signed URL...');
               displayableUrl = await this.caspioService.getS3FileUrl(s3Key);
-              console.log('[LBW PHOTO UPLOAD] ✅ Got S3 pre-signed URL');
             } catch (err) {
               console.error('[LBW PHOTO UPLOAD] ❌ Failed to fetch S3 URL:', err);
               displayableUrl = 'assets/img/photo-placeholder.svg';
@@ -4104,15 +3820,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // Fallback to old Caspio Files API logic
           else if (uploadedPhotoUrl && !uploadedPhotoUrl.startsWith('data:') && !uploadedPhotoUrl.startsWith('blob:')) {
             try {
-              console.log('[LBW PHOTO UPLOAD] 📁 Caspio Files API path detected, fetching image data...');
               const imageData = await firstValueFrom(
                 this.caspioService.getImageFromFilesAPI(uploadedPhotoUrl)
               );
-              console.log('[LBW PHOTO UPLOAD] Files API response:', imageData?.substring(0, 100));
               
               if (imageData && imageData.startsWith('data:')) {
                 displayableUrl = imageData;
-                console.log('[LBW PHOTO UPLOAD] ✅ Successfully converted to data URL, length:', imageData.length);
               } else {
                 console.warn('[LBW PHOTO UPLOAD] ❌ Files API returned invalid data');
                 displayableUrl = 'assets/img/photo-placeholder.svg';
@@ -4122,15 +3835,11 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               displayableUrl = 'assets/img/photo-placeholder.svg';
             }
           } else {
-            console.log('[LBW PHOTO UPLOAD] Using URL directly (already data/blob URL)');
           }
 
-          console.log('[HUD PHOTO UPLOAD] Final displayableUrl length:', displayableUrl?.length || 0);
-          console.log('[HUD PHOTO UPLOAD] Updating photo at index', photoIndex);
 
           // Get AttachID from the actual result
           const attachId = actualResult.AttachID || actualResult.PK_ID || actualResult.id;
-          console.log('[HUD PHOTO UPLOAD] Using AttachID:', attachId);
 
           this.visualPhotos[key][photoIndex] = {
             ...this.visualPhotos[key][photoIndex],
@@ -4149,16 +3858,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             Annotation: caption || ''
           };
 
-          console.log('[HUD PHOTO UPLOAD] ✅ Photo object updated:', {
-            AttachID: this.visualPhotos[key][photoIndex].AttachID,
-            hasUrl: !!this.visualPhotos[key][photoIndex].url,
-            hasThumbnail: !!this.visualPhotos[key][photoIndex].thumbnailUrl,
-            hasDisplay: !!this.visualPhotos[key][photoIndex].displayUrl,
-            urlLength: this.visualPhotos[key][photoIndex].url?.length || 0
-          });
 
           this.changeDetectorRef.detectChanges();
-          console.log('[HUD PHOTO UPLOAD] ✅ Change detection triggered');
         } else {
           console.warn('[HUD PHOTO UPLOAD] ❌ Could not find photo with tempId:', tempId);
         }
@@ -4220,7 +3921,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         if (drawingsData.length > 50000) {
           try {
             compressedDrawings = compressAnnotationData(drawingsData, { emptyResult: '{}' });
-            console.log('[SAVE ANNOTATION] Compressed from', drawingsData.length, 'to', compressedDrawings.length, 'bytes');
           } catch (e) {
             console.error('[SAVE] Compression failed:', e);
             compressedDrawings = drawingsData;
@@ -4241,11 +3941,9 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         updateData.Drawings || '',
         { serviceId: this.serviceId }
       );
-      console.log('[SAVE ANNOTATION] ✅ Annotations queued for background sync');
     } else {
       // WEBAPP MODE: Direct API call
       await firstValueFrom(this.caspioService.updateServicesLBWAttach(attachId, updateData));
-      console.log('[SAVE ANNOTATION] ✅ Annotations saved directly to API');
     }
 
     // TASK 4 FIX: Cache the annotated blob for thumbnail display on reload
@@ -4253,7 +3951,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     if (annotatedBlob && annotatedBlob.size > 0) {
       try {
         const base64 = await this.indexedDb.cacheAnnotatedImage(String(attachId), annotatedBlob);
-        console.log('[SAVE ANNOTATION] ✅ Annotated image blob cached for thumbnail display');
         // Update in-memory map so same-session navigation shows the annotation
         if (base64 && this.bulkAnnotatedImagesMap) {
           this.bulkAnnotatedImagesMap.set(String(attachId), base64);
@@ -4278,7 +3975,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         if (!verifyDecompressed || !verifyDecompressed.objects || verifyDecompressed.objects.length === 0) {
           console.warn('[SAVE] ⚠️ ANNOTATION VERIFICATION WARNING: Saved Drawings decompresses to empty annotations');
         } else {
-          console.log('[SAVE] ✅ ANNOTATION VERIFICATION PASSED:', verifyDecompressed.objects.length, 'objects will be editable on reload');
         }
       } catch (verifyError) {
         console.error('[SAVE] ⚠️ ANNOTATION VERIFICATION FAILED: Cannot decompress saved Drawings:', verifyError);
@@ -4475,7 +4171,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
                 this.hudData.updateVisualPhotoCaption(photo.AttachID, newCaption)
                   .then(() => {
-                    console.log('[CAPTION] Saved caption for photo:', photo.AttachID);
                   })
                   .catch((error: unknown) => {
                     console.error('[CAPTION] Error saving caption:', error);
@@ -4582,7 +4277,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   async viewPhoto(photo: any, category: string, itemId: string | number, event?: Event) {
-    console.log('[VIEW PHOTO] Opening photo annotator for', photo.AttachID);
 
     try {
       // WEBAPP FIX: Use itemId directly (which is item.id) - matches photo storage key pattern
@@ -4612,7 +4306,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const pendingFileId = photo._pendingFileId || attachId;
 
       if (isPendingPhoto) {
-        console.log('[VIEW PHOTO] Pending photo detected, retrieving from IndexedDB:', pendingFileId);
         try {
           const photoData = await this.indexedDb.getStoredPhotoData(pendingFileId);
           if (photoData && photoData.file) {
@@ -4623,7 +4316,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             photo.url = imageUrl;
             photo.originalUrl = imageUrl;
             photo.thumbnailUrl = imageUrl;
-            console.log('[VIEW PHOTO] ✅ Retrieved pending photo from IndexedDB, URL set');
           } else {
             console.warn('[VIEW PHOTO] Pending photo not found in IndexedDB');
             // If the photo has a data URL already, use it
@@ -4653,7 +4345,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       if (isLocalFirstPhoto && !isPendingPhoto) {
         const localImageId = photo.localImageId || photo.imageId;
-        console.log('[VIEW PHOTO] LocalImage detected, refreshing from Dexie:', localImageId);
 
         const localImage = await this.indexedDb.getLocalImage(localImageId);
         if (localImage) {
@@ -4662,7 +4353,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           if (localImage.drawings && localImage.drawings.length > 10) {
             photo.Drawings = localImage.drawings;
             photo.hasAnnotations = true;
-            console.log('[VIEW PHOTO] Loaded fresh drawings from Dexie:', localImage.drawings.length, 'chars');
           }
 
           // FULL RESOLUTION FIX: For the annotator, we MUST get the FULL RESOLUTION image
@@ -4675,18 +4365,15 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             if (localImage.localBlobId) {
               fullResUrl = await this.localImageService.getOriginalBlobUrl(localImage.localBlobId);
               if (fullResUrl) {
-                console.log('[VIEW PHOTO] ✅ Got FULL RESOLUTION blob URL:', fullResUrl.substring(0, 50));
                 photo._hasFullResBlob = true;
               }
             }
 
             // Second try: If no full-res blob (purged), fetch from S3
             if (!fullResUrl && localImage.remoteS3Key) {
-              console.log('[VIEW PHOTO] Full-res blob purged, fetching from S3:', localImage.remoteS3Key);
               try {
                 fullResUrl = await this.caspioService.getS3FileUrl(localImage.remoteS3Key);
                 if (fullResUrl) {
-                  console.log('[VIEW PHOTO] ✅ Got FULL RESOLUTION from S3:', fullResUrl.substring(0, 50));
                   photo._hasFullResBlob = true;
                 }
               } catch (s3Err) {
@@ -4706,7 +4393,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               photo.originalUrl = fullResUrl;
               photo.displayUrl = fullResUrl;
               imageUrl = fullResUrl;
-              console.log('[VIEW PHOTO] Final LocalImage URL for annotator:', fullResUrl?.substring(0, 50));
             }
           } catch (err) {
             console.warn('[VIEW PHOTO] Failed to get LocalImage URL:', err);
@@ -4719,18 +4405,15 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         try {
           // Check if this is an S3 key
           if (photo.Attachment && this.caspioService.isS3Key(photo.Attachment)) {
-            console.log('[VIEW PHOTO] ✨ S3 image detected, fetching URL...');
             imageUrl = await this.caspioService.getS3FileUrl(photo.Attachment);
             photo.url = imageUrl;
             photo.originalUrl = imageUrl;
             photo.thumbnailUrl = imageUrl;
             photo.displayUrl = imageUrl;
-            console.log('[VIEW PHOTO] ✅ Got S3 URL');
           }
           // Fallback to Caspio Files API
           else {
             const filePath = photo.filePath || photo.Photo;
-            console.log('[VIEW PHOTO] 📁 Fetching from Caspio Files API...');
             const fetchedImage = await firstValueFrom(
               this.caspioService.getImageFromFilesAPI(filePath)
             );
@@ -4762,7 +4445,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           try {
             const s3OriginalUrl = await this.caspioService.getS3FileUrl(photo.Attachment);
             if (s3OriginalUrl && s3OriginalUrl !== originalImageUrl) {
-              console.log('[VIEW PHOTO] ✅ Fetched original from S3, using instead of potentially flattened URL');
               originalImageUrl = s3OriginalUrl;
             }
           } catch (e) {
@@ -4928,14 +4610,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
           if (isLocalFirstPhoto) {
             const localImageId = photo.localImageId || photo.imageId;
-            console.log('[Delete Photo] Deleting LocalImage:', localImageId);
 
             // CRITICAL: Get LocalImage data BEFORE deleting to check if server deletion is needed
             const localImage = await this.indexedDb.getLocalImage(localImageId);
 
             // If the photo was already synced (has real attachId), queue delete for server
             if (localImage?.attachId && !String(localImage.attachId).startsWith('img_')) {
-              console.log('[Delete Photo] LocalImage was synced, queueing server delete:', localImage.attachId);
               await this.hudData.deleteVisualPhoto(localImage.attachId);
             }
 
@@ -4945,10 +4625,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // Legacy photo deletion
           else if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
             await this.hudData.deleteVisualPhoto(photo.AttachID);
-            console.log('[Delete Photo] Deleted photo (or queued for sync):', photo.AttachID);
           }
 
-          console.log('[Delete Photo] Photo removed successfully');
         } catch (error) {
           console.error('Error deleting photo:', error);
           // Toast removed per user request
@@ -4963,6 +4641,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   private async showToast(message: string, color: string = 'primary') {
+    if (color === 'success' || color === 'info') return;
     const toast = await this.toastController.create({
       message,
       duration: 2000,
@@ -5033,7 +4712,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         TemplateID: 0  // Custom visual - no template
       };
 
-      console.log('[CREATE CUSTOM] Creating LBW visual:', visualData);
 
       // Create the LBW record
       const response = await this.hudData.createVisual(visualData);
@@ -5059,7 +4737,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         throw new Error('No LBWID returned from server');
       }
 
-      console.log('[CREATE CUSTOM] Created LBW visual with ID:', visualId);
 
       // Generate a unique templateId for custom visuals (negative to avoid collision with real templates)
       const customTemplateId = -Date.now();
@@ -5093,13 +4770,11 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Mark as selected with the correct key
       this.selectedItems[key] = true;
 
-      console.log('[CREATE CUSTOM] Stored visualId in visualRecordIds:', key, '=', visualId);
 
       // DEXIE-FIRST: Upload photos FIRST before calling setField
       // This ensures photos exist in LocalImages when the liveQuery triggers populatePhotosFromDexie
       let photoCount = 0;
       if (files && files.length > 0) {
-        console.log('[CREATE CUSTOM] DEXIE-FIRST: Uploading', files.length, 'photos BEFORE setField');
 
         // Initialize photos array
         if (!this.visualPhotos[key]) {
@@ -5113,7 +4788,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         if (environment.isWeb) {
           // WEBAPP MODE: Upload directly to S3 - follows EXACT same pattern as addPhotoFromCamera
-          console.log('[CREATE CUSTOM] WEBAPP MODE: Uploading', files.length, 'photos directly to S3');
 
           // Import compressAnnotationData for annotation handling
           const { compressAnnotationData } = await import('../../../utils/annotation-utils');
@@ -5186,7 +4860,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 compressedDrawings
               );
 
-              console.log(`[CREATE CUSTOM] WEBAPP: Photo ${index + 1} uploaded to S3:`, uploadResult.attachId);
 
               // Replace temp photo with real photo (remove loading roller) - EXACT same as camera upload
               const tempIndex = this.visualPhotos[key].findIndex((p: any) => p.imageId === tempId);
@@ -5237,11 +4910,9 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // Set expansion state so photos are visible
           this.expandedPhotos[key] = true;
 
-          console.log('[CREATE CUSTOM] WEBAPP: All', photoCount, 'photos uploaded to S3');
 
         } else {
           // MOBILE MODE: Upload ALL photos to LocalImages first (persists to Dexie)
-          console.log('[CREATE CUSTOM] MOBILE MODE: Uploading', files.length, 'photos to LocalImages');
 
           const uploadResults = await Promise.all(Array.from(files).map(async (file, index) => {
             const photoData = processedPhotos[index] || {};
@@ -5267,7 +4938,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             const drawings = annotationData ? JSON.stringify(annotationData) : '';
             const result = await this.hudData.uploadVisualPhoto(visualId, compressedPhoto, caption, drawings, originalFile || undefined, this.serviceId);
 
-            console.log(`[CREATE CUSTOM] MOBILE: Photo ${index + 1} persisted to LocalImages:`, result.imageId);
             return result;
           }));
 
@@ -5299,7 +4969,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // DEXIE-FIRST: Set expansion state BEFORE setField so photos are visible when liveQuery fires
           this.expandedPhotos[key] = true;
 
-          console.log('[CREATE CUSTOM] MOBILE: All', photoCount, 'photos uploaded to LocalImages');
         }
       }
 
@@ -5315,14 +4984,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           category: category,  // Store actual category for Dexie lookup
           photoCount: photoCount
         });
-        console.log('[CREATE CUSTOM] Persisted custom visual to Dexie (after photos):', customTemplateId, visualId);
       } catch (err) {
         console.error('[CREATE CUSTOM] Failed to persist to Dexie:', err);
       }
 
       // CRITICAL FIX: Add custom item to organizedData for BOTH webapp AND mobile modes
       // LBW mobile doesn't use liveQuery like EFE does, so we must explicitly add the item
-      console.log('[CREATE CUSTOM] Adding custom item to organizedData for immediate display');
       if (kind === 'Comment') {
         this.organizedData.comments.push(customItem);
       } else if (kind === 'Limitation') {
@@ -5340,7 +5007,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Clear PDF cache so new PDFs show updated data
       this.clearPdfCache();
 
-      console.log('[CREATE CUSTOM] Custom visual created successfully');
 
     } catch (error) {
       console.error('[CREATE CUSTOM] Error creating custom visual:', error);
@@ -5394,7 +5060,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
    * LBW now uses a dedicated visual detail page (like HUD/EFE)
    */
   openVisualDetail(category: string, item: any): void {
-    console.log('[LBW] openVisualDetail - item:', item?.name, 'item.id:', item?.id, 'templateId:', item?.templateId);
 
     // WEBAPP SIMPLIFIED: The LBWID is stored in visualRecordIds
     // Key format: ${category}_${item.id}
@@ -5408,13 +5073,11 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       if (itemIdStr.startsWith('custom_')) {
         lbwId = itemIdStr.replace('custom_', '');
         routeId = lbwId; // Use the numeric LBWID for the route
-        console.log('[LBW] openVisualDetail WEBAPP: Custom visual, LBWID:', lbwId);
       } else {
         // Template visual: look up in visualRecordIds, fallback to item.lbwId
         const key = `${category}_${item.id}`;
         lbwId = this.visualRecordIds[key] || item.lbwId || '';
         routeId = item.templateId || item.id;
-        console.log('[LBW] openVisualDetail WEBAPP: Template visual, key:', key, 'LBWID:', lbwId, 'item.lbwId:', item.lbwId);
       }
     } else {
       // MOBILE: Use existing logic, with item.lbwId fallback
@@ -5425,7 +5088,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       routeId = isCustomVisual ? item.id : item.templateId;
     }
 
-    console.log('[LBW] openVisualDetail - FINAL: routeId:', routeId, 'lbwId:', lbwId);
 
     // Use absolute navigation to ensure correct path
     this.router.navigate(['/lbw', this.projectId, this.serviceId, 'category', category, 'visual', routeId], {

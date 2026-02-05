@@ -100,7 +100,6 @@ export class VirtualScrollComponent<T> implements OnChanges {
   ngOnChanges(changes: SimpleChanges): void {
     // Log when virtual scrolling is activated for debugging
     if (changes['items'] && this.isWeb && this.items.length >= this.virtualScrollThreshold) {
-      console.log(`[VirtualScroll] Rendering ${this.items.length} items with virtual scrolling`);
     }
   }
 }

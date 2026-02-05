@@ -120,7 +120,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
       // MOBILE: Reload data when returning to this page (sync may have happened)
       // This ensures we show fresh data after sync completes
       if (this.serviceId && this.templateId) {
-        console.log('[HudVisualDetail] ionViewWillEnter MOBILE: Reloading data');
         this.loadVisualData();
       }
     }
@@ -156,12 +155,10 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
     const rawCategory = categoryParams?.['category'] || '';
     this.categoryName = rawCategory ? decodeURIComponent(rawCategory) : '';
     this.routeCategory = this.categoryName;  // Store original route category for back navigation
-    console.log('[HudVisualDetail] Category from route:', rawCategory, '-> decoded:', this.categoryName);
 
     // Get project/service IDs from container (go up through to container)
     // Try parent?.parent first (category -> container)
     let containerParams = this.route.parent?.parent?.snapshot?.params;
-    console.log('[HudVisualDetail] Container params (p.p):', containerParams);
 
     if (containerParams) {
       this.projectId = containerParams['projectId'] || '';
@@ -171,7 +168,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
     // Fallback: Try one more level up if needed
     if (!this.projectId || !this.serviceId) {
       containerParams = this.route.parent?.parent?.parent?.snapshot?.params;
-      console.log('[HudVisualDetail] Container params (p.p.p):', containerParams);
       if (containerParams) {
         this.projectId = this.projectId || containerParams['projectId'] || '';
         this.serviceId = this.serviceId || containerParams['serviceId'] || '';
@@ -185,21 +181,17 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
     // MOBILE MODE: Don't use hudId from query params - loadPhotos() determines it from Dexie
     if (environment.isWeb && queryParams['hudId']) {
       this.hudId = queryParams['hudId'];
-      console.log('[HudVisualDetail] WEBAPP: hudId from query params:', this.hudId);
     }
 
     // CRITICAL: actualServiceId is the real FK for HUD records (route param serviceId is PK_ID)
     if (queryParams['actualServiceId']) {
       this.actualServiceId = queryParams['actualServiceId'];
-      console.log('[HudVisualDetail] actualServiceId from query params:', this.actualServiceId);
     }
 
-    console.log('[HudVisualDetail] Final values - Category:', this.categoryName, 'ProjectId:', this.projectId, 'ServiceId:', this.serviceId, 'HudId:', this.hudId);
 
     // Get templateId from current route
     this.routeSubscription = this.route.params.subscribe(params => {
       this.templateId = parseInt(params['templateId'], 10);
-      console.log('[HudVisualDetail] TemplateId from route:', this.templateId);
       this.loadVisualData();
     });
   }
@@ -216,27 +208,19 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
     // Store HUDID from query params
     let hudIdFromQueryParams = this.hudId;
 
-    console.log('[HudVisualDetail] ========== loadVisualData START ==========');
-    console.log('[HudVisualDetail] serviceId:', this.serviceId);
-    console.log('[HudVisualDetail] templateId:', this.templateId);
-    console.log('[HudVisualDetail] categoryName:', this.categoryName);
-    console.log('[HudVisualDetail] hudId (from query):', hudIdFromQueryParams || '(none)');
 
     // WEBAPP SIMPLE: If we have hudId from query params, just use it directly
     if (environment.isWeb && hudIdFromQueryParams) {
-      console.log('[HudVisualDetail] WEBAPP DIRECT: Using hudId from query params:', hudIdFromQueryParams);
       this.hudId = hudIdFromQueryParams;
 
       // Load visual data for display
       try {
         const queryServiceId = this.actualServiceId || this.serviceId;
         const hudRecords = await this.hudData.getHudByService(queryServiceId);
-        console.log('[HudVisualDetail] WEBAPP DIRECT: Loaded', hudRecords.length, 'HUD records');
 
         const visual = hudRecords.find((v: any) => String(v.HUDID || v.PK_ID) === String(hudIdFromQueryParams));
 
         if (visual) {
-          console.log('[HudVisualDetail] WEBAPP DIRECT: Found visual:', visual.Name, 'HUDID:', visual.HUDID);
           this.item = {
             id: visual.HUDID || visual.PK_ID,
             templateId: this.templateId,
@@ -256,7 +240,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
         } else {
           // Visual not found - create minimal item so photos can still display
           console.warn('[HudVisualDetail] WEBAPP DIRECT: Visual not found, creating minimal item');
-          console.log('[HudVisualDetail] WEBAPP DIRECT: Available HUDIDs:', hudRecords.map((v: any) => v.HUDID || v.PK_ID));
 
           this.item = {
             id: hudIdFromQueryParams,
@@ -303,16 +286,13 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
 
     // WEBAPP without hudId: Use LBW-style priority matching
     if (environment.isWeb) {
-      console.log('[HudVisualDetail] WEBAPP: No hudId, using priority-based matching (LBW pattern)');
 
       try {
         const queryServiceId = this.actualServiceId || this.serviceId;
         const hudRecords = await this.hudData.getHudByService(queryServiceId);
-        console.log('[HudVisualDetail] WEBAPP: Loaded', hudRecords.length, 'HUD records for ServiceID:', queryServiceId);
 
         const templates = (await this.caspioService.getServicesHUDTemplates().toPromise()) || [];
         const template = templates.find((t: any) => (t.TemplateID || t.PK_ID) == this.templateId);
-        console.log('[HudVisualDetail] WEBAPP: Template found for templateId', this.templateId, ':', template ? template.Name : '(NOT FOUND)');
 
         // PRIORITY 1: Find by HUDID from query params (already handled above)
         // If we reach here, hudIdFromQueryParams was empty
@@ -320,12 +300,10 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
         // PRIORITY 1.5: For custom visuals, templateId might BE the HUDID - try matching directly
         let visual: any = null;
         if (!visual && this.templateId > 0) {
-          console.log('[HudVisualDetail] WEBAPP: PRIORITY 1.5 - Looking for visual by templateId as HUDID:', this.templateId);
           visual = hudRecords.find((v: any) =>
             String(v.HUDID || v.PK_ID) === String(this.templateId)
           );
           if (visual) {
-            console.log('[HudVisualDetail] WEBAPP: PRIORITY 1.5 - Found custom visual by HUDID:', this.templateId);
             this.hudId = String(visual.HUDID || visual.PK_ID);
           }
         }
@@ -333,25 +311,21 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
         // PRIORITY 2: Match by TemplateID fields
         if (!visual && template) {
           const templateIdToMatch = String(template.TemplateID || template.PK_ID);
-          console.log('[HudVisualDetail] WEBAPP: PRIORITY 2 - Looking for visual by TemplateID:', templateIdToMatch);
           visual = hudRecords.find((v: any) =>
             String(v.HUDTemplateID) === templateIdToMatch ||
             String(v.VisualTemplateID) === templateIdToMatch ||
             String(v.TemplateID) === templateIdToMatch
           );
           if (visual) {
-            console.log('[HudVisualDetail] WEBAPP: PRIORITY 2 - Matched HUD record by templateId:', templateIdToMatch);
           }
         }
 
         // PRIORITY 3: Fall back to Name + Category matching
         if (!visual && template && template.Name) {
-          console.log('[HudVisualDetail] WEBAPP: PRIORITY 3 - Looking for visual by Name+Category:', template.Name, template.Category);
           visual = hudRecords.find((v: any) =>
             v.Name === template.Name && v.Category === template.Category
           );
           if (visual) {
-            console.log('[HudVisualDetail] WEBAPP: PRIORITY 3 - Matched HUD record by name+category:', template.Name, template.Category);
           }
         }
 
@@ -360,7 +334,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
           const categoryVisuals = hudRecords.filter((v: any) => v.Category === (template.Category || this.categoryName));
           if (categoryVisuals.length === 1) {
             visual = categoryVisuals[0];
-            console.log('[HudVisualDetail] WEBAPP: PRIORITY 4 FALLBACK - Using only visual in category:', visual.HUDID, 'Name:', visual.Name);
           } else if (categoryVisuals.length > 1) {
             console.warn('[HudVisualDetail] WEBAPP: PRIORITY 4 SKIPPED - Multiple visuals in category (' + categoryVisuals.length + '). No hudId provided, cannot determine correct visual.');
             console.warn('[HudVisualDetail] WEBAPP: Available visuals:', categoryVisuals.map((v: any) => ({ HUDID: v.HUDID, Name: v.Name })));
@@ -389,10 +362,8 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
           this.categoryName = actualCategory;
           this.editableTitle = this.item.name;
           this.editableText = this.item.text;
-          console.log('[HudVisualDetail] WEBAPP: Loaded HUD record:', this.item.name, 'HUDID:', this.hudId, 'Category:', actualCategory);
         } else if (template) {
           // No HUD record found - use template data
-          console.log('[HudVisualDetail] WEBAPP: HUD record not found, using template data');
           const actualCategory = template.Category || '';
           this.item = {
             id: template.TemplateID || template.PK_ID,
@@ -409,7 +380,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
           this.categoryName = actualCategory;
           this.editableTitle = this.item.name;
           this.editableText = this.item.text;
-          console.log('[HudVisualDetail] WEBAPP: Loaded from template:', this.item.name, 'Category:', actualCategory);
         } else {
           // Neither visual nor template found
           console.error('[HudVisualDetail] WEBAPP: ❌ Neither visual nor template found!');
@@ -432,7 +402,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
       // MOBILE MODE: Match EFE pattern exactly
       // 1. Try to load from Dexie visualFields first
       // 2. Fallback to cached templates
-      console.log('[HudVisualDetail] MOBILE MODE: Loading data from Dexie');
 
       // Query visualFields by serviceId, then filter by templateId
       const allFields = await db.visualFields
@@ -448,8 +417,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
         Number(t.TemplateID || t.PK_ID) === this.templateId
       );
 
-      console.log('[HudVisualDetail] MOBILE: Field found:', !!field, 'templateName:', field?.templateName);
-      console.log('[HudVisualDetail] MOBILE: Template found:', !!template, 'Name:', template?.Name);
 
       // CRITICAL: If field exists but templateName is empty (old data), use template.Name as fallback
       if (field && field.templateName) {
@@ -463,7 +430,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
 
         // NOTE: hudId is set in loadPhotos() using tempVisualId || visualId (EFE pattern)
 
-        console.log('[HudVisualDetail] MOBILE: Loaded from Dexie field:', this.item.name, 'category:', this.categoryName);
       } else if (field && template) {
         // Field exists but templateName is empty - merge field data with template name
         // This handles data created before templateName was stored
@@ -490,7 +456,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
 
         // NOTE: hudId is set in loadPhotos() using tempVisualId || visualId (EFE pattern)
 
-        console.log('[HudVisualDetail] MOBILE: Merged field+template - Name:', this.item.name, 'category:', this.categoryName);
       } else if (template) {
         // No field exists - use template (item not yet selected)
         const effectiveTemplateId = template.TemplateID || template.PK_ID;
@@ -517,7 +482,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
         // since photos are only added after a visual is created (which creates the field)
         // Do NOT use hudIdFromQueryParams - let loadPhotos() handle it via Dexie lookup
 
-        console.log('[HudVisualDetail] MOBILE: Loaded from template:', this.item.name, 'category:', this.categoryName);
       } else {
         console.warn('[HudVisualDetail] MOBILE: No field or template found for ID:', this.templateId);
       }
@@ -578,8 +542,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
 
           // Only update if different (avoid unnecessary UI updates)
           if (this.item.name !== newName || this.item.text !== newText) {
-            console.log('[HudVisualDetail] liveQuery: Field changed, updating item');
-            console.log('[HudVisualDetail] liveQuery: Name:', this.item.name, '->', newName);
 
             this.item.name = newName;
             this.item.text = newText;
@@ -591,7 +553,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
 
         // If hudId changed (sync completed), reload photos with correct entityId
         if (hudIdChanged) {
-          console.log('[HudVisualDetail] liveQuery: HudId changed from', this.lastKnownHudId, 'to', currentHudId, '- reloading photos');
           this.lastKnownHudId = currentHudId;
           // Note: Don't set this.hudId here - let loadPhotos() do it from fresh field data
           await this.loadPhotos();
@@ -603,7 +564,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
       }
     });
 
-    console.log('[HudVisualDetail] Subscribed to visualField changes');
   }
 
   private convertFieldToItem(field: VisualField): VisualItem {
@@ -635,9 +595,7 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
           return;
         }
 
-        console.log('[HudVisualDetail] WEBAPP MODE: Loading photos for hudId:', this.hudId);
         const attachments = await this.hudData.getHudAttachments(this.hudId);
-        console.log('[HudVisualDetail] WEBAPP: Found', attachments?.length || 0, 'attachments from server');
 
         this.photos = [];
         for (const att of attachments || []) {
@@ -645,18 +603,11 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
           // Check Attachment first (S3 key), then Photo (legacy Caspio Files API)
           let displayUrl = att.Attachment || att.Photo || att.url || att.displayUrl || 'assets/img/photo-placeholder.svg';
 
-          console.log('[HudVisualDetail] WEBAPP: Processing attachment:', {
-            AttachID: att.AttachID,
-            Attachment: att.Attachment,
-            Photo: att.Photo,
-            displayUrl
-          });
 
           // If it's an S3 key, get signed URL
           if (displayUrl && this.caspioService.isS3Key && this.caspioService.isS3Key(displayUrl)) {
             try {
               displayUrl = await this.caspioService.getS3FileUrl(displayUrl);
-              console.log('[HudVisualDetail] WEBAPP: Got S3 signed URL for:', att.AttachID);
             } catch (e) {
               console.warn('[HudVisualDetail] WEBAPP: Could not get S3 URL:', e);
             }
@@ -676,14 +627,11 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
               // Server has annotations AND we have a cached image - use the cached version
               thumbnailUrl = cachedAnnotated;
               hasAnnotations = true;
-              console.log(`[HudVisualDetail] WEBAPP: Using cached annotated image for ${attachId} (server has Drawings)`);
             } else if (cachedAnnotated && !hasServerAnnotations) {
               // Cached image exists but server has NO annotations - cache is stale, clear it
-              console.log(`[HudVisualDetail] WEBAPP: Clearing stale cached annotated image for ${attachId} (server has no Drawings)`);
               await this.indexedDb.deleteCachedAnnotatedImage(attachId);
             } else if (hasServerAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
               // No cached image but server has Drawings - render annotations on the fly
-              console.log(`[HudVisualDetail] WEBAPP: Rendering annotations for ${attachId}...`);
               const renderedUrl = await renderAnnotationsOnPhoto(displayUrl, att.Drawings);
               if (renderedUrl && renderedUrl !== displayUrl) {
                 thumbnailUrl = renderedUrl;
@@ -695,7 +643,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
                 } catch (cacheErr) {
                   console.warn('[HudVisualDetail] WEBAPP: Failed to cache annotated image:', cacheErr);
                 }
-                console.log(`[HudVisualDetail] WEBAPP: Rendered and cached annotations for ${attachId}`);
               }
             }
           } catch (annotErr) {
@@ -741,12 +688,10 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
       this.lastKnownHudId = this.hudId;
 
       if (!this.hudId) {
-        console.log('[HudVisualDetail] MOBILE: No hudId found, cannot load photos');
         this.photos = [];
         return;
       }
 
-      console.log('[HudVisualDetail] MOBILE: Loading photos for hudId:', this.hudId, 'field tempVisualId:', field?.tempVisualId, 'visualId:', field?.visualId);
 
       // DEXIE-FIRST: Load local images from IndexedDB using hudId as entityId
       // DIRECT Dexie query - matching EFE pattern EXACTLY (no service wrapper)
@@ -760,18 +705,15 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
 
       if (localImages.length > 0) {
         foundAtTier = 1;
-        console.log('[HudVisualDetail] MOBILE: TIER 1 (primary) - Found', localImages.length, 'photos with hudId:', this.hudId);
       }
 
       // FALLBACK 1: If no photos found and we have both tempVisualId and visualId, try the other ID
       if (localImages.length === 0 && field?.tempVisualId && field?.visualId) {
         const alternateId = (this.hudId === field.tempVisualId) ? field.visualId : field.tempVisualId;
         if (alternateId && alternateId !== this.hudId) {
-          console.log('[HudVisualDetail] MOBILE: No photos found, trying alternate ID:', alternateId);
           localImages = await db.localImages.where('entityId').equals(alternateId).toArray();
           if (localImages.length > 0) {
             foundAtTier = 2;
-            console.log('[HudVisualDetail] MOBILE: TIER 2 (alternate ID) - Found', localImages.length, 'photos');
           }
         }
       }
@@ -780,11 +722,9 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
       if (localImages.length === 0 && field?.tempVisualId) {
         const mappedRealId = await this.indexedDb.getRealId(field.tempVisualId);
         if (mappedRealId) {
-          console.log('[HudVisualDetail] MOBILE: Trying mapped realId from tempIdMappings:', mappedRealId);
           localImages = await db.localImages.where('entityId').equals(mappedRealId).toArray();
           if (localImages.length > 0) {
             foundAtTier = 3;
-            console.log('[HudVisualDetail] MOBILE: TIER 3 (tempIdMappings) - Found', localImages.length, 'photos');
             // Update VisualField with realId so future lookups work directly
             this.visualFieldRepo.setField(this.serviceId, this.categoryName, this.templateId, {
               visualId: mappedRealId
@@ -797,20 +737,16 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
       if (localImages.length === 0 && field?.visualId && !field?.tempVisualId) {
         const reverseLookupTempId = await this.indexedDb.getTempId(field.visualId);
         if (reverseLookupTempId) {
-          console.log('[HudVisualDetail] MOBILE: TIER 4 REVERSE LOOKUP - realId:', field.visualId, '-> tempId:', reverseLookupTempId);
           localImages = await db.localImages.where('entityId').equals(reverseLookupTempId).toArray();
           if (localImages.length > 0) {
             foundAtTier = 4;
-            console.log('[HudVisualDetail] MOBILE: TIER 4 (reverse lookup) - Found', localImages.length, 'photos');
           }
         }
       }
 
       // Log final result with tier information
       if (foundAtTier > 0) {
-        console.log('[HudVisualDetail] MOBILE: Photos found at TIER', foundAtTier, '- Total:', localImages.length, 'photos');
       } else {
-        console.log('[HudVisualDetail] MOBILE: No photos found after all 4 tiers for hudId:', this.hudId);
       }
 
       // Convert to PhotoItem format
@@ -829,7 +765,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
           const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(img.imageId);
           if (cachedAnnotated) {
             displayUrl = cachedAnnotated;
-            console.log('[HudVisualDetail] MOBILE: Using cached annotated image for:', img.imageId);
           }
         }
 
@@ -910,7 +845,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
       if (environment.isWeb) {
         if (this.isValidHudId(this.hudId)) {
           await this.hudData.updateVisual(this.hudId, caspioUpdate, this.actualServiceId || this.serviceId);
-          console.log('[HudVisualDetail] WEBAPP: ✅ Updated via API:', this.hudId, caspioUpdate);
         } else {
           console.warn('[HudVisualDetail] WEBAPP: No valid hudId, cannot save');
         }
@@ -921,7 +855,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
         if (textChanged) dexieUpdate.templateText = this.editableText;
 
         await this.visualFieldRepo.setField(this.serviceId, actualCategory, this.templateId, dexieUpdate);
-        console.log('[HudVisualDetail] MOBILE: ✅ Updated Dexie:', dexieUpdate);
 
         if (this.isValidHudId(this.hudId)) {
           await this.hudData.updateVisual(this.hudId, caspioUpdate, this.actualServiceId || this.serviceId);
@@ -956,7 +889,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
       if (environment.isWeb) {
         if (this.isValidHudId(this.hudId)) {
           await this.hudData.updateVisual(this.hudId, { Name: this.editableTitle }, this.actualServiceId || this.serviceId);
-          console.log('[HudVisualDetail] WEBAPP: ✅ Updated title via API:', this.hudId);
         } else {
           console.warn('[HudVisualDetail] WEBAPP: No valid hudId, cannot save title');
         }
@@ -970,7 +902,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
         if (this.hudId) dexieUpdate.visualId = this.hudId;
 
         await this.visualFieldRepo.setField(this.serviceId, actualCategory, this.templateId, dexieUpdate);
-        console.log('[HudVisualDetail] MOBILE: ✅ Updated title in Dexie:', this.hudId);
 
         if (this.isValidHudId(this.hudId)) {
           await this.hudData.updateVisual(this.hudId, { Name: this.editableTitle }, this.actualServiceId || this.serviceId);
@@ -999,7 +930,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
       if (environment.isWeb) {
         if (this.isValidHudId(this.hudId)) {
           await this.hudData.updateVisual(this.hudId, { Text: this.editableText }, this.actualServiceId || this.serviceId);
-          console.log('[HudVisualDetail] WEBAPP: ✅ Updated text via API:', this.hudId);
         } else {
           console.warn('[HudVisualDetail] WEBAPP: No valid hudId, cannot save text');
         }
@@ -1013,7 +943,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
         if (this.hudId) dexieUpdate.visualId = this.hudId;
 
         await this.visualFieldRepo.setField(this.serviceId, actualCategory, this.templateId, dexieUpdate);
-        console.log('[HudVisualDetail] MOBILE: ✅ Updated text in Dexie:', this.hudId);
 
         if (this.isValidHudId(this.hudId)) {
           await this.hudData.updateVisual(this.hudId, { Text: this.editableText }, this.actualServiceId || this.serviceId);
@@ -1217,10 +1146,8 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
       // DEXIE-FIRST: Queue deletion for background sync if already synced to Caspio
       if (localImage?.attachId) {
         await this.hudData.deleteVisualPhoto(localImage.attachId);
-        console.log('[HudVisualDetail] ✅ Queued photo deletion to Caspio:', localImage.attachId);
       }
 
-      console.log('[HudVisualDetail] Photo removed successfully');
     } catch (error) {
       console.error('[HudVisualDetail] Error deleting photo:', error);
     }
@@ -1441,7 +1368,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
             Annotation: caption,
             Drawings: photo.drawings || ''
           }));
-          console.log('[HudVisualDetail] WEBAPP: ✅ Updated caption via API (preserved drawings):', attachId);
         }
         this.changeDetectorRef.detectChanges();
         return;
@@ -1464,7 +1390,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
         'hud',
         { serviceId: this.serviceId, visualId: this.hudId }
       );
-      console.log('[HudVisualDetail] ✅ Queued caption update:', attachId, localImage?.attachId ? '(synced)' : '(pending photo sync)');
 
       this.changeDetectorRef.detectChanges();
     } catch (error) {
@@ -1487,7 +1412,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
     if (photo.drawings && photo.drawings.length > 10) {
       try {
         existingAnnotations = decompressAnnotationData(photo.drawings);
-        console.log('[HudVisualDetail] Found existing annotations from drawings');
       } catch (e) {
         console.warn('[HudVisualDetail] Error loading annotations:', e);
       }
@@ -1521,7 +1445,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
     const hasAnnotationData = data && (data.annotatedBlob || data.compressedAnnotationData || data.annotationsData);
 
     if (hasAnnotationData) {
-      console.log('[HudVisualDetail] Annotation saved, processing...', data.canvasTainted ? '(canvas tainted - no image export)' : '');
 
       const annotatedBlob = data.blob || data.annotatedBlob;
       const annotationsData = data.annotationData || data.annotationsData;
@@ -1557,7 +1480,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
             if (annotatedBlob && annotatedBlob.size > 0) {
               try {
                 await this.indexedDb.cacheAnnotatedImage(photo.id, annotatedBlob);
-                console.log('[HudVisualDetail] WEBAPP: ✅ Cached annotated image for AttachID:', photo.id);
               } catch (cacheErr) {
                 console.warn('[HudVisualDetail] WEBAPP: Failed to cache annotated image:', cacheErr);
               }
@@ -1568,7 +1490,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
               Annotation: newCaption,
               Drawings: compressedDrawings
             }));
-            console.log('[HudVisualDetail] WEBAPP: ✅ Updated annotation via API for AttachID:', photo.id);
 
             // Show appropriate toast based on whether we could export the image
             if (data.canvasTainted) {
@@ -1581,13 +1502,11 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
               caption: newCaption,
               updatedAt: Date.now()
             });
-            console.log('[HudVisualDetail] ✅ Updated LocalImages with drawings:', compressedDrawings.length, 'chars');
 
             // Cache annotated image for thumbnail display
             if (annotatedBlob && annotatedBlob.size > 0) {
               try {
                 await this.indexedDb.cacheAnnotatedImage(photo.id, annotatedBlob);
-                console.log('[HudVisualDetail] ✅ Cached annotated image for:', photo.id);
               } catch (cacheErr) {
                 console.warn('[HudVisualDetail] Failed to cache annotated image:', cacheErr);
               }
@@ -1604,9 +1523,7 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
                 'hud',
                 { serviceId: this.serviceId, visualId: this.hudId }
               );
-              console.log('[HudVisualDetail] ✅ Queued annotation update to Caspio:', localImage.attachId);
             } else {
-              console.log('[HudVisualDetail] Photo not yet synced, annotations stored locally for upload');
             }
           }
 
@@ -1621,7 +1538,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
           };
 
           this.changeDetectorRef.detectChanges();
-          console.log('[HudVisualDetail] ✅ UI updated with annotated image');
 
         } catch (error) {
           console.error('[HudVisualDetail] Error saving annotations:', error);
@@ -1649,6 +1565,7 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, ViewWillEnter, Ha
   // ===== UTILITIES =====
 
   private async showToast(message: string, color: 'success' | 'danger' | 'warning' = 'success') {
+    if (color === 'success') return;
     const toast = await this.toastController.create({
       message,
       duration: 2000,

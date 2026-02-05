@@ -92,7 +92,6 @@ export class LocalImageService {
     drawings: string = '',
     photoType: string | null = null  // 'Measurement' | 'Location' for EFE, 'Top' | 'Bottom' | 'Threshold' for FDF
   ): Promise<LocalImage> {
-    console.log('[LocalImage] Capturing image for', entityType, entityId, 'photoType:', photoType);
     
     const image = await this.indexedDb.createLocalImage(
       file,
@@ -107,7 +106,6 @@ export class LocalImageService {
     // Update pending count
     await this.updatePendingCount();
     
-    console.log('[LocalImage] ✅ Image captured:', image.imageId, 'status:', image.status, 'photoType:', photoType);
     return image;
   }
 
@@ -150,18 +148,15 @@ export class LocalImageService {
       // Try imageId first (for local-first images before sync)
       const annotatedByImageId = await this.indexedDb.getCachedAnnotatedImage(image.imageId);
       if (annotatedByImageId) {
-        console.log('[LocalImage] ✅ Using cached ANNOTATED image (by imageId) for:', image.imageId);
         return cacheAndReturn(annotatedByImageId);
       }
       // Try attachId (for synced images)
       if (image.attachId) {
         const annotatedByAttachId = await this.indexedDb.getCachedAnnotatedImage(String(image.attachId));
         if (annotatedByAttachId) {
-          console.log('[LocalImage] ✅ Using cached ANNOTATED image (by attachId) for:', image.imageId, 'attachId:', image.attachId);
           return cacheAndReturn(annotatedByAttachId);
         }
       }
-      console.log('[LocalImage] Image has annotations but no cached annotated image found:', image.imageId);
     }
 
     // Rule 1: ALWAYS prefer local blob if it exists
@@ -173,7 +168,6 @@ export class LocalImageService {
       }
       // Blob was referenced but not found - this is expected after pruning
       // Clear the stale reference in memory to avoid repeated lookups
-      console.log('[LocalImage] Blob pruned, falling back for:', image.imageId, 'blobId:', image.localBlobId);
     }
 
     // Rule 1.5: Try thumbnail blob if full-res was soft-purged (Phase 2 storage bloat prevention)
@@ -181,7 +175,6 @@ export class LocalImageService {
     if (image.thumbBlobId) {
       const thumbUrl = await this.getBlobUrl(image.thumbBlobId);
       if (thumbUrl) {
-        console.log('[LocalImage] ✅ Using thumbnail fallback for:', image.imageId, 'thumbBlobId:', image.thumbBlobId);
         return cacheAndReturn(thumbUrl);
       }
     }
@@ -192,7 +185,6 @@ export class LocalImageService {
     try {
       const annotatedByImageIdFallback = await this.indexedDb.getCachedAnnotatedImage(image.imageId);
       if (annotatedByImageIdFallback) {
-        console.log('[LocalImage] ✅ US-003 FIX: Using cached ANNOTATED image (fallback by imageId) for:', image.imageId);
         return cacheAndReturn(annotatedByImageIdFallback);
       }
     } catch (err) {
@@ -207,16 +199,13 @@ export class LocalImageService {
         // (in case annotations were added before drawings was persisted)
         const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(String(image.attachId));
         if (cachedAnnotated) {
-          console.log('[LocalImage] ✅ Using cached ANNOTATED image (fallback) for:', image.imageId, 'attachId:', image.attachId);
           return cacheAndReturn(cachedAnnotated);
         }
 
         const cachedPhoto = await this.indexedDb.getCachedPhoto(String(image.attachId));
         if (cachedPhoto) {
-          console.log('[LocalImage] ✅ Using cached base64 for:', image.imageId, 'attachId:', image.attachId);
           return cacheAndReturn(cachedPhoto);
         } else {
-          console.log('[LocalImage] No cached photo found for attachId:', image.attachId);
         }
       } catch (err) {
         console.warn('[LocalImage] Failed to get cached photo:', err);
@@ -239,7 +228,6 @@ export class LocalImageService {
     // CRITICAL FIX: Also try for 'uploaded' status (after sync but before verification)
     if (image.remoteS3Key && (image.status === 'verified' || image.status === 'uploaded')) {
       try {
-        console.log('[LocalImage] Trying remote S3 URL for:', image.imageId, 'status:', image.status);
         const signedUrl = await this.getSignedUrl(image.remoteS3Key);
 
         // Mark that we successfully used remote URL
@@ -532,7 +520,6 @@ export class LocalImageService {
       remoteS3Key: additionalUpdates?.remoteS3Key || existing.remoteS3Key || undefined
     });
     
-    console.log('[LocalImage] Status updated:', imageId, oldStatus, '->', status);
     
     // Update pending count if status changed to/from upload states
     if (oldStatus !== status) {
@@ -569,7 +556,6 @@ export class LocalImageService {
         if (image?.localBlobId) {
           // DEXIE-FIRST: Create pointer for attachId pointing to same blob
           await this.indexedDb.cacheAnnotatedPointer(attachId, image.localBlobId);
-          console.log('[LocalImage] ✅ Transferred annotated pointer:', imageId, '->', attachId, '(same blobId:', image.localBlobId, ')');
         } else {
           // FALLBACK: Legacy path - copy the full data if no local blob
           const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(imageId);
@@ -577,7 +563,6 @@ export class LocalImageService {
             const response = await fetch(cachedAnnotatedImage);
             const blob = await response.blob();
             await this.indexedDb.cacheAnnotatedImage(attachId, blob);
-            console.log('[LocalImage] ✅ Transferred annotated image (legacy):', imageId, '->', attachId);
           }
         }
       } catch (err) {
@@ -595,7 +580,6 @@ export class LocalImageService {
       remoteVerifiedAt: Date.now()
     });
     
-    console.log('[LocalImage] ✅ Image verified:', imageId);
     
     // Emit status change
     const image = await this.getImage(imageId);
@@ -618,7 +602,6 @@ export class LocalImageService {
     await this.indexedDb.updateLocalImage(imageId, {
       remoteLoadedInUI: true
     });
-    console.log('[LocalImage] ✅ Remote image loaded in UI:', imageId);
   }
 
   /**
@@ -689,7 +672,6 @@ export class LocalImageService {
     if (drawings !== undefined) updates.drawings = drawings;
     
     await this.indexedDb.updateLocalImage(imageId, updates);
-    console.log('[LocalImage] Caption/drawings updated:', imageId);
   }
 
   // ============================================================================
@@ -721,7 +703,6 @@ export class LocalImageService {
     }
     
     if (!image.localBlobId) {
-      console.log('[LocalImage] Image already pruned:', imageId);
       return true;
     }
     
@@ -739,7 +720,6 @@ export class LocalImageService {
     // Prune via IndexedDB
     await this.indexedDb.pruneLocalBlob(imageId);
     
-    console.log('[LocalImage] ✅ Blob pruned:', imageId);
     return true;
   }
 
@@ -759,7 +739,6 @@ export class LocalImageService {
     }
     
     if (prunedCount > 0) {
-      console.log('[LocalImage] Pruned', prunedCount, 'blobs for service', serviceId);
     }
     
     return prunedCount;
@@ -930,7 +909,6 @@ export class LocalImageService {
     }
 
     if (displayPruned > 0 || signedPruned > 0) {
-      console.log(`[LocalImageService] Cache pruning: ${displayPruned} display URLs, ${signedPruned} signed URLs expired`);
     }
   }
 
@@ -977,12 +955,10 @@ export class LocalImageService {
     failedCount: number;
     failedImages: { imageId: string; error: string }[];
   }> {
-    console.log('[LocalImage] Force syncing images for service:', serviceId);
 
     const status = await this.getServiceImageSyncStatus(serviceId);
 
     if (status.pending === 0) {
-      console.log('[LocalImage] All images already synced');
       return {
         success: status.failed === 0,
         syncedCount: status.synced,
@@ -1032,7 +1008,6 @@ export class LocalImageService {
 
       // Check if all done
       if (stillPending === 0) {
-        console.log('[LocalImage] All images synced successfully');
         return {
           success: currentStatus.failed === 0,
           syncedCount: currentStatus.synced,
@@ -1076,7 +1051,6 @@ export class LocalImageService {
    * Called after confirming report is finalized
    */
   async updateImagePointersToRemote(serviceId: string): Promise<void> {
-    console.log('[LocalImage] Updating image pointers to remote for service:', serviceId);
 
     const images = await this.getImagesForService(serviceId);
 
@@ -1084,7 +1058,6 @@ export class LocalImageService {
       if (image.isSynced && image.remoteUrl) {
         // The image is synced - the remoteUrl is already stored
         // The UI will use remoteUrl when the report is finalized
-        console.log('[LocalImage] Image pointer ready for remote:', image.imageId, image.remoteUrl?.substring(0, 50) + '...');
       }
     }
 
@@ -1098,7 +1071,6 @@ export class LocalImageService {
    * Used when user deletes a photo from UI
    */
   async deleteLocalImage(imageId: string): Promise<void> {
-    console.log('[LocalImageService] Deleting local image:', imageId);
     
     try {
       // Get the image to find associated blob
@@ -1108,16 +1080,13 @@ export class LocalImageService {
         // Delete the blob if it exists
         if (localImage.localBlobId) {
           await this.indexedDb.deleteLocalBlob(localImage.localBlobId);
-          console.log('[LocalImageService] Deleted blob:', localImage.localBlobId);
         }
         
         // Remove from upload outbox if pending
         await this.indexedDb.removeFromUploadOutbox(imageId);
-        console.log('[LocalImageService] Removed from upload outbox:', imageId);
         
         // Delete the LocalImage record
         await this.indexedDb.deleteLocalImage(imageId);
-        console.log('[LocalImageService] Deleted LocalImage record:', imageId);
       }
       
       // Revoke any cached blob URL
@@ -1157,7 +1126,6 @@ export class LocalImageService {
     errors: number;
     freedBytes: number;
   }> {
-    console.log('[LocalImage] Starting post-finalization blob cleanup for service:', serviceId);
 
     const images = await this.getImagesForService(serviceId);
     let cleaned = 0;
@@ -1171,7 +1139,6 @@ export class LocalImageService {
       // 2. Have a remote URL available for viewing
       // 3. Still have local blob data to clean
       if (!image.isSynced || !image.remoteUrl) {
-        console.log('[LocalImage] Skipping cleanup for unsynced image:', image.imageId);
         skipped++;
         continue;
       }
@@ -1205,7 +1172,6 @@ export class LocalImageService {
 
         freedBytes += blobSize;
         cleaned++;
-        console.log('[LocalImage] Cleaned up blob for image:', image.imageId, 'freed:', blobSize, 'bytes');
 
       } catch (err) {
         console.error('[LocalImage] Error cleaning up blob for image:', image.imageId, err);
@@ -1213,7 +1179,6 @@ export class LocalImageService {
       }
     }
 
-    console.log(`[LocalImage] Blob cleanup complete. Cleaned: ${cleaned}, Skipped: ${skipped}, Errors: ${errors}, Freed: ${(freedBytes / 1024 / 1024).toFixed(2)} MB`);
 
     return {
       cleaned,
@@ -1250,8 +1215,6 @@ export class LocalImageService {
     drawings: string = '',
     photoType: string | null = null
   ): Promise<{ attachId: string; s3Key: string; s3Url: string }> {
-    console.log('[LocalImage] WEBAPP: uploadImageDirectToS3 starting...');
-    console.log('[LocalImage] WEBAPP: entityType:', entityType, 'entityId:', entityId, 'fileSize:', file.size);
 
     // Validate file
     if (!file || file.size === 0) {
@@ -1327,8 +1290,6 @@ export class LocalImageService {
       // Get signed URL for the uploaded file
       const s3Url = await this.caspioService.getS3FileUrl(s3Key);
 
-      console.log('[LocalImage] WEBAPP: ✅ Direct upload complete');
-      console.log('[LocalImage] WEBAPP: AttachID:', attachId, 'S3Key:', s3Key);
 
       return {
         attachId: String(attachId),

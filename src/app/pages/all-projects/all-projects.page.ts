@@ -369,14 +369,12 @@ export class AllProjectsPage implements OnInit {
     
     this.savingPrimaryPhoto.add(projectId);
     
-    console.log(`📸 Saving Google image URL to database for project ${projectId}`);
     
     this.projectsService.updateProjectPrimaryPhoto(projectId, googleImageUrl).subscribe({
       next: () => {
         // Update the local project object so we don't try to save again
         project['PrimaryPhoto'] = googleImageUrl;
         this.savingPrimaryPhoto.delete(projectId);
-        console.log(`✅ Successfully saved Google image URL for project ${projectId}`);
       },
       error: (error) => {
         console.error(`❌ Error saving Google image URL for project ${projectId}:`, error);

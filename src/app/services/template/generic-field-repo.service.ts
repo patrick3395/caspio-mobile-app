@@ -62,14 +62,11 @@ export class GenericFieldRepoService {
     templates: any[],
     dropdownData?: any[]
   ): Promise<void> {
-    console.log(`[GenericFieldRepo] Seeding ${templates.length} templates for ${config.id}/${category}`);
 
     // Debug: Show what categories exist in the templates
     if (templates.length > 0) {
       const allCategories = [...new Set(templates.map(t => t.Category))];
-      console.log(`[GenericFieldRepo] Available categories in templates: ${JSON.stringify(allCategories)}`);
       const typeIds = [...new Set(templates.map(t => t.TypeID))];
-      console.log(`[GenericFieldRepo] Available TypeIDs in templates: ${JSON.stringify(typeIds)}`);
     }
 
     // Filter templates for this category
@@ -97,11 +94,9 @@ export class GenericFieldRepoService {
       return templateCategory === categoryLower;
     });
 
-    console.log(`[GenericFieldRepo] Found ${categoryTemplates.length} templates for category "${category}" (template type: ${config.id})`);
 
 
     if (categoryTemplates.length === 0) {
-      console.log('[GenericFieldRepo] No templates to seed for this category');
       return;
     }
 
@@ -187,15 +182,12 @@ export class GenericFieldRepoService {
     }
 
     const skippedCount = categoryTemplates.length - newFields.length;
-    console.log(`[GenericFieldRepo] Creating ${newFields.length} new fields (${skippedCount} already exist)`);
 
     if (newFields.length > 0) {
       await db.transaction('rw', table, async () => {
         await table.bulkAdd(newFields);
       });
-      console.log(`[GenericFieldRepo] ✅ Successfully seeded ${newFields.length} new fields to ${config.id}Fields table`);
     } else {
-      console.log(`[GenericFieldRepo] No new fields to seed (all ${categoryTemplates.length} templates already have fields)`);
     }
   }
 
@@ -216,7 +208,6 @@ export class GenericFieldRepoService {
 
     if (categoryRecords.length === 0) return;
 
-    console.log(`[GenericFieldRepo] Merging ${categoryRecords.length} existing records for ${config.id}/${category}`);
 
     const table = this.getTable(config);
     const now = Date.now();
@@ -239,66 +230,75 @@ export class GenericFieldRepoService {
       if (name) fieldsByName.set(name, field);
     }
 
-    await db.transaction('rw', table, async () => {
-      for (const record of categoryRecords) {
-        const recordId = record[idFieldName] || record.PK_ID || null;
-        const recordName = (record.Name || '').trim();
-        const recordText = (record.Text || '').trim();
-        const nameLower = recordName.toLowerCase();
-        const textLower = recordText.toLowerCase();
+    // Batch updates and adds for fewer Dexie operations and fewer liveQuery emissions
+    const pendingUpdates: { id: any; data: any }[] = [];
+    const pendingAdds: any[] = [];
 
-        let matchingField: any;
-        if (nameLower && textLower) {
-          matchingField = fieldsByNameAndText.get(`${nameLower}|${textLower}`);
-        }
-        if (!matchingField && textLower) {
-          matchingField = fieldsByText.get(textLower);
-        }
-        if (!matchingField && nameLower) {
-          matchingField = fieldsByName.get(nameLower);
-        }
+    for (const record of categoryRecords) {
+      const recordId = record[idFieldName] || record.PK_ID || null;
+      const recordName = (record.Name || '').trim();
+      const recordText = (record.Text || '').trim();
+      const nameLower = recordName.toLowerCase();
+      const textLower = recordText.toLowerCase();
 
-        if (matchingField) {
-          const updates = this.createUpdateWithRecordId(config, {
-            isSelected: true,
-            answer: recordText || record.Answers || '',
-            otherValue: record.OtherValue || '',
-            photoCount: record.photoCount || 0,
-            updatedAt: now,
-            dirty: false
-          }, recordId ? String(recordId) : null);
-
-          await table.update(matchingField.id!, updates);
-        } else {
-          // Create new field for custom/unmatched record
-          const syntheticTemplateId = recordId || Date.now();
-          const key = `${serviceId}:${category}:${syntheticTemplateId}`;
-
-          const newField = this.createField(config, {
-            key,
-            serviceId,
-            category,
-            templateId: Number(syntheticTemplateId),
-            templateName: recordName,
-            templateText: recordText,
-            kind: record.Kind || 'Comment',
-            answerType: 0,
-            dropdownOptions: undefined,
-            isSelected: true,
-            answer: recordText || record.Answers || '',
-            otherValue: record.OtherValue || '',
-            photoCount: record.photoCount || 0,
-            rev: 0,
-            updatedAt: now,
-            dirty: false
-          }, recordId ? String(recordId) : null);
-
-          await table.add(newField);
-        }
+      let matchingField: any;
+      if (nameLower && textLower) {
+        matchingField = fieldsByNameAndText.get(`${nameLower}|${textLower}`);
       }
+      if (!matchingField && textLower) {
+        matchingField = fieldsByText.get(textLower);
+      }
+      if (!matchingField && nameLower) {
+        matchingField = fieldsByName.get(nameLower);
+      }
+
+      if (matchingField) {
+        const updates = this.createUpdateWithRecordId(config, {
+          isSelected: true,
+          answer: recordText || record.Answers || '',
+          otherValue: record.OtherValue || '',
+          photoCount: record.photoCount || 0,
+          updatedAt: now,
+          dirty: false
+        }, recordId ? String(recordId) : null);
+
+        pendingUpdates.push({ id: matchingField.id!, data: updates });
+      } else {
+        // Create new field for custom/unmatched record
+        const syntheticTemplateId = recordId || Date.now();
+        const key = `${serviceId}:${category}:${syntheticTemplateId}`;
+
+        const newField = this.createField(config, {
+          key,
+          serviceId,
+          category,
+          templateId: Number(syntheticTemplateId),
+          templateName: recordName,
+          templateText: recordText,
+          kind: record.Kind || 'Comment',
+          answerType: 0,
+          dropdownOptions: undefined,
+          isSelected: true,
+          answer: recordText || record.Answers || '',
+          otherValue: record.OtherValue || '',
+          photoCount: record.photoCount || 0,
+          rev: 0,
+          updatedAt: now,
+          dirty: false
+        }, recordId ? String(recordId) : null);
+
+        pendingAdds.push(newField);
+      }
+    }
+
+    // Execute all writes in a single transaction (one liveQuery emission instead of N)
+    await db.transaction('rw', table, async () => {
+      await Promise.all([
+        ...pendingUpdates.map(u => table.update(u.id, u.data)),
+        ...pendingAdds.map(f => table.add(f))
+      ]);
     });
 
-    console.log(`[GenericFieldRepo] Merged ${categoryRecords.length} records`);
   }
 
   // ============================================================================
@@ -379,17 +379,11 @@ export class GenericFieldRepoService {
 
     // DEBUG: Log when tempRecordId is being set
     if (updates.tempRecordId) {
-      console.log(`[GenericFieldRepo] Setting tempRecordId for ${key}:`, {
-        templateType: config.id,
-        tempRecordId: updates.tempRecordId,
-        mappedField: config.id === 'csa' ? 'tempCsaId' : config.id === 'dte' ? 'tempDteId' : config.id === 'lbw' ? 'tempLbwId' : 'other'
-      });
     }
 
     if (!existing) {
       // Field doesn't exist yet (user acted before seeding completed)
       // Create a minimal field with the provided updates
-      console.log(`[GenericFieldRepo] Field not found, creating: ${key}`);
 
       const newField = this.createField(config, {
         key,
@@ -411,7 +405,6 @@ export class GenericFieldRepoService {
       });
 
       await table.add(newField);
-      console.log(`[GenericFieldRepo] Created field: ${key}`);
       return;
     }
 

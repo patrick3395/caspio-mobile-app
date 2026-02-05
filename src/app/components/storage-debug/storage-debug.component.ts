@@ -565,7 +565,6 @@ export class StorageDebugComponent implements OnInit {
   log(message: string, type: 'info' | 'success' | 'warning' | 'error') {
     const time = new Date().toLocaleTimeString();
     this.testLog.push({ time, message, type });
-    console.log(`[StorageDebug] ${message}`);
     this.cdr.detectChanges();
   }
 

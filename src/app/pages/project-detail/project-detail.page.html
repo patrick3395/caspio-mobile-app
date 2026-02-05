@@ -591,7 +591,7 @@
     <ion-content>
       <ion-list>
         <!-- Custom document option at top with generous spacing from header -->
-        <ion-item button (click)="promptForCustomDocument()" class="custom-document-item" style="margin-top: 48px;">
+        <ion-item button (click)="promptForCustomDocument()" class="custom-document-item">
           <ion-label>
             <h2>Custom Document</h2>
             <p>Optional</p>
@@ -616,21 +616,4 @@
 <!-- Hidden file input for photo replacement - no capture attribute for iOS native picker -->
 <input #photoInput type="file" accept="image/*" style="display: none" (change)="onPhotoSelected($event)">
 
-<!-- G2-NAV-002: Breadcrumb navigation (web only) -->
-<ion-footer class="breadcrumb-footer" *ngIf="isWeb">
-  <ion-toolbar>
-    <div class="breadcrumb-container">
-      <div class="breadcrumb-item" (click)="navigateToBreadcrumbHome()">
-        <ion-icon name="home"></ion-icon>
-      </div>
-      <ng-container *ngFor="let crumb of breadcrumbs; let last = last">
-        <ion-icon name="chevron-forward-outline" class="breadcrumb-arrow"></ion-icon>
-        <div class="breadcrumb-item" [class.active]="last" (click)="navigateToCrumb(crumb)">
-          <ion-icon *ngIf="crumb.icon" [name]="crumb.icon" class="breadcrumb-icon-mobile"></ion-icon>
-          <span class="breadcrumb-text-desktop">{{ crumb.label }}</span>
-        </div>
-      </ng-container>
-    </div>
-  </ion-toolbar>
-</ion-footer>
 

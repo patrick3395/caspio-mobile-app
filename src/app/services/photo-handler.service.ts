@@ -124,7 +124,6 @@ export class PhotoHandlerService {
    * @returns The created photo entry, or null if user cancelled
    */
   async captureFromCamera(config: PhotoCaptureConfig): Promise<StandardPhotoEntry | null> {
-    console.log('[PhotoHandlerService] captureFromCamera:', config.entityType, 'entityId:', config.entityId, 'skipAnnotator:', config.skipAnnotator);
 
     try {
       // 1. Capture photo with camera
@@ -224,7 +223,6 @@ export class PhotoHandlerService {
    * @returns Array of created photo entries
    */
   async captureFromGallery(config: PhotoCaptureConfig): Promise<StandardPhotoEntry[]> {
-    console.log('[PhotoHandlerService] captureFromGallery:', config.entityType, 'entityId:', config.entityId);
 
     try {
       // 1. Pick images from gallery
@@ -376,7 +374,6 @@ export class PhotoHandlerService {
     // Memory diagnostics: track storage BEFORE upload
     const fileSizeKB = (compressedFile.size / 1024).toFixed(0);
     const fileSizeMB = (compressedFile.size / (1024 * 1024)).toFixed(2);
-    console.log(`[PhotoHandler] Processing photo: ${fileSizeMB}MB, type: ${config.entityType}`);
 
     let result: StandardPhotoEntry | null = null;
 
@@ -427,7 +424,6 @@ export class PhotoHandlerService {
     skeletonIdToReplace?: string
   ): Promise<StandardPhotoEntry | null> {
 
-    console.log('[PhotoHandler] WEBAPP: Starting direct S3 upload for', config.entityType);
 
     // Create temp photo entry with loading state
     const tempId = skeletonIdToReplace || `uploading_${Date.now()}`;
@@ -482,7 +478,6 @@ export class PhotoHandlerService {
         config.photoType || null
       );
 
-      console.log('[PhotoHandler] WEBAPP: Upload complete, AttachID:', uploadResult.attachId);
 
       // Create final photo entry
       // ANNOTATION FLATTENING FIX: Always use original S3 URL for ALL URLs
@@ -552,7 +547,6 @@ export class PhotoHandlerService {
     skeletonIdToReplace?: string
   ): Promise<StandardPhotoEntry | null> {
 
-    console.log('[PhotoHandler] MOBILE: Starting Dexie-first capture for', config.entityType);
 
     try {
       // Create LocalImage with stable UUID (stores blob + creates outbox item)
@@ -566,7 +560,6 @@ export class PhotoHandlerService {
         config.photoType || null
       );
 
-      console.log('[PhotoHandler] MOBILE: LocalImage created:', localImage.imageId);
 
       // Get display URL from LocalImageService (uses local blob)
       let displayUrl = await this.localImageService.getDisplayUrl(localImage);
@@ -585,7 +578,6 @@ export class PhotoHandlerService {
         // Cache annotated image for thumbnail persistence
         try {
           await this.indexedDb.cacheAnnotatedImage(localImage.imageId, annotatedBlob);
-          console.log('[PhotoHandler] MOBILE: Cached annotated thumbnail:', localImage.imageId);
         } catch (cacheErr) {
           console.warn('[PhotoHandler] MOBILE: Failed to cache annotated thumbnail:', cacheErr);
         }
@@ -641,7 +633,6 @@ export class PhotoHandlerService {
         config.onExpandPhotos();
       }
 
-      console.log('[PhotoHandler] MOBILE: Photo capture complete, syncs in background');
 
       return photoEntry;
 
@@ -939,7 +930,6 @@ export class PhotoHandlerService {
   async viewExistingPhoto(config: ViewPhotoConfig): Promise<ViewPhotoResult | null> {
     const { photo, entityType, onSaveAnnotation, onUpdatePhoto } = config;
 
-    console.log('[PhotoHandler] viewExistingPhoto called for:', photo.id || photo.AttachID);
 
     // Get the original URL for editing (without annotations baked in)
     let editUrl = photo.originalUrl || photo.displayUrl || photo.url;
@@ -950,7 +940,6 @@ export class PhotoHandlerService {
       if (s3Key && this.caspioService.isS3Key && this.caspioService.isS3Key(s3Key)) {
         try {
           editUrl = await this.caspioService.getS3FileUrl(s3Key);
-          console.log('[PhotoHandler] Fetched S3 URL for editing:', editUrl?.substring(0, 50));
         } catch (e) {
           console.warn('[PhotoHandler] Failed to get S3 URL:', e);
         }
@@ -976,7 +965,6 @@ export class PhotoHandlerService {
     if (drawingsSource && drawingsSource.length > 10) {
       try {
         existingAnnotations = decompressAnnotationData(drawingsSource);
-        console.log('[PhotoHandler] Decompressed existing annotations');
       } catch (e) {
         console.warn('[PhotoHandler] Error decompressing annotations:', e);
       }
@@ -1017,7 +1005,6 @@ export class PhotoHandlerService {
       return null;
     }
 
-    console.log('[PhotoHandler] Processing annotation save...');
 
     const annotatedBlob = data.blob || data.annotatedBlob;
     const annotationsData = data.annotationData || data.annotationsData;
@@ -1044,7 +1031,6 @@ export class PhotoHandlerService {
     if (annotatedBlob && annotatedBlob.size > 0 && photoId) {
       try {
         await this.indexedDb.cacheAnnotatedImage(photoId, annotatedBlob);
-        console.log('[PhotoHandler] Cached annotated image for:', photoId);
       } catch (cacheErr) {
         console.warn('[PhotoHandler] Failed to cache annotated image:', cacheErr);
       }
@@ -1054,7 +1040,6 @@ export class PhotoHandlerService {
     if (onSaveAnnotation && photoId) {
       try {
         await onSaveAnnotation(photoId, compressedDrawings, newCaption);
-        console.log('[PhotoHandler] Annotation saved via callback');
       } catch (saveErr) {
         console.error('[PhotoHandler] Error in save callback:', saveErr);
         const toast = await this.toastController.create({

@@ -30,7 +30,6 @@ export class OfflineVisualServiceExample {
    * Returns temp ID immediately, syncs in background
    */
   async createVisual(visualData: any): Promise<{tempId: string, visual: any}> {
-    console.log('[OfflineVisual] Creating visual offline-first');
 
     // 1. Generate temporary ID
     const tempId = this.tempId.generateTempId('visual');
@@ -74,7 +73,6 @@ export class OfflineVisualServiceExample {
     imageFile: File,
     caption: string = ''
   ): Promise<{imageId: string}> {
-    console.log('[OfflineVisual] Uploading image for visual:', visualId);
 
     const isTempId = this.tempId.isTempId(visualId);
     const imageId = `temp_image_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -118,7 +116,6 @@ export class OfflineVisualServiceExample {
    * Update Visual (works offline)
    */
   async updateVisual(visualId: string, updateData: any): Promise<void> {
-    console.log('[OfflineVisual] Updating visual:', visualId);
 
     const isTempId = this.tempId.isTempId(visualId);
 
@@ -140,7 +137,6 @@ export class OfflineVisualServiceExample {
    * Delete Visual (works offline)
    */
   async deleteVisual(visualId: string): Promise<void> {
-    console.log('[OfflineVisual] Deleting visual:', visualId);
 
     await this.indexedDb.addPendingRequest({
       type: 'DELETE',

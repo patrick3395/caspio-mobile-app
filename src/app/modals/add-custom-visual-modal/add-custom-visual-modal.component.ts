@@ -133,7 +133,6 @@ export class AddCustomVisualModalComponent implements OnInit, OnDestroy {
   async addPhotosFromGallery() {
     // WEBAPP: Use file input instead of Capacitor Camera API
     if (this.isWeb) {
-      console.log('[ADD MODAL] Webapp mode - triggering file input');
       this.fileInput?.nativeElement?.click();
       return;
     }
@@ -147,7 +146,6 @@ export class AddCustomVisualModalComponent implements OnInit, OnDestroy {
       });
 
       if (images.photos && images.photos.length > 0) {
-        console.log('[ADD MODAL] Selected', images.photos.length, 'photos from gallery');
 
         // Process each selected photo
         for (let i = 0; i < images.photos.length; i++) {
@@ -213,7 +211,6 @@ export class AddCustomVisualModalComponent implements OnInit, OnDestroy {
   async onFileSelected(event: any) {
     const files = event.target.files;
     if (files && files.length > 0) {
-      console.log('[AddCustomVisualModal] onFileSelected:', files.length, 'files');
 
       // Add photos directly without opening editor
       for (let i = 0; i < files.length; i++) {
@@ -231,7 +228,6 @@ export class AddCustomVisualModalComponent implements OnInit, OnDestroy {
     try {
       const previewUrl = await this.fileToDataUrl(file);
 
-      console.log('[ADD MODAL] Adding photo directly (no editor), preview URL length:', previewUrl.length);
 
       this.processedPhotos.push({
         file: file,
@@ -242,7 +238,6 @@ export class AddCustomVisualModalComponent implements OnInit, OnDestroy {
         hasAnnotations: false
       });
 
-      console.log('[ADD MODAL] Total photos:', this.processedPhotos.length);
     } catch (error) {
       console.error('Error adding photo:', error);
     }
@@ -269,7 +264,6 @@ export class AddCustomVisualModalComponent implements OnInit, OnDestroy {
         // Use FileReader to create base64 URL (more reliable than blob URLs)
         const previewUrl = await this.fileToDataUrl(data.blob);
 
-        console.log('[ADD MODAL] Photo annotated, preview URL length:', previewUrl.length);
 
         this.processedPhotos.push({
           file: annotatedFile,
@@ -283,7 +277,6 @@ export class AddCustomVisualModalComponent implements OnInit, OnDestroy {
         // User cancelled or no blob - add original photo without annotations
         const previewUrl = await this.fileToDataUrl(file);
 
-        console.log('[ADD MODAL] Using original photo, preview URL length:', previewUrl.length);
 
         this.processedPhotos.push({
           file: file,
@@ -295,7 +288,6 @@ export class AddCustomVisualModalComponent implements OnInit, OnDestroy {
         });
       }
 
-      console.log('[ADD MODAL] Total photos:', this.processedPhotos.length);
     } catch (error) {
       console.error('Error processing photo:', error);
       // Still add the photo even if annotation fails
@@ -347,7 +339,6 @@ export class AddCustomVisualModalComponent implements OnInit, OnDestroy {
         // Use base64 data URL for preview (more reliable than blob URLs)
         const previewUrl = await this.fileToDataUrl(data.blob);
 
-        console.log('[ADD MODAL] Photo re-edited, preview URL length:', previewUrl.length);
 
         this.processedPhotos[index] = {
           file: annotatedFile,
@@ -560,11 +551,9 @@ export class AddCustomVisualModalComponent implements OnInit, OnDestroy {
     // Try to regenerate the data URL from the file
     const photo = this.processedPhotos[index];
     if (photo && photo.file) {
-      console.log('[ADD MODAL] Attempting to regenerate data URL from file');
       try {
         const newUrl = await this.fileToDataUrl(photo.file);
         this.processedPhotos[index].previewUrl = newUrl;
-        console.log('[ADD MODAL] New data URL length:', newUrl.length);
       } catch (err) {
         console.error('[ADD MODAL] Failed to regenerate data URL:', err);
       }

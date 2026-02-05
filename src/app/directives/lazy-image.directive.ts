@@ -59,11 +59,6 @@ export class LazyImageDirective implements OnInit, OnDestroy, OnChanges {
       const oldSrc = changes['lazySrc'].previousValue;
       // Only reload if URL actually changed
       if (newSrc && newSrc !== this.currentSrc) {
-        console.log('[LazyImage] URL changed, reloading image:', {
-          old: oldSrc?.substring(0, 40),
-          new: newSrc?.substring(0, 40),
-          currentSrc: this.currentSrc?.substring(0, 40)
-        });
         this.reloadImage(newSrc);
       }
     }

@@ -459,7 +459,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
     });
 
-    console.log('[Cache] PDF cache cleared - next PDF view will show fresh data');
   }
 
   constructor(
@@ -497,27 +496,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   private setupGlobalScrollLock(): void {
-    console.log('[SCROLL LOCK] Setting up global scroll lock');
     
     // Listen for when modals/alerts are about to open
     document.addEventListener('ionModalWillPresent', () => {
-      console.log('[SCROLL LOCK] ionModalWillPresent - LOCKING SCROLL');
       this.lockScroll();
     });
     
     document.addEventListener('ionAlertWillPresent', () => {
-      console.log('[SCROLL LOCK] ionAlertWillPresent - LOCKING SCROLL');
       this.lockScroll();
     });
     
     // Listen for when modals/alerts close
     document.addEventListener('ionModalDidDismiss', () => {
-      console.log('[SCROLL LOCK] ionModalDidDismiss - UNLOCKING SCROLL');
       this.unlockScroll();
     });
     
     document.addEventListener('ionAlertDidDismiss', () => {
-      console.log('[SCROLL LOCK] ionAlertDidDismiss - UNLOCKING SCROLL');
       this.unlockScroll();
     });
   }
@@ -533,7 +527,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.lockedScrollX = (scrollElement as any)?.scrollLeft || window.scrollX;
     this.scrollLockActive = true;
     
-    console.log('[SCROLL LOCK] Locked at Y:', this.lockedScrollY, 'X:', this.lockedScrollX);
     
     // Start monitoring and forcing scroll position on BOTH window and ion-content
     if (this.scrollCheckInterval) {
@@ -547,7 +540,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         // If scroll position changed, force it back on BOTH
         if (currentY !== this.lockedScrollY || currentX !== this.lockedScrollX) {
-          console.log('[SCROLL LOCK] Forcing scroll back from Y:', currentY, 'to Y:', this.lockedScrollY);
           window.scrollTo(this.lockedScrollX, this.lockedScrollY);
           if (scrollElement) {
             (scrollElement as any).scrollTop = this.lockedScrollY;
@@ -559,8 +551,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   private unlockScroll(): void {
-    console.log('═══════════════════════════════════════════');
-    console.log('[SCROLL LOCK] UNLOCKING - About to restore to Y:', this.lockedScrollY);
     
     // Get ion-content scroll element
     const ionContent = document.querySelector('ion-content');
@@ -568,9 +558,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                           ionContent?.querySelector('.inner-scroll') || 
                           document.documentElement;
     
-    console.log('[SCROLL LOCK] Current window.scrollY:', window.scrollY);
-    console.log('[SCROLL LOCK] Current ion-content scrollTop:', (scrollElement as any)?.scrollTop);
-    console.log('═══════════════════════════════════════════');
     
     // Stop monitoring
     this.scrollLockActive = false;
@@ -585,7 +572,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       setTimeout(() => {
         const currentY = window.scrollY;
         const ionY = (scrollElement as any)?.scrollTop || 0;
-        console.log(`[SCROLL LOCK] Restore attempt ${i+1} - Target Y: ${this.lockedScrollY}, window.scrollY: ${currentY}, ion-content scrollTop: ${ionY}`);
         
         window.scrollTo(this.lockedScrollX, this.lockedScrollY);
         if (scrollElement) {
@@ -597,14 +583,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   async ngOnInit() {
-    console.log('[ngOnInit] ========== START ==========');
     // Get project ID from route params
     this.projectId = this.route.snapshot.paramMap.get('projectId') || '';
     this.serviceId = this.route.snapshot.paramMap.get('serviceId') || '';
 
-    console.log('[ngOnInit] ProjectId from route:', this.projectId);
-    console.log('[ngOnInit] ServiceId from route:', this.serviceId);
-    console.log('[ngOnInit] isFirstLoad:', this.isFirstLoad);
 
     // [PERFORMANCE] Detect connection speed and adjust loading strategy
     this.detectConnectionSpeed();
@@ -648,12 +630,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Debug logging removed - v1.4.316
 
     // Load all data in parallel for faster initialization
-    console.log('[ngOnInit] About to call presentTemplateLoader()');
     await this.presentTemplateLoader();
-    console.log('[ngOnInit] presentTemplateLoader() completed');
 
     try {
-      console.log('[ngOnInit] Starting Promise.all data loading...');
 
       await Promise.all([
         this.loadProjectData(),
@@ -665,22 +644,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.loadVisualDropdownOptions(),
         this.loadStatusOptions()
       ]);
-      console.log('[ngOnInit] Promise.all completed');
 
       // Then load any existing template data (including visual selections)
-      console.log('[ngOnInit] Starting loadExistingData...');
       await this.loadExistingData();
-      console.log('[ngOnInit] loadExistingData completed');
 
       this.dataInitialized = true;
       this.tryAutoOpenPdf();
     } catch (error) {
       console.error('Error loading template data:', error);
     } finally {
-      console.log('[ngOnInit] About to dismiss loader and set isFirstLoad = false');
       await this.dismissTemplateLoader();
       this.isFirstLoad = false; // Mark first load as complete
-      console.log('[ngOnInit] ========== END ==========');
     }
   }
   
@@ -698,14 +672,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
    * Initialize the operations queue and register executors for room/point/photo operations
    */
   private async initializeOperationsQueue(): Promise<void> {
-    console.log('[OperationsQueue] Initializing operations queue...');
 
     // Restore any pending operations from storage
     await this.operationsQueue.restore();
 
     // Register CREATE_ROOM executor
     this.operationsQueue.setExecutor('CREATE_ROOM', async (data: any) => {
-      console.log('[OperationsQueue] Executing CREATE_ROOM:', data.RoomName);
       const response = await this.caspioService.createServicesEFE(data).toPromise();
 
       if (!response) {
@@ -718,13 +690,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         throw new Error('EFEID not found in response');
       }
 
-      console.log('[OperationsQueue] Room created successfully:', roomId);
       return { roomId, response };
     });
 
     // Register CREATE_POINT executor
     this.operationsQueue.setExecutor('CREATE_POINT', async (data: any) => {
-      console.log('[OperationsQueue] Executing CREATE_POINT:', data.PointName);
 
       // If roomName is provided, get the real room ID (in case it was temp when queued)
       let efeid = data.EFEID;
@@ -734,7 +704,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
         if (realRoomId && !roomIdStr.startsWith('temp_') && realRoomId !== '__pending__') {
           efeid = typeof realRoomId === 'number' ? realRoomId : parseInt(realRoomId);
-          console.log(`[OperationsQueue] Resolved real room ID for ${data.roomName}: ${efeid}`);
         } else if (data.EFEID === 0 || !data.EFEID) {
           // Room ID not ready yet and we have no valid EFEID - throw error to retry
           throw new Error(`Room ID not ready for ${data.roomName} (current: ${realRoomId})`);
@@ -763,13 +732,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         throw new Error('PointID not found in response');
       }
 
-      console.log('[OperationsQueue] Point created successfully:', pointId);
       return { pointId, response };
     });
 
     // Register UPLOAD_PHOTO executor
     this.operationsQueue.setExecutor('UPLOAD_PHOTO', async (data: any, onProgress?: (p: number) => void) => {
-      console.log('[OperationsQueue] Executing UPLOAD_PHOTO for point:', data.pointId);
 
       // Resolve pointId if it's a pointKey (roomName_pointName format)
       let pointId = data.pointId;
@@ -779,7 +746,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         const pointIdStr = String(realPointId || ''); // Convert to string for checking
         if (realPointId && !pointIdStr.startsWith('temp_') && realPointId !== '__pending__') {
           pointId = realPointId;
-          console.log(`[OperationsQueue] Resolved real point ID for ${pointKey}: ${pointId}`);
         } else {
           throw new Error(`Point ID not ready for ${pointKey} (current: ${realPointId})`);
         }
@@ -831,7 +797,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-          console.log(`[OperationsQueue] Creating attachment record for PointID ${pointId} (attempt ${attempt}/${maxRetries})`);
 
           createResponse = await this.caspioService.createServicesEFEPointsAttachRecord(
             parseInt(pointId, 10),
@@ -844,7 +809,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             throw new Error('No AttachID returned from record creation');
           }
 
-          console.log(`[OperationsQueue] Record created with AttachID: ${attachId}`);
           break; // Success, exit retry loop
 
         } catch (error: any) {
@@ -856,7 +820,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             if (attempt < maxRetries) {
               // Simple delay: 2s, 4s, 6s, 8s
               const delay = 2000 * attempt;
-              console.log(`[OperationsQueue] Point ${pointId} not committed yet, retrying in ${delay}ms (attempt ${attempt}/${maxRetries})`);
               await new Promise(resolve => setTimeout(resolve, delay));
               continue; // Retry
             } else {
@@ -884,13 +847,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       if (onProgress) onProgress(1.0); // 100% complete
 
-      console.log('[OperationsQueue] Photo file uploaded for AttachID:', attachId);
       return { attachId, response: uploadResponse };
     });
 
     // Register CREATE_VISUAL executor (Structural Systems)
     this.operationsQueue.setExecutor('CREATE_VISUAL', async (data: any) => {
-      console.log('[OperationsQueue] Executing CREATE_VISUAL:', data.Name);
       const response = await this.caspioService.createServicesVisual(data).toPromise();
 
       if (!response) {
@@ -903,30 +864,24 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         throw new Error('VisualID not found in response');
       }
 
-      console.log('[OperationsQueue] Visual created successfully:', visualId);
       return { visualId, response };
     });
 
     // Register UPDATE_VISUAL executor (Structural Systems)
     this.operationsQueue.setExecutor('UPDATE_VISUAL', async (data: any) => {
-      console.log('[OperationsQueue] Executing UPDATE_VISUAL:', data.visualId);
       const { visualId, updateData } = data;
       const response = await this.caspioService.updateServicesVisual(visualId, updateData).toPromise();
-      console.log('[OperationsQueue] Visual updated successfully');
       return { response };
     });
 
     // Register DELETE_VISUAL executor (Structural Systems)
     this.operationsQueue.setExecutor('DELETE_VISUAL', async (data: any) => {
-      console.log('[OperationsQueue] Executing DELETE_VISUAL:', data.visualId);
       await this.caspioService.deleteServicesVisual(data.visualId).toPromise();
-      console.log('[OperationsQueue] Visual deleted successfully');
       return { success: true };
     });
 
     // Register UPLOAD_VISUAL_PHOTO executor (Structural Systems)
     this.operationsQueue.setExecutor('UPLOAD_VISUAL_PHOTO', async (data: any, onProgress?: (p: number) => void) => {
-      console.log('[OperationsQueue] Executing UPLOAD_VISUAL_PHOTO for visual:', data.visualId);
 
       // Compress the file first
       const compressedFile = await this.imageCompression.compressImage(data.file, {
@@ -966,13 +921,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       if (onProgress) onProgress(1.0); // 100% complete
 
-      console.log('[OperationsQueue] Visual photo uploaded successfully:', response?.AttachID);
       return { attachId: response?.AttachID || response?.PK_ID, response };
     });
 
     // Register UPLOAD_VISUAL_PHOTO_UPDATE executor (Background photo upload for existing record)
     this.operationsQueue.setExecutor('UPLOAD_VISUAL_PHOTO_UPDATE', async (data: any, onProgress?: (p: number) => void) => {
-      console.log('[OperationsQueue] Executing UPLOAD_VISUAL_PHOTO_UPDATE for AttachID:', data.attachId);
 
       // Compress the file first
       const compressedFile = await this.imageCompression.compressImage(data.file, {
@@ -992,13 +945,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       if (onProgress) onProgress(1.0); // 100% complete
 
-      console.log('[OperationsQueue] Photo updated successfully for AttachID:', data.attachId);
       return { response };
     });
 
     // Register UPLOAD_ROOM_POINT_PHOTO_UPDATE executor (Background photo upload for existing room point record)
     this.operationsQueue.setExecutor('UPLOAD_ROOM_POINT_PHOTO_UPDATE', async (data: any, onProgress?: (p: number) => void) => {
-      console.log('[OperationsQueue] Executing UPLOAD_ROOM_POINT_PHOTO_UPDATE for AttachID:', data.attachId);
 
       // Compress the file first
       const compressedFile = await this.imageCompression.compressImage(data.file, {
@@ -1017,13 +968,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       if (onProgress) onProgress(1.0); // 100% complete
 
-      console.log('[OperationsQueue] Room point photo updated successfully for AttachID:', data.attachId);
       return { response };
     });
 
     // FDF Photo Upload Executor
     this.operationsQueue.setExecutor('UPLOAD_FDF_PHOTO', async (data: any, onProgress?: (p: number) => void) => {
-      console.log('[OperationsQueue] Executing UPLOAD_FDF_PHOTO for room:', data.roomName, 'photoType:', data.photoType);
 
       const { roomName, photoType, file, tempId } = data;
 
@@ -1039,21 +988,18 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       if (onProgress) onProgress(1.0); // 100% complete
 
-      console.log('[OperationsQueue] FDF photo uploaded successfully:', result);
 
       // Remove from pending queue
       if (this.pendingFDFUploads[roomName]) {
         const index = this.pendingFDFUploads[roomName].findIndex(p => p.tempId === tempId);
         if (index !== -1) {
           this.pendingFDFUploads[roomName].splice(index, 1);
-          console.log('[OperationsQueue] Removed FDF photo from queue. Remaining:', this.pendingFDFUploads[roomName].length);
         }
       }
 
       return result;
     });
 
-    console.log('[OperationsQueue] Operations queue initialized successfully');
   }
 
   private tryAutoOpenPdf(): void {
@@ -1084,12 +1030,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   addButtonEventListeners() {
     // Angular (click) binding should handle button clicks
     // No need for manual DOM listeners which can cause double-firing
-    console.log('[Button Listeners] Using Angular click bindings - no manual listeners needed');
   }
 
   // Bound methods for event listeners
   private handleBackClick = (event?: Event) => {
-    console.log('[Back Button] Click detected!');
     if (event) {
       event.preventDefault();
       event.stopPropagation();
@@ -1123,13 +1067,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Page re-entry - photos now use base64 URLs so no refresh needed
   async ionViewWillEnter() {
-    console.log('==========================================');
-    console.log('[Lifecycle] ionViewWillEnter CALLED');
-    console.log('[Lifecycle] isFirstLoad:', this.isFirstLoad);
-    console.log('[Lifecycle] ServiceID:', this.serviceId);
-    console.log('[Lifecycle] Current selectedRooms:', Object.keys(this.selectedRooms));
-    console.log('[Lifecycle] Current selectedItems:', Object.keys(this.selectedItems).length);
-    console.log('==========================================');
 
     // Re-add button listeners in case they were removed
     this.addButtonEventListeners();
@@ -1137,35 +1074,27 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Skip data reload on first load - ngOnInit already handles it
     // Only reload when returning to the page after navigating away
     if (this.isFirstLoad) {
-      console.log('[Lifecycle] Skipping data reload on first load - handled by ngOnInit');
       return;
     }
 
     // CRITICAL: Clear all caches to force fresh data load from Caspio
     // This prevents stale cached data from being displayed when returning to the page
-    console.log('[Lifecycle] Clearing all data caches...');
     this.foundationData.clearAllCaches();
 
     // CRITICAL FIX: Reload existing selections when returning to the page
     // This ensures data persists when navigating back and forth
     if (this.serviceId) {
       try {
-        console.log('[Lifecycle] Starting data reload...');
 
         // Reload project and service data (including all form fields)
         await this.loadProjectData();
-        console.log('[Lifecycle] After loadProjectData - Project fields reloaded');
 
         await this.loadServiceData();
-        console.log('[Lifecycle] After loadServiceData - Service fields reloaded');
 
         await this.loadRoomTemplates(); // Reload room selections and data
-        console.log('[Lifecycle] After loadRoomTemplates - selectedRooms:', Object.keys(this.selectedRooms));
 
         await this.loadExistingVisualSelections({ awaitPhotos: true }); // Reload visual selections
-        console.log('[Lifecycle] After loadExistingVisualSelections - selectedItems:', Object.keys(this.selectedItems).length);
 
-        console.log('[Lifecycle] Data reload COMPLETE');
       } catch (error) {
         console.error('[Lifecycle] ERROR during data reload:', error);
         // Show toast to make it visible
@@ -1337,7 +1266,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   async retryFailedOperation(id: string): Promise<void> {
-    console.log(`[Operations] Retrying operation ${id}`);
     await this.operationsQueue.retryOperation(id);
     this.changeDetectorRef.detectChanges();
   }
@@ -1359,13 +1287,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   // Navigation method for back button
   goBack(event?: Event) {
-    console.log('='.repeat(50));
-    console.log('[goBack] CALLED!');
-    console.log('[goBack] Event:', event);
-    console.log('[goBack] Platform:', this.platform.isWeb() ? 'Web' : 'Mobile');
-    console.log('[goBack] ProjectId:', this.projectId);
-    console.log('[goBack] ServiceId:', this.serviceId);
-    console.log('='.repeat(50));
     
     // Prevent default and stop propagation
     if (event) {
@@ -1480,9 +1401,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
         // Initialize change tracking - no changes yet since we just loaded from database
         this.hasChangesAfterLastFinalization = false;
-        console.log('[LoadService] Initialized hasChangesAfterLastFinalization to false');
-        console.log('[LoadService] Service Status:', this.serviceData.Status);
-        console.log('[LoadService] ReportFinalized:', this.serviceData.ReportFinalized);
 
         // Map database column StructStat to UI property StructuralSystemsStatus
         if (serviceResponse.StructStat) {
@@ -1536,10 +1454,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   async loadRoomTemplates() {
     try {
-      console.log('[loadRoomTemplates] START - Current selectedRooms:', Object.keys(this.selectedRooms));
 
       const allTemplates = await this.foundationData.getEFETemplates();
-      console.log('[loadRoomTemplates] Fetched templates:', allTemplates?.length);
 
       if (allTemplates && allTemplates.length > 0) {
         // Store all templates for manual addition (deep copy to prevent modifications)
@@ -1549,7 +1465,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         const autoTemplates = allTemplates.filter((template: any) =>
           template.Auto === 'Yes' || template.Auto === true || template.Auto === 1
         );
-        console.log('[loadRoomTemplates] Auto templates:', autoTemplates.length);
 
         // IMPORTANT: Start with auto templates but preserve existing manually added rooms
         // DON'T immediately overwrite - we'll rebuild the full list below
@@ -1592,25 +1507,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         // Load existing Services_EFE for this service to check which are already selected
         if (this.serviceId) {
-          console.log('[EFE Load] Fetching existing rooms for ServiceID:', this.serviceId);
           // CRITICAL: Force refresh to bypass cache and get latest room data
           const existingRooms = await this.foundationData.getEFEByService(this.serviceId, true);
-          console.log('[EFE Load] ===== DATABASE RETURNED ROOMS =====');
-          console.log('[EFE Load] Found existing rooms count:', existingRooms.length);
           existingRooms.forEach((room: any, index: number) => {
-            console.log(`[EFE Load] Room ${index + 1}: RoomName="${room.RoomName}", EFEID=${room.EFEID}, TemplateID=${room.TemplateID}`);
           });
-          console.log('[EFE Load] ===== END DATABASE ROOMS =====');
 
           if (existingRooms && existingRooms.length > 0) {
             // Build the complete room templates list including saved rooms
             const roomsToDisplay: any[] = [...baseTemplates];
-            console.log('[EFE Load] ===== BASE TEMPLATES =====');
-            console.log('[EFE Load] Base templates count:', roomsToDisplay.length);
             roomsToDisplay.forEach((template: any, index: number) => {
-              console.log(`[EFE Load] Base Template ${index + 1}: RoomName="${template.RoomName}", TemplateID=${template.TemplateID || template.PK_ID}`);
             });
-            console.log('[EFE Load] ===== END BASE TEMPLATES =====');
 
             // Now we can use the RoomName field directly
             for (const room of existingRooms) {
@@ -1619,8 +1525,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               const roomId = room.EFEID;
               const templateId = room.TemplateID; // Use TemplateID to match templates
 
-              console.log('[EFE Load] ===== PROCESSING ROOM =====');
-              console.log('[EFE Load] Room from DB: RoomName="' + roomName + '", EFEID=' + roomId + ', TemplateID=' + templateId);
 
               // Find matching template by TemplateID first (handles renamed rooms), fallback to RoomName
               let template = null;
@@ -1631,7 +1535,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               const templateIdNum = typeof templateId === 'string' ? parseInt(templateId, 10) : templateId;
               
               if (templateId) {
-                console.log('[EFE Load] Searching for template with TemplateID:', templateId, '(converted to:', templateIdNum, ')');
                 
                 // Try to find by TemplateID (works even if room was renamed)
                 // Use == for loose equality to handle type differences
@@ -1641,9 +1544,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 
                 if (template) {
                   matchedByTemplateId = true;
-                  console.log('[EFE Load] ✓ Found template by TemplateID:', template.RoomName, 'TemplateID=', template.TemplateID);
                 } else {
-                  console.log('[EFE Load] ✗ No template found for TemplateID:', templateIdNum);
                 }
               }
               
@@ -1659,68 +1560,49 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 }
                 
                 if (template) {
-                  console.log('[EFE Load] Found template by RoomName (fallback):', template.RoomName);
                 }
               }
 
               // If found, handle adding/updating in roomsToDisplay
               if (template) {
-                console.log('[EFE Load] Template found! Original template RoomName="' + template.RoomName + '", TemplateID=' + (template.TemplateID || template.PK_ID));
-                console.log('[EFE Load] Matched by TemplateID?', matchedByTemplateId);
-                console.log('[EFE Load] Room name changed?', template.RoomName !== roomName);
                 
                 // CRITICAL: If matched by TemplateID and room was renamed, remove the original template first
                 if (matchedByTemplateId && template.RoomName !== roomName) {
-                  console.log('[EFE Load] *** ROOM WAS RENAMED ***');
-                  console.log('[EFE Load] Original template name:', template.RoomName);
-                  console.log('[EFE Load] New room name from DB:', roomName);
                   
                   // Room was renamed - remove the original template from roomsToDisplay
                   // CRITICAL FIX: Use the converted number for comparison
                   const originalIndex = roomsToDisplay.findIndex((t: any) => 
                     (t.TemplateID == templateIdNum || t.PK_ID == templateIdNum) && t.RoomName === template.RoomName
                   );
-                  console.log('[EFE Load] Looking for original template in roomsToDisplay, found at index:', originalIndex);
                   
                   if (originalIndex >= 0) {
-                    console.log('[EFE Load] REMOVING original template:', template.RoomName);
                     roomsToDisplay.splice(originalIndex, 1);
-                    console.log('[EFE Load] roomsToDisplay count after removal:', roomsToDisplay.length);
                   } else {
-                    console.log('[EFE Load] WARNING: Original template not found in roomsToDisplay!');
                   }
                 }
                 
                 // Add the room with its saved name if not already present
                 const existingRoomIndex = roomsToDisplay.findIndex((t: any) => t.RoomName === roomName);
-                console.log('[EFE Load] Checking if renamed room already in display list, found at index:', existingRoomIndex);
                 
                 if (existingRoomIndex >= 0) {
                   // Room already exists in display list - mark it as selected
-                  console.log('[EFE Load] Room already in display list, marking as selected:', roomName);
                   roomsToDisplay[existingRoomIndex].selected = true;
                 } else {
-                  console.log('[EFE Load] ADDING renamed room to display:', roomName);
                   // Create a new template object with the saved room name AND mark as selected
                   const roomToAdd = { ...template, RoomName: roomName, selected: true };
                   roomsToDisplay.push(roomToAdd);
-                  console.log('[EFE Load] roomsToDisplay count after adding:', roomsToDisplay.length);
                 }
               } else {
-                console.log('[EFE Load] ERROR: No template found for this room!');
               }
-              console.log('[EFE Load] ===== END PROCESSING ROOM =====');
               
               if (!template) {
                 console.warn('[EFE Load] No template found for room:', roomName, 'TemplateID:', templateId);
               }
               
               if (roomName && roomId) {
-                console.log('[EFE Load] Marking room as selected:', roomName, 'EFEID:', roomId);
                 this.selectedRooms[roomName] = true;
                 this.expandedRooms[roomName] = false; // Start collapsed
                 this.efeRecordIds[roomName] = roomId;
-                console.log('[EFE Load] selectedRooms state:', JSON.stringify(this.selectedRooms));
                 
                 // Initialize room elevation data if not present
                 if (!this.roomElevationData[roomName] && template) {
@@ -1847,12 +1729,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             }
 
             // NOW set roomTemplates with the complete list (auto + saved rooms)
-            console.log('[EFE Load] ===== FINAL ROOMS TO DISPLAY =====');
-            console.log('[EFE Load] roomsToDisplay count before assignment:', roomsToDisplay.length);
             roomsToDisplay.forEach((room: any, index: number) => {
-              console.log(`[EFE Load] Final Room ${index + 1}: RoomName="${room.RoomName}", selected=${room.selected}, TemplateID=${room.TemplateID || room.PK_ID}`);
             });
-            console.log('[EFE Load] ===== END FINAL ROOMS =====');
             
             // Sort rooms: checked rooms at the top (alphabetically), then unchecked rooms (alphabetically)
             roomsToDisplay.sort((a: any, b: any) => {
@@ -1867,7 +1745,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               return a.RoomName.localeCompare(b.RoomName);
             });
             
-            console.log('[EFE Load] Rooms sorted: checked at top, alphabetically');
             
             this.roomTemplates = roomsToDisplay;
             
@@ -1875,27 +1752,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             this.roomTemplates.forEach((room: any) => {
               if (this.selectedRooms[room.RoomName]) {
                 room.selected = true; // Ensure room object has selected property
-                console.log('[EFE Load] Verified room as selected:', room.RoomName);
               }
             });
             
-            console.log('[EFE Load] Final roomTemplates count:', this.roomTemplates.length);
-            console.log('[EFE Load] Final selectedRooms:', Object.keys(this.selectedRooms));
           } else {
             // No existing rooms - just use auto templates, sorted alphabetically
             baseTemplates.sort((a: any, b: any) => a.RoomName.localeCompare(b.RoomName));
             this.roomTemplates = baseTemplates;
-            console.log('[EFE Load] No existing rooms - using auto templates only (sorted alphabetically)');
           }
         } else {
           // No serviceId - just use auto templates, sorted alphabetically
           baseTemplates.sort((a: any, b: any) => a.RoomName.localeCompare(b.RoomName));
           this.roomTemplates = baseTemplates;
-          console.log('[EFE Load] No serviceId - using auto templates only (sorted alphabetically)');
         }
       } else {
         this.roomTemplates = [];
-        console.log('[EFE Load] No templates available');
       }
     } catch (error: any) {
       console.error('Error loading room templates (non-critical):', error);
@@ -2152,7 +2023,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         );
 
         if (matchingOption && matchingOption !== value) {
-          console.log(`[normalizeServiceDataToMatchOptions] Updating ${field}: "${value}" -> "${matchingOption}"`);
           this.serviceData[field] = matchingOption;
         } else if (!matchingOption && value !== 'Other') {
           // Value not in options - add it
@@ -2162,7 +2032,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           } else {
             options.push(value);
           }
-          console.log(`[normalizeServiceDataToMatchOptions] Added "${value}" to ${field} options`);
         }
       }
     });
@@ -2176,7 +2045,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const response = await this.caspioService.get<any>('/tables/LPS_Status/records').toPromise();
       if (response && response.Result) {
         this.statusOptions = response.Result;
-        console.log('[Status] Loaded status options:', this.statusOptions);
       }
     } catch (error) {
       console.error('Error loading status options:', error);
@@ -2293,7 +2161,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     try {
       const dropdownData = await this.caspioService.getServicesVisualsDrop().toPromise();
       
-      console.log('[Dropdown Options] Loaded dropdown data:', dropdownData?.length || 0, 'rows');
       
       if (dropdownData && dropdownData.length > 0) {
         // Group dropdown options by TemplateID
@@ -2312,7 +2179,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
         });
         
-        console.log('[Dropdown Options] Grouped by TemplateID:', Object.keys(this.visualDropdownOptions).length, 'templates have options');
         
         // Log details about what dropdown options are available for each TemplateID
         Object.entries(this.visualDropdownOptions).forEach(([templateId, options]) => {
@@ -2321,7 +2187,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           if (!optionsArray.includes('Other')) {
             optionsArray.push('Other');
           }
-          console.log(`[Dropdown Options] TemplateID ${templateId}: ${optionsArray.length} options -`, optionsArray.join(', '));
         });
       } else {
         console.warn('[Dropdown Options] No dropdown data received from API');
@@ -2421,7 +2286,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           _localUpdate: true
         };
         await this.indexedDb.cacheServiceData(this.serviceId, 'efe_rooms', cachedRooms);
-        console.log('[FDF] Updated local cache for room:', roomName);
       }
 
       // TASK 2 FIX: Queue for background sync (visible in sync modal) instead of direct API call
@@ -2439,7 +2303,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           priority: 'normal',
           serviceId: this.serviceId
         });
-        console.log('[FDF] Update queued for sync (room not yet synced):', roomName);
       } else {
         // Room already synced - queue direct update
         await this.indexedDb.addPendingRequest({
@@ -2452,7 +2315,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           priority: 'normal',
           serviceId: this.serviceId
         });
-        console.log('[FDF] Update queued for sync:', roomName);
       }
 
       // Update sync pending count to show in UI immediately
@@ -2528,7 +2390,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   _localUpdate: true
                 };
                 await this.indexedDb.cacheServiceData(this.serviceId, 'efe_rooms', cachedRooms);
-                console.log('[FDF Other] Updated local cache for room:', roomName);
               }
 
               // TASK 2 FIX: Queue for background sync instead of direct API call
@@ -2544,7 +2405,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   priority: 'normal',
                   serviceId: this.serviceId
                 });
-                console.log('[FDF Other] Update queued for sync (room not yet synced):', roomName);
               } else {
                 await this.indexedDb.addPendingRequest({
                   type: 'UPDATE',
@@ -2556,7 +2416,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   priority: 'normal',
                   serviceId: this.serviceId
                 });
-                console.log('[FDF Other] Update queued for sync:', roomName);
               }
 
               // Update sync pending count to show in UI immediately
@@ -2601,7 +2460,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (this.contextClearTimerFDF) {
         clearTimeout(this.contextClearTimerFDF);
         this.contextClearTimerFDF = null;
-        console.log('[FDF Queue] Cleared existing context timer for new photo');
       }
 
       // Set context for FDF photo
@@ -2611,7 +2469,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         roomId
       };
 
-      console.log(`[FDF Queue] Context set for ${roomName} ${photoType}`);
 
       this.triggerFileInput(source, { allowMultiple: false });
 
@@ -2636,7 +2493,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const { roomName, photoType, roomId } = capturedContext;
     const photoKey = photoType.toLowerCase();
 
-    console.log(`[FDF Queue] Processing photo: ${roomName} ${photoType} (LOCAL-FIRST via LocalImageService)`);
 
     try {
       // Initialize fdfPhotos structure if needed
@@ -2676,7 +2532,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.roomElevationData[roomName].fdfPhotos[`${photoKey}Loading`] = false;
       this.roomElevationData[roomName].fdfPhotos[`${photoKey}Caption`] = '';
 
-      console.log(`[FDF Queue] ✅ FDF photo saved locally: ${localImage.imageId}, will sync in background`);
 
       this.changeDetectorRef.detectChanges();
 
@@ -2707,7 +2562,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.contextClearTimerFDF = setTimeout(() => {
         this.currentFDFPhotoContext = null;
         this.contextClearTimerFDF = null;
-        console.log('[FDF Queue] Context cleared after delay');
       }, 500);
     }
   }
@@ -2762,29 +2616,24 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private isRoomReadyForFDF(roomName: string): boolean {
     const roomId = this.efeRecordIds[roomName];
     if (!roomId) {
-      console.log(`[FDF Queue] Room not ready: No roomId for ${roomName}`);
       return false;
     }
 
     const idStr = String(roomId);
     if (idStr === '__pending__' || idStr.startsWith('temp_')) {
-      console.log(`[FDF Queue] Room not ready: ${roomName} has temp/pending ID: ${idStr}`);
       return false;
     }
 
     const numId = typeof roomId === 'number' ? roomId : parseInt(idStr, 10);
     if (isNaN(numId)) {
-      console.log(`[FDF Queue] Room not ready: Invalid numeric ID for ${roomName}: ${roomId}`);
       return false;
     }
 
-    console.log(`[FDF Queue] Room ready: ${roomName} with ID: ${numId}`);
     return true;
   }
 
   // Upload FDF photo to room (called when room is ready)
   private async uploadFDFPhotoToRoom(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold', file: File): Promise<any> {
-    console.log(`[FDF Upload] Starting upload for ${roomName} ${photoType}`);
 
     const roomId = this.efeRecordIds[roomName];
     if (!roomId || !this.isRoomReadyForFDF(roomName)) {
@@ -2796,7 +2645,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     try {
       // Compress the image
       const compressedFile = await this.imageCompression.compressImage(file);
-      console.log(`[FDF Upload] Compressed ${photoType} image`);
 
       // Upload to Caspio Files API
       const uploadFormData = new FormData();
@@ -2818,7 +2666,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const uploadedFileName = uploadResult.Name || uploadResult.Result?.Name || fileName;
       const filePath = `/${uploadedFileName}`;
 
-      console.log(`[FDF Upload] Uploaded to Files API: ${filePath}`);
 
       // Update the room record with file path
       const columnName = `FDFPhoto${photoType}`;
@@ -2828,7 +2675,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const query = `EFEID=${roomId}`;
       await this.caspioService.put(`/tables/LPS_Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
 
-      console.log(`[FDF Upload] Updated room record`);
 
       // Convert to base64 for display
       const base64Image = await this.convertFileToBase64(compressedFile);
@@ -2846,7 +2692,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.roomElevationData[roomName].fdfPhotos[`${photoKey}Drawings`] = null;
       this.roomElevationData[roomName].fdfPhotos[`${photoKey}Uploading`] = false;
 
-      console.log(`[FDF Upload] Completed ${roomName} ${photoType}`);
 
       return { filePath, base64Image };
     } catch (error) {
@@ -2857,11 +2702,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   // Wait for room ID and upload FDF photo (with queuing)
   private async waitForRoomIdAndUploadFDF(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold', file: File, tempId: string): Promise<void> {
-    console.log(`[FDF Queue] Processing ${roomName} ${photoType}, tempId: ${tempId}`);
 
     // Check if room is ready immediately
     if (this.isRoomReadyForFDF(roomName)) {
-      console.log(`[FDF Queue] Room ready, uploading immediately`);
       try {
         await this.uploadFDFPhotoToRoom(roomName, photoType, file);
 
@@ -2890,7 +2733,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
 
     // Room not ready - queue the upload
-    console.log(`[FDF Queue] Room not ready, queuing upload`);
 
     // Ensure room is queued for creation
     const roomOpId = await this.ensureRoomQueued(roomName);
@@ -2905,7 +2747,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       data: { roomName, photoType, file, tempId },
       dependencies: [roomOpId],
       onSuccess: (result: any) => {
-        console.log(`[FDF Queue] Upload succeeded via queue:`, result);
 
         // Update UI
         const photoKey = photoType.toLowerCase();
@@ -2930,7 +2771,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
     });
 
-    console.log(`[FDF Queue] Upload queued for ${roomName} ${photoType}`);
   }
 
   private async resolveFdfPhotoUrl(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold'): Promise<string | null> {
@@ -3018,9 +2858,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const drawingsData = fdfPhotos[`${photoKey}Drawings`];
       const attachId = fdfPhotos[`${photoKey}AttachId`];
       
-      console.log(`[FDF DEBUG] Loading annotations for ${roomName} ${photoType}`);
-      console.log(`[FDF DEBUG] Drawings data:`, drawingsData);
-      console.log(`[FDF DEBUG] AttachID:`, attachId);
       
       // Try to load annotations from different sources
       const annotationSources = [
@@ -3039,7 +2876,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             }
             
             if (existingAnnotations) {
-              console.log(`[FDF DEBUG] Loaded existing annotations:`, existingAnnotations);
               break;
             }
           } catch (e) {
@@ -3050,7 +2886,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       // Get existing caption for this FDF photo
       const existingCaption = this.getFdfPhotoCaption(roomName, photoType);
-      console.log(`[FDF DEBUG] Existing caption for ${photoType}:`, existingCaption);
 
       // Save scroll position before opening modal (for both mobile and web)
       const scrollPosition = window.scrollY || document.documentElement.scrollTop;
@@ -3096,13 +2931,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           fdfPhotos[drawingsField] = compressedAnnotations; // Store in local drawings field
         }
 
-        console.log(`[FDF DEBUG] Starting annotation save for ${roomName} ${photoType}`);
-        console.log(`[FDF DEBUG] Annotations data:`, annotationsData);
-        console.log(`[FDF DEBUG] AttachID available:`, attachId);
 
         // ENHANCED: Use attachment-based approach if AttachID exists (like measurement photos)
         if (attachId) {
-          console.log(`[FDF DEBUG] Using attachment-based approach with AttachID:`, attachId);
           try {
             const annotatedFile = new File([data.annotatedBlob], `FDF_${photoType}_${roomName}`, { type: 'image/jpeg' });
             
@@ -3116,7 +2947,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
             // Use the same method as measurement photos
             await this.updatePhotoAttachment(attachId, annotatedFile, annotationsData, originalFile, data.caption);
-            console.log(`[FDF DEBUG] Successfully saved using attachment method`);
             
             // CRITICAL: Update local display to show annotated image and caption
             this.updateFdfPhotoDisplay(roomName, photoType, data.annotatedBlob, annotationsData, data.caption);
@@ -3131,29 +2961,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
         // FALLBACK: Update the FDF photo in Services_EFE table
         const roomId = this.efeRecordIds[roomName];
-        console.log(`[FDF DEBUG] Using Services_EFE approach`);
-        console.log(`[FDF DEBUG] Room ID:`, roomId);
         
         if (roomId) {
           try {
             // Compress annotations before saving
             const compressedAnnotations = annotationsData ? compressAnnotationData(annotationsData) : null;
-            console.log(`[FDF DEBUG] Compressed annotations:`, compressedAnnotations);
 
             // Update database with photo and annotations using correct column names
             const updateData: any = {};
             const drawingsColumnName = `FDF${photoType}Drawings`; // FIXED: Correct column name format
             const annotationColumnName = `FDF${photoType}Annotation`; // ADDED: For captions
             
-            console.log(`[FDF SAVE DEBUG] PhotoType received:`, photoType);
-            console.log(`[FDF SAVE DEBUG] Generated Drawings column:`, drawingsColumnName);
-            console.log(`[FDF SAVE DEBUG] Generated Annotation column:`, annotationColumnName);
-            console.log(`[FDF SAVE DEBUG] Expected: FDFBottomDrawings and FDFBottomAnnotation for Bottom`);
             
             // Save annotation graphics to Drawings field (like measurement photos)
             if (compressedAnnotations) {
               updateData[drawingsColumnName] = compressedAnnotations;
-              console.log(`[FDF SAVE DEBUG] Added drawings to update data`);
             }
             
             // ADDED: Save caption to Annotation field  
@@ -3161,16 +2983,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             const captionToSave = data.caption !== undefined ? data.caption : this.getFdfPhotoCaption(roomName, photoType);
             if (captionToSave !== undefined) {
               updateData[annotationColumnName] = captionToSave;
-              console.log(`[FDF SAVE DEBUG] Saving caption to database:`, captionToSave);
             }
 
-            console.log(`[FDF SAVE DEBUG] Final update data:`, JSON.stringify(updateData, null, 2));
-            console.log(`[FDF SAVE DEBUG] Room ID for update:`, roomId);
 
             // Try to update Services_EFE table with FDF annotation data
             try {
               const result = await this.caspioService.updateServicesEFEByEFEID(roomId, updateData).toPromise();
-              console.log(`[FDF DEBUG] Update result:`, result);
 
               // CRITICAL: Update local display to show annotated image and caption
               this.updateFdfPhotoDisplay(roomName, photoType, data.annotatedBlob, annotationsData, data.caption);
@@ -3183,7 +3001,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               console.error(`[FDF DEBUG] Services_EFE update failed:`, updateError);
               
               // FALLBACK: Try to store FDF photo as attachment and use updatePhotoAttachment
-              console.log(`[FDF DEBUG] Attempting fallback: Create attachment record for FDF photo`);
               
               try {
                 // Check if FDF photo has an attachment ID we can use
@@ -3200,15 +3017,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     Annotation: compressedAnnotations || ''
                   };
                   
-                  console.log(`[FDF DEBUG] Creating attachment record:`, attachmentData);
                   const attachResult = await this.caspioService.createAttachment(attachmentData).toPromise();
-                  console.log(`[FDF DEBUG] Attachment created:`, attachResult);
                   
                   // Store the AttachID for future reference
                   const attachId = attachResult?.Result?.[0]?.AttachID || attachResult?.AttachID;
                   if (attachId) {
                     fdfPhotos[`${photoKey}AttachId`] = attachId;
-                    console.log(`[FDF DEBUG] Stored AttachID for future use:`, attachId);
                   }
                   
                   // CRITICAL: Update local display to show annotated image and caption
@@ -3408,12 +3222,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
               // Delete all associated photos first
               if (point.photos && point.photos.length > 0) {
-                console.log(`[Delete Point] Deleting ${point.photos.length} photos for point ${point.name}`);
                 for (const photo of point.photos) {
                   if (photo.attachId) {
                     try {
                       await this.caspioService.deleteServicesEFEPointsAttach(photo.attachId).toPromise();
-                      console.log(`[Delete Point] Deleted photo with attachId ${photo.attachId}`);
                     } catch (photoError) {
                       console.error(`[Delete Point] Failed to delete photo ${photo.attachId}:`, photoError);
                       // Continue deleting other photos even if one fails
@@ -3426,7 +3238,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               if (pointId && pointId !== '__pending__') {
                 await this.caspioService.deleteServicesEFEPoint(pointId).toPromise();
                 delete this.efePointIds[pointKey];
-                console.log(`[Delete Point] Deleted point ${point.name} with ID ${pointId}`);
               }
 
               // Remove from local data
@@ -3484,8 +3295,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   // Update FDF photo display to show annotated image (like measurement photos)
   private updateFdfPhotoDisplay(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold', annotatedBlob: Blob, annotationsData?: any, caption?: string): void {
-    console.log(`[FDF DEBUG] Updating display for ${roomName} ${photoType}`);
-    console.log(`[FDF DEBUG] Caption from editor:`, caption);
     
     this.ensureFdfPhotosStructure(roomName);
     const photoKey = photoType.toLowerCase();
@@ -3495,12 +3304,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const currentUrl = fdfPhotos[`${photoKey}Url`];
     if (currentUrl && !fdfPhotos[`${photoKey}OriginalUrl`]) {
       fdfPhotos[`${photoKey}OriginalUrl`] = currentUrl;
-      console.log(`[FDF DEBUG] Stored original URL for ${photoType}`);
     }
     
     // Create blob URL for annotated image
     const annotatedUrl = URL.createObjectURL(annotatedBlob);
-    console.log(`[FDF DEBUG] Created annotated URL: ${annotatedUrl}`);
     
     // Update display URLs to show annotated version
     fdfPhotos[`${photoKey}Url`] = annotatedUrl;
@@ -3511,7 +3318,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     if (caption !== undefined) {
       const captionKey = `${photoKey}Caption`;
       fdfPhotos[captionKey] = caption;
-      console.log(`[FDF DEBUG] Updated caption for ${photoType}:`, caption);
     }
     
     // Store annotations data locally
@@ -3522,7 +3328,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         : annotationsData;
     }
     
-    console.log(`[FDF DEBUG] Updated FDF photo display for ${roomName} ${photoType}`);
     
     // Force change detection to update UI immediately
     this.changeDetectorRef.detectChanges();
@@ -3530,7 +3335,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Additional UI update after slight delay
     setTimeout(() => {
       this.changeDetectorRef.detectChanges();
-      console.log(`[FDF DEBUG] Forced UI update for ${roomName} ${photoType}`);
     }, 100);
   }
 
@@ -3588,7 +3392,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (!pointId || pointId === '__pending__' || String(pointId).startsWith('temp_')) {
         // ALWAYS mark point as pending and queue it - never try to create immediately
         // This prevents errors when room is saving or point creation would fail
-        console.log(`[Photo Capture] Marking point as pending for lazy creation: ${point.name}`);
         
         // Queue the point creation - it will be created when needed by lazy upload
         if (!this.pendingPointCreates[pointKey]) {
@@ -3659,7 +3462,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             
             // If this point doesn't exist in the template, it's a custom point - add it
             if (!elevationPoint) {
-              console.log(`[Load Points] Adding custom point: ${point.PointName} to room ${roomName}`);
               elevationPoint = {
                 name: point.PointName,
                 value: '',
@@ -3683,24 +3485,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             
             if (elevationPoint) {
               const actualPointId = point.PointID || pointId;
-              console.log(`[Load Points] Point ${point.PointName} ready, PointID: ${actualPointId}`);
 
               // Load photos for this point
               try {
                 const attachments = await this.foundationData.getEFEAttachments(actualPointId);
                 
                 if (attachments && attachments.length > 0) {
-                  console.log(`[Load Points] Loading ${attachments.length} photos for point ${point.PointName}`);
                   
                   for (const attachment of attachments) {
                     let photoUrl = '';
                     
                     // Check if this is an S3 image
                     if (attachment.Attachment && this.caspioService.isS3Key(attachment.Attachment)) {
-                      console.log('[Load Points] ✨ S3 image detected:', attachment.Attachment);
                       try {
                         photoUrl = await this.caspioService.getS3FileUrl(attachment.Attachment);
-                        console.log('[Load Points] ✅ Got S3 URL');
                       } catch (err) {
                         console.error('[Load Points] ❌ Failed to load S3 image:', err);
                         photoUrl = 'assets/img/photo-placeholder.svg';
@@ -3736,7 +3534,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   }
                   
                   elevationPoint.photoCount = elevationPoint.photos.length;
-                  console.log(`[Load Points] ✅ Loaded ${elevationPoint.photos.length} photos for ${point.PointName}`);
                 } else {
                   elevationPoint.photoCount = 0;
                   elevationPoint.photos = [];
@@ -3870,7 +3667,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           });
           photoEntry.isLocal = true; // Mark as locally cached
           photoEntry.cacheKey = cacheKey; // Store cache key for later cleanup
-          console.log(`[Local Cache] Stored photo: ${cacheKey}`);
         } catch (err) {
           console.error('[Local Cache] Failed to cache photo:', err);
           // Continue without cache - photo will still upload normally
@@ -3893,7 +3689,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               // Photo was queued - it will upload later via operations queue
               // Keep uploading: true flag (already set on photoEntry)
               // attachId will be set by queue's onSuccess callback
-              console.log(`[Room Point] Photo queued for later upload`);
               return null;
             }
 
@@ -3906,10 +3701,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             if (photoEntry.cacheKey && this.localPhotoCache.has(photoEntry.cacheKey)) {
               this.localPhotoCache.delete(photoEntry.cacheKey);
               photoEntry.isLocal = false;
-              console.log(`[Local Cache] Removed cached photo after immediate upload: ${photoEntry.cacheKey}`);
             }
 
-            console.log(`[Room Point] Record created instantly with AttachID: ${photoEntry.attachId}`);
 
             uploadSuccessCount++;
             return response;
@@ -3928,7 +3721,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       Promise.all(uploadPromises).then(results => {
         const stillUploadingCount = results.filter(r => r === null).length;
         // Removed banner notification - user can see spinner on photo instead
-        console.log(`[Room Point] Upload batch complete: ${uploadSuccessCount}/${results.length} successful, ${stillUploadingCount} still uploading`);
       });
       
     } catch (error) {
@@ -3972,7 +3764,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   ): Promise<any> {
     const pointKey = `${roomName}_${point.name}`;
 
-    console.log(`[Photo Queue] Starting queue for ${pointKey}`);
 
     // Check if point ID is already valid (point exists and is created in Caspio)
     const isValidPointId = (id: string | number) => {
@@ -3987,19 +3778,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // If status is undefined or 'pending', queue it to be safe
       const status = this.pointCreationStatus[pointKey];
       if (status !== 'created') {
-        console.log(`[Photo Queue] Point ${pointKey} has ID ${id} but status is '${status}' - will queue`);
         return false;
       }
 
       // Point is created and ready
-      console.log(`[Photo Queue] Point ${pointKey} is created - safe for immediate upload`);
       return true;
     };
 
     // If point already exists with valid ID AND is fully created, upload immediately
     if (isValidPointId(initialPointId)) {
       const timestamp = this.pointCreationTimestamps[pointKey];
-      console.log(`[Photo Queue] ⚠️ IMMEDIATE UPLOAD PATH for ${pointKey} - ID: ${initialPointId}, timestamp: ${timestamp}`);
       try {
         // Get photoType from photoEntry (stored when photo was captured)
         const photoType = photoEntry.photoType;
@@ -4018,7 +3806,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     // Point doesn't exist yet OR is being created - queue room → point → photo cascade
     // This ensures we NEVER try to create attachment record before point is ready
-    console.log(`[Photo Queue] Point ${pointKey} not ready (status: ${this.pointCreationStatus[pointKey]}), queuing cascade...`);
 
     try {
       // Step 1: Ensure room is queued/created (idempotent)
@@ -4046,7 +3833,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         useWebWorker: true
       }) as File;
 
-      console.log(`[Photo Queue] Queuing photo upload for ${pointKey} with dependencies: room=${roomOpId}, point=${pointOpId}`);
 
       // Get photoType from photoEntry (stored when photo was captured)
       const photoType = photoEntry.photoType;
@@ -4066,7 +3852,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         dedupeKey: `photo_${pointKey}_${photoType}_${Date.now()}`,
         maxRetries: 3,
         onSuccess: (result: any) => {
-          console.log(`[Photo Queue] Photo uploaded successfully for ${pointKey}: ${result.attachId}`);
           photoEntry.attachId = result.attachId;
           photoEntry.uploading = false;
           photoEntry.hasAnnotations = !!annotatedResult.annotationData;
@@ -4075,7 +3860,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           if (photoEntry.cacheKey && this.localPhotoCache.has(photoEntry.cacheKey)) {
             this.localPhotoCache.delete(photoEntry.cacheKey);
             photoEntry.isLocal = false;
-            console.log(`[Local Cache] Removed cached photo after upload: ${photoEntry.cacheKey}`);
           }
 
           this.changeDetectorRef.detectChanges();
@@ -4093,7 +3877,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       });
 
       // Return null to indicate queued (not failed, not immediately successful)
-      console.log(`[Photo Queue] Photo successfully queued for ${pointKey}`);
       return null;
 
     } catch (error) {
@@ -4242,7 +4025,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Trigger change detection to update UI
       this.changeDetectorRef.detectChanges();
       
-      console.log('[Room Point Photo] ✅ Photo captured with LocalImageService:', localImage.imageId);
       
     } catch (error) {
       console.error('Error processing room point photo:', error);
@@ -4305,7 +4087,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Upload photo from File object to Services_EFE_Points_Attach with annotation support
   async uploadPhotoToRoomPointFromFile(pointId: string, file: File, pointName: string, annotationData: any = null, photoType?: string, pointOpId?: string) {
     try {
-      console.log(`[Photo Upload] Starting upload for point ${pointId}, photoType: ${photoType}`);
 
       // If point ID is temporary, we need to wait for point creation
       if (String(pointId).startsWith('temp_')) {
@@ -4319,7 +4100,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         throw new Error('Invalid point ID - must be a number');
       }
 
-      console.log(`[Photo Upload] Point ID validated: ${pointIdNum}`);
 
       // COMPRESS the file before upload
       const compressedFile = await this.imageCompression.compressImage(file, {
@@ -4331,7 +4111,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Try to upload immediately
       try {
         const response = await this.performRoomPointPhotoUpload(pointIdNum, compressedFile, pointName, annotationData, photoType);
-        console.log(`[Photo Upload] Success for ${pointName}`);
         return response;
       } catch (error: any) {
         // If upload fails with retryable error, queue it for retry
@@ -4471,7 +4250,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           photoType
         ).toPromise();
 
-        console.log(`[Fast Upload Room Point] Created record instantly, AttachID: ${response.AttachID}`);
 
       } catch (createError: any) {
         console.error('Failed to create room point attachment record:', createError);
@@ -4486,7 +4264,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       // Add upload task to the same queue used by visual photos
       this.backgroundUploadQueue.push(async () => {
-        console.log(`[Fast Upload Room Point] Starting queued upload for AttachID: ${attachId}`);
 
         try {
           const uploadResponse = await this.caspioService.updateServicesEFEPointsAttachPhoto(
@@ -4494,7 +4271,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             photo
           ).toPromise();
 
-          console.log(`[Fast Upload Room Point] Photo uploaded for AttachID: ${attachId}`);
 
           // CRITICAL: Run UI updates inside NgZone to ensure change detection
           this.ngZone.run(async () => {
@@ -4528,9 +4304,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               // Check if this is an S3 image
               if (s3Key && this.caspioService.isS3Key(s3Key)) {
                 try {
-                  console.log('[Fast Upload Room Point] ✨ S3 image detected, fetching pre-signed URL...');
                   imageUrl = await this.caspioService.getS3FileUrl(s3Key);
-                  console.log('[Fast Upload Room Point] ✅ Got S3 pre-signed URL');
                 } catch (err) {
                   console.error('[Fast Upload Room Point] ❌ Failed to fetch S3 URL:', err);
                   imageUrl = 'assets/img/photo-placeholder.svg';
@@ -4539,7 +4313,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               // Fallback to old Caspio Files API
               else if (filePath) {
                 try {
-                  console.log('[Fast Upload Room Point] 📁 Caspio Files API path detected');
                   const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
                   if (imageData && imageData.startsWith('data:')) {
                     imageUrl = imageData;
@@ -4559,7 +4332,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 uploading: false  // CRITICAL: Clear the uploading flag
               };
 
-              console.log(`[Fast Upload Room Point] UI updated, uploading flag cleared for AttachID: ${attachId}`);
 
               // Force change detection
               this.changeDetectorRef.detectChanges();
@@ -4638,11 +4410,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Toggle room selection - create or remove from Services_EFE
   async toggleRoomSelection(roomName: string, event?: any) {
-    console.log('[Toggle Room] Called for:', roomName, 'Event:', event);
     
     // CRITICAL: Prevent checkbox toggles during rename operations
     if (this.renamingRooms[roomName]) {
-      console.log('[Toggle Room] BLOCKED - Room is being renamed');
       if (event && event.target) {
         event.target.checked = this.selectedRooms[roomName]; // Revert to current state
       }
@@ -4651,14 +4421,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     
     // Only proceed if this is a real checkbox change event
     if (!event || !event.detail || typeof event.detail.checked === 'undefined') {
-      console.log('[Toggle Room] BLOCKED - Not a valid checkbox event');
       return;
     }
     
     const wasSelected = this.selectedRooms[roomName];
     const isSelected = event.detail.checked; // Use the event's checked value instead of toggling
     
-    console.log('[Toggle Room] wasSelected:', wasSelected, 'isSelected:', isSelected);
     
     // If deselecting, ask for confirmation first
     if (wasSelected && !isSelected) {
@@ -4764,7 +4532,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         dedupeKey: `room_${serviceIdNum}_${roomName}`,
         maxRetries: 3,
         onSuccess: async (result: any) => {
-          console.log(`[Room Queue] Success for ${roomName}:`, result.roomId);
           this.efeRecordIds[roomName] = result.roomId;
           this.savingRooms[roomName] = false;
           this.changeDetectorRef.detectChanges();
@@ -4772,7 +4539,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           // TASK 2 FIX: Map temp ID to real ID in IndexedDB for FDF photo sync
           try {
             await this.indexedDb.mapTempId(tempRoomId, String(result.roomId), 'room');
-            console.log(`[Room Queue] Mapped temp ID ${tempRoomId} → ${result.roomId} for FDF photo sync`);
           } catch (err) {
             console.warn(`[Room Queue] Failed to map temp ID:`, err);
           }
@@ -4796,7 +4562,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       // Store operation ID for tracking
       this.roomOperationIds[roomName] = roomOpId;
-      console.log(`[Room Queue] Queued room creation for ${roomName}, operation ID: ${roomOpId}`);
 
       // IMMEDIATELY queue point creation with dependency on room (don't wait for room to finish)
       // This makes points appear in queue right away, though they won't execute until room completes
@@ -4810,11 +4575,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private async queuePointCreation(roomName: string, roomId: string, roomOpId: string): Promise<void> {
     const roomData = this.roomElevationData[roomName];
     if (!roomData || !roomData.elevationPoints || roomData.elevationPoints.length === 0) {
-      console.log(`[Point Queue] No points to create for ${roomName}`);
       return;
     }
 
-    console.log(`[Point Queue] Queuing ${roomData.elevationPoints.length} points for ${roomName}`);
 
     // Queue each point creation with dependency on room
     for (const point of roomData.elevationPoints) {
@@ -4824,7 +4587,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const existingPointId = this.efePointIds[pointKey];
       const pointIdStr = String(existingPointId || ''); // Convert to string for checking
       if (existingPointId && !pointIdStr.startsWith('temp_')) {
-        console.log(`[Point Queue] Point ${point.name} already exists, skipping`);
         continue;
       }
 
@@ -4846,7 +4608,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         dedupeKey: `point_${roomName}_${point.name}`, // Use roomName instead of roomId for consistent deduping
         maxRetries: 3,
         onSuccess: async (result: any) => {
-          console.log(`[Point Queue] Success for ${point.name}:`, result.pointId);
           this.efePointIds[pointKey] = result.pointId;
           this.pointCreationStatus[pointKey] = 'created';
           this.pointCreationTimestamps[pointKey] = Date.now(); // Track creation time for DB commit delay
@@ -4856,7 +4617,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           // TASK 2 FIX: Map temp ID to real ID in IndexedDB for EFE point photo sync
           try {
             await this.indexedDb.mapTempId(tempPointId, String(result.pointId), 'point');
-            console.log(`[Point Queue] Mapped temp ID ${tempPointId} → ${result.pointId} for point photo sync`);
           } catch (err) {
             console.warn(`[Point Queue] Failed to map temp ID:`, err);
           }
@@ -4894,13 +4654,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const existingRoomId = this.efeRecordIds[roomName];
     const roomIdStr = String(existingRoomId || ''); // Convert to string for checking
     if (existingRoomId && !roomIdStr.startsWith('temp_') && existingRoomId !== '__pending__') {
-      console.log(`[Ensure Room] Room ${roomName} already exists with ID ${existingRoomId}`);
       return this.roomOperationIds[roomName] || null; // Return existing operation ID if available
     }
 
     // Check if room creation is already queued
     if (this.roomOperationIds[roomName]) {
-      console.log(`[Ensure Room] Room ${roomName} already queued with operation ${this.roomOperationIds[roomName]}`);
       return this.roomOperationIds[roomName];
     }
 
@@ -4938,7 +4696,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.savingRooms[roomName] = true;
     this.changeDetectorRef.detectChanges();
 
-    console.log(`[Ensure Room] Queuing room creation for ${roomName}, tempId: ${tempRoomId}`);
 
     // Queue room creation
     const roomOpId = await this.operationsQueue.enqueue({
@@ -4947,7 +4704,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       dedupeKey: `room_${serviceIdNum}_${roomName}`,
       maxRetries: 3,
       onSuccess: async (result: any) => {
-        console.log(`[Ensure Room] Room ${roomName} created successfully with ID ${result.roomId}`);
         this.efeRecordIds[roomName] = result.roomId;
         this.savingRooms[roomName] = false;
         this.changeDetectorRef.detectChanges();
@@ -4956,7 +4712,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // This allows BackgroundSync to resolve temp room IDs when uploading FDF photos
         try {
           await this.indexedDb.mapTempId(tempRoomId, String(result.roomId), 'room');
-          console.log(`[Ensure Room] Mapped temp ID ${tempRoomId} → ${result.roomId} for FDF photo sync`);
         } catch (err) {
           console.warn(`[Ensure Room] Failed to map temp ID:`, err);
         }
@@ -4971,7 +4726,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     // Store operation ID for tracking
     this.roomOperationIds[roomName] = roomOpId;
-    console.log(`[Ensure Room] Room ${roomName} queued with operation ID ${roomOpId}`);
 
     // IMMEDIATELY queue point creation with dependency on room (don't wait for room to finish)
     // This makes points appear in queue right away for predefined template points
@@ -4991,14 +4745,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const existingPointId = this.efePointIds[pointKey];
     const pointIdStr = String(existingPointId || ''); // Convert to string for checking
     if (existingPointId && !pointIdStr.startsWith('temp_') && existingPointId !== '__pending__') {
-      console.log(`[Ensure Point] Point ${pointName} already exists with ID ${existingPointId}`);
       // Point exists - photo uploads don't need to wait for dependencies
       return 'POINT_EXISTS'; // Special marker
     }
 
     // Check if point creation is already queued
     if (this.pointOperationIds[pointKey]) {
-      console.log(`[Ensure Point] Point ${pointName} already queued with operation ${this.pointOperationIds[pointKey]}`);
       return this.pointOperationIds[pointKey];
     }
 
@@ -5013,7 +4765,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const dependencies: string[] = [];
     if (roomOpId) {
       dependencies.push(roomOpId);
-      console.log(`[Ensure Point] Point ${pointName} will depend on room operation ${roomOpId}`);
     }
 
     // Optimistic: assign temp ID
@@ -5022,7 +4773,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.pointCreationStatus[pointKey] = 'pending';
     this.changeDetectorRef.detectChanges();
 
-    console.log(`[Ensure Point] Queuing point creation for ${pointName} in room ${roomName}, tempId: ${tempPointId}`);
 
     // Queue point creation with dependency on room
     const roomIdStr = String(roomId || ''); // Convert to string for checking
@@ -5037,7 +4787,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       dedupeKey: `point_${roomName}_${pointName}`, // Use roomName for consistent deduping
       maxRetries: 3,
       onSuccess: async (result: any) => {
-        console.log(`[Ensure Point] Point ${pointName} created successfully with ID ${result.pointId}`);
         this.efePointIds[pointKey] = result.pointId;
         this.pointCreationStatus[pointKey] = 'created';
         this.pointCreationTimestamps[pointKey] = Date.now(); // Track creation time for DB commit delay
@@ -5047,7 +4796,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // TASK 2 FIX: Map temp ID to real ID in IndexedDB for EFE point photo sync
         try {
           await this.indexedDb.mapTempId(tempPointId, String(result.pointId), 'point');
-          console.log(`[Ensure Point] Mapped temp ID ${tempPointId} → ${result.pointId} for point photo sync`);
         } catch (err) {
           console.warn(`[Ensure Point] Failed to map temp ID:`, err);
         }
@@ -5075,7 +4823,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     // Store operation ID for tracking
     this.pointOperationIds[pointKey] = pointOpId;
-    console.log(`[Ensure Point] Point ${pointName} queued with operation ID ${pointOpId}`);
 
     return pointOpId;
   }
@@ -5085,7 +4832,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     try {
       // Skip if offline mode
       if (this.manualOffline || roomId === '__pending__') {
-        console.log(`[Pre-create Points] Skipping for ${roomName} - offline mode`);
         // Mark all points as pending for offline mode
         const roomData = this.roomElevationData[roomName];
         if (roomData && roomData.elevationPoints) {
@@ -5100,11 +4846,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Get elevation points from room data
       const roomData = this.roomElevationData[roomName];
       if (!roomData || !roomData.elevationPoints || roomData.elevationPoints.length === 0) {
-        console.log(`[Pre-create Points] No points found for ${roomName}`);
         return;
       }
 
-      console.log(`[Pre-create Points] Creating ${roomData.elevationPoints.length} points for ${roomName}`);
 
       // Mark all points as pending initially
       roomData.elevationPoints.forEach((point: any) => {
@@ -5125,7 +4869,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
         // Skip if point already exists
         if (this.efePointIds[pointKey]) {
-          console.log(`[Pre-create Points] Point ${point.name} already exists, skipping`);
           this.pointCreationStatus[pointKey] = 'created';
           this.pointCreationTimestamps[pointKey] = 0; // Already exists, safe for immediate upload
           return;
@@ -5145,7 +4888,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             this.pointCreationStatus[pointKey] = 'created';
             this.pointCreationTimestamps[pointKey] = Date.now(); // Track creation time for DB commit delay
             delete this.pointCreationErrors[pointKey];
-            console.log(`[Pre-create Points] Created point ${point.name} with ID ${pointId}`);
 
             // Schedule change detection after 1 second to enable camera buttons
             setTimeout(() => {
@@ -5178,7 +4920,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Trigger change detection to update UI with final status
       this.changeDetectorRef.detectChanges();
 
-      console.log(`[Pre-create Points] Completed for ${roomName} - ${failedCount} failed`);
 
     } catch (error) {
       console.error(`[Pre-create Points] Error creating points for ${roomName}:`, error);
@@ -5206,7 +4947,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.changeDetectorRef.detectChanges();
 
     try {
-      console.log(`[Retry Point] Retrying creation for ${point.name}`);
 
       // Create Services_EFE_Points record directly
       const pointData = {
@@ -5221,7 +4961,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.pointCreationStatus[pointKey] = 'created';
         this.pointCreationTimestamps[pointKey] = Date.now(); // Track creation time for DB commit delay
         delete this.pointCreationErrors[pointKey];
-        console.log(`[Retry Point] Created point ${point.name} with ID ${pointId}`);
         await this.showToast(`Point "${point.name}" created successfully`, 'success');
 
         // Schedule change detection after 1 second to enable camera buttons
@@ -5419,12 +5158,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       event.preventDefault();
     }
     
-    console.log('[Rename Room] Starting rename for:', oldRoomName);
-    console.log('[Rename Room] Event:', event);
     
     // CRITICAL: Set flag to block checkbox toggles during rename
     this.renamingRooms[oldRoomName] = true;
-    console.log('[Rename Room] Set renamingRooms flag for:', oldRoomName);
     
     // Pre-check if room can be renamed (synchronous validation)
     const roomId = this.efeRecordIds[oldRoomName];
@@ -5486,10 +5222,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       
       // DETACH change detection to prevent checkbox from firing during rename
       this.changeDetectorRef.detach();
-      console.log('[Rename Room] Detached change detection');
       
       try {
-        console.log('[Rename Room] Verifying room belongs to current service...');
         const existingRooms = await this.foundationData.getEFEByService(this.serviceId, true);
         const roomToRename = existingRooms.find(r => r.EFEID === roomId);
         
@@ -5503,19 +5237,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             console.warn('[Rename Room] Expected:', oldRoomName, 'Got:', roomToRename.RoomName);
           }
           
-          console.log('[Rename Room] Verified room:', roomToRename.RoomName, 'EFEID:', roomToRename.EFEID, 'ServiceID:', roomToRename.ServiceID);
           
           // Update database using the verified EFEID
-          console.log('[Rename Room] Updating database for room:', oldRoomName, 'to:', newRoomName);
           const updateData = { RoomName: newRoomName };
           await this.caspioService.updateServicesEFEByEFEID(roomId, updateData).toPromise();
-          console.log('[Rename Room] Database update successful for EFEID:', roomId);
 
           // Mark that changes have been made (enables Update button)
           this.markReportChanged();
           
           // ATOMIC UPDATE: Create all new dictionary entries FIRST, then delete old ones
-          console.log('[Rename Room] Updating all local state dictionaries atomically...');
           
           // CRITICAL: Set rename flag for new name too to block any checkbox events
           this.renamingRooms[newRoomName] = true;
@@ -5539,7 +5269,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             this.roomElevationData[newRoomName] = this.roomElevationData[oldRoomName];
           }
           
-          console.log('[Rename Room] Created new entries. selectedRooms:', Object.keys(this.selectedRooms));
           
           // Update efePointIds for all points
           const pointKeysToUpdate = Object.keys(this.efePointIds).filter(key => key.startsWith(oldRoomName + '_'));
@@ -5555,7 +5284,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               ...this.roomTemplates[roomIndex],
               RoomName: newRoomName
             };
-            console.log('[Rename Room] Updated roomTemplates array with new object reference');
           }
           
           // Step 3: NOW delete old entries
@@ -5568,7 +5296,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             pointKeysToUpdate.forEach(oldKey => {
               delete this.efePointIds[oldKey];
             });
-            console.log('[Rename Room] Deleted old entries after timeout');
           }, 100);
           
           // Clear rename flag for both old and new names
@@ -5584,15 +5311,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // CRITICAL: Clear rename flags and re-attach change detection after processing
     const allRoomNames = Object.keys(this.renamingRooms);
     allRoomNames.forEach(name => delete this.renamingRooms[name]);
-    console.log('[Rename Room] Cleared all renamingRooms flags:', allRoomNames);
     
     // Re-attach change detection
     try {
       this.changeDetectorRef.reattach();
       this.changeDetectorRef.detectChanges();
-      console.log('[Rename Room] Re-attached change detection after processing');
     } catch (e) {
-      console.log('[Rename Room] Change detection already attached');
     }
   }
   
@@ -5672,7 +5396,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     // CRITICAL: Prevent checkbox toggles during rename operations
     if (this.renamingRooms[roomName]) {
-      console.log('[Header Click] BLOCKED - Room is being renamed');
       return;
     }
 
@@ -5693,7 +5416,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   async handleRoomCheckboxChange(roomName: string, event: any) {
     // CRITICAL: Prevent checkbox toggles during rename operations
     if (this.renamingRooms[roomName]) {
-      console.log('[Checkbox] BLOCKED - Room is being renamed');
       if (event && event.target) {
         event.target.checked = this.selectedRooms[roomName]; // Revert to current state
       }
@@ -5703,7 +5425,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const isChecked = event.detail.checked;
     const wasSelected = this.selectedRooms[roomName];
 
-    console.log('[Checkbox Change] Room:', roomName, 'Was selected:', wasSelected, 'Is checked:', isChecked);
 
     // Handle both checking (addition) and unchecking (deletion)
     if (wasSelected && !isChecked) {
@@ -5916,7 +5637,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const query = `EFEID=${roomId}`;
 
       await this.caspioService.put(`/tables/LPS_Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
-      console.log(`Location saved for ${roomName}:`, location);
 
       // Mark that changes have been made (enables Update button)
       this.markReportChanged();
@@ -5928,7 +5648,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   // Add Base Station specifically
   async addBaseStation() {
-    console.log('Adding Base Station, allRoomTemplates:', this.allRoomTemplates.map(r => r.RoomName));
     
     // Find Base Station template - should always exist
     let baseStationTemplate = this.allRoomTemplates.find(r => r.RoomName === 'Base Station');
@@ -6408,7 +6127,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           
           // Debug logging for AnswerType 2 items (multi-select dropdowns)
           if (template.AnswerType === 2) {
-            console.log(`[Template Load] Multi-select item: "${template.Name}" - PK_ID: ${template.PK_ID}, TemplateID: ${template.TemplateID}, Using for dropdown: ${templateData.templateId}`);
           }
           
           // Initialize selection state
@@ -6478,9 +6196,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
 
     try {
-      console.log('[Visual Load] Fetching existing visuals for ServiceID:', this.serviceId);
       const existingVisuals = await this.foundationData.getVisualsByService(this.serviceId);
-      console.log('[Visual Load] Found existing visuals:', existingVisuals.length, existingVisuals);
 
       if (existingVisuals && Array.isArray(existingVisuals)) {
         // TITLE EDIT FIX (WEBAPP): Build reverse lookup map from localStorage
@@ -6498,7 +6214,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               visualIdToTemplateMap.set(storedVisualId, { category, templateId: String(templateId) });
             }
           }
-          console.log(`[Visual Load] WEBAPP: Built visualId->template map with ${visualIdToTemplateMap.size} entries from localStorage`);
         }
 
         existingVisuals.forEach(visual => {
@@ -6516,7 +6231,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   String(t.TemplateID || t.PK_ID) === mapping.templateId
                 );
                 if (matchingTemplate) {
-                  console.log(`[Visual Load] WEBAPP PRIORITY 1: Matched by localStorage mapping: visualId=${visualId} -> templateId=${mapping.templateId}`);
                 }
               }
             }
@@ -6533,10 +6247,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               // CRITICAL FIX: Use VisualID (unique record ID) for key to ensure each visual gets unique photos
               // Note: visualId is declared above for PRIORITY 1 matching
               const key = visual.Category + "_" + visualId;
-              console.log('[Visual Load] Marking visual as selected:', key, 'VisualID:', visualId);
               this.selectedItems[key] = true;
               this.visualRecordIds[key] = String(visualId);
-              console.log('[Visual Load] selectedItems state:', Object.keys(this.selectedItems).length, 'items selected');
 
               // CRITICAL FIX: Create NEW item instances for each visual record from database
               // This ensures each visual (even duplicates of same template) has its own photos
@@ -6669,7 +6381,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   
                   // Add the new instance to the array
                   items.push(newItem);
-                  console.log(`[Visual Load] Created duplicate instance of template ${matchingTemplate.PK_ID} with VisualID ${visualId}`);
                 }
               };
 
@@ -6953,7 +6664,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         if (matchingOption) {
           // Option exists but might have different encoding - update value to match option exactly
           if (matchingOption !== value) {
-            console.log(`[loadCustomValuesIntoDropdowns] Normalizing "${value}" to "${matchingOption}" for ${mapping.fieldName}`);
             mapping.dataSource[mapping.fieldName] = matchingOption;
           }
         } else {
@@ -6964,7 +6674,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           } else {
             options.push(value);
           }
-          console.log(`[loadCustomValuesIntoDropdowns] Added "${value}" to ${mapping.optionsArrayName}`);
         }
       }
     });
@@ -7122,7 +6831,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // [PERFORMANCE] Load photos for newly expanded accordions
       const newlyExpanded = newExpandedAccordions.filter(cat => !previouslyExpanded.includes(cat));
       if (newlyExpanded.length > 0) {
-        console.log(`📸 [Accordion] Loading photos for newly expanded categories:`, newlyExpanded);
         this.loadPhotosForExpandedCategories(newlyExpanded);
       }
     }
@@ -7552,11 +7260,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           // Check if this is an S3 key
           if (this.caspioService.isS3Key(photo.Attachment) || this.caspioService.isS3Key(photo.filePath)) {
             const s3Key = photo.Attachment || photo.filePath;
-            console.log('[VIEW PHOTO] ✨ S3 image detected, fetching URL...');
             imageUrl = await this.caspioService.getS3FileUrl(s3Key);
             photo.url = imageUrl;
             photo.originalUrl = imageUrl;
-            console.log('[VIEW PHOTO] ✅ Got S3 URL');
           } else {
             // Fallback to Caspio Files API
             const fetchedImage = await this.caspioService.getImageFromFilesAPI(photo.filePath).toPromise();
@@ -7610,8 +7316,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Get existing caption from photo object
       const rawCaption = photo.caption || photo.Annotation || '';
       const existingCaption = this.extractCaptionFromAnnotation(rawCaption);
-      console.log(`[MEASUREMENT DEBUG] Raw caption:`, rawCaption);
-      console.log(`[MEASUREMENT DEBUG] Cleaned caption:`, existingCaption);
 
       // Save scroll position before opening modal (for both mobile and web)
       const scrollPosition = window.scrollY || document.documentElement.scrollTop;
@@ -7802,7 +7506,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       return;
     }
 
-    console.log('[EngFoundation] Starting finalize validation...');
     const incompleteAreas: string[] = [];
 
     // Helper function to check if a value is empty
@@ -7824,7 +7527,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     Object.entries(requiredProjectFields).forEach(([field, label]) => {
       const value = this.projectData[field];
-      console.log(`[EngFoundation] Checking ${field}:`, value);
       if (isEmpty(value)) {
         incompleteAreas.push(`Project Information: ${label}`);
       }
@@ -7841,7 +7543,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     Object.entries(requiredServiceFields).forEach(([field, label]) => {
       const value = this.serviceData[field];
-      console.log(`[EngFoundation] Checking ${field}:`, value);
       if (isEmpty(value)) {
         incompleteAreas.push(`Service Information: ${label}`);
       }
@@ -7905,8 +7606,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
 
     // Show results
-    console.log('[EngFoundation] Validation complete. Incomplete areas:', incompleteAreas.length);
-    console.log('[EngFoundation] Missing fields:', incompleteAreas);
     
     if (incompleteAreas.length > 0) {
       const alert = await this.alertController.create({
@@ -7916,9 +7615,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         buttons: ['OK']
       });
       await alert.present();
-      console.log('[EngFoundation] Alert shown with missing fields');
     } else {
-      console.log('[EngFoundation] All fields complete, showing confirmation dialog');
       // Check if this is an update or initial finalization
       const isUpdate = this.isReportFinalized();
       const buttonText = isUpdate ? 'Update' : 'Finalize';
@@ -7953,7 +7650,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
    */
   markReportChanged() {
     this.hasChangesAfterLastFinalization = true;
-    console.log('[markReportChanged] Set hasChangesAfterLastFinalization to TRUE');
     this.changeDetectorRef.detectChanges();
   }
 
@@ -8007,19 +7703,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // NOTE: StatusEng is NOT updated - it remains as "Created" (set when service was first created)
       };
 
-      console.log('[EngFoundation] Finalizing report with PK_ID:', this.serviceId);
-      console.log('[EngFoundation] ProjectId:', this.projectId);
-      console.log('[EngFoundation] Is first finalization:', isFirstFinalization);
-      console.log('[EngFoundation] StatusClient:', statusClientValue, '-> StatusAdmin:', statusAdminValue);
-      console.log('[EngFoundation] StatusEng will NOT be updated (remains as "Created")');
-      console.log('[EngFoundation] Update data:', updateData);
 
       // Update the Services table using PK_ID (this.serviceId is actually PK_ID)
       const response = await this.caspioService.updateService(this.serviceId, updateData).toPromise();
-      console.log('[EngFoundation] API Response:', response);
 
       // CRITICAL: Clear all caches so project-detail page loads fresh data
-      console.log('[EngFoundation] Clearing all caches for project:', this.projectId);
       this.cache.clearProjectRelatedCaches(this.projectId);
       this.cache.clearByPattern('projects_active');
       this.cache.clearByPattern('projects_all');
@@ -8031,18 +7719,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       // Reset change tracking - button should be grayed out until next change
       this.hasChangesAfterLastFinalization = false;
-      console.log('[EngFoundation] Reset hasChangesAfterLastFinalization to false after update');
 
       // Trigger change detection to update button state
       this.changeDetectorRef.detectChanges();
 
-      console.log('[EngFoundation] Report finalized successfully');
 
       await loading.dismiss();
 
       // Navigate back to project detail
-      console.log('[EngFoundation] Navigating to project detail...');
-      console.log('[EngFoundation] ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
 
       const navigationData = {
         finalizedServiceId: this.serviceId,
@@ -8051,18 +7735,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         timestamp: Date.now()
       };
       localStorage.setItem('pendingFinalizedService', JSON.stringify(navigationData));
-      console.log('[EngFoundation] Stored navigation data:', navigationData);
 
       // Use different navigation for web vs mobile
-      console.log('[EngFoundation] Platform:', this.platform.isWeb() ? 'Web' : 'Mobile');
       setTimeout(() => {
         if (this.platform.isWeb()) {
           // Web: Use location.back() to avoid outlet activation error
-          console.log('[EngFoundation] Web: Using location.back()');
           this.location.back();
         } else {
           // Mobile: Use NavController for proper stack management
-          console.log('[EngFoundation] Mobile: Using navController.navigateBack()');
           this.navController.navigateBack(['/project', this.projectId]);
         }
       }, 300);
@@ -8345,7 +8025,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       // Step 1: Wait for photo hydration if in progress
       if (this.photoHydrationPromise) {
-        console.log('[PDF] Waiting for photo hydration to complete...');
         loading = await this.alertController.create({
           header: 'Loading Photos',
           message: ' ',
@@ -8356,7 +8035,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
         try {
           await this.photoHydrationPromise;
-          console.log('[PDF] Photo hydration completed');
         } catch (error) {
           console.error('[PDF] Photo hydration error:', error);
           // Continue anyway - we'll handle missing photos gracefully
@@ -8369,7 +8047,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Step 2: Wait for any pending saves to complete
       const savingKeys = Object.keys(this.savingItems).filter(key => this.savingItems[key]);
       if (savingKeys.length > 0) {
-        console.log('[PDF] Waiting for pending saves to complete:', savingKeys);
         loading = await this.alertController.create({
           header: 'Saving Changes',
           message: ' ',
@@ -8388,7 +8065,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
           await new Promise(resolve => setTimeout(resolve, 100));
         }
-        console.log('[PDF] Pending saves completed or timed out');
 
         await loading.dismiss();
         loading = null;
@@ -8399,7 +8075,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const hasPendingPhotos = Object.keys(this.pendingPhotoUploads).length > 0;
 
       if (hasPendingVisuals || hasPendingPhotos) {
-        console.log('[PDF] Processing pending items before PDF generation');
         loading = await this.alertController.create({
           header: 'Syncing Data',
           message: ' ',
@@ -8410,7 +8085,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
         try {
           await this.processAllPendingVisuals();
-          console.log('[PDF] Pending items processed');
         } catch (error) {
           console.error('[PDF] Error processing pending items:', error);
           // Continue anyway
@@ -8442,7 +8116,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // CRITICAL: Check if user clicked cancel before continuing
       const { role } = await loading.onDidDismiss();
       if (role === 'cancel') {
-        console.log('[PDF] User cancelled PDF generation');
         this.isPDFGenerating = false;
         // Re-enable the PDF button
         const pdfBtn = (document.querySelector('.pdf-header-button') || document.querySelector('.pdf-fab')) as HTMLElement;
@@ -8475,10 +8148,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const cachedData = this.cache.get(cacheKey); // Use cache on all platforms
 
       if (cachedData) {
-        console.log('[PDF Data] ⚡ Using cached PDF data - fast path!');
         ({ structuralSystemsData, elevationPlotData, projectInfo } = cachedData);
       } else {
-        console.log('[PDF Data] Loading fresh PDF data...');
         const startTime = Date.now();
         
         try {
@@ -8517,7 +8188,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             elevationPlotData,
             projectInfo
           }, this.cache.CACHE_TIMES.MEDIUM);
-          console.log('[PDF Data] Cached PDF data for reuse (5 min expiry)');
         } catch (dataError) {
           console.error('[v1.4.338] Fatal error loading PDF data:', dataError);
           // Use fallback empty data to prevent reload
@@ -8540,18 +8210,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Load primary photo (cover photo) in parallel
         (async () => {
           if (projectInfo?.primaryPhoto && typeof projectInfo.primaryPhoto === 'string') {
-            console.log('[PDF] Primary photo field value:', projectInfo.primaryPhoto.substring(0, 100));
 
             let convertedPhotoData: string | null = null;
 
             if (projectInfo.primaryPhoto.startsWith('/')) {
               // Caspio file path - convert to base64
               try {
-                console.log('[PDF] Converting primary photo from Caspio path to base64...');
                 const imageData = await this.caspioService.getImageFromFilesAPI(projectInfo.primaryPhoto).toPromise();
                 if (imageData && typeof imageData === 'string' && imageData.startsWith('data:')) {
                   convertedPhotoData = imageData;
-                  console.log('[PDF] Primary photo converted successfully (size:', Math.round(imageData.length / 1024), 'KB)');
                 } else {
                   console.error('[PDF] Primary photo conversion failed - invalid data returned:', typeof imageData);
                 }
@@ -8559,10 +8226,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 console.error('[PDF] Error converting primary photo:', error);
               }
             } else if (projectInfo.primaryPhoto.startsWith('data:')) {
-              console.log('[PDF] Primary photo is already base64, using directly');
               convertedPhotoData = projectInfo.primaryPhoto;
             } else if (projectInfo.primaryPhoto.startsWith('blob:')) {
-              console.log('[PDF] Primary photo is blob URL, attempting to convert...');
               try {
                 const response = await fetch(projectInfo.primaryPhoto);
                 const blob = await response.blob();
@@ -8573,7 +8238,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   reader.readAsDataURL(blob);
                 });
                 convertedPhotoData = base64;
-                console.log('[PDF] Primary photo blob converted successfully');
               } catch (error) {
                 console.error('[PDF] Error converting blob URL:', error);
               }
@@ -8588,12 +8252,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             if (convertedPhotoData) {
               projectInfo.primaryPhotoBase64 = convertedPhotoData;
               projectInfo.primaryPhoto = convertedPhotoData;
-              console.log('[PDF] Primary photo ready for PDF rendering');
             } else {
               console.warn('[PDF] Primary photo conversion resulted in null - photo will not appear in PDF');
             }
           } else {
-            console.log('[PDF] No primary photo available for this project');
           }
         })()
       ]);
@@ -9075,14 +8737,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (age > maxAge) {
         this.localPhotoCache.delete(cacheKey);
         cleanedCount++;
-        console.log(`[Local Cache] Cleaned up old cached photo (age: ${Math.round(age / 1000 / 60)} min): ${cacheKey}`);
       }
     }
 
     if (cleanedCount > 0) {
-      console.log(`[Local Cache] Cleanup complete: removed ${cleanedCount} old cache entries`);
     } else {
-      console.log('[Local Cache] Cleanup complete: no old cache entries found');
     }
   }
 
@@ -9097,7 +8756,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.retryStuckPhotos();
     }, 10000); // 10 seconds
 
-    console.log('[Photo Retry] Periodic retry interval started (every 10 seconds)');
   }
 
   /**
@@ -9122,7 +8780,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         if (stuckPhotos.length > 0) {
           foundStuckPhotos = true;
-          console.log(`[Photo Retry] Found ${stuckPhotos.length} stuck photos for ${roomName} - ${point.name}`);
           
           // Check if room and point are ready now
           const roomId = this.efeRecordIds[roomName];
@@ -9133,7 +8790,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           if (roomId && roomId !== '__pending__' && !String(roomId).startsWith('temp_') &&
               pointId && pointId !== '__pending__' && !String(pointId).startsWith('temp_')) {
             
-            console.log(`[Photo Retry] Room and point are ready, retrying ${stuckPhotos.length} photos`);
             
             for (const photoEntry of stuckPhotos) {
               try {
@@ -9148,7 +8804,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 
                 if (response) {
                   photoEntry.attachId = response?.AttachID || response?.PK_ID;
-                  console.log(`[Photo Retry] ✓ Retry successful, AttachID: ${photoEntry.attachId}`);
                 }
               } catch (error) {
                 console.error(`[Photo Retry] Retry failed:`, error);
@@ -9156,14 +8811,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               }
             }
           } else {
-            console.log(`[Photo Retry] Room/point not ready yet - waiting (roomId: ${roomId}, pointId: ${pointId})`);
           }
         }
       }
     }
     
     if (!foundStuckPhotos) {
-      console.log('[Photo Retry] No stuck photos found');
     }
   }
 
@@ -9178,7 +8831,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const uploadingPhotos = point.photos.filter((photo: any) => photo.uploading && !photo.attachId && photo.file);
     if (uploadingPhotos.length === 0) return;
     
-    console.log(`[Retry Queue] Found ${uploadingPhotos.length} uploading photos for ${roomName} - ${point.name}, retrying now...`);
     
     for (const photoEntry of uploadingPhotos) {
       try {
@@ -9189,7 +8841,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         const pointKey = `${roomName}_${point.name}`;
         const pointId = this.efePointIds[pointKey];
         
-        console.log(`[Retry Queue] Retrying upload for ${pointKey}, roomId: ${roomId}, pointId: ${pointId}`);
         
         // Retry upload
         const annotatedResult = {
@@ -9203,7 +8854,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         
         if (response) {
           photoEntry.attachId = response?.AttachID || response?.PK_ID;
-          console.log(`[Retry Queue] ✓ Upload successful for ${pointKey}, AttachID: ${photoEntry.attachId}`);
         }
       } catch (error) {
         console.error(`[Retry Queue] Failed to retry photo for ${roomName} - ${point.name}:`, error);
@@ -9217,7 +8867,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
    * Called after rooms and points have been created
    */
   private async retryQueuedPhotos(): Promise<void> {
-    console.log('[Retry Queue] Checking for uploading photos to retry...');
     
     // Find all uploading photos across all rooms
     for (const roomName of Object.keys(this.roomElevationData)) {
@@ -9231,7 +8880,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         const uploadingPhotos = point.photos.filter((photo: any) => photo.uploading && !photo.attachId && photo.file);
         
         if (uploadingPhotos.length > 0) {
-          console.log(`[Retry Queue] Found ${uploadingPhotos.length} uploading photos for ${roomName} - ${point.name}`);
           
           for (const photoEntry of uploadingPhotos) {
             try {
@@ -9242,7 +8890,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               const pointKey = `${roomName}_${point.name}`;
               const pointId = this.efePointIds[pointKey];
               
-              console.log(`[Retry Queue] Retrying upload for ${pointKey}, roomId: ${roomId}, pointId: ${pointId}`);
               
               // Retry upload
               const annotatedResult = {
@@ -9256,7 +8903,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               
               if (response) {
                 photoEntry.attachId = response?.AttachID || response?.PK_ID;
-                console.log(`[Retry Queue] ✓ Upload successful for ${pointKey}`);
               }
             } catch (error) {
               console.error(`[Retry Queue] Failed to retry photo:`, error);
@@ -9267,7 +8913,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
     }
     
-    console.log('[Retry Queue] Retry complete');
   }
 
   showSaveStatus(message: string, type: 'info' | 'success' | 'error') {
@@ -9316,6 +8961,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   async showToast(message: string, color: string = 'primary') {
+    if (color === 'success' || color === 'info') return;
     const toast = await this.toastController.create({
       message,
       duration: 2000,
@@ -9480,7 +9126,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             dedupeKey: `update_visual_${existingVisualId}_${Date.now()}`,
             maxRetries: 3,
             onSuccess: () => {
-              console.log(`[Visual Queue] Updated answer for visual ${existingVisualId}`);
               this.savingItems[key] = false;
               this.changeDetectorRef.detectChanges();
             },
@@ -9510,7 +9155,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             dedupeKey: `update_visual_${existingVisualId}_${Date.now()}`,
             maxRetries: 3,
             onSuccess: () => {
-              console.log(`[Visual Queue] Cleared answer for visual ${existingVisualId}`);
               this.savingItems[key] = false;
               this.changeDetectorRef.detectChanges();
             },
@@ -9558,7 +9202,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             dedupeKey: `update_visual_${existingVisualId}_${Date.now()}`,
             maxRetries: 3,
             onSuccess: () => {
-              console.log(`[Visual Queue] Updated multi-select for visual ${existingVisualId}`);
               this.savingItems[key] = false;
               this.changeDetectorRef.detectChanges();
             },
@@ -9588,7 +9231,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             dedupeKey: `update_visual_${existingVisualId}_${Date.now()}`,
             maxRetries: 3,
             onSuccess: () => {
-              console.log(`[Visual Queue] Cleared multi-select for visual ${existingVisualId}`);
               this.savingItems[key] = false;
               this.changeDetectorRef.detectChanges();
             },
@@ -9877,11 +9519,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       this.inAttendanceOtherValue = '';
     }
     
-    console.log('[In Attendance] Parsed field:', {
-      raw: this.serviceData.InAttendance,
-      selections: this.inAttendanceSelections,
-      otherValue: this.inAttendanceOtherValue
-    });
   }
   
   // ========== End In Attendance Multi-Select Methods ==========
@@ -10356,7 +9993,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         dedupeKey: `visual_${serviceIdNum}_${category}_${template.Name}`,
         maxRetries: 3,
         onSuccess: async (result: any) => {
-          console.log(`[Visual Queue] Success for ${template.Name}:`, result.visualId);
           this.visualRecordIds[key] = result.visualId;
           localStorage.setItem(recordKey, result.visualId);
           this.savingItems[key] = false;
@@ -10379,7 +10015,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       });
 
-      console.log(`[Visual Queue] Queued visual creation for ${template.Name}, operation ID: ${visualOpId}`);
     } catch (error) {
       console.error('Error saving visual:', error);
       await this.showToast('Failed to save visual', 'danger');
@@ -10414,7 +10049,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           dedupeKey: 'delete_visual_' + recordId + '_' + Date.now(),
           maxRetries: 3,
           onSuccess: () => {
-            console.log('[Visual Queue] Deleted visual:', recordId);
             localStorage.removeItem(recordKey);
             this.changeDetectorRef.detectChanges();
           },
@@ -11158,7 +10792,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     if (String(actualVisualId).startsWith('temp_')) {
       const realId = await this.indexedDb.getRealId(String(actualVisualId));
       if (realId) {
-        console.log(`[GALLERY UPLOAD] Visual synced! Using real ID ${realId} instead of ${actualVisualId}`);
         actualVisualId = realId;
         this.visualRecordIds[key] = realId;  // Update for future uploads
       }
@@ -11227,14 +10860,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         // Check if Visual has been synced and has a real ID now
         const realId = await this.indexedDb.getRealId(String(actualVisualId));
         if (realId) {
-          console.log(`[GALLERY UPLOAD] Visual synced! Using real ID ${realId} instead of ${actualVisualId}`);
           finalVisualId = realId;
           isTempVisualId = false;
           
           // Update stored ID for future uploads
           this.visualRecordIds[key] = realId;
         } else {
-          console.log('[GALLERY UPLOAD] Visual not synced yet, will queue photo upload');
         }
       }
 
@@ -11352,7 +10983,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (uploadTask) {
         this.activeUploadCount++;
 
-        console.log(`[Background Upload Queue] Starting upload (${this.activeUploadCount}/${this.maxParallelUploads} active, ${this.backgroundUploadQueue.length} queued)`);
 
         // Fire upload without awaiting - this allows parallel processing
         uploadTask()
@@ -11361,7 +10991,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           })
           .finally(() => {
             this.activeUploadCount--;
-            console.log(`[Background Upload Queue] Upload completed (${this.activeUploadCount}/${this.maxParallelUploads} active, ${this.backgroundUploadQueue.length} queued)`);
 
             // Try to process next item in queue
             this.processBackgroundUploadQueue();
@@ -11398,7 +11027,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           drawingsData
         ).toPromise();
 
-        console.log(`[Fast Upload] Created record instantly, AttachID: ${response.AttachID}`);
 
       } catch (createError: any) {
         console.error('Failed to create attachment record:', createError);
@@ -11412,7 +11040,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       // Add upload task to queue
       this.backgroundUploadQueue.push(async () => {
-        console.log(`[Fast Upload] Starting queued upload for AttachID: ${attachId}`);
 
         try {
           const uploadResponse = await this.caspioService.updateServicesVisualsAttachPhoto(
@@ -11421,7 +11048,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             originalPhoto || undefined
           ).toPromise();
 
-          console.log(`[Fast Upload] Photo uploaded for AttachID: ${attachId}`);
 
           // CRITICAL: Run UI updates inside NgZone to ensure change detection
           this.ngZone.run(async () => {
@@ -11431,7 +11057,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             // Find photo by attachId (it was updated in Step 3 below)
             const tempPhotoIndex = keyPhotos.findIndex((p: any) => p.AttachID === attachId || p.id === attachId);
 
-            console.log(`[Fast Upload] Found photo at index ${tempPhotoIndex} for AttachID: ${attachId}`);
 
             if (tempPhotoIndex !== -1) {
               const s3Key = uploadResponse?.Attachment; // S3 key
@@ -11441,9 +11066,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               // Check if this is an S3 image
               if (s3Key && this.caspioService.isS3Key(s3Key)) {
                 try {
-                  console.log('[Fast Upload] ✨ S3 image detected, fetching pre-signed URL...');
                   imageUrl = await this.caspioService.getS3FileUrl(s3Key);
-                  console.log('[Fast Upload] ✅ Got S3 pre-signed URL');
                 } catch (err) {
                   console.error('[Fast Upload] ❌ Failed to fetch S3 URL:', err);
                   imageUrl = 'assets/img/photo-placeholder.svg';
@@ -11452,7 +11075,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               // Fallback to old Caspio Files API
               else if (filePath) {
                 try {
-                  console.log('[Fast Upload] 📁 Caspio Files API path detected');
                   const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
                   if (imageData && imageData.startsWith('data:')) {
                     imageUrl = imageData;
@@ -11473,7 +11095,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 uploading: false  // CRITICAL: Clear the uploading flag
               };
 
-              console.log(`[Fast Upload] UI updated, uploading flag cleared for AttachID: ${attachId}`);
 
               // Force change detection
               this.changeDetectorRef.detectChanges();
@@ -11513,7 +11134,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       if (tempPhotoId) {
         tempPhotoIndex = keyPhotos.findIndex((p: any) => p.id === tempPhotoId || p.AttachID === tempPhotoId);
-        console.log(`[Fast Upload] Looking for tempPhotoId: ${tempPhotoId}, found at index: ${tempPhotoIndex}`);
       }
 
       if (tempPhotoIndex !== -1) {
@@ -11525,7 +11145,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           uploading: true,  // Still uploading in background
           queued: false  // CRITICAL: Clear queued flag
         };
-        console.log(`[Fast Upload] Updated photo at index ${tempPhotoIndex} with AttachID: ${attachId}`);
       } else {
         console.warn(`[Fast Upload] Could not find photo with tempPhotoId: ${tempPhotoId} in visualPhotos[${key}] (${keyPhotos.length} photos)`);
       }
@@ -11577,20 +11196,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (!this._loggedPhotoKeys) this._loggedPhotoKeys = new Set();
       if (!this._loggedPhotoKeys.has(key)) {
         this._loggedPhotoKeys.add(key);
-        console.log(`[STRUCTURAL DEBUG] Photos for ${key}:`, 
-          photos.map(p => ({ 
-            AttachID: p.AttachID,
-            hasUrl: !!p.url,
-            urlType: p.url?.startsWith('data:') ? 'base64' : p.url?.startsWith('blob:') ? 'blob' : 'none',
-            hasThumbnail: !!p.thumbnailUrl,
-            thumbnailType: p.thumbnailUrl?.startsWith('data:') ? 'base64' : p.thumbnailUrl?.startsWith('blob:') ? 'blob' : 'placeholder',
-            hasDisplay: !!p.displayUrl,
-            displayType: p.displayUrl?.startsWith('data:') ? 'base64' : p.displayUrl?.startsWith('blob:') ? 'blob' : 'none',
-            caption: p.caption,
-            // Show first 50 chars of actual URL for debugging
-            urlPreview: p.displayUrl?.substring(0, 50) || p.thumbnailUrl?.substring(0, 50) || p.url?.substring(0, 50)
-          }))
-        );
       }
     }
     
@@ -12900,13 +12505,6 @@ Stack: ${error?.stack}`;
     this.preClickScrollY = (scrollElement as any)?.scrollTop || window.scrollY;
     this.preClickScrollX = (scrollElement as any)?.scrollLeft || window.scrollX;
     
-    console.log('═══════════════════════════════════════════');
-    console.log('[MOUSEDOWN] Saved scroll BEFORE click - Y:', this.preClickScrollY);
-    console.log('[MOUSEDOWN] window.scrollY:', window.scrollY);
-    console.log('[MOUSEDOWN] ion-content scrollTop:', (scrollElement as any)?.scrollTop);
-    console.log('[MOUSEDOWN] document.documentElement.scrollTop:', document.documentElement.scrollTop);
-    console.log('[MOUSEDOWN] Scroll element:', scrollElement?.tagName || scrollElement?.className);
-    console.log('═══════════════════════════════════════════');
   }
 
   // View photo - open viewer with integrated annotation
@@ -12922,8 +12520,6 @@ Stack: ${error?.stack}`;
       // CRITICAL: Use pre-click scroll position (saved on mousedown)
       this.lockedScrollY = this.preClickScrollY || window.scrollY;
       this.lockedScrollX = this.preClickScrollX || window.scrollX;
-      console.log('[viewPhoto] Using scroll position from mousedown - Y:', this.lockedScrollY);
-      console.log('[viewPhoto] Current window.scrollY:', window.scrollY);
       
       const key = `${category}_${itemId}`;
       const visualId = this.visualRecordIds[key];
@@ -12950,7 +12546,6 @@ Stack: ${error?.stack}`;
       // On slow connections, we already loaded full blob directly, so skip this
       let imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.svg';
       if (photo.isLowQuality && !photo.fullQualityLoaded && !this.isSlowConnection) {
-        console.log(`📸 [viewPhoto] Loading full quality for AttachID ${attachId}...`);
         const loadingToast = await this.toastController.create({
           message: 'Loading full quality...',
           duration: 30000,
@@ -12968,7 +12563,6 @@ Stack: ${error?.stack}`;
             photo.fullQualityLoaded = true;
             photo.isLowQuality = false;
             imageUrl = fullQualityUrl;
-            console.log(`✅ [viewPhoto] Full quality loaded for AttachID ${attachId}`);
           }
         } catch (error) {
           console.error('Failed to load full quality:', error);
@@ -13011,7 +12605,6 @@ Stack: ${error?.stack}`;
 
       // Get existing caption from photo object
       const existingCaption = photo.caption || photo.Annotation || '';
-      console.log(`[STRUCTURAL DEBUG] Existing caption:`, existingCaption);
 
       // ENHANCED: Open annotation window directly instead of photo viewer
       const modal = await this.modalController.create({
@@ -13181,7 +12774,6 @@ Stack: ${error?.stack}`;
           // Delete from database
           await this.caspioService.deleteServiceVisualsAttach(attachId).toPromise();
 
-          console.log('[Delete Photo] Photo removed successfully');
         } catch (error) {
           console.error('Failed to delete photo:', error);
         }
@@ -13349,7 +12941,6 @@ Stack: ${error?.stack}`;
       if (!pointId || pointId === '__pending__' || String(pointId).startsWith('temp_')) {
         // ALWAYS mark point as pending and queue it - never try to create immediately
         // This prevents errors when room is saving or point creation would fail
-        console.log(`[Gallery Photo] Marking point as pending for lazy creation: ${point.name}`);
         
         // Queue the point creation - it will be created when needed by lazy upload
         if (!this.pendingPointCreates[pointKey]) {
@@ -13433,7 +13024,6 @@ Stack: ${error?.stack}`;
           .then((response) => {
             if (response) {
               photoEntry.attachId = response?.AttachID || response?.PK_ID;
-              console.log(`[Gallery Photo] Upload successful with AttachID: ${photoEntry.attachId}`);
             }
           })
           .catch((err) => {
@@ -13521,7 +13111,6 @@ Stack: ${error?.stack}`;
       // Clear PDF cache so changes show immediately
       this.clearPDFCache();
 
-      console.log(`Caption saved for ${roomName} - ${point.name}: "${photo.caption}"`);
 
       // Trigger change detection to update the view
       this.changeDetectorRef.detectChanges();
@@ -13551,7 +13140,6 @@ Stack: ${error?.stack}`;
       // Clear PDF cache so changes show immediately
       this.clearPDFCache();
 
-      console.log(`FDF ${photoType} caption saved for ${roomName}: "${caption}"`);
 
       // Trigger change detection to update the view
       this.changeDetectorRef.detectChanges();
@@ -14198,17 +13786,14 @@ Stack: ${error?.stack}`;
         this.photoLoadConcurrencyAdjusted = 1; // VERY slow connection (<2 Mbps): 1 at a time
       }
 
-      console.log(`🌐 [Connection] Type: ${effectiveType}, Speed: ${downlink} Mbps, Slow: ${this.isSlowConnection}, Concurrency: ${this.photoLoadConcurrencyAdjusted}`);
     } else if (isMobile) {
       // On mobile without connection API, assume slow connection to be safe
       this.isSlowConnection = true;
       this.photoLoadConcurrencyAdjusted = 1; // Mobile: 1 at a time (safest)
-      console.log(`🌐 [Connection] Mobile app detected, assuming slow connection (concurrency: 1)`);
     } else {
       // Desktop/web without connection API, assume good connection
       this.isSlowConnection = false;
       this.photoLoadConcurrencyAdjusted = 6; // Increased from 4 for faster loading
-      console.log(`🌐 [Connection] Desktop detected, assuming good connection (concurrency: 6)`);
     }
   }
 
@@ -14241,13 +13826,11 @@ Stack: ${error?.stack}`;
     // [PERFORMANCE] On very slow connections (<2 Mbps), load NOTHING upfront
     // Photos will load on-demand when user scrolls to them
     if (this.photoLoadConcurrencyAdjusted === 1) {
-      console.log(`📸 [Slow Connection] Detected very slow connection (1.2 Mbps or mobile). Photos will load on-demand as you scroll.`);
 
       // Set up scroll-based loading after a delay
       setTimeout(() => this.setupScrollBasedLoading(), 500);
 
       const totalElapsed = performance.now() - startTime;
-      console.log(`📸 [Performance] Skeleton loaders ready in ${totalElapsed.toFixed(0)}ms. Photos load on scroll.`);
       return;
     }
 
@@ -14278,9 +13861,6 @@ Stack: ${error?.stack}`;
       }
     });
 
-    console.log(`📸 [Performance] Loading ALL ${allKeys.length} photo sets (${priorityKeys.length} priority, ${allKeys.length - priorityKeys.length} background)`);
-    console.log(`📸 [Debug] Expanded accordions:`, this.expandedAccordions);
-    console.log(`📸 [Debug] Expanded sections:`, Object.keys(this.expandedSections).filter(k => this.expandedSections[k]));
 
     // Load ALL photos in priority order (priority first, then the rest)
     const sortedKeys = [
@@ -14291,13 +13871,11 @@ Stack: ${error?.stack}`;
     this.queueBackgroundPhotoLoading(sortedKeys);
 
     const totalElapsed = performance.now() - startTime;
-    console.log(`📸 [Performance] Photo loading started in ${totalElapsed.toFixed(0)}ms (loading ${sortedKeys.length} photo sets in background)`);
   }
 
   // [PERFORMANCE] Set up scroll-based photo loading for very slow connections
   // Photos load incrementally as user scrolls, preventing overwhelming slow connections
   private setupScrollBasedLoading(): void {
-    console.log(`📸 [Scroll Loading] Setting up on-demand photo loading...`);
 
     let scrollTimeout: any;
     const handleScroll = () => {
@@ -14337,7 +13915,6 @@ Stack: ${error?.stack}`;
             const visualId = String(rawVisualId);
 
             if (visualId && visualId !== 'undefined' && !visualId.startsWith('temp_')) {
-              console.log(`📸 [Viewport] Loading photos for ${key} (in viewport)`);
               this.loadPhotosForVisualByKey(key, visualId, rawVisualId).then(() => {
                 this.changeDetectorRef.detectChanges();
               });
@@ -14373,14 +13950,12 @@ Stack: ${error?.stack}`;
       const batch = keys.slice(currentIndex, currentIndex + batchSize);
 
       if (batch.length === 0) {
-        console.log(`📸 [Background] All background photos loaded`);
         return;
       }
 
       const batchNumber = Math.floor(currentIndex / batchSize) + 1;
       const totalBatches = Math.ceil(keys.length / batchSize);
       const percentComplete = Math.round((currentIndex / keys.length) * 100);
-      console.log(`📸 [Background] Batch ${batchNumber}/${totalBatches} (${percentComplete}% complete): Loading ${batch.length} photo sets`);
 
       const batchPromises = batch.map(key => {
         const rawVisualId = this.visualRecordIds[key];
@@ -14404,7 +13979,6 @@ Stack: ${error?.stack}`;
           const totalElapsed = performance.now() - startTime;
           const totalPhotos = keys.length;
           const avgTimePerPhoto = (totalElapsed / totalPhotos).toFixed(0);
-          console.log(`📸 [Background] ✅ Completed loading all ${totalPhotos} photo sets in ${(totalElapsed / 1000).toFixed(1)}s (avg ${avgTimePerPhoto}ms per set)`);
         }
       }).catch(error => {
         console.error(`📸 [Background] Failed to load batch:`, error);
@@ -14444,11 +14018,9 @@ Stack: ${error?.stack}`;
     });
 
     if (keysToLoad.length === 0) {
-      console.log(`📸 [Accordion] No photos to load for categories:`, categories);
       return;
     }
 
-    console.log(`📸 [Accordion] Loading ${keysToLoad.length} photo sets for categories:`, categories);
 
     // Load all keys in parallel (up to concurrency limit)
     const promises = keysToLoad.map(key => {
@@ -14484,18 +14056,11 @@ Stack: ${error?.stack}`;
         seenAttachIds.add(attachId);
         return true;
       });
-      console.log(`[STRUCTURAL DEBUG] Loaded ${uniquePhotoRecords.length} photo records for KEY: ${key}`);
 
       // CRITICAL FIX: Hydrate photos BEFORE assigning to visualPhotos
       // This ensures OnPush change detection sees photos with actual URLs, not placeholders
       await this.hydratePhotoRecords(uniquePhotoRecords);
       
-      console.log(`[STRUCTURAL DEBUG] Hydrated photos for KEY: ${key}`, uniquePhotoRecords.map(p => ({ 
-        AttachID: p.AttachID, 
-        hasUrl: !!p.url, 
-        hasThumbnail: !!p.thumbnailUrl, 
-        hasDisplay: !!p.displayUrl 
-      })));
       
       // NOW assign to visualPhotos AFTER hydration completes
       this.visualPhotos[key] = uniquePhotoRecords;
@@ -14585,11 +14150,8 @@ Stack: ${error?.stack}`;
 
         // EXACT HUD PATTERN: Check for S3 first, then fallback to Caspio
         if (record.Attachment && this.caspioService.isS3Key(record.Attachment)) {
-          console.log('[LOAD PHOTO] ✨ S3 image detected:', record.Attachment);
           try {
-            console.log('[LOAD PHOTO] Fetching S3 pre-signed URL...');
             imageUrl = await this.caspioService.getS3FileUrl(record.Attachment);
-            console.log('[LOAD PHOTO] ✅ Got S3 pre-signed URL');
           } catch (err) {
             console.error('[LOAD PHOTO] ❌ Failed to load S3 image:', record.Attachment, err);
             imageUrl = this.photoPlaceholder;
@@ -14597,7 +14159,6 @@ Stack: ${error?.stack}`;
         }
         // Fallback to old Photo field (Caspio Files API)
         else if (record.Photo) {
-          console.log('[LOAD PHOTO] 📁 Caspio Files API image detected');
           const thumbnailUrl = await this.fetchPhotoThumbnail(record.Photo, attachId);
           imageUrl = thumbnailUrl || this.photoPlaceholder;
         } else {
@@ -14702,7 +14263,6 @@ Stack: ${error?.stack}`;
         const directUrl = this.createBlobUrl(blob, thumbnailKey);
         this.fullQualityCache.set(cacheKey, Promise.resolve(blob)); // Store for later
 
-        console.log(`📸 [Fast Load] Loaded photo directly (no compression) for ${attachId}: ${(blob.size / 1024).toFixed(0)}KB`);
         return directUrl;
       }
 
@@ -14716,7 +14276,6 @@ Stack: ${error?.stack}`;
       // Store full quality blob promise for later use
       this.fullQualityCache.set(cacheKey, Promise.resolve(blob));
 
-      console.log(`📸 [Thumbnail] Loaded low-quality thumbnail for ${attachId}: ${(lowQualityBlob.size / 1024).toFixed(0)}KB (original: ${(blob.size / 1024).toFixed(0)}KB)`);
 
       return thumbnailUrl;
     } catch (error) {
@@ -14757,7 +14316,6 @@ Stack: ${error?.stack}`;
       // Create blob URL
       const fullQualityUrl = this.createBlobUrl(fullQualityBlob, fullQualityKey);
 
-      console.log(`📸 [Full Quality] Loaded full-quality photo for ${attachId}: ${(fullQualityBlob.size / 1024).toFixed(0)}KB`);
 
       return fullQualityUrl;
     } catch (error) {
@@ -14801,16 +14359,12 @@ Stack: ${error?.stack}`;
   }
 
   private async presentTemplateLoader(message: string = 'Loading Report'): Promise<void> {
-    console.log('[presentTemplateLoader] Called with message:', message);
-    console.log('[presentTemplateLoader] templateLoaderPresented:', this.templateLoaderPresented);
     
     if (this.templateLoaderPresented) {
-      console.log('[presentTemplateLoader] Loader already presented, returning early');
       return;
     }
 
     this.templateLoadStart = Date.now();
-    console.log('[presentTemplateLoader] Creating alert controller...');
 
     try {
       // Create loading popup with cancel button
@@ -14830,10 +14384,8 @@ Stack: ${error?.stack}`;
       });
 
       if (this.templateLoader) {
-        console.log('[presentTemplateLoader] Presenting loader...');
         await this.templateLoader.present();
         this.templateLoaderPresented = true;
-        console.log('[presentTemplateLoader] Loader presented successfully');
       }
 
     } catch (error) {
@@ -14858,33 +14410,25 @@ Stack: ${error?.stack}`;
   }
 
   private async dismissTemplateLoader(): Promise<void> {
-    console.log('[dismissTemplateLoader] Called');
-    console.log('[dismissTemplateLoader] templateLoaderPresented:', this.templateLoaderPresented);
     
     if (!this.templateLoaderPresented) {
-      console.log('[dismissTemplateLoader] No loader to dismiss, returning early');
       return;
     }
 
     const elapsed = Date.now() - this.templateLoadStart;
     const remaining = this.templateLoaderMinDuration - elapsed;
-    console.log('[dismissTemplateLoader] Elapsed:', elapsed, 'ms, Remaining:', remaining, 'ms');
 
     if (remaining > 0) {
-      console.log('[dismissTemplateLoader] Waiting for minimum duration...');
       await new Promise(resolve => setTimeout(resolve, remaining));
     }
 
     try {
-      console.log('[dismissTemplateLoader] Dismissing loader...');
       await this.templateLoader?.dismiss();
-      console.log('[dismissTemplateLoader] Loader dismissed successfully');
     } catch (error) {
       console.warn('[TemplateLoader] Failed to dismiss loading overlay:', error);
     } finally {
       this.templateLoaderPresented = false;
       this.templateLoader = undefined;
-      console.log('[dismissTemplateLoader] Cleanup complete');
     }
   }
 
@@ -14973,7 +14517,6 @@ Stack: ${error?.stack}`;
   
   // Handle service field changes
   async onServiceFieldChange(fieldName: string, value: any) {
-    console.log('[onServiceFieldChange] Field:', fieldName, 'Value:', value);
 
     // Mark that changes have been made (enables Update button) - do this FIRST
     this.markReportChanged();
@@ -15426,9 +14969,7 @@ Stack: ${error?.stack}`;
     const result = [];
 
     // Load Fabric.js once for all photo annotations
-    console.log('[Elevation Plot] Loading Fabric.js for annotation rendering...');
     const fabric = await this.fabricService.getFabric();
-    console.log('[Elevation Plot] Fabric.js loaded');
 
     // Collect all rooms to process
     const roomsToProcess = Object.keys(this.selectedRooms).filter(roomName =>
@@ -15596,7 +15137,6 @@ Stack: ${error?.stack}`;
                 imagePromises.push(
                   this.caspioService.getS3FileUrl(attachment.Attachment)
                     .then((s3Url) => {
-                      console.log('[Point Photos S3] ✅ Got S3 URL for attachment:', attachment.AttachID);
                       return s3Url;
                     })
                     .catch(error => {
@@ -15657,7 +15197,6 @@ Stack: ${error?.stack}`;
 
             for (let i = 0; i < imagePromises.length; i += BATCH_SIZE) {
               const batch = imagePromises.slice(i, i + BATCH_SIZE);
-              console.log(`[Point Photos] Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(imagePromises.length / BATCH_SIZE)}`);
 
               const batchResults = await Promise.all(batch);
               convertedImages.push(...batchResults);
@@ -15755,18 +15294,14 @@ Stack: ${error?.stack}`;
         p.displayUrl && (p.displayUrl.startsWith('data:') || p.displayUrl.startsWith('blob:'))
       );
       if (allValid) {
-        console.log('[PDF Photos] Using cached photos for visualId:', visualId, '(', cachedPhotos.length, 'photos)');
         return cachedPhotos;
       } else {
-        console.log('[PDF Photos] Cache invalid, reloading photos');
         this.cache.clear(cacheKey);
       }
     }
 
     // Load Fabric.js once for all photos to avoid multiple parallel imports
-    console.log('[PDF Photos] Loading Fabric.js for annotation rendering...');
     const fabric = await this.fabricService.getFabric();
-    console.log('[PDF Photos] Fabric.js loaded, processing', photos.length, 'photos for visual:', visualId);
 
     // PERFORMANCE OPTIMIZED: Process photos in batches
     // Increased batch sizes for faster PDF generation while maintaining stability
@@ -15778,7 +15313,6 @@ Stack: ${error?.stack}`;
 
     for (let i = 0; i < photos.length; i += BATCH_SIZE) {
       const batch = photos.slice(i, i + BATCH_SIZE);
-      console.log(`[PDF Photos] Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(photos.length / BATCH_SIZE)} (${batch.length} photos)`);
 
       const batchPromises = batch.map(async (photo, batchIndex) => {
       const photoIndex = i + batchIndex;
@@ -15790,9 +15324,6 @@ Stack: ${error?.stack}`;
       let conversionSuccess = false;
       let errorDetails = ''; // Store error info for debug popup
 
-      console.log(`[PDF Photos] [${photoIndex + 1}/${photos.length}] Processing "${photoName}"`);
-      console.log(`[PDF Photos]   - AttachID: ${photo.AttachID || 'none'}`);
-      console.log(`[PDF Photos]   - Photo URL: ${photoUrl?.substring(0, 100) || 'empty'}`);
 
       // If it's a Caspio file path (starts with /), convert to base64
       if (photoUrl && photoUrl.startsWith('/')) {
@@ -15801,12 +15332,10 @@ Stack: ${error?.stack}`;
         const cachedBase64 = !isMobile ? this.cache.get(photoCacheKey) : null;
 
         if (cachedBase64) {
-          console.log(`[PDF Photos]   - Using cached base64`);
           finalUrl = cachedBase64;
           conversionSuccess = true;
         } else {
           try {
-            console.log(`[PDF Photos]   - Converting to base64...`);
             const startTime = Date.now();
             const base64Data = await this.caspioService.getImageFromFilesAPI(photoUrl).toPromise();
             const duration = Date.now() - startTime;
@@ -15814,7 +15343,6 @@ Stack: ${error?.stack}`;
             if (base64Data && base64Data.startsWith('data:')) {
               finalUrl = base64Data;
               conversionSuccess = true;
-              console.log(`[PDF Photos]   ✓ Converted successfully in ${duration}ms (${Math.round(base64Data.length / 1024)}KB)`);
               // Cache individual photo for reuse (web only)
               if (!isMobile) {
                 this.cache.set(photoCacheKey, base64Data, this.cache.CACHE_TIMES.LONG);
@@ -15843,11 +15371,9 @@ Stack: ${error?.stack}`;
           }
         }
       } else if (photoUrl && (photoUrl.startsWith('blob:') || photoUrl.startsWith('data:'))) {
-        console.log(`[PDF Photos]   - Already data/blob URL`);
         finalUrl = photoUrl;
         conversionSuccess = true;
       } else if (photoUrl && photoUrl.startsWith('http')) {
-        console.log(`[PDF Photos]   - HTTP URL (may fail on mobile)`);
         finalUrl = photoUrl;
         conversionSuccess = true;
       } else {
@@ -15861,14 +15387,6 @@ Stack: ${error?.stack}`;
       // Check both Drawings and rawDrawingsString (rawDrawingsString is from buildPhotoRecord)
       const drawingsData = photo.Drawings || photo.rawDrawingsString;
       if (drawingsData && finalUrl && !finalUrl.includes('placeholder')) {
-        console.log('[PDF Photos] Rendering annotations for photo:', {
-          photoUrl,
-          hasDrawings: !!drawingsData,
-          drawingsType: typeof drawingsData,
-          drawingsPreview: typeof drawingsData === 'string' ? drawingsData.substring(0, 200) : drawingsData,
-          photoHasDrawings: !!photo.Drawings,
-          photoHasRawDrawingsString: !!photo.rawDrawingsString
-        });
         try {
           // Check cache for annotated version
           const annotatedCacheKey = this.cache.getApiCacheKey('photo_annotated', {
@@ -15878,14 +15396,11 @@ Stack: ${error?.stack}`;
           const cachedAnnotated = this.cache.get(annotatedCacheKey);
 
           if (cachedAnnotated) {
-            console.log('[PDF Photos] Using cached annotated photo');
             finalUrl = cachedAnnotated;
           } else {
-            console.log('[PDF Photos] Rendering annotations with renderAnnotationsOnPhoto...');
             // Render annotations onto the photo, passing the pre-loaded fabric instance
             const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawingsData, { quality: 0.9, format: 'jpeg', fabric });
             if (annotatedUrl && annotatedUrl !== finalUrl) {
-              console.log('[PDF Photos] Annotations rendered successfully');
               finalUrl = annotatedUrl;
               // Cache the annotated version
               this.cache.set(annotatedCacheKey, annotatedUrl, this.cache.CACHE_TIMES.LONG);
@@ -15899,7 +15414,6 @@ Stack: ${error?.stack}`;
         }
       } else {
         if (!drawingsData) {
-          console.log('[PDF Photos] No drawings data for photo:', photoUrl);
         }
       }
 
@@ -15927,7 +15441,6 @@ Stack: ${error?.stack}`;
       const batchResults = await Promise.all(batchPromises);
       processedPhotos.push(...batchResults);
 
-      console.log(`[PDF Photos] Batch complete: ${successCount} succeeded, ${failureCount} failed so far`);
 
       // Small delay between batches to allow garbage collection
       if (i + BATCH_SIZE < photos.length) {
@@ -15936,14 +15449,6 @@ Stack: ${error?.stack}`;
     }
 
     // Final summary
-    console.log(`[PDF Photos] ========== SUMMARY ==========`);
-    console.log(`[PDF Photos] Visual ID: ${visualId}`);
-    console.log(`[PDF Photos] Total photos: ${photos.length}`);
-    console.log(`[PDF Photos] Successful: ${successCount}`);
-    console.log(`[PDF Photos] Failed: ${failureCount}`);
-    console.log(`[PDF Photos] Success rate: ${photos.length > 0 ? Math.round((successCount / photos.length) * 100) : 0}%`);
-    console.log(`[PDF Photos] Platform: ${isMobile ? 'Mobile' : 'Web'}`);
-    console.log(`[PDF Photos] ============================`);
 
     // Show debug popup on mobile if there were failures
     if (isMobile && failureCount > 0) {
@@ -15980,9 +15485,7 @@ Stack: ${error?.stack}`;
     // Cache the processed photos using the cache service (web only - mobile gets fresh data)
     if (!isMobile) {
       this.cache.set(cacheKey, processedPhotos, this.cache.CACHE_TIMES.LONG);
-      console.log('[PDF Photos] Cached processed photos for web use');
     } else {
-      console.log('[PDF Photos] Skipping cache on mobile');
     }
 
     return processedPhotos;
@@ -16022,9 +15525,7 @@ Stack: ${error?.stack}`;
         // Check if this is an S3 image
         if (attach.Attachment && this.caspioService.isS3Key(attach.Attachment)) {
           try {
-            console.log('[Room Photos] ✨ S3 image detected:', attach.Attachment);
             finalUrl = await this.caspioService.getS3FileUrl(attach.Attachment);
-            console.log('[Room Photos] ✅ Got S3 pre-signed URL');
           } catch (error) {
             console.error('[Room Photos] ❌ Failed to load S3 image:', error);
             finalUrl = 'assets/img/photo-placeholder.svg';
@@ -16033,7 +15534,6 @@ Stack: ${error?.stack}`;
         // Fallback to old Caspio Files API
         else if (attach.Photo && attach.Photo.startsWith('/')) {
           try {
-            console.log('[Room Photos] 📁 Caspio Files API path detected');
             const base64Data = await this.caspioService.getImageFromFilesAPI(attach.Photo).toPromise();
             
             if (base64Data && base64Data.startsWith('data:')) {

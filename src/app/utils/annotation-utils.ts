@@ -287,24 +287,18 @@ export async function renderAnnotationsOnPhoto(
   annotationData: string | FabricAnnotationPayload | null | undefined,
   options: { quality?: number; format?: 'jpeg' | 'png'; fabric?: any } = {}
 ): Promise<string | null> {
-  console.log('[renderAnnotationsOnPhoto] Starting...', { imageUrl: imageUrl.substring(0, 50), hasAnnotations: !!annotationData });
 
   // Return original if no annotations
   if (!annotationData) {
-    console.log('[renderAnnotationsOnPhoto] No annotation data, returning original');
     return imageUrl;
   }
 
   // Log raw annotation data
-  console.log('[renderAnnotationsOnPhoto] Raw annotation data:', typeof annotationData, annotationData.substring ? annotationData.substring(0, 200) : annotationData);
 
   // Decompress annotation data
   const annotations = decompressAnnotationData(annotationData);
-  console.log('[renderAnnotationsOnPhoto] Decompressed annotations:', annotations);
-  console.log('[renderAnnotationsOnPhoto] Objects array:', annotations?.objects);
 
   if (!annotations || !annotations.objects || annotations.objects.length === 0) {
-    console.log('[renderAnnotationsOnPhoto] No annotation objects (empty array), returning original');
     return imageUrl;
   }
 
@@ -313,25 +307,20 @@ export async function renderAnnotationsOnPhoto(
     let fabric = options.fabric;
 
     if (!fabric) {
-      console.log('[renderAnnotationsOnPhoto] Loading Fabric.js...');
       try {
         fabric = await import('fabric');
-        console.log('[renderAnnotationsOnPhoto] Fabric.js loaded successfully');
       } catch (fabricError) {
         console.error('[renderAnnotationsOnPhoto] Failed to load Fabric.js:', fabricError);
         throw fabricError;
       }
     } else {
-      console.log('[renderAnnotationsOnPhoto] Using provided Fabric instance');
     }
 
     // Load the image using Fabric.js
-    console.log('[renderAnnotationsOnPhoto] Loading image...');
     const img = await fabric.Image.fromURL(imageUrl, { crossOrigin: 'anonymous' });
     if (!img) {
       throw new Error('Failed to load image');
     }
-    console.log('[renderAnnotationsOnPhoto] Image loaded:', { width: img.width, height: img.height });
 
     // Create canvas with image dimensions and ensure it has a 2D context
     const canvas = document.createElement('canvas');
@@ -345,7 +334,6 @@ export async function renderAnnotationsOnPhoto(
     if (!ctx) {
       throw new Error('Failed to get 2D context from canvas');
     }
-    console.log('[renderAnnotationsOnPhoto] Canvas 2D context created');
 
     // Initialize Fabric canvas with the canvas element
     const fabricCanvas = new fabric.Canvas(canvas, {
@@ -353,14 +341,12 @@ export async function renderAnnotationsOnPhoto(
       height: height,
       enableRetinaScaling: false
     });
-    console.log('[renderAnnotationsOnPhoto] Fabric canvas created');
 
     // Set image as background
     img.selectable = false;
     img.evented = false;
     fabricCanvas.backgroundImage = img;
     fabricCanvas.renderAll();
-    console.log('[renderAnnotationsOnPhoto] Background image set');
 
     // Calculate scale factor if annotations were created on a different sized canvas
     // Annotations might have been created on a scaled canvas, but we're rendering on full-size image
@@ -372,8 +358,6 @@ export async function renderAnnotationsOnPhoto(
       const annotationCanvasWidth = annotations['width'];
       const annotationCanvasHeight = annotations['height'];
 
-      console.log('[renderAnnotationsOnPhoto] Annotation canvas size:', annotationCanvasWidth, 'x', annotationCanvasHeight);
-      console.log('[renderAnnotationsOnPhoto] Current image size:', width, 'x', height);
 
       // Calculate scale factor - how much to scale up the annotations
       // If annotations were created on a 800x600 canvas but image is 2000x1500,
@@ -384,11 +368,9 @@ export async function renderAnnotationsOnPhoto(
       // Use the average scale factor, or the minimum to ensure annotations fit
       scaleFactor = Math.min(scaleX, scaleY);
 
-      console.log('[renderAnnotationsOnPhoto] Calculated scale factor:', scaleFactor, '(scaleX:', scaleX, ', scaleY:', scaleY, ')');
     } else {
       // Fallback for existing annotations without canvas dimensions metadata
       // Analyze annotation coordinates to estimate the scale factor
-      console.log('[renderAnnotationsOnPhoto] No canvas dimensions in annotation data, attempting to estimate scale factor');
 
       let maxX = 0;
       let maxY = 0;
@@ -412,8 +394,6 @@ export async function renderAnnotationsOnPhoto(
 
       annotations.objects.forEach(findMaxCoords);
 
-      console.log('[renderAnnotationsOnPhoto] Max annotation coordinates:', maxX, 'x', maxY);
-      console.log('[renderAnnotationsOnPhoto] Image dimensions:', width, 'x', height);
 
       // If the max coordinates are significantly smaller than the image dimensions,
       // calculate a scale factor. Add some padding (1.2x) to account for annotations
@@ -427,28 +407,21 @@ export async function renderAnnotationsOnPhoto(
 
         scaleFactor = Math.min(scaleX, scaleY);
 
-        console.log('[renderAnnotationsOnPhoto] Estimated scale factor:', scaleFactor);
       } else {
-        console.log('[renderAnnotationsOnPhoto] Using scale factor 1 (coordinates appear to match image size)');
       }
     }
 
     // Add annotation objects to canvas manually (don't use loadFromJSON as it clears the background)
-    console.log('[renderAnnotationsOnPhoto] Adding annotation objects to canvas...');
-    console.log('[renderAnnotationsOnPhoto] Number of annotation objects:', annotations.objects?.length || 0);
 
     if (annotations.objects && annotations.objects.length > 0) {
       // Add objects directly to the canvas
-      console.log('[renderAnnotationsOnPhoto] Processing', annotations.objects.length, 'annotation objects...');
 
       try {
         // Process each annotation object
         for (const objData of annotations.objects) {
-          console.log('[renderAnnotationsOnPhoto] Processing object type:', objData['type']);
 
           // Skip image objects
           if (objData['type'] === 'image' || objData['type'] === 'Image') {
-            console.log('[renderAnnotationsOnPhoto] Skipping image object');
             continue;
           }
 
@@ -484,33 +457,27 @@ export async function renderAnnotationsOnPhoto(
 
           if (fabricObj) {
             fabricCanvas.add(fabricObj);
-            console.log('[renderAnnotationsOnPhoto] Added', objData['type'], 'object');
           }
         }
 
         const finalCount = fabricCanvas.getObjects().length;
-        console.log('[renderAnnotationsOnPhoto] Total objects on canvas:', finalCount);
 
         fabricCanvas.renderAll();
-        console.log('[renderAnnotationsOnPhoto] Canvas rendered with annotations');
       } catch (error) {
         console.error('[renderAnnotationsOnPhoto] Error adding objects:', error);
         // Continue anyway - we'll just have the photo without annotations
       }
     } else {
-      console.log('[renderAnnotationsOnPhoto] No annotation objects to add');
     }
 
     // Export as data URL
     const quality = options.quality || 0.9;
     const format = options.format || 'jpeg';
-    console.log('[renderAnnotationsOnPhoto] Exporting as data URL...');
     const dataUrl = fabricCanvas.toDataURL({
       format: format,
       quality: quality,
       multiplier: 1
     });
-    console.log('[renderAnnotationsOnPhoto] Export complete, data URL length:', dataUrl.length);
 
     // Cleanup - wrap in try-catch to prevent disposal errors
     try {
@@ -535,7 +502,6 @@ export async function renderAnnotationsOnPhoto(
       canvas.width = 0;
       canvas.height = 0;
 
-      console.log('[renderAnnotationsOnPhoto] Canvas disposed and cleaned up');
     } catch (disposeError) {
       console.warn('[renderAnnotationsOnPhoto] Error during canvas disposal (safe to ignore):', disposeError);
     }

@@ -70,7 +70,6 @@ export class CaspioService {
     // If there's already an ongoing auth request, return it to prevent duplicates
     if (this.ongoingAuthRequest) {
       if (this.debugMode) {
-        console.log('🔄 Reusing ongoing authentication request');
       }
       return this.ongoingAuthRequest;
     }
@@ -123,11 +122,6 @@ export class CaspioService {
     localStorage.setItem('caspio_token_expiry', expiryTime.toString());
 
     if (this.debugMode) {
-      console.log('🔐 Token set:', {
-        expiresIn: expiresIn,
-        expiryTime: new Date(expiryTime).toISOString(),
-        refreshAt: new Date(Date.now() + (expiresIn * 900)).toISOString() // 90% of lifetime
-      });
     }
 
     // Set proactive refresh timer at 90% of token lifetime
@@ -145,7 +139,6 @@ export class CaspioService {
     const refreshTime = expiresInMs * 0.9;
     this.tokenRefreshTimer = setTimeout(() => {
       if (this.debugMode) {
-        console.log('⏰ Proactive token refresh triggered at 90% lifetime');
       }
       this.refreshToken();
     }, refreshTime);
@@ -179,10 +172,6 @@ export class CaspioService {
       const remainingTime = expiryTime - Date.now();
 
       if (this.debugMode) {
-        console.log('🔓 Loaded stored token:', {
-          remainingTime: Math.round(remainingTime / 1000) + 's',
-          expiresAt: new Date(expiryTime).toISOString()
-        });
       }
 
       // Set both refresh and expiration timers based on remaining time
@@ -190,7 +179,6 @@ export class CaspioService {
       this.setTokenExpirationTimer(remainingTime);
     } else {
       if (this.debugMode && token) {
-        console.log('🚫 Stored token expired or invalid, clearing');
       }
       this.clearToken();
     }
@@ -198,7 +186,6 @@ export class CaspioService {
 
   private clearToken(): void {
     if (this.debugMode) {
-      console.log('🗑️ Clearing token');
     }
     this.tokenSubject.next(null);
     this.refreshTokenSubject.next(null); // Reset refresh subject to prevent stale token caching
@@ -240,13 +227,11 @@ export class CaspioService {
     // Prevent concurrent refresh attempts
     if (this.isRefreshing) {
       if (this.debugMode) {
-        console.log('🔄 Token refresh already in progress, skipping');
       }
       return;
     }
 
     if (this.debugMode) {
-      console.log('🔄 Starting token refresh');
     }
 
     this.isRefreshing = true;
@@ -257,14 +242,12 @@ export class CaspioService {
         // Emit the new token to all waiting subscribers
         this.refreshTokenSubject.next(response.access_token);
         if (this.debugMode) {
-          console.log('✅ Token refresh successful');
         }
       },
       error: (error) => {
         this.isRefreshing = false;
         if (this.debugMode) {
           console.error('❌ Token refresh failed:', error);
-          console.log('🔄 Clearing token and resetting refresh subject');
         }
         // If refresh fails, clear the token so next request will trigger new auth
         // This also resets refreshTokenSubject to null, preventing stale token caching
@@ -286,13 +269,6 @@ export class CaspioService {
 
     if (this.debugMode) {
       const timeToExpiry = this.tokenExpiryTime ? Math.round((this.tokenExpiryTime - Date.now()) / 1000) : 0;
-      console.log('🔍 getValidToken() called:', {
-        hasToken: !!currentToken,
-        isValid: this.isTokenValid(),
-        isRefreshing: this.isRefreshing,
-        timeToExpiry: timeToExpiry + 's',
-        timestamp: new Date().toISOString()
-      });
     }
 
     // If we have a valid token, return it immediately
@@ -303,7 +279,6 @@ export class CaspioService {
     // If a refresh is already in progress, wait for it
     if (this.isRefreshing) {
       if (this.debugMode) {
-        console.log('⏳ Waiting for ongoing token refresh');
       }
       return this.refreshTokenSubject.pipe(
         filter(token => token !== null), // Skip null initial value
@@ -324,7 +299,6 @@ export class CaspioService {
     // If we have a token but it's expiring soon, refresh it
     if (currentToken && !this.isTokenValid()) {
       if (this.debugMode) {
-        console.log('🔄 Token expiring soon, triggering refresh');
       }
       this.refreshToken();
       // Wait for the refresh to complete
@@ -346,7 +320,6 @@ export class CaspioService {
 
     // No token at all, authenticate directly
     if (this.debugMode) {
-      console.log('🔓 No token found, authenticating');
     }
     return this.authenticate().pipe(
       map(response => response.access_token)
@@ -381,7 +354,6 @@ export class CaspioService {
 
     // Route through API Gateway if enabled
     if (this.useApiGateway()) {
-      console.log(`[CaspioService] ✅ Using AWS API Gateway for GET ${endpoint}`);
       return this.apiGateway.get<T>(`/api/caspio-proxy${endpoint}`).pipe(
         tap(data => {
           // Cache the response (only for mobile)
@@ -396,7 +368,6 @@ export class CaspioService {
       );
     }
 
-    console.log(`[CaspioService] 📡 Using direct Caspio API for GET ${endpoint}`);
 
     // Create a unique key for this request
     const requestKey = `GET:${endpoint}`;
@@ -404,7 +375,6 @@ export class CaspioService {
     // Check if there's already a pending request for this endpoint
     if (this.pendingRequests.has(requestKey)) {
       if (this.debugMode) {
-        console.log(`🔄 Request deduplication: reusing pending request for ${endpoint}`);
       }
       return this.pendingRequests.get(requestKey)!;
     }
@@ -414,7 +384,6 @@ export class CaspioService {
       const cachedData = this.cache.getApiResponse(endpoint);
       if (cachedData !== null) {
         if (this.debugMode) {
-          console.log(`🚀 Cache hit for ${endpoint}`);
         }
         return of(cachedData);
       }
@@ -465,7 +434,6 @@ export class CaspioService {
                 currentAttempt = retryAttempt;
 
                 if (this.debugMode) {
-                  console.log(`⏳ Retry ${retryAttempt}/${maxRetries} for ${endpoint} after ${delayMs}ms`);
                 }
 
                 // Notify user of retry attempt (web only)
@@ -492,7 +460,6 @@ export class CaspioService {
               const cacheStrategy = this.getCacheStrategy(endpoint);
               this.cache.setApiResponse(endpoint, null, data, cacheStrategy);
               if (this.debugMode) {
-                console.log(`💾 Cached ${endpoint} with strategy ${cacheStrategy} (${responseTime}ms)`);
               }
             }
           })
@@ -543,7 +510,6 @@ export class CaspioService {
   post<T>(endpoint: string, data: any): Observable<T> {
     // Route through API Gateway if enabled
     if (this.useApiGateway()) {
-      console.log(`[CaspioService] ✅ Using AWS API Gateway for POST ${endpoint}`);
       return this.apiGateway.post<T>(`/api/caspio-proxy${endpoint}`, data).pipe(
         tap(() => this.invalidateCacheForEndpoint(endpoint, 'POST')),
         catchError(error => {
@@ -553,7 +519,6 @@ export class CaspioService {
       );
     }
 
-    console.log(`[CaspioService] 📡 Using direct Caspio API for POST ${endpoint}`);
 
     if (!this.offline.isOnline()) {
       return from(this.queueOfflineRequest<T>('POST', endpoint, data));
@@ -605,7 +570,6 @@ export class CaspioService {
                   currentAttempt = retryAttempt;
 
                   if (this.debugMode) {
-                    console.log(`⏳ POST Retry ${retryAttempt}/${maxRetries} for ${endpoint} after ${delayMs}ms`);
                   }
 
                   this.retryNotification.notifyRetryAttempt(endpoint, retryAttempt, maxRetries, delayMs);
@@ -642,7 +606,6 @@ export class CaspioService {
   put<T>(endpoint: string, data: any): Observable<T> {
     // Route through API Gateway if enabled
     if (this.useApiGateway()) {
-      console.log(`[CaspioService] ✅ Using AWS API Gateway for PUT ${endpoint}`);
       return this.apiGateway.put<T>(`/api/caspio-proxy${endpoint}`, data).pipe(
         tap(() => this.invalidateCacheForEndpoint(endpoint, 'PUT')),
         catchError(error => {
@@ -652,7 +615,6 @@ export class CaspioService {
       );
     }
 
-    console.log(`[CaspioService] 📡 Using direct Caspio API for PUT ${endpoint}`);
 
     if (!this.offline.isOnline()) {
       return from(this.queueOfflineRequest<T>('PUT', endpoint, data));
@@ -704,7 +666,6 @@ export class CaspioService {
                   currentAttempt = retryAttempt;
 
                   if (this.debugMode) {
-                    console.log(`⏳ PUT Retry ${retryAttempt}/${maxRetries} for ${endpoint} after ${delayMs}ms`);
                   }
 
                   this.retryNotification.notifyRetryAttempt(endpoint, retryAttempt, maxRetries, delayMs);
@@ -737,7 +698,6 @@ export class CaspioService {
   delete<T>(endpoint: string): Observable<T> {
     // Route through API Gateway if enabled
     if (this.useApiGateway()) {
-      console.log(`[CaspioService] ✅ Using AWS API Gateway for DELETE ${endpoint}`);
       return this.apiGateway.delete<T>(`/api/caspio-proxy${endpoint}`).pipe(
         tap(() => this.invalidateCacheForEndpoint(endpoint, 'DELETE')),
         catchError(error => {
@@ -747,7 +707,6 @@ export class CaspioService {
       );
     }
 
-    console.log(`[CaspioService] 📡 Using direct Caspio API for DELETE ${endpoint}`);
 
     if (!this.offline.isOnline()) {
       return from(this.queueOfflineRequest<T>('DELETE', endpoint, null));
@@ -795,7 +754,6 @@ export class CaspioService {
                   currentAttempt = retryAttempt;
 
                   if (this.debugMode) {
-                    console.log(`⏳ DELETE Retry ${retryAttempt}/${maxRetries} for ${endpoint} after ${delayMs}ms`);
                   }
 
                   this.retryNotification.notifyRetryAttempt(endpoint, retryAttempt, maxRetries, delayMs);
@@ -1167,13 +1125,10 @@ export class CaspioService {
 
   // Delete a Services_EFE record
   deleteServicesEFE(efeId: string): Observable<any> {
-    console.log('[CaspioService] deleteServicesEFE called for PK_ID:', efeId);
     const url = `/tables/LPS_Services_EFE/records?q.where=PK_ID=${efeId}`;
-    console.log('[CaspioService] Delete URL:', url);
 
     return this.delete<any>(url).pipe(
       tap(response => {
-        console.log('[CaspioService] deleteServicesEFE response:', response);
       }),
       catchError(error => {
         console.error('[CaspioService] Services EFE deletion error:', error);
@@ -1189,13 +1144,10 @@ export class CaspioService {
 
   // Delete Services_EFE record by EFEID
   deleteServicesEFEByEFEID(efeId: string): Observable<any> {
-    console.log('[CaspioService] deleteServicesEFEByEFEID called for EFEID:', efeId);
     const url = `/tables/LPS_Services_EFE/records?q.where=EFEID=${efeId}`;
-    console.log('[CaspioService] Delete URL:', url);
 
     return this.delete<any>(url).pipe(
       tap(response => {
-        console.log('[CaspioService] deleteServicesEFEByEFEID response:', response);
       }),
       catchError(error => {
         console.error('[CaspioService] Services EFE deletion error (by EFEID):', error);
@@ -1216,26 +1168,16 @@ export class CaspioService {
 
   // Update Services_EFE record by EFEID (for FDF annotations/drawings)
   updateServicesEFEByEFEID(efeId: string, data: any): Observable<any> {
-    console.log('[CaspioService] updateServicesEFEByEFEID called:', {
-      efeId,
-      dataKeys: Object.keys(data),
-      data: data
-    });
 
     // Log any Drawings fields specifically
     Object.keys(data).forEach(key => {
       if (key.includes('Drawings')) {
-        console.log(`[CaspioService] ${key}:`, {
-          length: data[key]?.length || 0,
-          preview: data[key]?.substring(0, 100) || 'none'
-        });
       }
     });
 
     const url = `/tables/LPS_Services_EFE/records?q.where=EFEID=${efeId}`;
     return this.put<any>(url, data).pipe(
       tap(response => {
-        console.log('[CaspioService] updateServicesEFEByEFEID response:', response);
       }),
       catchError(error => {
         console.error('[CaspioService] Failed to update Services EFE record:', error);
@@ -1641,18 +1583,10 @@ export class CaspioService {
   
   // Update Services_EFE_Points_Attach record (for caption/annotation updates)
   updateServicesEFEPointsAttach(attachId: string, data: any): Observable<any> {
-    console.log('[CaspioService] updateServicesEFEPointsAttach called:', {
-      attachId,
-      data,
-      drawingsLength: data?.Drawings?.length || 0,
-      drawingsPreview: data?.Drawings?.substring(0, 100) || 'none',
-      annotation: data?.Annotation || 'none'
-    });
 
     const url = `/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`;
     return this.put<any>(url, data).pipe(
       tap(response => {
-        console.log('[CaspioService] updateServicesEFEPointsAttach response:', response);
       }),
       catchError(error => {
         console.error('[CaspioService] Failed to update EFE point annotation:', error);
@@ -1741,7 +1675,6 @@ export class CaspioService {
     return this.post<any>('/tables/LPS_Services_HUD/records?response=rows', hudData).pipe(
       tap(response => {
         if (response && response.Result && response.Result.length > 0) {
-          console.log('✅ HUD record created:', response.Result[0]);
         }
       }),
       map(response => {
@@ -1768,10 +1701,8 @@ export class CaspioService {
   }
 
   getServicesHUDByServiceId(serviceId: string, bypassCache: boolean = false): Observable<any[]> {
-    console.log(`[CaspioService] getServicesHUDByServiceId called with ServiceID=${serviceId}, bypassCache=${bypassCache}`);
     return this.get<any>(`/tables/LPS_Services_HUD/records?q.where=ServiceID=${serviceId}&q.limit=1000`, !bypassCache).pipe(
       tap(response => {
-        console.log(`[CaspioService] LPS_Services_HUD query returned ${response?.Result?.length || 0} records`);
       }),
       map(response => response.Result || [])
     );
@@ -1784,13 +1715,9 @@ export class CaspioService {
   getServicesHUDById(hudId: string): Observable<any> {
     // Add timestamp to bust any HTTP/CDN caching
     const cacheBuster = Date.now();
-    console.log(`[CaspioService] getServicesHUDById called with HUDID=${hudId}, cacheBuster=${cacheBuster}`);
     return this.get<any>(`/tables/LPS_Services_HUD/records?q.where=HUDID=${hudId}&_cb=${cacheBuster}`, false).pipe(
       tap(response => {
-        console.log(`[CaspioService] getServicesHUDById RAW response:`, JSON.stringify(response));
-        console.log(`[CaspioService] getServicesHUDById Result array length:`, response?.Result?.length || 0);
         if (response?.Result?.[0]) {
-          console.log(`[CaspioService] getServicesHUDById record - HUDID:${response.Result[0].HUDID}, Name:${response.Result[0].Name}, Text:${response.Result[0].Text?.substring(0, 50)}`);
         }
       }),
       map(response => response.Result?.[0] || null)
@@ -1824,17 +1751,6 @@ export class CaspioService {
 
   private async uploadHUDAttachWithFilesAPI(hudId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Promise<any> {
     // Use same 2-step approach as uploadVisualsAttachWithFilesAPI but for HUD table
-    console.log('[HUD ATTACH] ========== Starting HUD Attach Upload (2-Step) ==========');
-    console.log('[HUD ATTACH] Parameters:', {
-      hudId,
-      annotation: annotation || '(empty)',
-      fileName: file.name,
-      fileSize: `${(file.size / 1024).toFixed(2)} KB`,
-      fileType: file.type,
-      hasDrawings: !!drawings,
-      drawingsLength: drawings?.length || 0,
-      hasOriginalFile: !!originalFile
-    });
     
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
@@ -1844,7 +1760,6 @@ export class CaspioService {
 
       // STEP 1A: If we have an original file (before annotation), upload it first
       if (originalFile && drawings) {
-        console.log('[HUD ATTACH] Step 1A: Uploading original file to Files API...');
         const originalFormData = new FormData();
         const timestamp = Date.now();
         const randomId = Math.random().toString(36).substring(2, 8);
@@ -1863,7 +1778,6 @@ export class CaspioService {
         if (originalUploadResponse.ok) {
           const originalUploadResult = await originalUploadResponse.json();
           originalFilePath = `/${originalUploadResult.Name || originalFileName}`;
-          console.log('[HUD ATTACH] ✅ Original file uploaded:', originalFilePath);
         } else {
           const errorText = await originalUploadResponse.text();
           console.error('[HUD ATTACH] ❌ Original file upload failed:', errorText);
@@ -1874,10 +1788,8 @@ export class CaspioService {
       let filePath = '';
 
       if (originalFilePath) {
-        console.log('[HUD ATTACH] Using original file path:', originalFilePath);
         filePath = originalFilePath;
       } else {
-        console.log('[HUD ATTACH] Step 1B: Uploading main file to Files API...');
         const timestamp = Date.now();
         const randomId = Math.random().toString(36).substring(2, 8);
         const fileExt = file.name.split('.').pop() || 'jpg';
@@ -1887,7 +1799,6 @@ export class CaspioService {
         formData.append('file', file, uniqueFilename);
 
         const filesUrl = `${API_BASE_URL}/files`;
-        console.log('[HUD ATTACH] Uploading to:', filesUrl);
 
         const uploadResponse = await fetch(filesUrl, {
           method: 'PUT',
@@ -1898,7 +1809,6 @@ export class CaspioService {
           body: formData
         });
 
-        console.log('[HUD ATTACH] Files API response:', uploadResponse.status, uploadResponse.statusText);
 
         if (!uploadResponse.ok) {
           const errorText = await uploadResponse.text();
@@ -1908,11 +1818,9 @@ export class CaspioService {
 
         const uploadResult = await uploadResponse.json();
         filePath = `/${uploadResult.Name || uniqueFilename}`;
-        console.log('[HUD ATTACH] ✅ File uploaded to Files API:', filePath);
       }
       
       // STEP 2: Create database record with file path
-      console.log('[HUD ATTACH] Step 2: Creating database record...');
       const recordData: any = {
         HUDID: parseInt(hudId.toString()),
         Annotation: annotation || '',
@@ -1921,13 +1829,11 @@ export class CaspioService {
       
       // Add Drawings field if annotation data is provided
       if (drawings && drawings.length > 0) {
-        console.log('[HUD ATTACH] Adding Drawings field:', drawings.length, 'bytes');
         let compressedDrawings = drawings;
         
         // Apply compression if needed
         if (drawings.length > 50000) {
           compressedDrawings = compressAnnotationData(drawings, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
-          console.log('[HUD ATTACH] Compressed Drawings:', compressedDrawings.length, 'bytes');
         }
         
         // Only add if within the field limit after compression
@@ -1939,12 +1845,6 @@ export class CaspioService {
         }
       }
 
-      console.log('[HUD ATTACH] Record data to create:', {
-        HUDID: recordData.HUDID,
-        Annotation: recordData.Annotation || '(empty)',
-        Photo: recordData.Photo,
-        hasDrawings: !!recordData.Drawings
-      });
 
       const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records?response=rows`, {
         method: 'POST',
@@ -1955,7 +1855,6 @@ export class CaspioService {
         body: JSON.stringify(recordData)
       });
 
-      console.log('[HUD ATTACH] Record creation response:', recordResponse.status, recordResponse.statusText);
 
       if (!recordResponse.ok) {
         const errorText = await recordResponse.text();
@@ -1966,8 +1865,6 @@ export class CaspioService {
       }
 
       const result = await recordResponse.json();
-      console.log('[HUD ATTACH] ✅ Upload complete!');
-      console.log('[HUD ATTACH] Final result:', JSON.stringify(result, null, 2));
       
       // Return the result in the same format as the response
       // Caspio returns { Result: [...] } format
@@ -2166,7 +2063,6 @@ export class CaspioService {
       const uploadResult = await uploadResponse.json();
       const s3Key = uploadResult.s3Key;
 
-      console.log('[S3 Upload] File uploaded successfully:', s3Key);
 
       // Update the HUD attach record with the S3 key in Attachment field
       const token = await firstValueFrom(this.getValidToken());
@@ -2191,7 +2087,6 @@ export class CaspioService {
         throw new Error('Failed to update record: ' + errorText);
       }
 
-      console.log('[S3 Upload] Database record updated with S3 key');
 
       return {
         AttachID: attachId,
@@ -2257,7 +2152,6 @@ export class CaspioService {
         throw new Error('Failed to delete file: ' + errorText);
       }
 
-      console.log('[S3 Delete] File deleted successfully:', s3Key);
 
     } catch (error) {
       console.error('Error deleting S3 file:', error);
@@ -2278,11 +2172,6 @@ export class CaspioService {
    * @param originalFile - Optional original file before annotation
    */
   private async uploadHUDAttachWithS3(hudId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Promise<any> {
-    console.log('[HUD ATTACH S3] ========== Starting S3 Upload (Atomic) ==========');
-    console.log('[HUD ATTACH S3] HUDID:', hudId);
-    console.log('[HUD ATTACH S3] File:', file?.name, 'Size:', file?.size, 'bytes');
-    console.log('[HUD ATTACH S3] Drawings length:', drawings?.length || 0);
-    console.log('[HUD ATTACH S3] Caption:', annotation || '(none)');
 
     // VALIDATION: Reject empty or invalid files
     if (!file || file.size === 0) {
@@ -2296,7 +2185,6 @@ export class CaspioService {
     const MAX_SIZE_MB = 1; // 1MB max to stay under API Gateway limits
 
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-      console.log(`[HUD ATTACH S3] File too large (${(file.size / 1024 / 1024).toFixed(2)}MB), compressing...`);
       try {
         const compressedBlob = await this.imageCompression.compressImage(file, {
           maxSizeMB: MAX_SIZE_MB,
@@ -2304,7 +2192,6 @@ export class CaspioService {
           useWebWorker: true
         });
         fileToUpload = new File([compressedBlob], file.name, { type: compressedBlob.type || 'image/jpeg' });
-        console.log(`[HUD ATTACH S3] Compressed: ${(file.size / 1024 / 1024).toFixed(2)}MB -> ${(fileToUpload.size / 1024 / 1024).toFixed(2)}MB`);
       } catch (compressErr) {
         console.warn('[HUD ATTACH S3] Compression failed, using original:', compressErr);
         // Continue with original file - may fail with 413 but worth trying
@@ -2345,7 +2232,6 @@ export class CaspioService {
           formData.append('tableName', 'LPS_Services_HUD_Attach');
           formData.append('attachId', tempAttachId);
 
-          console.log(`[HUD ATTACH S3] Uploading (attempt ${attempt}/${MAX_S3_RETRIES}), size: ${(fileToUpload.size / 1024 / 1024).toFixed(2)}MB`);
 
           const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
 
@@ -2362,7 +2248,6 @@ export class CaspioService {
             throw new Error('S3 upload succeeded but no s3Key returned');
           }
 
-          console.log(`[HUD ATTACH S3] ✅ S3 upload complete (attempt ${attempt}), key:`, s3Key);
           break; // Success - exit retry loop
 
         } catch (err: any) {
@@ -2371,7 +2256,6 @@ export class CaspioService {
 
           if (attempt < MAX_S3_RETRIES) {
             const delayMs = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
-            console.log(`[HUD ATTACH S3] Retrying in ${delayMs}ms...`);
             await new Promise(resolve => setTimeout(resolve, delayMs));
           }
         }
@@ -2387,7 +2271,6 @@ export class CaspioService {
       // This ensures we NEVER create a record without an Attachment
       recordData.Attachment = s3Key;  // CRITICAL: Include Attachment in initial creation
 
-      console.log('[HUD ATTACH S3] Step 2: Creating Caspio record with Attachment...');
       const recordResponse = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_HUD_Attach/records?response=rows`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2407,9 +2290,7 @@ export class CaspioService {
         throw new Error('Failed to get AttachID from record creation response');
       }
 
-      console.log('[HUD ATTACH S3] ✅ Created record AttachID:', attachId, 'with Attachment:', s3Key);
 
-      console.log('[HUD ATTACH S3] ✅ Complete! (Atomic - no orphaned records)');
       // Return result with all fields
       return {
         Result: [{
@@ -2435,9 +2316,6 @@ export class CaspioService {
    * Uses AWS API Gateway proxy for all Caspio API calls
    */
   async uploadEFEPointsAttachWithS3(pointId: number, drawingsData: string, file: File, photoType?: string, caption?: string): Promise<any> {
-    console.log('[EFE ATTACH S3] ========== Starting S3 EFE Attach Upload (Atomic) ==========');
-    console.log('[EFE ATTACH S3] Input PointID:', pointId, 'type:', typeof pointId);
-    console.log('[EFE ATTACH S3] Caption:', caption || '(empty)');
 
     // CRITICAL: Validate PointID before proceeding
     const parsedPointId = parseInt(String(pointId), 10);
@@ -2486,7 +2364,6 @@ export class CaspioService {
       formData.append('tableName', 'LPS_Services_EFE_Points_Attach');
       formData.append('attachId', tempAttachId);
 
-      console.log('[EFE ATTACH S3] Step 1: Uploading to S3 FIRST...');
       const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
       if (!uploadResponse.ok) {
         const uploadError = await uploadResponse.text();
@@ -2494,13 +2371,10 @@ export class CaspioService {
         throw new Error('S3 upload failed');
       }
       const { s3Key } = await uploadResponse.json();
-      console.log('[EFE ATTACH S3] ✅ S3 upload complete, key:', s3Key);
 
       // Step 2: Create the Caspio record WITH the Attachment field populated
       recordData.Attachment = s3Key;  // CRITICAL: Include Attachment in initial creation
 
-      console.log('[EFE ATTACH S3] Step 2: Creating Caspio record with Attachment...');
-      console.log('[EFE ATTACH S3] Creating record with data:', JSON.stringify(recordData));
 
       const recordResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_EFE_Points_Attach/records?response=rows`, {
         method: 'POST',
@@ -2520,8 +2394,6 @@ export class CaspioService {
         throw new Error('Failed to get AttachID from record creation response');
       }
 
-      console.log('[EFE ATTACH S3] ✅ Created record AttachID:', attachId, 'with Attachment:', s3Key);
-      console.log('[EFE ATTACH S3] ✅ Complete! (Atomic - no orphaned records)');
       return { Result: [{ AttachID: attachId, PointID: pointId, Attachment: s3Key, Drawings: recordData.Drawings || '' }], AttachID: attachId, Attachment: s3Key };
     } catch (error) {
       console.error('[EFE ATTACH S3] ❌ Failed:', error);
@@ -2551,7 +2423,6 @@ export class CaspioService {
       if (!uploadResponse.ok) throw new Error('S3 upload failed');
 
       const { s3Key } = await uploadResponse.json();
-      console.log('[EFE ATTACH S3 UPDATE] File uploaded:', s3Key);
 
       // Update record with S3 key via API Gateway proxy
       const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
@@ -2564,7 +2435,6 @@ export class CaspioService {
 
       if (!updateResponse.ok) throw new Error('Failed to update record');
 
-      console.log('[EFE ATTACH S3 UPDATE] ✅ Complete!');
       return { AttachID: attachId, Attachment: s3Key, success: true };
 
     } catch (error) {
@@ -2574,11 +2444,6 @@ export class CaspioService {
   }
 
   private async uploadLBWAttachWithS3(lbwId: number, annotation: string, file: File, drawings?: string): Promise<any> {
-    console.log('[LBW ATTACH S3] ========== Starting S3 Upload (Atomic) ==========');
-    console.log('[LBW ATTACH S3] LBWID:', lbwId);
-    console.log('[LBW ATTACH S3] File:', file?.name, 'Size:', file?.size, 'bytes');
-    console.log('[LBW ATTACH S3] Drawings length:', drawings?.length || 0);
-    console.log('[LBW ATTACH S3] Caption:', annotation || '(none)');
 
     // VALIDATION: Reject empty or invalid files
     if (!file || file.size === 0) {
@@ -2592,7 +2457,6 @@ export class CaspioService {
     const MAX_SIZE_MB = 1; // 1MB max to stay under API Gateway limits
 
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-      console.log(`[LBW ATTACH S3] File too large (${(file.size / 1024 / 1024).toFixed(2)}MB), compressing...`);
       try {
         const compressedBlob = await this.imageCompression.compressImage(file, {
           maxSizeMB: MAX_SIZE_MB,
@@ -2600,7 +2464,6 @@ export class CaspioService {
           useWebWorker: true
         });
         fileToUpload = new File([compressedBlob], file.name, { type: compressedBlob.type || 'image/jpeg' });
-        console.log(`[LBW ATTACH S3] Compressed: ${(file.size / 1024 / 1024).toFixed(2)}MB -> ${(fileToUpload.size / 1024 / 1024).toFixed(2)}MB`);
       } catch (compressErr) {
         console.warn('[LBW ATTACH S3] Compression failed, using original:', compressErr);
         // Continue with original file - may fail with 413 but worth trying
@@ -2642,7 +2505,6 @@ export class CaspioService {
           formData.append('tableName', 'LPS_Services_LBW_Attach');
           formData.append('attachId', tempAttachId);
 
-          console.log(`[LBW ATTACH S3] Uploading (attempt ${attempt}/${MAX_S3_RETRIES}), size: ${(fileToUpload.size / 1024 / 1024).toFixed(2)}MB`);
 
           const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
 
@@ -2659,7 +2521,6 @@ export class CaspioService {
             throw new Error('S3 upload succeeded but no s3Key returned');
           }
 
-          console.log(`[LBW ATTACH S3] ✅ S3 upload complete (attempt ${attempt}), key:`, s3Key);
           break; // Success - exit retry loop
 
         } catch (err: any) {
@@ -2668,7 +2529,6 @@ export class CaspioService {
 
           if (attempt < MAX_S3_RETRIES) {
             const delayMs = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
-            console.log(`[LBW ATTACH S3] Retrying in ${delayMs}ms...`);
             await new Promise(resolve => setTimeout(resolve, delayMs));
           }
         }
@@ -2683,7 +2543,6 @@ export class CaspioService {
       // Step 2: Create the Caspio record WITH the Attachment field populated
       recordData.Attachment = s3Key;  // CRITICAL: Include Attachment in initial creation
 
-      console.log('[LBW ATTACH S3] Step 2: Creating Caspio record with Attachment...');
       const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?response=rows`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
@@ -2703,8 +2562,6 @@ export class CaspioService {
         throw new Error('Failed to get AttachID from record creation response');
       }
 
-      console.log('[LBW ATTACH S3] ✅ Created record AttachID:', attachId, 'with Attachment:', s3Key);
-      console.log('[LBW ATTACH S3] ✅ Complete! (Atomic - no orphaned records)');
       return { Result: [{ AttachID: attachId, LBWID: lbwId, Annotation: annotation, Attachment: s3Key, Drawings: recordData.Drawings || '' }], AttachID: attachId, Attachment: s3Key };
     } catch (error: any) {
       console.error('[LBW ATTACH S3] ❌ Failed:', error?.message || error);
@@ -2713,11 +2570,6 @@ export class CaspioService {
   }
 
   async uploadVisualsAttachWithS3(visualId: number, drawingsData: string, file: File, caption?: string): Promise<any> {
-    console.log('[VISUALS ATTACH S3] ========== Starting S3 Upload (Atomic) ==========');
-    console.log('[VISUALS ATTACH S3] VisualID:', visualId);
-    console.log('[VISUALS ATTACH S3] File:', file?.name, 'Size:', file?.size, 'bytes');
-    console.log('[VISUALS ATTACH S3] Drawings length:', drawingsData?.length || 0);
-    console.log('[VISUALS ATTACH S3] Caption:', caption || '(none)');
 
     // VALIDATION: Reject empty or invalid files
     if (!file || file.size === 0) {
@@ -2731,7 +2583,6 @@ export class CaspioService {
     const MAX_SIZE_MB = 1; // 1MB max to stay under API Gateway limits
 
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-      console.log(`[VISUALS ATTACH S3] File too large (${(file.size / 1024 / 1024).toFixed(2)}MB), compressing...`);
       try {
         const compressedBlob = await this.imageCompression.compressImage(file, {
           maxSizeMB: MAX_SIZE_MB,
@@ -2739,7 +2590,6 @@ export class CaspioService {
           useWebWorker: true
         });
         fileToUpload = new File([compressedBlob], file.name, { type: compressedBlob.type || 'image/jpeg' });
-        console.log(`[VISUALS ATTACH S3] Compressed: ${(file.size / 1024 / 1024).toFixed(2)}MB -> ${(fileToUpload.size / 1024 / 1024).toFixed(2)}MB`);
       } catch (compressErr) {
         console.warn('[VISUALS ATTACH S3] Compression failed, using original:', compressErr);
         // Continue with original file - may fail with 413 but worth trying
@@ -2783,7 +2633,6 @@ export class CaspioService {
           formData.append('tableName', 'LPS_Services_Visuals_Attach');
           formData.append('attachId', tempAttachId);
 
-          console.log(`[VISUALS ATTACH S3] Uploading (attempt ${attempt}/${MAX_S3_RETRIES}), size: ${(fileToUpload.size / 1024 / 1024).toFixed(2)}MB`);
 
           const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
 
@@ -2800,7 +2649,6 @@ export class CaspioService {
             throw new Error('S3 upload succeeded but no s3Key returned');
           }
 
-          console.log(`[VISUALS ATTACH S3] ✅ S3 upload complete (attempt ${attempt}), key:`, s3Key);
           break; // Success - exit retry loop
 
         } catch (err: any) {
@@ -2809,7 +2657,6 @@ export class CaspioService {
 
           if (attempt < MAX_S3_RETRIES) {
             const delayMs = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
-            console.log(`[VISUALS ATTACH S3] Retrying in ${delayMs}ms...`);
             await new Promise(resolve => setTimeout(resolve, delayMs));
           }
         }
@@ -2825,7 +2672,6 @@ export class CaspioService {
       // This ensures we NEVER create a record without an Attachment
       recordData.Attachment = s3Key;  // CRITICAL: Include Attachment in initial creation
 
-      console.log('[VISUALS ATTACH S3] Step 2: Creating Caspio record with Attachment...');
       const recordResponse = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?response=rows`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2845,9 +2691,7 @@ export class CaspioService {
         throw new Error('Failed to get AttachID from record creation response');
       }
 
-      console.log('[VISUALS ATTACH S3] ✅ Created record AttachID:', attachId, 'with Attachment:', s3Key);
 
-      console.log('[VISUALS ATTACH S3] ✅ Complete! (Atomic - no orphaned records)');
       // Return result with all fields
       return {
         Result: [{
@@ -2868,7 +2712,6 @@ export class CaspioService {
   }
 
   private async uploadDTEAttachWithS3(dteId: number, annotation: string, file: File, drawings?: string): Promise<any> {
-    console.log('[DTE ATTACH S3] ========== Starting S3 Upload (Atomic) ==========');
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
 
@@ -2894,7 +2737,6 @@ export class CaspioService {
       formData.append('tableName', 'LPS_Services_DTE_Attach');
       formData.append('attachId', tempAttachId);
 
-      console.log('[DTE ATTACH S3] Step 1: Uploading to S3 FIRST...');
       const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
       if (!uploadResponse.ok) {
         const errorText = await uploadResponse.text();
@@ -2902,12 +2744,10 @@ export class CaspioService {
         throw new Error('S3 upload failed');
       }
       const { s3Key } = await uploadResponse.json();
-      console.log('[DTE ATTACH S3] ✅ S3 upload complete, key:', s3Key);
 
       // Step 2: Create the Caspio record WITH the Attachment field populated
       recordData.Attachment = s3Key;  // CRITICAL: Include Attachment in initial creation
 
-      console.log('[DTE ATTACH S3] Step 2: Creating Caspio record with Attachment...');
       const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_DTE_Attach/records?response=rows`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
@@ -2925,8 +2765,6 @@ export class CaspioService {
         throw new Error('Failed to get AttachID from record creation response');
       }
 
-      console.log('[DTE ATTACH S3] ✅ Created record AttachID:', attachId, 'with Attachment:', s3Key);
-      console.log('[DTE ATTACH S3] ✅ Complete! (Atomic - no orphaned records)');
       return { Result: [{ AttachID: attachId, DTEID: dteId, Annotation: annotation, Attachment: s3Key, Drawings: recordData.Drawings || '' }], AttachID: attachId, Attachment: s3Key };
     } catch (error) {
       console.error('[DTE ATTACH S3] ❌ Failed:', error);
@@ -2942,7 +2780,6 @@ export class CaspioService {
     return this.post<any>('/tables/LPS_Services_LBW/records?response=rows', lbwData).pipe(
       tap(response => {
         if (response && response.Result && response.Result.length > 0) {
-          console.log('✅ LBW record created:', response.Result[0]);
         }
       }),
       catchError(error => {
@@ -3030,17 +2867,6 @@ export class CaspioService {
   // Private helper methods for LBW file uploads
   private async uploadLBWAttachWithFilesAPI(lbwId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Promise<any> {
     // Use same 2-step approach as HUD but for LBW table
-    console.log('[LBW ATTACH] ========== Starting LBW Attach Upload (2-Step) ==========');
-    console.log('[LBW ATTACH] Parameters:', {
-      lbwId,
-      annotation: annotation || '(empty)',
-      fileName: file.name,
-      fileSize: `${(file.size / 1024).toFixed(2)} KB`,
-      fileType: file.type,
-      hasDrawings: !!drawings,
-      drawingsLength: drawings?.length || 0,
-      hasOriginalFile: !!originalFile
-    });
     
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
@@ -3050,7 +2876,6 @@ export class CaspioService {
 
       // STEP 1A: If we have an original file (before annotation), upload it first
       if (originalFile && drawings) {
-        console.log('[LBW ATTACH] Step 1A: Uploading original file to Files API...');
         const originalFormData = new FormData();
         const timestamp = Date.now();
         const randomId = Math.random().toString(36).substring(2, 8);
@@ -3069,7 +2894,6 @@ export class CaspioService {
         if (originalUploadResponse.ok) {
           const originalUploadResult = await originalUploadResponse.json();
           originalFilePath = `/${originalUploadResult.Name || originalFileName}`;
-          console.log('[LBW ATTACH] ✅ Original file uploaded:', originalFilePath);
         } else {
           const errorText = await originalUploadResponse.text();
           console.error('[LBW ATTACH] ❌ Original file upload failed:', errorText);
@@ -3083,7 +2907,6 @@ export class CaspioService {
       const fileExt = file.name.split('.').pop() || 'jpg';
       const uniqueFilename = `lbw_${lbwId}_${timestamp}_${randomId}.${fileExt}`;
 
-      console.log('[LBW ATTACH] Step 1: Uploading to Files API as:', uniqueFilename);
       
       const formData = new FormData();
       formData.append('file', file, uniqueFilename);
@@ -3104,10 +2927,8 @@ export class CaspioService {
 
       const uploadResult = await uploadResponse.json();
       filePath = `/${uploadResult.Name || uniqueFilename}`;
-      console.log('[LBW ATTACH] ✅ File uploaded to Files API:', filePath);
 
       // STEP 2: Create Services_LBW_Attach record with LBWID and Photo path
-      console.log('[LBW ATTACH] Step 2: Creating Services_LBW_Attach record...');
       
       const recordData = {
         LBWID: lbwId,
@@ -3116,7 +2937,6 @@ export class CaspioService {
         Drawings: drawings || ''
       };
 
-      console.log('[LBW ATTACH] Record data:', recordData);
 
       const createResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?response=rows`, {
         method: 'POST',
@@ -3134,7 +2954,6 @@ export class CaspioService {
       }
 
       const createResult = await createResponse.json();
-      console.log('[LBW ATTACH] ✅ Record created:', createResult);
 
       const finalRecord = createResult.Result && createResult.Result.length > 0 
         ? createResult.Result[0] 
@@ -3295,7 +3114,6 @@ export class CaspioService {
     return this.post<any>('/tables/LPS_Services_DTE/records?response=rows', dteData).pipe(
       tap(response => {
         if (response && response.Result && response.Result.length > 0) {
-          console.log('✅ DTE record created:', response.Result[0]);
         }
       }),
       map(response => {
@@ -3334,13 +3152,9 @@ export class CaspioService {
   getServicesDTEById(dteId: string): Observable<any> {
     // Add timestamp to bust any HTTP/CDN caching
     const cacheBuster = Date.now();
-    console.log(`[CaspioService] getServicesDTEById called with DTEID=${dteId}, cacheBuster=${cacheBuster}`);
     return this.get<any>(`/tables/LPS_Services_DTE/records?q.where=DTEID=${dteId}&_cb=${cacheBuster}`, false).pipe(
       tap(response => {
-        console.log(`[CaspioService] getServicesDTEById RAW response:`, JSON.stringify(response));
-        console.log(`[CaspioService] getServicesDTEById Result array length:`, response?.Result?.length || 0);
         if (response?.Result?.[0]) {
-          console.log(`[CaspioService] getServicesDTEById record - DTEID:${response.Result[0].DTEID}, Name:${response.Result[0].Name}, Text:${response.Result[0].Text?.substring(0, 50)}`);
         }
       }),
       map(response => response.Result?.[0] || null)
@@ -3408,17 +3222,6 @@ export class CaspioService {
 
   // Private helper methods for DTE file uploads
   private async uploadDTEAttachWithFilesAPI(dteId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Promise<any> {
-    console.log('[DTE ATTACH] ========== Starting DTE Attach Upload (2-Step) ==========');
-    console.log('[DTE ATTACH] Parameters:', {
-      dteId,
-      annotation: annotation || '(empty)',
-      fileName: file.name,
-      fileSize: `${(file.size / 1024).toFixed(2)} KB`,
-      fileType: file.type,
-      hasDrawings: !!drawings,
-      drawingsLength: drawings?.length || 0,
-      hasOriginalFile: !!originalFile
-    });
     
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
@@ -3428,7 +3231,6 @@ export class CaspioService {
 
       // STEP 1A: If we have an original file (before annotation), upload it first
       if (originalFile && drawings) {
-        console.log('[DTE ATTACH] Step 1A: Uploading original file to Files API...');
         const originalFormData = new FormData();
         const timestamp = Date.now();
         const randomId = Math.random().toString(36).substring(2, 8);
@@ -3447,7 +3249,6 @@ export class CaspioService {
         if (originalUploadResponse.ok) {
           const originalUploadResult = await originalUploadResponse.json();
           originalFilePath = `/${originalUploadResult.Name || originalFileName}`;
-          console.log('[DTE ATTACH] ✅ Original file uploaded:', originalFilePath);
         } else {
           const errorText = await originalUploadResponse.text();
           console.error('[DTE ATTACH] ❌ Original file upload failed:', errorText);
@@ -3458,10 +3259,8 @@ export class CaspioService {
       let filePath = '';
 
       if (originalFilePath) {
-        console.log('[DTE ATTACH] Using original file path:', originalFilePath);
         filePath = originalFilePath;
       } else {
-        console.log('[DTE ATTACH] Step 1B: Uploading main file to Files API...');
         const timestamp = Date.now();
         const randomId = Math.random().toString(36).substring(2, 8);
         const fileExt = file.name.split('.').pop() || 'jpg';
@@ -3471,7 +3270,6 @@ export class CaspioService {
         formData.append('file', file, uniqueFilename);
 
         const filesUrl = `${API_BASE_URL}/files`;
-        console.log('[DTE ATTACH] Uploading to:', filesUrl);
 
         const uploadResponse = await fetch(filesUrl, {
           method: 'PUT',
@@ -3481,7 +3279,6 @@ export class CaspioService {
           body: formData
         });
 
-        console.log('[DTE ATTACH] Files API response:', uploadResponse.status, uploadResponse.statusText);
 
         if (!uploadResponse.ok) {
           const errorText = await uploadResponse.text();
@@ -3490,14 +3287,11 @@ export class CaspioService {
         }
 
         const uploadResult = await uploadResponse.json();
-        console.log('[DTE ATTACH] ✅ Files API upload result:', uploadResult);
 
         filePath = `/${uploadResult.Name || uniqueFilename}`;
-        console.log('[DTE ATTACH] ✅ File uploaded successfully. Path:', filePath);
       }
 
       // STEP 2: Create the DTE attach record with all data
-      console.log('[DTE ATTACH] Step 2: Creating DTE attach record...');
       const token = await firstValueFrom(this.getValidToken());
       
       const payload = {
@@ -3507,7 +3301,6 @@ export class CaspioService {
         Drawings: drawings || ''
       };
 
-      console.log('[DTE ATTACH] Payload:', payload);
 
       const createRecordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_DTE_Attach/records?response=rows`, {
         method: 'POST',
@@ -3518,7 +3311,6 @@ export class CaspioService {
         body: JSON.stringify(payload)
       });
 
-      console.log('[DTE ATTACH] Create record response status:', createRecordResponse.status);
 
       if (!createRecordResponse.ok) {
         const errorText = await createRecordResponse.text();
@@ -3527,8 +3319,6 @@ export class CaspioService {
       }
 
       const result = await createRecordResponse.json();
-      console.log('[DTE ATTACH] ✅ DTE attach record created successfully');
-      console.log('[DTE ATTACH] Final result:', JSON.stringify(result, null, 2));
       
       return result;
     } catch (error: any) {
@@ -3682,7 +3472,6 @@ export class CaspioService {
     return this.post<any>('/tables/LPS_Services_CSA/records?response=rows', csaData).pipe(
       tap(response => {
         if (response && response.Result && response.Result.length > 0) {
-          console.log('✅ CSA record created:', response.Result[0]);
         }
       }),
       map(response => {
@@ -3721,13 +3510,9 @@ export class CaspioService {
   getServicesCSAById(csaId: string): Observable<any> {
     // Add timestamp to bust any HTTP/CDN caching
     const cacheBuster = Date.now();
-    console.log(`[CaspioService] getServicesCSAById called with CSAID=${csaId}, cacheBuster=${cacheBuster}`);
     return this.get<any>(`/tables/LPS_Services_CSA/records?q.where=CSAID=${csaId}&_cb=${cacheBuster}`, false).pipe(
       tap(response => {
-        console.log(`[CaspioService] getServicesCSAById RAW response:`, JSON.stringify(response));
-        console.log(`[CaspioService] getServicesCSAById Result array length:`, response?.Result?.length || 0);
         if (response?.Result?.[0]) {
-          console.log(`[CaspioService] getServicesCSAById record - CSAID:${response.Result[0].CSAID}, Name:${response.Result[0].Name}, Text:${response.Result[0].Text?.substring(0, 50)}`);
         }
       }),
       map(response => response.Result?.[0] || null)
@@ -3768,11 +3553,6 @@ export class CaspioService {
   }
 
   private async uploadCSAAttachWithS3(csaId: number, annotation: string, file: File, drawings?: string): Promise<any> {
-    console.log('[CSA ATTACH S3] ========== Starting S3 Upload (Atomic) ==========');
-    console.log('[CSA ATTACH S3] CSAID:', csaId);
-    console.log('[CSA ATTACH S3] File:', file?.name, 'Size:', file?.size, 'bytes');
-    console.log('[CSA ATTACH S3] Drawings length:', drawings?.length || 0);
-    console.log('[CSA ATTACH S3] Caption:', annotation || '(none)');
 
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
@@ -3799,7 +3579,6 @@ export class CaspioService {
       formData.append('tableName', 'LPS_Services_CSA_Attach');
       formData.append('attachId', tempAttachId);
 
-      console.log('[CSA ATTACH S3] Step 1: Uploading to S3 FIRST...');
 
       const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
       if (!uploadResponse.ok) {
@@ -3808,12 +3587,10 @@ export class CaspioService {
         throw new Error('S3 upload failed');
       }
       const { s3Key } = await uploadResponse.json();
-      console.log('[CSA ATTACH S3] ✅ S3 upload complete, key:', s3Key);
 
       // Step 2: Create the Caspio record WITH the Attachment field populated
       recordData.Attachment = s3Key;  // CRITICAL: Include Attachment in initial creation
 
-      console.log('[CSA ATTACH S3] Step 2: Creating Caspio record with Attachment...');
 
       const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
       const recordResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_CSA_Attach/records?response=rows`, {
@@ -3833,8 +3610,6 @@ export class CaspioService {
         throw new Error('Failed to get AttachID from record creation response');
       }
 
-      console.log('[CSA ATTACH S3] ✅ Created record AttachID:', attachId, 'with Attachment:', s3Key);
-      console.log('[CSA ATTACH S3] ✅ Complete! (Atomic - no orphaned records)');
 
       // Return result with all fields
       return {
@@ -3933,17 +3708,10 @@ export class CaspioService {
       return throwError(() => new Error(`Invalid AttachID: ${attachId}`));
     }
     
-    console.log('[CaspioService] updateServicesVisualsAttach called:', {
-      attachId: attachIdNum,
-      dataKeys: Object.keys(data),
-      annotationLength: data.Annotation?.length || 0,
-      drawingsLength: data.Drawings?.length || 0
-    });
     
     const url = `/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachIdNum}`;
     return this.put<any>(url, data).pipe(
       tap(response => {
-        console.log('[CaspioService] Annotation update successful for AttachID:', attachIdNum, response);
       }),
       catchError(error => {
         console.error('[CaspioService] Annotation update FAILED for AttachID:', attachIdNum, error);
@@ -4218,10 +3986,6 @@ export class CaspioService {
             })))
           : [filePath.startsWith('/') ? filePath : `/${filePath}`];
 
-        console.log(`📥 [Files API] Starting icon fetch for: "${filePath}"`);
-        console.log(`   Is just filename: ${isJustFilename}`);
-        console.log(`   Generated ${filenameVariants.length} filename variant(s)`);
-        console.log(`   Will try ${pathsToTry.length} path(s):`, pathsToTry);
 
         // Try each path in sequence
         const tryNextPath = (index: number): void => {
@@ -4235,7 +3999,6 @@ export class CaspioService {
 
           const cleanPath = pathsToTry[index];
           const fullUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`;
-          console.log(`📥 [Files API] Attempt ${index + 1}/${pathsToTry.length}: "${cleanPath}"`);
 
           fetch(fullUrl, {
             method: 'GET',
@@ -4251,7 +4014,6 @@ export class CaspioService {
               tryNextPath(index + 1);
               return null;
             }
-            console.log(`✅ [Files API] Success on attempt ${index + 1}: "${cleanPath}"`);
             return response.blob();
           })
           .then(blob => {
@@ -4810,9 +4572,8 @@ export class CaspioService {
   updateProject(projectId: string | number, updateData: any): Observable<any> {
     // Note: Use PK_ID for updates (matches mobile app pattern)
     const endpoint = `/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`;
-    console.log('[CaspioService] updateProject called with:', { projectId, updateData, endpoint });
     return this.put<any>(endpoint, updateData).pipe(
-      tap(response => console.log('[CaspioService] updateProject success:', response)),
+      tap(() => {}),
       catchError(error => {
         console.error('[CaspioService] updateProject failed:', { projectId, endpoint, error });
         throw error;
@@ -4840,16 +4601,9 @@ export class CaspioService {
   }
 
   updateServiceByServiceId(serviceId: string, updateData: any): Observable<any> {
-    console.log('[CaspioService.updateServiceByServiceId] Request details:', {
-      serviceId,
-      updateData,
-      url: `/tables/LPS_Services/records?q.where=ServiceID=${serviceId}`
-    });
     
     return this.put<any>(`/tables/LPS_Services/records?q.where=ServiceID=${serviceId}`, updateData).pipe(
       tap(response => {
-        console.log('✓ [CaspioService.updateServiceByServiceId] Service updated successfully');
-        console.log('[CaspioService.updateServiceByServiceId] Response:', response);
       }),
       catchError(error => {
         console.error('? [CaspioService.updateServiceByServiceId] Failed to update service:', error);
@@ -4876,18 +4630,14 @@ export class CaspioService {
         : serviceIdPrefix;
     }
 
-    console.log('[CaspioService.createAttachment] Creating attachment with data:', dataToSend);
 
     // Use response=rows to get the created record back immediately
     return this.post<any>('/tables/LPS_Attach/records?response=rows', dataToSend).pipe(
       map(response => {
-        console.log('[CaspioService.createAttachment] Raw response:', response);
         // With response=rows, Caspio returns {"Result": [{created record}]}
         if (response && response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
-          console.log('[CaspioService.createAttachment] Returning created record:', response.Result[0]);
           return response.Result[0]; // Return the created attachment record
         }
-        console.log('[CaspioService.createAttachment] No Result array, returning raw response');
         return response; // Fallback to original response
       }),
       catchError(error => {
@@ -4924,7 +4674,6 @@ export class CaspioService {
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
 
-    console.log('[Versioning] Starting duplicate check:', { projectId, typeId, baseTitle, serviceId });
 
     try {
       // Build query to get existing documents with same ProjectID and TypeID
@@ -4952,8 +4701,6 @@ export class CaspioService {
 
       const data = await response.json();
       const existingAttachments = data.Result || [];
-      console.log('[Versioning] Found existing attachments:', existingAttachments.length);
-      console.log('[Versioning] All attachment titles:', existingAttachments.map((a: any) => a.Title));
 
       // Filter attachments for this specific service instance if serviceId provided
       const relevantAttachments = existingAttachments.filter((a: any) => {
@@ -4972,8 +4719,6 @@ export class CaspioService {
         return true;
       });
 
-      console.log('[Versioning] Relevant attachments after filtering by serviceId:', relevantAttachments.length);
-      console.log('[Versioning] Relevant attachment titles:', relevantAttachments.map((a: any) => a.Title));
 
       // Find all documents with titles matching the base title or versioned variants
       const baseTitleLower = baseTitle.toLowerCase();
@@ -4986,11 +4731,9 @@ export class CaspioService {
                  titleLower.match(new RegExp(`^${baseTitleLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} #\\d+$`));
         });
 
-      console.log('[Versioning] Matching titles found:', existingTitles);
 
       // If no duplicates, return original title
       if (existingTitles.length === 0) {
-        console.log('[Versioning] No duplicates found, returning original title:', baseTitle);
         return baseTitle;
       }
 
@@ -5009,7 +4752,6 @@ export class CaspioService {
       // Return title with next version number
       const nextVersion = maxVersion + 1;
       const versionedTitle = `${baseTitle} #${nextVersion}`;
-      console.log('[Versioning] Returning versioned title:', versionedTitle);
       return versionedTitle;
 
     } catch (error) {
@@ -5050,8 +4792,6 @@ export class CaspioService {
 
       // Check for duplicate document titles and add versioning (#2, #3, etc.)
       const versionedTitle = await this.getVersionedDocumentTitle(projectId, typeId, title || file.name, serviceId);
-      console.log('[Upload] Original title:', title || file.name);
-      console.log('[Upload] Versioned title to save:', versionedTitle);
 
       // The file path for the Attachment field (use root path or folder path)
       const filePath = `/${uploadResult.Name || file.name}`;
@@ -5064,7 +4804,6 @@ export class CaspioService {
         Attachment: filePath  // Store the file path from Files API
       };
 
-      console.log('[Upload] Record data being saved:', JSON.stringify(recordData, null, 2));
 
       // Store ServiceID in Notes field with special format to tie document to specific service instance
       if (serviceId) {
@@ -5102,7 +4841,6 @@ export class CaspioService {
       
       // CRITICAL: Clear attachments cache so UI shows new document immediately
       this.clearAttachmentsCache(String(projectId));
-      console.log('[Upload] Cleared attachments cache for project:', projectId);
 
       return {
         ...createResult,
@@ -5193,7 +4931,6 @@ export class CaspioService {
 
       // CRITICAL: Clear attachments cache so UI shows updated document immediately
       this.clearAttachmentsCache();
-      console.log('[Upload] Cleared attachments cache after file replacement for attachId:', attachId);
 
       return { success: true, attachId, fileName: file.name, filePath };
 
@@ -5216,7 +4953,6 @@ export class CaspioService {
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
 
-    console.log('[getFileFromPath] Starting with path:', filePath);
 
     return new Observable(observer => {
       // Ensure file path starts with /
@@ -5224,11 +4960,9 @@ export class CaspioService {
         filePath = '/' + filePath;
       }
 
-      console.log('[getFileFromPath] Normalized path:', filePath);
 
       // Use the /files/path endpoint
       const fileUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(filePath)}`;
-      console.log('[getFileFromPath] Fetching from URL:', fileUrl);
 
       fetch(fileUrl, {
         method: 'GET',
@@ -5238,11 +4972,6 @@ export class CaspioService {
         }
       })
       .then(async fileResponse => {
-        console.log('[getFileFromPath] Response status:', fileResponse.status);
-        console.log('[getFileFromPath] Response headers:', {
-          contentType: fileResponse.headers.get('content-type'),
-          contentLength: fileResponse.headers.get('content-length')
-        });
 
         if (!fileResponse.ok) {
           const errorText = await fileResponse.text();
@@ -5252,10 +4981,6 @@ export class CaspioService {
 
         // Get the blob
         let blob = await fileResponse.blob();
-        console.log('[getFileFromPath] Blob received:', {
-          size: blob.size,
-          type: blob.type
-        });
 
         // Detect MIME type from filename
         let mimeType = blob.type;
@@ -5268,7 +4993,6 @@ export class CaspioService {
             mimeType = 'image/jpeg';
           }
 
-          console.log('[getFileFromPath] Detected MIME type:', mimeType);
 
           // Create new blob with correct MIME type
           if (mimeType !== blob.type) {
@@ -5278,11 +5002,9 @@ export class CaspioService {
 
         // For PDFs, convert to base64 data URL
         if (mimeType === 'application/pdf') {
-          console.log('[getFileFromPath] Converting PDF to data URL');
           const reader = new FileReader();
           reader.onloadend = () => {
             const dataUrl = reader.result as string;
-            console.log('[getFileFromPath] Data URL created, length:', dataUrl.length);
             observer.next({
               url: dataUrl,
               type: mimeType,
@@ -5298,7 +5020,6 @@ export class CaspioService {
         } else {
           // For other files, create object URL
           const objectUrl = URL.createObjectURL(blob);
-          console.log('[getFileFromPath] Object URL created:', objectUrl);
           observer.next({
             url: objectUrl,
             type: mimeType,
@@ -5975,11 +5696,9 @@ export class CaspioService {
     const tableName = this.extractTableName(endpoint);
     
     if (!tableName) {
-      console.log(`[CaspioService] No table name found in endpoint: ${endpoint}`);
       return;
     }
 
-    console.log(`[CaspioService] Cache invalidation triggered: ${operation} on table ${tableName}`);
     
     // Clear cache for this specific table
     this.cache.clearTableCache(tableName);
@@ -6011,7 +5730,6 @@ export class CaspioService {
    */
   public clearPendingRequests(): void {
     this.pendingRequests.clear();
-    console.log('🧹 Cleared all pending requests');
   }
 
   /**
@@ -6027,7 +5745,6 @@ export class CaspioService {
    * @param projectId Optional - if provided, clears Services cache for specific project
    */
   public clearServicesCache(projectId?: string): void {
-    console.log('[CaspioService] Clearing Services-related cache entries', projectId ? `for project: ${projectId}` : '');
     
     // Clear Services-related template caches
     this.cache.clearByPattern('LPS_Services_Visuals');
@@ -6040,7 +5757,6 @@ export class CaspioService {
       const endpoint = `/tables/LPS_Services/records?q.where=ProjectID=${projectId}`;
       const cacheKey = this.cache.getApiCacheKey(endpoint, null);
       this.cache.clear(cacheKey);
-      console.log('🗑️ Cleared Services table cache for project:', projectId);
     }
   }
 
@@ -6050,7 +5766,6 @@ export class CaspioService {
    * @param projectId Optional - if provided, clears Attach cache for specific project
    */
   public clearAttachmentsCache(projectId?: string): void {
-    console.log('[CaspioService] Clearing Attachments cache entries', projectId ? `for project: ${projectId}` : '');
     this.cache.clearByPattern('LPS_Attach/records');
     
     // Clear the main Attach table cache for specific project if provided
@@ -6058,7 +5773,6 @@ export class CaspioService {
       const endpoint = `/tables/LPS_Attach/records?q.where=ProjectID=${projectId}`;
       const cacheKey = this.cache.getApiCacheKey(endpoint, null);
       this.cache.clear(cacheKey);
-      console.log('🗑️ Cleared Attach table cache for project:', projectId);
     }
   }
 
@@ -6124,7 +5838,6 @@ export class CaspioService {
       Status: 'Paid'
     }).pipe(
       tap(response => {
-        console.log('[Payment] Invoice updated with payment details');
         this.clearInvoicesCache();
       }),
       catchError(error => {
@@ -6138,7 +5851,6 @@ export class CaspioService {
    * Clear invoices cache
    */
   public clearInvoicesCache(): void {
-    console.log('[CaspioService] Clearing Invoices cache entries');
     this.cache.clearByPattern('LPS_Invoices/records');
   }
 
@@ -6151,10 +5863,8 @@ export class CaspioService {
    * @param companyId The company ID to process autopay for
    */
   triggerAutopay(companyId: number): Observable<any> {
-    console.log('[Autopay] Triggering autopay for company:', companyId);
     return this.http.post(`${environment.apiGatewayUrl}/api/autopay/trigger`, { companyId }).pipe(
       tap(response => {
-        console.log('[Autopay] Autopay triggered successfully:', response);
         this.clearInvoicesCache();
       }),
       catchError(error => {
@@ -6174,7 +5884,6 @@ export class CaspioService {
     payerId: string;
     payerEmail: string;
   }): Observable<any> {
-    console.log('[Autopay] Saving payment method for company:', companyId);
     return this.put(`/tables/LPS_Companies/records?q.where=CompanyID=${companyId}`, {
       PayPalVaultToken: vaultData.vaultToken,
       PayPalPayerID: vaultData.payerId,
@@ -6187,7 +5896,6 @@ export class CaspioService {
    * @param companyId Company ID
    */
   removePaymentMethod(companyId: number): Observable<any> {
-    console.log('[Autopay] Removing payment method for company:', companyId);
     return this.put(`/tables/LPS_Companies/records?q.where=CompanyID=${companyId}`, {
       PayPalVaultToken: null,
       PayPalPayerID: null,
@@ -6203,13 +5911,11 @@ export class CaspioService {
    * @returns Order ID
    */
   createPayPalOrderWithVault(amount: string, description: string): Observable<{ orderId: string }> {
-    console.log('[PayPal] Creating order with vault:', amount);
     return this.http.post<{ success: boolean; orderId: string }>(
       `${environment.apiGatewayUrl}/api/paypal/create-order`,
       { amount, description, returnUrl: window.location.href }
     ).pipe(
       tap(response => {
-        console.log('[PayPal] Order created:', response.orderId);
       }),
       catchError(error => {
         console.error('[PayPal] Failed to create order:', error);
@@ -6230,7 +5936,6 @@ export class CaspioService {
     payerId: string;
     payerEmail: string;
   }> {
-    console.log('[PayPal] Capturing order:', orderId);
     return this.http.post<{
       success: boolean;
       orderId: string;
@@ -6243,7 +5948,6 @@ export class CaspioService {
       { orderId }
     ).pipe(
       tap(response => {
-        console.log('[PayPal] Order captured:', response);
       }),
       catchError(error => {
         console.error('[PayPal] Failed to capture order:', error);
@@ -6257,13 +5961,11 @@ export class CaspioService {
    * @returns Setup token ID and approval URL
    */
   createVaultSetupToken(): Observable<{ setupTokenId: string; approvalUrl: string }> {
-    console.log('[PayPal] Creating vault setup token');
     return this.http.post<{ success: boolean; setupTokenId: string; approvalUrl: string }>(
       `${environment.apiGatewayUrl}/api/paypal/setup-token`,
       {}
     ).pipe(
       tap(response => {
-        console.log('[PayPal] Vault setup token created:', response.setupTokenId);
       }),
       catchError(error => {
         console.error('[PayPal] Failed to create vault setup token:', error);
@@ -6282,7 +5984,6 @@ export class CaspioService {
     payerId: string;
     payerEmail: string;
   }> {
-    console.log('[PayPal] Creating payment token from setup:', setupTokenId);
     return this.http.post<{
       success: boolean;
       paymentTokenId: string;
@@ -6293,7 +5994,6 @@ export class CaspioService {
       { setupTokenId }
     ).pipe(
       tap(response => {
-        console.log('[PayPal] Payment token created:', response.paymentTokenId);
       }),
       catchError(error => {
         console.error('[PayPal] Failed to create payment token:', error);
@@ -6317,7 +6017,6 @@ export class CaspioService {
     customerId: string;
     email?: string;
   }> {
-    console.log('[Stripe] Creating/getting customer for company:', companyId);
     return this.http.post<{
       success: boolean;
       customerId: string;
@@ -6327,7 +6026,6 @@ export class CaspioService {
       { companyId, companyName, email }
     ).pipe(
       tap(response => {
-        console.log('[Stripe] Customer ID:', response.customerId);
       }),
       catchError(error => {
         console.error('[Stripe] Failed to create customer:', error);
@@ -6345,7 +6043,6 @@ export class CaspioService {
     clientSecret: string;
     sessionId: string;
   }> {
-    console.log('[Stripe] Creating FC session for customer:', customerId);
     return this.http.post<{
       success: boolean;
       clientSecret: string;
@@ -6355,7 +6052,6 @@ export class CaspioService {
       { customerId }
     ).pipe(
       tap(response => {
-        console.log('[Stripe] FC session created:', response.sessionId);
       }),
       catchError(error => {
         console.error('[Stripe] Failed to create FC session:', error);
@@ -6375,7 +6071,6 @@ export class CaspioService {
     bankName: string;
     last4: string;
   }> {
-    console.log('[Stripe] Linking bank account:', accountId);
     return this.http.post<{
       success: boolean;
       paymentMethodId: string;
@@ -6386,7 +6081,6 @@ export class CaspioService {
       { customerId, accountId }
     ).pipe(
       tap(response => {
-        console.log('[Stripe] Bank linked:', response.bankName, '****' + response.last4);
       }),
       catchError(error => {
         console.error('[Stripe] Failed to link bank:', error);
@@ -6400,13 +6094,11 @@ export class CaspioService {
    * @param paymentMethodId Payment method ID to remove
    */
   removeStripePaymentMethod(paymentMethodId: string): Observable<{ success: boolean }> {
-    console.log('[Stripe] Removing payment method:', paymentMethodId);
     return this.http.post<{ success: boolean; message: string }>(
       `${environment.apiGatewayUrl}/api/stripe/remove-payment-method`,
       { paymentMethodId }
     ).pipe(
       tap(response => {
-        console.log('[Stripe] Payment method removed');
       }),
       catchError(error => {
         console.error('[Stripe] Failed to remove payment method:', error);

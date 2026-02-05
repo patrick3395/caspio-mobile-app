@@ -11,7 +11,7 @@
   <div class="white-container">
     <div class="cards-container">
       <ion-card
-        *ngFor="let card of cards"
+        *ngFor="let card of cards; trackBy: trackByCardRoute"
         class="navigation-card"
         [class.completed]="card.completed"
         button="true"

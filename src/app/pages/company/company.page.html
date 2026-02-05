@@ -1396,13 +1396,18 @@
                   <td>{{ offer.typeName }}</td>
                   <td class="text-right">{{ offer.ServiceFee ? ('$' + offer.ServiceFee) : '—' }}</td>
                   <td class="text-right">
-                    <div class="fee-input-wrapper">
+                    <div class="fee-display-wrapper" *ngIf="!offer._editingFee">
+                      <span class="fee-value">{{ offer.ClientFee ? ('$' + offer.ClientFee) : '—' }}</span>
+                      <ion-icon name="create-outline" class="fee-edit-btn" (click)="offer._editingFee = true"></ion-icon>
+                    </div>
+                    <div class="fee-input-wrapper" *ngIf="offer._editingFee">
                       <span class="fee-prefix">$</span>
                       <input type="number" class="fee-input"
                              [(ngModel)]="offer.ClientFee"
                              (blur)="saveClientFee(offer)"
                              placeholder="0.00"
-                             step="0.01" min="0">
+                             step="0.01" min="0"
+                             #feeInput>
                     </div>
                   </td>
                 </tr>
@@ -2998,8 +3003,20 @@
           </div>
           <div class="form-row">
             <div class="form-field full-width">
+              <label>Password</label>
+              <input type="text" [(ngModel)]="newUser.Password" class="form-input" placeholder="Enter password">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
               <label>Title</label>
-              <input type="text" [(ngModel)]="newUser.Title" class="form-input" placeholder="Job Title">
+              <select [(ngModel)]="newUser.Title" class="form-input">
+                <option value="" disabled selected>Select Title</option>
+                <option value="Owner">Owner</option>
+                <option value="Manager">Manager</option>
+                <option value="Admin">Admin</option>
+                <option value="Inspector">Inspector</option>
+              </select>
             </div>
           </div>
         </div>
@@ -3116,8 +3133,20 @@
           </div>
           <div class="form-row">
             <div class="form-field full-width">
+              <label>Password</label>
+              <input type="text" [(ngModel)]="editingUser.Password" class="form-input" placeholder="Enter new password">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full-width">
               <label>Title</label>
-              <input type="text" [(ngModel)]="editingUser.Title" class="form-input" placeholder="Job Title">
+              <select [(ngModel)]="editingUser.Title" class="form-input">
+                <option value="" disabled>Select Title</option>
+                <option value="Owner">Owner</option>
+                <option value="Manager">Manager</option>
+                <option value="Admin">Admin</option>
+                <option value="Inspector">Inspector</option>
+              </select>
             </div>
           </div>
           <div class="form-row">

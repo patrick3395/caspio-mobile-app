@@ -41,7 +41,6 @@ export class StripeAchModalComponent implements OnInit, AfterViewInit, OnDestroy
   ) {}
 
   ngOnInit() {
-    console.log('Stripe ACH Modal initialized', { companyId: this.companyId, companyName: this.companyName });
   }
 
   ngAfterViewInit() {
@@ -65,7 +64,6 @@ export class StripeAchModalComponent implements OnInit, AfterViewInit, OnDestroy
 
     try {
       this.stripe = Stripe(environment.stripe.publishableKey);
-      console.log('Stripe SDK initialized');
       this.sdkLoading = false;
     } catch (error) {
       console.error('Failed to initialize Stripe:', error);
@@ -81,7 +79,6 @@ export class StripeAchModalComponent implements OnInit, AfterViewInit, OnDestroy
 
       const checkStripe = () => {
         if (typeof Stripe !== 'undefined') {
-          console.log('Stripe SDK loaded');
           resolve();
           return;
         }
@@ -113,27 +110,21 @@ export class StripeAchModalComponent implements OnInit, AfterViewInit, OnDestroy
 
     try {
       // Step 1: Create or get Stripe customer
-      console.log('Creating/getting Stripe customer...');
       const customerResult = await firstValueFrom(
         this.caspioService.createStripeCustomer(this.companyId, this.companyName, this.companyEmail)
       );
       this.stripeCustomerId = customerResult.customerId;
-      console.log('Stripe customer ID:', this.stripeCustomerId);
 
       // Step 2: Create Financial Connections session
-      console.log('Creating Financial Connections session...');
       const fcSession = await firstValueFrom(
         this.caspioService.createFCSession(this.stripeCustomerId)
       );
-      console.log('FC Session created:', fcSession.sessionId);
 
       // Step 3: Launch Financial Connections modal
-      console.log('Launching Financial Connections...');
       const result = await this.stripe.collectFinancialConnectionsAccounts({
         clientSecret: fcSession.clientSecret
       });
 
-      console.log('Financial Connections result:', result);
 
       if (result.error) {
         throw new Error(result.error.message || 'Bank linking failed');
@@ -145,12 +136,10 @@ export class StripeAchModalComponent implements OnInit, AfterViewInit, OnDestroy
 
       // Step 4: Create payment method from linked account
       const linkedAccount = result.financialConnectionsSession.accounts[0];
-      console.log('Linked account:', linkedAccount.id);
 
       const paymentMethodResult = await firstValueFrom(
         this.caspioService.linkStripeBank(this.stripeCustomerId, linkedAccount.id)
       );
-      console.log('Payment method created:', paymentMethodResult);
 
       // Step 5: Save to company record in Caspio
       await firstValueFrom(
@@ -166,7 +155,6 @@ export class StripeAchModalComponent implements OnInit, AfterViewInit, OnDestroy
           }
         )
       );
-      console.log('Company record updated with Stripe payment method');
 
       // Store for display
       this.bankName = paymentMethodResult.bankName;

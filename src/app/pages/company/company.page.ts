@@ -1053,6 +1053,7 @@ export class CompanyPage implements OnInit, OnDestroy {
   }
 
   async saveClientFee(offer: any): Promise<void> {
+    offer._editingFee = false;
     const offerId = offer.OffersID || offer.PK_ID;
     if (!offerId) {
       console.warn('Offer missing ID, skipping save:', offer);
@@ -1085,7 +1086,6 @@ export class CompanyPage implements OnInit, OnDestroy {
       // Invoices: Last 365 days
       const invoicesDateFilter = this.getDateFilter(365);
 
-      console.log('[CRM] Loading data with chunked requests and date filters...');
 
       // Define all fetch tasks - will be executed in chunks to avoid overwhelming the API
       // Group 1: Reference/lookup tables (small, fast)
@@ -1149,30 +1149,23 @@ export class CompanyPage implements OnInit, OnDestroy {
       ];
 
       // Execute each group sequentially, with concurrent requests within each group
-      console.log('[CRM] Chunk 1/5: Loading lookup tables...');
       const [stageRecords, softwareRecords, communicationRecords, typeRecords] =
         await this.executeInChunks(lookupTasks, 4, 50);
 
-      console.log('[CRM] Chunk 2/5: Loading core entities...');
       const [companyRecords, contactRecords, userRecords] =
         await this.executeInChunks(coreTasks, 3, 100);
 
-      console.log('[CRM] Chunk 3/5: Loading activities...');
       const [taskRecords, touchRecords, meetingRecords] =
         await this.executeInChunks(activityTasks, 3, 100);
 
-      console.log('[CRM] Chunk 4/5: Loading financial data...');
       const [invoiceRecords, projectRecords, servicesRecords] =
         await this.executeInChunks(financialTasks, 3, 100);
 
-      console.log('[CRM] Chunk 5/5: Loading offers...');
       let [offersRecords] = await this.executeInChunks(offersTasks, 1, 0);
 
-      console.log('[CRM] All chunks loaded successfully');
 
       // Fetch additional Offers in chunks using WHERE clauses
       if (offersRecords.length === 1000) {
-        console.log('Fetching additional Offers records using range queries...');
         const lastOffersId = offersRecords[offersRecords.length - 1]?.OffersID || 0;
         let currentMaxId = lastOffersId;
 
@@ -1190,7 +1183,6 @@ export class CompanyPage implements OnInit, OnDestroy {
 
             if (additionalOffers && additionalOffers.length > 0) {
               offersRecords.push(...additionalOffers);
-              console.log(`Fetched Offers ${minId}-${maxId}: ${additionalOffers.length} records (total: ${offersRecords.length})`);
               currentMaxId = maxId;
 
               if (additionalOffers.length < 1000) {
@@ -1678,7 +1670,6 @@ export class CompanyPage implements OnInit, OnDestroy {
         InvoiceNotes: this.newInvoice.InvoiceNotes
       };
 
-      console.log('Creating invoice with payload:', payload);
 
       await firstValueFrom(
         this.caspioService.post('/tables/LPS_Invoices/records', payload)
@@ -1731,14 +1722,6 @@ export class CompanyPage implements OnInit, OnDestroy {
     if (data && data.success) {
       // Refresh invoices after successful payment
       await this.categorizeInvoices();
-      // Show success toast
-      const toast = await this.toastController.create({
-        message: 'Payment processed successfully',
-        duration: 3000,
-        color: 'success',
-        position: 'top'
-      });
-      await toast.present();
     }
   }
 
@@ -1905,14 +1888,12 @@ export class CompanyPage implements OnInit, OnDestroy {
         payload.Notes = this.newCompany.Notes.trim();
       }
 
-      console.log('Creating company with payload:', payload);
 
       // Create the company via Caspio API
       const response = await firstValueFrom(
         this.caspioService.post('/tables/LPS_Companies/records', payload)
       );
 
-      console.log('Company created successfully:', response);
 
       // Reload companies data to include the new company
       const companyRecords = await this.fetchTableRecords('Companies', { 'q.orderBy': 'CompanyName', 'q.limit': '2000' });
@@ -2018,14 +1999,12 @@ export class CompanyPage implements OnInit, OnDestroy {
         payload.Notes = this.newContact.Notes.trim();
       }
 
-      console.log('Creating contact with payload:', payload);
 
       // Create the contact via Caspio API
       const response = await firstValueFrom(
         this.caspioService.post('/tables/LPS_Contacts/records', payload)
       );
 
-      console.log('Contact created successfully:', response);
 
       // Reload contacts data to include the new contact
       const contactRecords = await this.fetchTableRecords('Contacts', { 'q.orderBy': 'Name', 'q.limit': '2000' });
@@ -2069,6 +2048,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       Name: '',
       Email: '',
       Phone: '',
+      Password: '',
       Title: ''
     };
     this.newUserHeadshotFile = null;
@@ -2134,6 +2114,10 @@ export class CompanyPage implements OnInit, OnDestroy {
         payload.Phone = this.newUser.Phone.trim();
       }
 
+      if (this.newUser.Password && this.newUser.Password.trim() !== '') {
+        payload.Password = this.newUser.Password.trim();
+      }
+
       if (this.newUser.Title && this.newUser.Title.trim() !== '') {
         payload.Title = this.newUser.Title.trim();
       }
@@ -2151,14 +2135,12 @@ export class CompanyPage implements OnInit, OnDestroy {
         });
       }
 
-      console.log('Creating user with payload:', payload);
 
       // Create the user via Caspio API
       const response = await firstValueFrom(
         this.caspioService.post('/tables/LPS_Users/records', payload)
       );
 
-      console.log('User created successfully:', response);
 
       // Reload users data based on user type
       if (this.isCompanyOne) {
@@ -2281,14 +2263,12 @@ export class CompanyPage implements OnInit, OnDestroy {
         payload.Attendee5 = this.newMeeting.Attendee5.trim();
       }
 
-      console.log('Creating meeting with payload:', payload);
 
       // Create the meeting via Caspio API
       const response = await firstValueFrom(
         this.caspioService.post('/tables/LPS_Meetings/records', payload)
       );
 
-      console.log('Meeting created successfully:', response);
 
       // Reload meetings data to include the new meeting
       const meetingRecords = await this.fetchTableRecords('Meetings', { 'q.orderBy': 'StartDate DESC', 'q.limit': '2000' });
@@ -2391,14 +2371,12 @@ export class CompanyPage implements OnInit, OnDestroy {
         payload.Notes = this.newCommunication.Notes.trim();
       }
 
-      console.log('Creating communication with payload:', payload);
 
       // Create the communication via Caspio API
       const response = await firstValueFrom(
         this.caspioService.post('/tables/LPS_Touch/records', payload)
       );
 
-      console.log('Communication created successfully:', response);
 
       // Reload communications data to include the new communication
       const touchRecords = await this.fetchTableRecords('Touch', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' });
@@ -2541,14 +2519,12 @@ export class CompanyPage implements OnInit, OnDestroy {
         payload.Notes = this.editingCommunication.Notes.trim();
       }
 
-      console.log('Updating communication with payload:', payload);
 
       // Update via Caspio API using PK_ID
       const response = await firstValueFrom(
         this.caspioService.put(`/tables/LPS_Touch/records?q.where=PK_ID=${this.editingCommunication.PK_ID}`, payload)
       );
 
-      console.log('Communication updated successfully:', response);
 
       // Reload communications data
       const touchRecords = await this.fetchTableRecords('Touch', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' });
@@ -2605,13 +2581,11 @@ export class CompanyPage implements OnInit, OnDestroy {
     await loading.present();
 
     try {
-      console.log('Deleting communication with PK_ID:', communication.PK_ID);
 
       await firstValueFrom(
         this.caspioService.delete(`/tables/LPS_Touch/records?q.where=PK_ID=${communication.PK_ID}`)
       );
 
-      console.log('Communication deleted successfully');
 
       // Reload communications data
       const touchRecords = await this.fetchTableRecords('Touch', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' });
@@ -2754,14 +2728,12 @@ export class CompanyPage implements OnInit, OnDestroy {
         payload.Attendee5 = this.editingMeeting.Attendee5.trim();
       }
 
-      console.log('Updating meeting with payload:', payload);
 
       // Update via Caspio API using PK_ID
       const response = await firstValueFrom(
         this.caspioService.put(`/tables/LPS_Meeting/records?q.where=PK_ID=${this.editingMeeting.PK_ID}`, payload)
       );
 
-      console.log('Meeting updated successfully:', response);
 
       // Reload meetings data
       const meetingRecords = await this.fetchTableRecords('Meeting', { 'q.orderBy': 'StartDate DESC', 'q.limit': '2000' });
@@ -2818,13 +2790,11 @@ export class CompanyPage implements OnInit, OnDestroy {
     await loading.present();
 
     try {
-      console.log('Deleting meeting with PK_ID:', meeting.PK_ID);
 
       await firstValueFrom(
         this.caspioService.delete(`/tables/LPS_Meeting/records?q.where=PK_ID=${meeting.PK_ID}`)
       );
 
-      console.log('Meeting deleted successfully');
 
       // Reload meetings data
       const meetingRecords = await this.fetchTableRecords('Meeting', { 'q.orderBy': 'StartDate DESC', 'q.limit': '2000' });
@@ -2946,14 +2916,12 @@ export class CompanyPage implements OnInit, OnDestroy {
         payload.CommunicationID = this.newTask.CommunicationID;
       }
 
-      console.log('Creating task with payload:', payload);
 
       // Create the task via Caspio API
       const response = await firstValueFrom(
         this.caspioService.post('/tables/LPS_Tasks/records', payload)
       );
 
-      console.log('Task created successfully:', response);
 
       // Reload tasks data to include the new task
       const taskRecords = await this.fetchTableRecords('Tasks', { 'q.orderBy': 'Due DESC', 'q.limit': '2000' });
@@ -4834,7 +4802,6 @@ export class CompanyPage implements OnInit, OnDestroy {
     
     // Log the headshot value for debugging
     if (typeof user.Headshot === 'object') {
-      console.log('Headshot is an object:', user.Headshot);
       // Caspio might return an object with a URL property
       if (user.Headshot.url) {
         return user.Headshot.url;
@@ -4856,7 +4823,6 @@ export class CompanyPage implements OnInit, OnDestroy {
     
     // If it's a relative path or filename, construct the full URL
     // This might need to be adjusted based on how Caspio returns the URLs
-    console.log('Headshot value:', headshotStr);
     return headshotStr;
   }
 
@@ -5148,6 +5114,10 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       if (this.editingUser.Phone && this.editingUser.Phone.trim() !== '') {
         payload.Phone = this.editingUser.Phone.trim();
+      }
+
+      if (this.editingUser.Password && this.editingUser.Password.trim() !== '') {
+        payload.Password = this.editingUser.Password.trim();
       }
 
       if (this.editingUser.Title && this.editingUser.Title.trim() !== '') {
@@ -5544,10 +5514,6 @@ export class CompanyPage implements OnInit, OnDestroy {
         payload.AutpayDay = this.editingCompany.AutopayDay;
       }
 
-      console.log('=== Company Update Debug Info ===');
-      console.log('Company ID:', this.editingCompany.CompanyID);
-      console.log('Payload being sent:', JSON.stringify(payload, null, 2));
-      console.log('Payload field count:', Object.keys(payload).length);
 
       // Update via Caspio API
       const response = await firstValueFrom(
@@ -5557,7 +5523,6 @@ export class CompanyPage implements OnInit, OnDestroy {
         )
       );
 
-      console.log('Update successful! Response:', response);
 
       // Update local data
       const index = this.companies.findIndex(c => c.CompanyID === this.editingCompany.CompanyID);
@@ -5814,13 +5779,6 @@ export class CompanyPage implements OnInit, OnDestroy {
       return companyId !== 1;
     });
 
-    console.log('=== Projects by Type Aggregation Debug ===');
-    console.log('Total filtered projects:', filteredProjects.length);
-    console.log('servicesByProjectLookup size:', this.servicesByProjectLookup.size);
-    console.log('servicesLookup size:', this.servicesLookup.size);
-    console.log('offersLookup size:', this.offersLookup.size);
-    console.log('typeIdToNameLookup size:', this.typeIdToNameLookup.size);
-    console.log('Sample typeIdToNameLookup entries:', Array.from(this.typeIdToNameLookup.entries()).slice(0, 5));
 
     // Group by TypeName
     const typeGroups = new Map<string, { completedCount: number; totalRevenue: number }>();
@@ -5854,7 +5812,6 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Log only if still unspecified
       if (typeName === 'Unspecified') {
-        console.log('Project categorized as Unspecified:', debugInfo);
       }
 
       // Initialize group if doesn't exist
@@ -5877,9 +5834,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     const sortedEntries = Array.from(typeGroups.entries())
       .sort((a, b) => a[0].localeCompare(b[0]));
 
-    console.log('=== Final Category Summary ===');
     sortedEntries.forEach(([typeName, data]) => {
-      console.log(`${typeName}: ${data.completedCount} completed, $${data.totalRevenue.toFixed(2)} revenue`);
     });
 
     this.projectsByTypeData = {
@@ -6184,12 +6139,7 @@ export class CompanyPage implements OnInit, OnDestroy {
   private populateOffersLookup(records: any[]) {
     this.offersLookup.clear();
 
-    console.log('=== Populating Offers Lookup ===');
-    console.log('Total Offers records:', records.length);
     if (records.length > 0) {
-      console.log('First record keys:', Object.keys(records[0]));
-      console.log('First 3 Offers records:', records.slice(0, 3));
-      console.log('Last 3 Offers records:', records.slice(-3));
     }
 
     let skippedCount = 0;
@@ -6207,12 +6157,6 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Debug specific records
       if (offersId === 1099 || offersId === 1189 || offersId === 1346) {
-        console.log(`Found OffersID ${offersId} at index ${index}:`, {
-          raw: record,
-          parsedOffersId: offersId,
-          parsedTypeId: typeId,
-          'record.TypeID': record.TypeID
-        });
       }
 
       if (offersId !== null && typeId !== null) {
@@ -6221,7 +6165,6 @@ export class CompanyPage implements OnInit, OnDestroy {
       } else {
         skippedCount++;
         if (skippedCount <= 5) {
-          console.log(`Skipping record ${index}: OffersID=${offersId}, TypeID=${typeId}`, record);
         }
       }
     });
@@ -6231,16 +6174,8 @@ export class CompanyPage implements OnInit, OnDestroy {
     const minOffersId = Math.min(...offersIds);
     const maxOffersId = Math.max(...offersIds);
 
-    console.log(`offersLookup populated with ${this.offersLookup.size} unique entries (added: ${addedCount}, skipped: ${skippedCount})`);
-    console.log(`OffersID range: ${minOffersId} to ${maxOffersId}`);
-    console.log('Sample offersLookup entries:', Array.from(this.offersLookup.entries()).slice(0, 5));
-    console.log('Last 5 offersLookup entries:', Array.from(this.offersLookup.entries()).slice(-5));
 
     // Check specific OffersIDs
-    console.log('Lookup check for OffersID 1099:', this.offersLookup.get(1099));
-    console.log('Lookup check for OffersID 1189:', this.offersLookup.get(1189));
-    console.log('Lookup check for OffersID 1346:', this.offersLookup.get(1346));
-    console.log('Lookup check for OffersID 1288:', this.offersLookup.get(1288));
   }
 
   private normalizeCompanyRecord(raw: any): CompanyRecord {
@@ -6779,6 +6714,7 @@ export class CompanyPage implements OnInit, OnDestroy {
   }
 
   private async showToast(message: string, color: string) {
+    if (color === 'success' || color === 'info') return;
     const toast = await this.toastController.create({
       message,
       duration: 2500,
@@ -6848,7 +6784,6 @@ export class CompanyPage implements OnInit, OnDestroy {
     const pageSize = 1000;
     let hasMoreRecords = true;
 
-    console.log(`Fetching all records from ${tableName} with pagination...`);
 
     while (hasMoreRecords) {
       const paginatedParams = {
@@ -6861,7 +6796,6 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       if (records && records.length > 0) {
         allRecords.push(...records);
-        console.log(`Fetched page ${pageIndex} of ${tableName}: ${records.length} records (total so far: ${allRecords.length})`);
 
         if (records.length < pageSize) {
           hasMoreRecords = false;
@@ -6873,7 +6807,6 @@ export class CompanyPage implements OnInit, OnDestroy {
       }
     }
 
-    console.log(`Finished fetching ${tableName}: ${allRecords.length} total records`);
     return allRecords;
   }
 
@@ -6925,7 +6858,6 @@ export class CompanyPage implements OnInit, OnDestroy {
                   updatedAt: Date.now()
                 });
               }
-              console.log(`[Company] Reset app memory: marked ${allMetadata.length} services as PURGED`);
 
               await loading.dismiss();
 

@@ -51,7 +51,6 @@ export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
       debounceTime(50) // Quick debounce for immediate feedback
     ).subscribe(pendingCount => {
       if (pendingCount > 0) {
-        console.log(`[SyncWidget] 📝 Pending changes detected: ${pendingCount}`);
         // Force a refresh of the actual counts from IndexedDB
         this.refreshPendingCounts();
       }
@@ -93,7 +92,6 @@ export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
             syncedCount: stats.synced,
           };
           this.changeDetectorRef.markForCheck();
-          console.log(`[SyncWidget] ✅ Updated pending count: ${stats.pending}`);
         }
       });
     } catch (error) {
@@ -187,18 +185,15 @@ export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
    * This ensures proper z-index handling and mobile compatibility
    */
   async showSyncDetails(): Promise<void> {
-    console.log('[SyncWidget] showSyncDetails called');
     
     // Prevent double-tap from opening multiple modals
     if (this.isModalOpen) {
-      console.log('[SyncWidget] Modal already open, ignoring');
       return;
     }
     
     this.isModalOpen = true;
     
     try {
-      console.log('[SyncWidget] Creating modal...');
       const modal = await this.modalController.create({
         component: SyncDetailsModalComponent,
         // Use full-screen modal for mobile compatibility
@@ -210,13 +205,10 @@ export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
       
       // Handle modal dismiss
       modal.onDidDismiss().then(() => {
-        console.log('[SyncWidget] Modal dismissed');
         this.isModalOpen = false;
       });
       
-      console.log('[SyncWidget] Modal created, presenting...');
       await modal.present();
-      console.log('[SyncWidget] Modal presented successfully');
     } catch (error) {
       console.error('[SyncWidget] Error opening modal:', error);
       this.isModalOpen = false;
@@ -235,15 +227,12 @@ export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
 
     try {
       const requests = await this.indexedDb.getAllRequests();
-      console.log('[SyncWidget] Clearing', requests.length, 'pending requests:');
       
       for (const request of requests) {
-        console.log(`  - ${request.requestId}: ${request.type} ${request.endpoint} (${request.status})`);
         await this.indexedDb.removePendingRequest(request.requestId);
       }
       
       // Count will refresh automatically via liveQuery subscription
-      console.log('[SyncWidget] All pending requests cleared');
       this.changeDetectorRef.markForCheck();
     } catch (error) {
       console.error('[SyncWidget] Error clearing pending requests:', error);
@@ -256,8 +245,6 @@ export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
   async debugPendingRequests(): Promise<void> {
     try {
       const requests = await this.indexedDb.getAllRequests();
-      console.log('[SyncWidget] === PENDING REQUESTS DEBUG ===');
-      console.log('Total requests:', requests.length);
       
       const byStatus = {
         pending: requests.filter(r => r.status === 'pending'),
@@ -266,24 +253,9 @@ export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
         failed: requests.filter(r => r.status === 'failed'),
       };
       
-      console.log('By status:', {
-        pending: byStatus.pending.length,
-        syncing: byStatus.syncing.length,
-        synced: byStatus.synced.length,
-        failed: byStatus.failed.length,
-      });
       
       for (const request of requests) {
-        console.log(`  [${request.status}] ${request.requestId}:`, {
-          type: request.type,
-          endpoint: request.endpoint?.substring(0, 60),
-          retryCount: request.retryCount,
-          createdAt: new Date(request.createdAt).toISOString(),
-          dependencies: request.dependencies,
-          error: request.error,
-        });
       }
-      console.log('[SyncWidget] === END DEBUG ===');
     } catch (error) {
       console.error('[SyncWidget] Error debugging requests:', error);
     }

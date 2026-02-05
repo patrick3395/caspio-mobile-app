@@ -29,7 +29,6 @@ export class OfflineRestoreService {
       r.data.ServiceID === parseInt(serviceId)
     );
 
-    console.log(`[OfflineRestore] Found ${pendingVisuals.length} pending visuals for service ${serviceId}`);
 
     return pendingVisuals.map(req => ({
       ...req.data,
@@ -51,7 +50,6 @@ export class OfflineRestoreService {
       String(p.visualId) === String(visualId)
     );
 
-    console.log(`[OfflineRestore] Found ${photosForVisual.length} pending photos for visual ${visualId}`);
 
     return Promise.all(photosForVisual.map(async (photo) => {
       // Recreate object URL from stored file
@@ -100,7 +98,6 @@ export class OfflineRestoreService {
 
     const pendingRooms = pendingEFE.filter(p => p.type === 'room');
 
-    console.log(`[OfflineRestore] Found ${pendingRooms.length} pending EFE rooms for service ${serviceId}`);
 
     return pendingRooms.map(p => ({
       ...p.data,
@@ -120,7 +117,6 @@ export class OfflineRestoreService {
   async restorePendingEFEPoints(roomId: string): Promise<any[]> {
     const pendingPoints = await this.indexedDb.getPendingEFEPoints(roomId);
 
-    console.log(`[OfflineRestore] Found ${pendingPoints.length} pending EFE points for room ${roomId}`);
 
     return pendingPoints.map(p => ({
       ...p.data,
@@ -139,7 +135,6 @@ export class OfflineRestoreService {
   async restorePendingEFEPhotos(pointId: string): Promise<any[]> {
     const pendingPhotos = await this.indexedDb.getPendingPhotosForPoint(pointId);
 
-    console.log(`[OfflineRestore] Found ${pendingPhotos.length} pending EFE photos for point ${pointId}`);
 
     return pendingPhotos;
   }

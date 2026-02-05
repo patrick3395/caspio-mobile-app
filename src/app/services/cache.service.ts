@@ -268,7 +268,6 @@ export class CacheService {
    */
   preloadCriticalData(): void {
     // This can be called during app initialization to preload important data
-    console.log('CacheService: Preloading critical data for offline mode');
   }
 
   /**
@@ -295,7 +294,6 @@ export class CacheService {
    * @param tableName - Name of the table to clear cache for
    */
   clearTableCache(tableName: string): void {
-    console.log(`[CacheService] Clearing cache for table: ${tableName}`);
     // Clear all cache entries that contain this table name
     this.clearByPattern(`/tables/${tableName}/records`);
   }
@@ -305,7 +303,6 @@ export class CacheService {
    * @param projectId - The project ID to clear caches for
    */
   clearProjectRelatedCaches(projectId: string): void {
-    console.log(`[CacheService] Clearing all project-related caches for projectId: ${projectId}`);
     
     // Clear project-specific caches
     this.clearByPattern(`ProjectID=${projectId}`);
@@ -326,7 +323,6 @@ export class CacheService {
    * @param serviceId - The service ID to clear caches for
    */
   clearServiceRelatedCaches(serviceId: string): void {
-    console.log(`[CacheService] Clearing all service-related caches for serviceId: ${serviceId}`);
 
     // Clear service-specific caches
     this.clearByPattern(`ServiceID=${serviceId}`);
@@ -362,7 +358,6 @@ export class CacheService {
     const key = `${entityType}::${entityId}`;
     const newVersion = (this.entityVersions.get(key) || 0) + 1;
     this.entityVersions.set(key, newVersion);
-    console.log(`[CacheService] 📈 Version incremented: ${key} → ${newVersion}`);
     return newVersion;
   }
 

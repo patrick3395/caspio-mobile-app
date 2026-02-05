@@ -399,8 +399,6 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   ) {}
   
   ngOnInit() {
-    console.log('[FabricAnnotator] ngOnInit - imageUrl:', this.imageUrl ? this.imageUrl.substring(0, 50) : 'UNDEFINED');
-    console.log('[FabricAnnotator] ngOnInit - imageFile:', this.imageFile ? 'FILE EXISTS' : 'NO FILE');
 
     // Load existing caption - prioritize existingCaption input, then photoData fields
     if (this.existingCaption) {
@@ -415,9 +413,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   }
   
   async ngAfterViewInit() {
-    console.log('[FabricAnnotator] ngAfterViewInit called');
     await this.fabricService.ensureFabricLoaded();
-    console.log('[FabricAnnotator] Fabric loaded, calling initializeFabricCanvas in 100ms');
     setTimeout(() => this.initializeFabricCanvas(), 100);
     
     // Add keyboard listener for delete key
@@ -443,9 +439,6 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   }
   
   async initializeFabricCanvas() {
-    console.log('[FabricAnnotator] initializeFabricCanvas called');
-    console.log('[FabricAnnotator] imageUrl at init:', this.imageUrl ? this.imageUrl.substring(0, 60) : 'UNDEFINED');
-    console.log('[FabricAnnotator] imageFile at init:', this.imageFile ? 'FILE EXISTS' : 'NO FILE');
 
     const fabric = await this.fabricService.getFabric();
     if (!this.canvasElement) {
@@ -466,10 +459,8 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       // Convert blob URLs to data URLs for more reliable loading in Fabric.js
       // Blob URLs can become stale after page navigation, but data URLs are self-contained
       if (imageUrl.startsWith('blob:')) {
-        console.log('[FabricAnnotator] Converting blob URL to data URL for reliable loading');
         try {
           imageUrl = await this.blobUrlToDataUrl(imageUrl);
-          console.log('[FabricAnnotator] Blob URL converted to data URL successfully');
         } catch (conversionError) {
           console.error('[FabricAnnotator] Failed to convert blob URL to data URL:', conversionError);
           // Continue with blob URL as fallback
@@ -481,10 +472,8 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       // WEBAPP MODE: Uses API Gateway proxy to fetch S3 images (enables saving annotations)
       // MOBILE MODE: Uses direct XHR fetch
       if (imageUrl.startsWith('https://') && imageUrl.includes('.s3.') && imageUrl.includes('amazonaws.com')) {
-        console.log('[FabricAnnotator] S3 URL detected, fetching as data URL to avoid CORS...', environment.isWeb ? '(webapp via proxy)' : '(mobile via XHR)');
         try {
           imageUrl = await this.fetchRemoteImageAsDataUrl(imageUrl);
-          console.log('[FabricAnnotator] ✅ S3 image converted to data URL successfully');
         } catch (conversionError) {
           console.error('[FabricAnnotator] ❌ Failed to convert S3 URL to data URL:', conversionError);
           // Continue with original URL as fallback (may fail due to CORS or be view-only)
@@ -497,10 +486,8 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       const isLocalUrl = imageUrl.startsWith('data:') || imageUrl.startsWith('blob:');
       const isS3Fallback = imageUrl.includes('.s3.') && imageUrl.includes('amazonaws.com');
       const loadOptions = (isLocalUrl || isS3Fallback) ? {} : { crossOrigin: 'anonymous' };
-      console.log('[FabricAnnotator] Loading image, isLocalUrl:', isLocalUrl, 'isS3Fallback:', isS3Fallback, 'url prefix:', imageUrl.substring(0, 50));
 
       fabric.Image.fromURL(imageUrl, loadOptions).then((img: any) => {
-        console.log('[FabricAnnotator] Image loaded successfully, dimensions:', img.width, 'x', img.height);
 
         // Set canvas size to image size (scaled to fit container)
         const containerWidth = this.canvasContainer.nativeElement.clientWidth * 0.9;
@@ -521,7 +508,6 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         // Add image as background
         this.canvas.backgroundImage = img;
         this.canvas.renderAll();
-        console.log('[FabricAnnotator] Canvas rendered with background image');
 
         // Update caption container width to match canvas
         this.updateCaptionWidth(img.width! * scale);
@@ -596,7 +582,6 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   private async fetchRemoteImageAsDataUrl(imageUrl: string): Promise<string> {
     // WEBAPP MODE: For S3 images, get a fresh signed URL and fetch directly
     if (environment.isWeb && imageUrl.includes('.s3.') && imageUrl.includes('amazonaws.com')) {
-      console.log('[FabricAnnotator] WEBAPP: Fetching S3 image with fresh signed URL');
       try {
         // Extract S3 key from the URL
         const urlObj = new URL(imageUrl);
@@ -605,7 +590,6 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         if (s3Key) {
           // Get a fresh signed URL using the existing /api/s3/url endpoint
           const urlEndpoint = `${environment.apiGatewayUrl}/api/s3/url?s3Key=${encodeURIComponent(s3Key)}`;
-          console.log('[FabricAnnotator] WEBAPP: Getting signed URL for:', s3Key.substring(0, 50));
 
           const urlResponse = await fetch(urlEndpoint);
           if (!urlResponse.ok) {
@@ -1320,7 +1304,6 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   async save() {
     // DEBUG: Check what objects are on the canvas before export
     const canvasObjects = this.canvas.getObjects();
-    console.log('[Fabric Save] Canvas objects before toJSON():', canvasObjects.length, canvasObjects);
 
     let dataUrl: string | null = null;
     let blob: Blob | null = null;
@@ -1352,18 +1335,13 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     annotationData.width = this.canvas.width;
     annotationData.height = this.canvas.height;
 
-    console.log('[Fabric Save] annotationData from toJSON():', annotationData);
-    console.log('[Fabric Save] Canvas dimensions:', annotationData.width, 'x', annotationData.height);
-    console.log('[Fabric Save] annotationData.objects:', annotationData.objects);
 
     const annotationJson = JSON.stringify(annotationData);
     const hasAnnotationObjects = Array.isArray(annotationData.objects) && annotationData.objects.length > 0;
-    console.log('[Fabric Save] hasAnnotationObjects:', hasAnnotationObjects);
 
     const compressedAnnotationData = hasAnnotationObjects
       ? compressAnnotationData(annotationJson) || annotationJson
       : '';
-    console.log('[Fabric Save] compressedAnnotationData:', compressedAnnotationData);
 
     let originalBlob = null;
     if (!this.isReEdit && this.imageFile) {
@@ -1407,7 +1385,6 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         this.captionContainer.nativeElement.style.width = `${targetWidth}px`;
         this.captionContainer.nativeElement.style.maxWidth = `${targetWidth}px`;
         this.captionContainer.nativeElement.style.minWidth = `${targetWidth}px`;
-        console.log(`📏 Updated caption width to match image: ${targetWidth}px (canvas: ${canvasWidth}px)`);
       }
     }, 200);
   }

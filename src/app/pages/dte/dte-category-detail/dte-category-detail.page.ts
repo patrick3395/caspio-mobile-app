@@ -145,13 +145,11 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // CRITICAL: Decode URL-encoded category names for proper matching
     const rawCategory = this.route.snapshot.params['category'];
     this.categoryName = rawCategory ? decodeURIComponent(rawCategory) : '';
-    console.log('[DTE CategoryDetail] Category from route:', rawCategory, '-> decoded:', this.categoryName);
 
     // Get IDs from container route using snapshot
     // DTE route structure: 'dte/:projectId/:serviceId' (Container) -> 'category/:category' (we are here)
     // So parent has :projectId/:serviceId directly
     let containerParams = this.route.parent?.snapshot?.params;
-    console.log('[DTE CategoryDetail] Container params (parent):', containerParams);
 
     if (containerParams) {
       this.projectId = containerParams['projectId'];
@@ -160,16 +158,13 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Fallback: Try parent?.parent for alternate route structures
     if (!this.projectId || !this.serviceId) {
-      console.log('[DTE CategoryDetail] Trying alternate route structure (parent.parent)...');
       containerParams = this.route.parent?.parent?.snapshot?.params;
-      console.log('[DTE CategoryDetail] Container params (parent.parent):', containerParams);
       if (containerParams) {
         this.projectId = this.projectId || containerParams['projectId'];
         this.serviceId = this.serviceId || containerParams['serviceId'];
       }
     }
 
-    console.log('[DTE CategoryDetail] Final values - Category:', this.categoryName, 'ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
 
     if (this.projectId && this.serviceId && this.categoryName) {
       this.loadData();
@@ -183,7 +178,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // WEBAPP: Reload data when returning to this page
     // This ensures photos and title/text edits made in visual-detail show here
     if (environment.isWeb && this.serviceId && this.categoryName) {
-      console.log('[DTE] WEBAPP: ionViewWillEnter - reloading data...');
       this.loading = false;
 
       // CRITICAL: Clear caches to force fresh data load
@@ -216,7 +210,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const annotatedImages = await this.indexedDb.getAllCachedAnnotatedImagesForService();
     this.bulkAnnotatedImagesMap = annotatedImages;
 
-    console.log(`[DTE CategoryDetail] Loaded ${annotatedImages.size} cached annotated images`);
 
     // Update in-memory photos with annotated image URLs
     for (const [key, photos] of Object.entries(this.visualPhotos)) {
@@ -239,7 +232,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         // If found cached annotated image for a photo with confirmed annotations, use it
         if (annotatedImage) {
-          console.log(`[DTE CategoryDetail] Applying cached annotated image for ${attachId || localImageId}`);
           photo.displayUrl = annotatedImage;
           photo.thumbnailUrl = annotatedImage;
           // Keep photo.url as original for re-editing
@@ -259,7 +251,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     if (this.photoSyncSubscription) {
       this.photoSyncSubscription.unsubscribe();
     }
-    console.log('[DTE CATEGORY DETAIL] Component destroyed, but uploads continue in background');
   }
 
   /**
@@ -269,7 +260,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     this.taskSubscription = this.backgroundUploadService.getTaskUpdates().subscribe(task => {
       if (!task) return;
 
-      console.log('[UPLOAD UPDATE] Task:', task.id, 'Status:', task.status, 'Progress:', task.progress);
 
       const key = task.key;
       const tempPhotoId = task.tempPhotoId;
@@ -302,7 +292,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // Subscribe to background sync photo upload completions
     // This handles the case where photos are uploaded via IndexedDB queue (offline -> online)
     this.photoSyncSubscription = this.backgroundSync.photoUploadComplete$.subscribe(async (event) => {
-      console.log('[PHOTO SYNC] Photo upload completed:', event.tempFileId);
 
       // Find the photo in our visualPhotos by temp file ID
       for (const key of Object.keys(this.visualPhotos)) {
@@ -313,7 +302,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         );
 
         if (photoIndex !== -1) {
-          console.log('[PHOTO SYNC] Found photo at key:', key, 'index:', photoIndex);
 
           // Update the photo with the result from sync
           const result = event.result;
@@ -343,9 +331,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
    * Update photo object after successful upload
    */
   private async updatePhotoAfterUpload(key: string, photoIndex: number, result: any, caption: string) {
-    console.log('[UPLOAD UPDATE] ========== Updating photo after upload ==========');
-    console.log('[UPLOAD UPDATE] Key:', key, 'Index:', photoIndex);
-    console.log('[UPLOAD UPDATE] Result:', JSON.stringify(result, null, 2));
 
     // Handle both direct result and Result array format
     const actualResult = result.Result && result.Result[0] ? result.Result[0] : result;
@@ -353,14 +338,11 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const uploadedPhotoUrl = actualResult.Photo || actualResult.thumbnailUrl || actualResult.url;
     let displayableUrl = uploadedPhotoUrl || '';
 
-    console.log('[UPLOAD UPDATE] S3 key:', s3Key);
 
     // Check if this is an S3 image
     if (s3Key && this.caspioService.isS3Key(s3Key)) {
       try {
-        console.log('[UPLOAD UPDATE] ✨ S3 image, fetching URL...');
         displayableUrl = await this.caspioService.getS3FileUrl(s3Key);
-        console.log('[UPLOAD UPDATE] ✅ Got S3 URL');
       } catch (err) {
         console.error('[UPLOAD UPDATE] ❌ S3 failed:', err);
         displayableUrl = 'assets/img/photo-placeholder.svg';
@@ -382,14 +364,11 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         displayableUrl = 'assets/img/photo-placeholder.svg';
       }
     } else {
-      console.log('[UPLOAD UPDATE] URL already displayable (data: or blob:)');
     }
 
-    console.log('[UPLOAD UPDATE] Final displayableUrl length:', displayableUrl?.length || 0);
 
     // Get AttachID from the actual result
     const attachId = actualResult.AttachID || actualResult.PK_ID || actualResult.id;
-    console.log('[UPLOAD UPDATE] Using AttachID:', attachId);
 
     // Revoke old blob URL
     const oldPhoto = this.visualPhotos[key][photoIndex];
@@ -414,19 +393,11 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       Annotation: caption || ''
     };
 
-    console.log('[UPLOAD UPDATE] ✅ Photo updated successfully');
-    console.log('[UPLOAD UPDATE] Updated photo object:', {
-      AttachID: this.visualPhotos[key][photoIndex].AttachID,
-      hasUrl: !!this.visualPhotos[key][photoIndex].url,
-      urlLength: this.visualPhotos[key][photoIndex].url?.length || 0
-    });
     
     this.changeDetectorRef.detectChanges();
-    console.log('[UPLOAD UPDATE] ✅ Change detection triggered');
   }
 
   private async loadData() {
-    console.log('[LOAD DATA] ========== STARTING CACHE-FIRST DATA LOAD ==========');
 
     try {
       // STEP 1: Check if we have cached visuals data - if so, skip loading spinner
@@ -434,11 +405,9 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const hasCachedData = cachedVisuals && cachedVisuals.length > 0;
 
       if (hasCachedData) {
-        console.log('[LOAD DATA] ✅ Cache HIT - Found', cachedVisuals.length, 'cached visuals, loading instantly');
         // Don't show loading spinner - display cached data immediately
         this.loading = false;
       } else {
-        console.log('[LOAD DATA] ⏳ Cache MISS - No cached data, showing loading spinner');
         this.loading = true;
       }
 
@@ -460,24 +429,17 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       };
 
       // Load dropdown options for all templates (needed before loading templates)
-      console.log('[LOAD DATA] Step 1: Loading dropdown options...');
       await this.loadAllDropdownOptions();
 
       // Load templates for this category
-      console.log('[LOAD DATA] Step 2: Loading templates...');
       await this.loadCategoryTemplates();
 
       // Load existing visuals - use cache for instant display, background refresh for freshness
-      console.log('[LOAD DATA] Step 3: Loading existing visuals (cache-first)...');
       await this.loadExistingVisuals(!!hasCachedData);
 
       // Restore any pending photos from IndexedDB (offline uploads)
-      console.log('[LOAD DATA] Step 4: Restoring pending photos...');
       await this.restorePendingPhotosFromIndexedDB();
 
-      console.log('[LOAD DATA] ========== DATA LOAD COMPLETE ==========');
-      console.log('[LOAD DATA] Final state - visualRecordIds:', this.visualRecordIds);
-      console.log('[LOAD DATA] Final state - selectedItems:', this.selectedItems);
 
       // Ensure all sections are expanded after loading
       this.expandedAccordions = ['information', 'limitations', 'deficiencies'];
@@ -500,7 +462,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         template.Category === this.categoryName
       );
 
-      console.log(`[DTE CATEGORY] Found ${hudTemplates.length} templates for category:`, this.categoryName);
 
       // CRITICAL: Sort templates by OrderID to ensure correct display order
       hudTemplates.sort((a: any, b: any) => {
@@ -509,12 +470,10 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         return orderA - orderB;
       });
 
-      console.log('[DTE CATEGORY] Templates sorted by OrderID:', hudTemplates.map((t: any) => `${t.Name} (${t.OrderID || 0})`));
 
       // Organize templates by Kind (Type field in HUD is called "Kind")
       hudTemplates.forEach((template: any) => {
         // Log the Kind value to debug
-        console.log('[DTE CATEGORY] Template:', template.Name, 'PK_ID:', template.PK_ID, 'TemplateID:', template.TemplateID, 'Kind:', template.Kind, 'Type:', template.Type);
 
         const templateData: VisualItem = {
           id: template.PK_ID,
@@ -535,28 +494,19 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         const kind = template.Kind || template.Type || 'Comment';
         const kindLower = kind.toLowerCase().trim();
         
-        console.log('[DTE CATEGORY] Processing item:', template.Name, 'Kind value:', kind, 'Lowercased:', kindLower);
 
         if (kindLower === 'limitation' || kindLower === 'limitations') {
           this.organizedData.limitations.push(templateData);
-          console.log('[DTE CATEGORY] Added to Limitations');
         } else if (kindLower === 'deficiency' || kindLower === 'deficiencies') {
           this.organizedData.deficiencies.push(templateData);
-          console.log('[DTE CATEGORY] Added to Deficiencies');
         } else {
           this.organizedData.comments.push(templateData);
-          console.log('[DTE CATEGORY] Added to Comments/Information');
         }
 
         // Note: Dropdown options are already loaded via loadAllDropdownOptions()
         // No need to load them individually here
       });
 
-      console.log('[DTE CATEGORY] Organized data:', {
-        comments: this.organizedData.comments.length,
-        limitations: this.organizedData.limitations.length,
-        deficiencies: this.organizedData.deficiencies.length
-      });
 
     } catch (error) {
       console.error('Error loading category templates:', error);
@@ -574,7 +524,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.caspioService.getServicesDTEDrop()
       );
 
-      console.log('[DTE Category] Loaded dropdown data:', dropdownData?.length || 0, 'rows');
 
       if (dropdownData && dropdownData.length > 0) {
         // Group dropdown options by TemplateID
@@ -594,8 +543,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           }
         });
 
-        console.log('[DTE Category] Grouped by TemplateID:', Object.keys(this.visualDropdownOptions).length, 'templates have options');
-        console.log('[DTE Category] All TemplateIDs with options:', Object.keys(this.visualDropdownOptions));
 
         // WEBAPP FIX: Merge custom options from Dexie visualFields
         // Custom options added via "Other" are saved to Dexie and need to be merged here
@@ -604,7 +551,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             this.serviceId,
             this.categoryName
           );
-          console.log(`[DTE Category] WEBAPP: Found ${dexieFields.length} Dexie fields to check for custom dropdown options`);
 
           for (const field of dexieFields) {
             if (field.dropdownOptions && field.dropdownOptions.length > 0) {
@@ -617,7 +563,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 if (opt !== 'None' && opt !== 'Other' &&
                     !this.visualDropdownOptions[templateId].includes(opt)) {
                   this.visualDropdownOptions[templateId].push(opt);
-                  console.log(`[DTE Category] WEBAPP: Merged custom option "${opt}" for templateId ${templateId}`);
                 }
               }
             }
@@ -642,7 +587,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           }
         });
 
-        console.log('[DTE Category] Loaded dropdown options for', Object.keys(this.visualDropdownOptions).length, 'templates');
       } else {
         console.warn('[DTE Category] No dropdown data received from API');
 
@@ -652,7 +596,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             this.serviceId,
             this.categoryName
           );
-          console.log(`[DTE Category] WEBAPP: Found ${dexieFields.length} Dexie fields to check for custom dropdown options (no API data)`);
 
           for (const field of dexieFields) {
             if (field.dropdownOptions && field.dropdownOptions.length > 0) {
@@ -664,7 +607,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               for (const opt of field.dropdownOptions) {
                 if (!this.visualDropdownOptions[templateId].includes(opt)) {
                   this.visualDropdownOptions[templateId].push(opt);
-                  console.log(`[DTE Category] WEBAPP: Merged custom option "${opt}" for templateId ${templateId}`);
                 }
               }
             }
@@ -683,10 +625,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   private async loadExistingVisuals(useCacheFirst: boolean = false) {
     try {
       // Load all existing HUD visuals for this service and category
-      console.log('[LOAD EXISTING] ========== START ==========');
-      console.log('[LOAD EXISTING] ServiceID:', this.serviceId);
-      console.log('[LOAD EXISTING] Category to match:', this.categoryName);
-      console.log('[LOAD EXISTING] UseCacheFirst:', useCacheFirst);
 
       // CACHE-FIRST PATTERN: Use cached data for instant display, then refresh in background
       // If useCacheFirst is true, we use cache (bypassCache=false) and trigger background refresh
@@ -698,21 +636,16 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.triggerBackgroundRefresh();
       }
 
-      console.log('[LOAD EXISTING] Total visuals:', allVisuals.length, useCacheFirst ? '(from cache)' : '(from API)');
-      console.log('[LOAD EXISTING] All visuals:', allVisuals);
       
       const categoryVisuals = allVisuals.filter((v: any) => v.Category === this.categoryName);
-      console.log('[LOAD EXISTING] Visuals for this category:', categoryVisuals.length);
 
       if (categoryVisuals.length > 0) {
-        console.log('[LOAD EXISTING] Category visuals full data:', categoryVisuals);
       }
 
       // WEBAPP API-FIRST: Save existing in-memory mappings before reload
       // This allows matching visuals even when Name has been edited (the mapping persists in memory)
       const existingMappings = environment.isWeb ? new Map(Object.entries(this.visualRecordIds)) : null;
       if (environment.isWeb) {
-        console.log(`[LOAD EXISTING] WEBAPP: Saved ${existingMappings?.size || 0} existing in-memory mappings`);
       }
 
       // Get all available template items
@@ -721,20 +654,11 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         ...this.organizedData.limitations,
         ...this.organizedData.deficiencies
       ];
-      console.log('[LOAD EXISTING] Available template items:', allItems.length);
-      console.log('[LOAD EXISTING] Template item names:', allItems.map(i => i.name));
 
       for (const visual of categoryVisuals) {
-        console.log('[LOAD EXISTING] ========== Processing Visual ==========');
-        console.log('[LOAD EXISTING] Visual DTEID:', visual.DTEID);
-        console.log('[LOAD EXISTING] Visual Name:', visual.Name);
-        console.log('[LOAD EXISTING] Visual Notes:', visual.Notes);
-        console.log('[LOAD EXISTING] Visual Answers:', visual.Answers);
-        console.log('[LOAD EXISTING] Visual Kind:', visual.Kind);
 
         // CRITICAL: Skip hidden visuals (soft delete - keeps photos but doesn't show in UI)
         if (visual.Notes && visual.Notes.startsWith('HIDDEN')) {
-          console.log('[LOAD EXISTING] ⚠️ Skipping hidden visual:', visual.Name);
 
           // Store visualRecordId so we can unhide it later if user reselects
           // CRITICAL: Only store if visual's category matches current category
@@ -759,7 +683,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             if (item) {
               const key = `${this.categoryName}_${item.id}`;
               this.visualRecordIds[key] = DTEID;
-              console.log('[LOAD EXISTING] Stored hidden visual ID for potential unhide:', key, '=', DTEID);
             }
           }
           continue;
@@ -783,7 +706,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 return itemKey === key;
               });
               if (item) {
-                console.log(`[LOAD EXISTING] WEBAPP PRIORITY 1: Matched by in-memory mapping: DTEID=${DTEID} -> key=${key}`);
               }
               break;
             }
@@ -795,10 +717,8 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         if (!item && visual.Category === this.categoryName) {
           item = allItems.find(i => i.name === visual.Name);
           if (item) {
-            console.log(`[LOAD EXISTING] PRIORITY 2: Matched by Name+Category: "${visual.Name}" in "${visual.Category}"`);
           }
         } else if (!item && visual.Category !== this.categoryName) {
-          console.log(`[LOAD EXISTING] Skipping visual from different category: "${visual.Name}" in "${visual.Category}" (current: "${this.categoryName}")`);
         }
 
         // PRIORITY 3: Match by TemplateID (handles case where Name was edited in visual-detail)
@@ -808,14 +728,12 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           if (visualTemplateId) {
             item = allItems.find(i => String(i.templateId) === String(visualTemplateId));
             if (item) {
-              console.log(`[LOAD EXISTING] PRIORITY 3: Matched by TemplateID: ${visualTemplateId} -> item "${item.name}"`);
             }
           }
         }
 
         // If no template match found, this is a CUSTOM visual - create dynamic item
         if (!item) {
-          console.log('[LOAD EXISTING] Creating dynamic item for custom visual:', name, kind);
 
           // Create a dynamic VisualItem for custom visuals
           const customItem: VisualItem = {
@@ -845,42 +763,29 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           }
 
           item = customItem;
-          console.log('[LOAD EXISTING] ✅ Created and added custom item:', item.name);
         } else {
-          console.log('[LOAD EXISTING] ✅ Found matching template item:');
-          console.log('[LOAD EXISTING]   - Name:', item.name);
-          console.log('[LOAD EXISTING]   - ID:', item.id);
-          console.log('[LOAD EXISTING]   - TemplateID:', item.templateId);
-          console.log('[LOAD EXISTING]   - AnswerType:', item.answerType);
         }
 
         const key = `${this.categoryName}_${item.id}`;
 
-        console.log('[LOAD EXISTING] Constructed key:', key);
-        console.log('[LOAD EXISTING] DTEID to store:', DTEID);
 
         // Mark as selected
         this.selectedItems[key] = true;
-        console.log('[LOAD EXISTING] ✅ selectedItems[' + key + '] = true');
 
         // Store visual record ID
         this.visualRecordIds[key] = DTEID;
-        console.log('[LOAD EXISTING] ✅ visualRecordIds[' + key + '] = ' + DTEID);
 
         // Update item with saved answer
         item.answer = visual.Answers || '';
         item.otherValue = visual.OtherValue || '';
-        console.log('[LOAD EXISTING] ✅ item.answer set to:', item.answer);
 
         // WEBAPP FIX: Update name and text from server if edited in visual-detail
         // Server is source of truth for WEBAPP mode
         if (environment.isWeb) {
           if (visual.Name && visual.Name !== item.name) {
-            console.log('[LOAD EXISTING] WEBAPP: Updated name from server:', item.name, '->', visual.Name);
             item.name = visual.Name;
           }
           if (visual.Text && visual.Text !== item.text) {
-            console.log('[LOAD EXISTING] WEBAPP: Updated text from server');
             item.text = visual.Text;
           }
         }
@@ -897,15 +802,9 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // WEBAPP MODE: Load all photos from API in one batch with signed URLs
       // This ensures photos are loaded synchronously before the page renders
       if (environment.isWeb) {
-        console.log('[LOAD EXISTING] WEBAPP: Loading all photos from API...');
         await this.loadPhotosFromAPI();
       }
 
-      console.log('[LOAD EXISTING] ========== FINAL STATE ==========');
-      console.log('[LOAD EXISTING] visualRecordIds:', JSON.stringify(this.visualRecordIds));
-      console.log('[LOAD EXISTING] selectedItems:', JSON.stringify(this.selectedItems));
-      console.log('[LOAD EXISTING] Items with answers:', allItems.filter(i => i.answer).map(i => ({ name: i.name, answer: i.answer })));
-      console.log('[LOAD EXISTING] ========== END ==========');
 
     } catch (error) {
       console.error('[LOAD EXISTING] ❌ Error loading existing visuals:', error);
@@ -917,21 +816,17 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
    * This ensures data stays fresh while providing instant page loads
    */
   private triggerBackgroundRefresh(): void {
-    console.log('[BACKGROUND REFRESH] Scheduling background data refresh...');
     this.isRefreshing = true;
 
     // Use setTimeout to ensure this runs after the current render cycle
     setTimeout(async () => {
       try {
-        console.log('[BACKGROUND REFRESH] Starting background refresh...');
 
         // Fetch fresh data from API (bypass cache)
         const freshVisuals = await this.hudData.getVisualsByService(this.serviceId, true);
-        console.log('[BACKGROUND REFRESH] Fetched', freshVisuals.length, 'fresh visuals');
 
         // Cache the fresh data in IndexedDB for future instant loads
         await this.indexedDb.cacheServiceData(this.serviceId, 'visuals', freshVisuals);
-        console.log('[BACKGROUND REFRESH] Cached fresh data to IndexedDB');
 
         // Update UI with fresh data (preserving photos that are uploading)
         const categoryVisuals = freshVisuals.filter((v: any) => v.Category === this.categoryName);
@@ -939,7 +834,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         this.isRefreshing = false;
         this.changeDetectorRef.detectChanges();
-        console.log('[BACKGROUND REFRESH] ✅ Background refresh complete');
       } catch (error) {
         console.error('[BACKGROUND REFRESH] ❌ Error during background refresh:', error);
         this.isRefreshing = false;
@@ -982,7 +876,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // Found existing mapping - find the item that matches this key
           item = allItems.find(i => `${this.categoryName}_${i.id}` === key);
           if (item) {
-            console.log(`[PROCESS UPDATE] PRIORITY 1: Matched by DTEID mapping: ${DTEID} -> key=${key}`);
           }
           break;
         }
@@ -992,7 +885,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       if (!item) {
         item = allItems.find(i => i.name === visual.Name);
         if (item) {
-          console.log(`[PROCESS UPDATE] PRIORITY 2: Matched by name: "${visual.Name}"`);
         }
       }
 
@@ -1005,7 +897,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         // Update name from server if changed (server is source of truth)
         if (visual.Name && visual.Name !== item.name) {
-          console.log(`[PROCESS UPDATE] Updated name from server: "${item.name}" -> "${visual.Name}"`);
           item.name = visual.Name;
         }
 
@@ -1083,13 +974,11 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
    * Mirrors LBW/EFE's loadPhotosFromAPI approach for WEBAPP mode
    */
   private async loadPhotosFromAPI(): Promise<void> {
-    console.log('[DTE] WEBAPP MODE: Loading photos from API...');
 
     // WEBAPP FIX: Load cached annotated images FIRST for thumbnail display
     if (this.bulkAnnotatedImagesMap.size === 0) {
       try {
         this.bulkAnnotatedImagesMap = await this.indexedDb.getAllCachedAnnotatedImagesForService();
-        console.log(`[DTE] WEBAPP: Loaded ${this.bulkAnnotatedImagesMap.size} cached annotated images`);
       } catch (e) {
         console.warn('[DTE] WEBAPP: Failed to load annotated images cache:', e);
       }
@@ -1101,7 +990,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       try {
         const attachments = await this.hudData.getVisualAttachments(dteId);
-        console.log(`[DTE] WEBAPP: Loaded ${attachments?.length || 0} photos for DTE ${dteId}`);
 
         // Convert attachments to photo format
         const photos: any[] = [];
@@ -1117,7 +1005,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             if (isS3Key) {
               // S3 key - get signed URL
               try {
-                console.log('[DTE] WEBAPP: Getting signed URL for S3 key:', displayUrl?.substring(0, 50));
                 displayUrl = await this.caspioService.getS3FileUrl(displayUrl);
               } catch (e) {
                 console.warn('[DTE] WEBAPP: Could not get S3 URL:', e);
@@ -1140,11 +1027,9 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             // Server confirms annotations exist - use cached version (may be more up-to-date than server render)
             thumbnailUrl = cachedAnnotated;
             hasAnnotations = true;
-            console.log(`[DTE] WEBAPP: Using cached annotated image for ${attachId}`);
           } else if (hasServerAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
             // No cached image but server has Drawings - render annotations on the fly
             try {
-              console.log(`[DTE] WEBAPP: Rendering annotations for ${attachId}...`);
               const renderedUrl = await renderAnnotationsOnPhoto(displayUrl, att.Drawings);
               if (renderedUrl && renderedUrl !== displayUrl) {
                 thumbnailUrl = renderedUrl;
@@ -1158,7 +1043,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 } catch (cacheErr) {
                   console.warn('[DTE] WEBAPP: Failed to cache annotated image:', cacheErr);
                 }
-                console.log(`[DTE] WEBAPP: Rendered and cached annotations for ${attachId}`);
               }
             } catch (renderErr) {
               console.warn(`[DTE] WEBAPP: Failed to render annotations for ${attachId}:`, renderErr);
@@ -1188,14 +1072,12 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         this.visualPhotos[key] = photos;
         this.photoCountsByKey[key] = photos.length;
-        console.log(`[DTE] WEBAPP: Stored ${photos.length} photos for key ${key}`);
       } catch (error) {
         console.error(`[DTE] WEBAPP: Error loading photos for DTE ${dteId}:`, error);
       }
     }
 
     this.changeDetectorRef.detectChanges();
-    console.log('[DTE] WEBAPP MODE: Photo loading complete');
   }
 
   private async loadPhotosForVisual(DTEID: string, key: string) {
@@ -1209,7 +1091,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Get attachments from database
       const attachments = await this.hudData.getVisualAttachments(DTEID);
 
-      console.log('[LOAD PHOTOS] Found', attachments.length, 'photos for DTE', DTEID, 'key:', key, 'sync:', syncInProgress);
 
       // Set photo count immediately so skeleton loaders can be displayed
       this.photoCountsByKey[key] = attachments.length;
@@ -1218,13 +1099,10 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // CRITICAL: Don't reset photo array if it already has photos from uploads
         if (!this.visualPhotos[key]) {
           this.visualPhotos[key] = [];
-          console.log('[LOAD PHOTOS] Initialized empty photo array for', key);
         } else {
-          console.log('[LOAD PHOTOS] Photo array already exists with', this.visualPhotos[key].length, 'photos');
 
           // CRITICAL FIX: During sync, skip reload to prevent photos from disappearing
           if (syncInProgress) {
-            console.log('[LOAD PHOTOS] SYNC IN PROGRESS - preserving existing photos, skipping reload for', key);
             this.loadingPhotosByKey[key] = false;
             this.changeDetectorRef.detectChanges();
             return;
@@ -1234,7 +1112,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           const loadedPhotoIds = new Set(this.visualPhotos[key].map(p => p.AttachID));
           const allPhotosLoaded = attachments.every(a => loadedPhotoIds.has(a.AttachID));
           if (allPhotosLoaded) {
-            console.log('[LOAD PHOTOS] All photos already loaded - skipping reload');
             this.loadingPhotosByKey[key] = false;
             this.changeDetectorRef.detectChanges();
             return;
@@ -1251,18 +1128,15 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // Check if photo already loaded
           const existingPhotoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === attach.AttachID);
           if (existingPhotoIndex !== -1) {
-            console.log('[LOAD PHOTOS] Photo', attach.AttachID, 'already loaded - skipping');
             continue;
           }
 
           await this.loadSinglePhoto(attach, key);
         }
 
-        console.log('[LOAD PHOTOS] Completed loading all photos for', key);
       } else {
         // CRITICAL FIX: During sync, don't clear photos even if attachments is empty
         if (syncInProgress && this.visualPhotos[key]?.length > 0) {
-          console.log('[LOAD PHOTOS] SYNC IN PROGRESS - preserving existing photos despite empty attachments for', key);
           this.loadingPhotosByKey[key] = false;
           this.changeDetectorRef.detectChanges();
           return;
@@ -1292,7 +1166,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const filePath = attach.Attachment || attach.Photo || '';
     const hasImageSource = attach.Attachment || attach.Photo;
     
-    console.log('[LOAD PHOTO] Loading:', attachId, 'key:', key);
     
     // TWO-FIELD APPROACH: Determine display state and URL
     let displayUrl = 'assets/img/photo-placeholder.svg';
@@ -1304,7 +1177,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     try {
       const localBlobUrl = await this.indexedDb.getPhotoBlobUrl(attachId);
       if (localBlobUrl) {
-        console.log('[LOAD PHOTO] ✅ Using local blob for:', attachId);
         displayUrl = localBlobUrl;
         imageUrl = localBlobUrl;
         displayState = 'local';
@@ -1317,7 +1189,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       try {
         const cachedImage = await this.indexedDb.getCachedPhoto(attachId);
         if (cachedImage) {
-          console.log('[LOAD PHOTO] ✅ Using cached image for:', attachId);
           displayUrl = cachedImage;
           imageUrl = cachedImage;
           displayState = 'cached';
@@ -1400,7 +1271,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       });
     }
     
-    console.log('[LOAD PHOTO] ✅ Completed:', attachId, 'state:', displayState);
   }
 
   /**
@@ -1445,7 +1315,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           loading: false
         };
         this.changeDetectorRef.detectChanges();
-        console.log('[PRELOAD] ✅ Transitioned to cached:', attachId);
       }
     } catch (err) {
       console.warn('[PRELOAD] Failed:', attachId, err);
@@ -1491,7 +1360,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
    */
   private async restorePendingPhotosFromIndexedDB(): Promise<void> {
     try {
-      console.log('[RESTORE PENDING] Checking for pending data in IndexedDB...');
 
       // STEP 1: Restore pending VISUAL records first
       const pendingRequests = await this.indexedDb.getPendingRequests();
@@ -1503,7 +1371,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         r.data?.Category === this.categoryName
       );
 
-      console.log('[RESTORE PENDING] Found', pendingVisuals.length, 'pending visual records');
 
       for (const pendingVisual of pendingVisuals) {
         const visualData = pendingVisual.data;
@@ -1517,7 +1384,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         if (matchingItem) {
           const key = `${visualData.Category}_${matchingItem.id}`;
-          console.log('[RESTORE PENDING] Restoring visual:', key, 'tempId:', tempId);
           this.selectedItems[key] = true;
           this.visualRecordIds[key] = tempId || '';
           if (!this.visualPhotos[key]) {
@@ -1530,12 +1396,10 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const pendingPhotosMap = await this.indexedDb.getAllPendingPhotosGroupedByVisual();
 
       if (pendingPhotosMap.size === 0) {
-        console.log('[RESTORE PENDING] No pending photos found');
         this.changeDetectorRef.detectChanges();
         return;
       }
 
-      console.log('[RESTORE PENDING] Found pending photos for', pendingPhotosMap.size, 'visuals');
 
       for (const [visualId, photos] of pendingPhotosMap) {
         let matchingKey: string | null = null;
@@ -1560,11 +1424,9 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
 
         if (!matchingKey) {
-          console.log('[RESTORE PENDING] No matching key found for visual:', visualId);
           continue;
         }
 
-        console.log('[RESTORE PENDING] Restoring', photos.length, 'photos for key:', matchingKey);
 
         if (!this.visualPhotos[matchingKey]) {
           this.visualPhotos[matchingKey] = [];
@@ -1589,7 +1451,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       }
 
       this.changeDetectorRef.detectChanges();
-      console.log('[RESTORE PENDING] Pending data restored');
 
     } catch (error) {
       console.error('[RESTORE PENDING] Error restoring pending data:', error);
@@ -1685,7 +1546,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const newState = !this.selectedItems[key];
     this.selectedItems[key] = newState;
 
-    console.log('[TOGGLE] Item:', key, 'Selected:', newState);
 
     if (newState) {
       // Item was checked - create visual record if it doesn't exist, or unhide if it exists
@@ -1695,7 +1555,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.savingItems[key] = true;
         try {
           await this.hudData.updateVisual(visualId, { Notes: '' });
-          console.log('[TOGGLE] Unhid visual:', visualId);
         } catch (error) {
           console.error('[TOGGLE] Error unhiding visual:', error);
           this.selectedItems[key] = false;
@@ -1714,7 +1573,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.savingItems[key] = true;
         try {
           await this.hudData.updateVisual(visualId, { Notes: 'HIDDEN' });
-          console.log('[TOGGLE] Hid visual (preserving photos):', visualId);
         } catch (error) {
           console.error('[TOGGLE] Error hiding visual:', error);
           this.selectedItems[key] = true; // Revert on error
@@ -1861,7 +1719,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                   try {
                     // TODO: Implement HUD visual update
                     // await this.hudData.updateVisual(visualId, { Text: data.description });
-                    console.log('[DTE TEXT EDIT] Updated visual text:', visualId, data.description);
                     this.changeDetectorRef.detectChanges();
                   } catch (error) {
                     console.error('[DTE TEXT EDIT] Error updating visual:', error);
@@ -1921,11 +1778,8 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // Debug logging to see what's available
     const templateIdStr = String(templateId);
     if (options.length === 0 && !this._loggedPhotoKeys.has(templateIdStr)) {
-      console.log('[GET DROPDOWN] No options found for TemplateID:', templateIdStr);
-      console.log('[GET DROPDOWN] Available TemplateIDs:', Object.keys(this.visualDropdownOptions));
       this._loggedPhotoKeys.add(templateIdStr);
     } else if (options.length > 0 && !this._loggedPhotoKeys.has(templateIdStr)) {
-      console.log('[GET DROPDOWN] TemplateID', templateIdStr, 'has', options.length, 'options:', options);
       this._loggedPhotoKeys.add(templateIdStr);
     }
 
@@ -1952,7 +1806,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       return;
     }
 
-    console.log('[CREATE VISUAL] ✅ Found item:', { id: item.id, templateId: item.templateId, name: item.name });
 
     this.savingItems[key] = true;
 
@@ -1969,27 +1822,19 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         TemplateID: templateIdInt
       };
 
-      console.log('[CREATE VISUAL] Creating HUD record with data:', hudData);
-      console.log('[CREATE VISUAL] Item details:', { id: item.id, templateId: item.templateId, name: item.name, answer: item.answer });
 
       // SYNC QUEUE FIX: Use DteDataService which handles offline-first with sync queue
       const result = await this.hudData.createVisual(hudData);
       
-      console.log('[CREATE VISUAL] API response:', result);
-      console.log('[CREATE VISUAL] Response type:', typeof result);
-      console.log('[CREATE VISUAL] Has Result array?', !!result?.Result);
-      console.log('[CREATE VISUAL] Has DTEID directly?', !!result?.DTEID);
       
       // Handle BOTH response formats: direct object OR wrapped in Result array
       let createdRecord = null;
       if (result && result.DTEID) {
         // Direct object format
         createdRecord = result;
-        console.log('[CREATE VISUAL] Using direct result object');
       } else if (result && result.Result && result.Result.length > 0) {
         // Wrapped in Result array
         createdRecord = result.Result[0];
-        console.log('[CREATE VISUAL] Using Result[0]');
       }
       
       if (createdRecord) {
@@ -1999,11 +1844,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.visualRecordIds[key] = DTEID;
         this.selectedItems[key] = true;
         
-        console.log('[CREATE VISUAL] ✅ Created with DTEID:', DTEID);
-        console.log('[CREATE VISUAL] Stored in visualRecordIds[' + key + '] = ' + DTEID);
-        console.log('[CREATE VISUAL] Created record full data:', createdRecord);
-        console.log('[CREATE VISUAL] All visualRecordIds after creation:', JSON.stringify(this.visualRecordIds));
-        console.log('[CREATE VISUAL] Verification - can retrieve:', this.visualRecordIds[key]);
         
         // Initialize photo array
         this.visualPhotos[key] = [];
@@ -2032,14 +1872,12 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const visualId = this.visualRecordIds[key];
     
     if (!visualId) {
-      console.log('[DELETE VISUAL] No visual ID found, nothing to delete');
       return;
     }
 
     this.savingItems[key] = true;
 
     try {
-      console.log('[DELETE VISUAL] Deleting HUD record:', visualId);
       await firstValueFrom(this.caspioService.deleteServicesDTE(visualId));
       
       // Clean up local state
@@ -2047,7 +1885,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       delete this.visualPhotos[key];
       delete this.photoCountsByKey[key];
       
-      console.log('[DELETE VISUAL] Deleted successfully');
     } catch (error) {
       console.error('[DELETE VISUAL] Error:', error);
     } finally {
@@ -2058,14 +1895,12 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   async onAnswerChange(category: string, item: VisualItem) {
     const key = `${category}_${item.id}`;
-    console.log('[ANSWER] Changed:', item.answer, 'for', key);
 
     this.savingItems[key] = true;
 
     try {
       // Create or update visual record
       let visualId = this.visualRecordIds[key];
-      console.log('[ANSWER] Current visualId:', visualId);
 
       // If answer is empty/cleared, hide the visual instead of deleting
       if (!item.answer || item.answer === '') {
@@ -2075,7 +1910,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             Answers: '',
             Notes: 'HIDDEN'
           }, this.serviceId);
-          console.log('[ANSWER] Hid visual (preserved photos):', visualId);
         }
         this.savingItems[key] = false;
         this.changeDetectorRef.detectChanges();
@@ -2084,7 +1918,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       if (!visualId) {
         // Create new visual
-        console.log('[ANSWER] Creating new visual for key:', key);
         const serviceIdNum = parseInt(this.serviceId, 10);
         const templateIdInt = typeof item.templateId === 'string' ? parseInt(item.templateId, 10) : Number(item.templateId);
         const visualData = {
@@ -2098,12 +1931,10 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           TemplateID: templateIdInt
         };
 
-        console.log('[ANSWER] Creating with data:', visualData);
 
         // SYNC QUEUE FIX: Use DteDataService which handles offline-first with sync queue
         const result = await this.hudData.createVisual(visualData);
         
-        console.log('[ANSWER] 🔍 RAW API RESPONSE:', result);
         
         // Try multiple ways to extract the DTEID
         if (result && result.Result && result.Result.length > 0) {
@@ -2122,20 +1953,16 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           this.visualPhotos[key] = [];
           this.photoCountsByKey[key] = 0;
           
-          console.log('[ANSWER] ✅ Created visual with DTEID:', visualId);
-          console.log('[ANSWER] ✅ Stored as visualRecordIds[' + key + '] =', visualId);
         } else {
           console.error('[ANSWER] ❌ FAILED to extract DTEID from response!');
         }
       } else if (!String(visualId).startsWith('temp_')) {
         // Update existing visual and unhide if it was hidden
-        console.log('[ANSWER] Updating existing visual:', visualId);
         // SYNC QUEUE FIX: Use DteDataService which handles offline-first with sync queue
         await this.hudData.updateVisual(visualId, {
           Answers: item.answer || '',
           Notes: ''
         }, this.serviceId);
-        console.log('[ANSWER] ✅ Updated visual:', visualId, 'with Answers:', item.answer);
       }
     } catch (error) {
       console.error('[ANSWER] ❌ Error saving answer:', error);
@@ -2150,7 +1977,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const key = `${category}_${item.id}`;
     const isChecked = event.detail.checked;
 
-    console.log('[OPTION] Toggled:', option, 'Checked:', isChecked, 'for', key);
 
     // Update the answer string
     let selectedOptions: string[] = [];
@@ -2173,7 +1999,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     try {
       let visualId = this.visualRecordIds[key];
-      console.log('[OPTION] Current visualId for key', key, ':', visualId);
 
       // If all options are unchecked AND no "Other" value, hide the visual
       if ((!item.answer || item.answer === '') && (!item.otherValue || item.otherValue === '')) {
@@ -2183,7 +2008,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             Answers: '',
             Notes: 'HIDDEN'
           }, this.serviceId);
-          console.log('[OPTION] Hid visual (preserved photos):', visualId);
         }
         this.savingItems[key] = false;
         this.changeDetectorRef.detectChanges();
@@ -2192,7 +2016,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       if (!visualId) {
         // Create new visual
-        console.log('[OPTION] Creating new visual for key:', key);
         const serviceIdNum = parseInt(this.serviceId, 10);
         const templateIdInt = typeof item.templateId === 'string' ? parseInt(item.templateId, 10) : Number(item.templateId);
         const visualData = {
@@ -2206,26 +2029,18 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           TemplateID: templateIdInt
         };
 
-        console.log('[OPTION] Creating with data:', visualData);
 
         // SYNC QUEUE FIX: Use DteDataService which handles offline-first with sync queue
         const result = await this.hudData.createVisual(visualData);
         
-        console.log('[OPTION] 🔍 RAW API RESPONSE:', result);
-        console.log('[OPTION] 🔍 Response type:', typeof result);
-        console.log('[OPTION] 🔍 Has Result property?', result && 'Result' in result);
-        console.log('[OPTION] 🔍 result.Result:', result?.Result);
         
         // Try multiple ways to extract the DTEID
         if (result && result.Result && result.Result.length > 0) {
           visualId = String(result.Result[0].DTEID || result.Result[0].PK_ID || result.Result[0].id);
-          console.log('[OPTION] 🔍 Extracted visualId from result.Result[0]:', visualId);
         } else if (result && Array.isArray(result) && result.length > 0) {
           visualId = String(result[0].DTEID || result[0].PK_ID || result[0].id);
-          console.log('[OPTION] 🔍 Extracted visualId from result[0]:', visualId);
         } else if (result) {
           visualId = String(result.DTEID || result.PK_ID || result.id);
-          console.log('[OPTION] 🔍 Extracted visualId from result:', visualId);
         }
         
         if (visualId) {
@@ -2236,22 +2051,17 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           this.visualPhotos[key] = [];
           this.photoCountsByKey[key] = 0;
           
-          console.log('[OPTION] ✅ Created visual with DTEID:', visualId);
-          console.log('[OPTION] ✅ Stored as visualRecordIds[' + key + '] =', visualId);
-          console.log('[OPTION] ✅ Verification - can retrieve:', this.visualRecordIds[key]);
         } else {
           console.error('[OPTION] ❌ FAILED to extract DTEID from response!');
         }
       } else if (!String(visualId).startsWith('temp_')) {
         // Update existing visual
-        console.log('[OPTION] Updating existing visual:', visualId);
         const notesValue = item.otherValue || '';
         // SYNC QUEUE FIX: Use DteDataService which handles offline-first with sync queue
         await this.hudData.updateVisual(visualId, {
           Answers: item.answer,
           Notes: notesValue
         }, this.serviceId);
-        console.log('[OPTION] ✅ Updated visual:', visualId, 'with Answers:', item.answer);
       }
     } catch (error) {
       console.error('[OPTION] ❌ Error saving option:', error);
@@ -2286,7 +2096,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     
     item.answer = selectedOptions.join(', ');
     
-    console.log('[OTHER CHANGE] Custom value:', item.otherValue, 'New answer:', item.answer);
 
     await this.onAnswerChange(category, item);
   }
@@ -2303,7 +2112,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const actualCategory = item.category || category;
     const key = `${actualCategory}_${item.templateId}`;
 
-    console.log('[OTHER] Adding custom option:', customValue, 'for', key, 'item.id:', item.id);
 
     // Ensure visualDropdownOptions array exists
     if (!this.visualDropdownOptions[templateId]) {
@@ -2318,7 +2126,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Check if this custom value already exists in options
     if (this.visualDropdownOptions[templateId].includes(customValue)) {
-      console.log(`[OTHER] Option "${customValue}" already exists`);
       // Just select it if not already selected
       if (!selectedOptions.includes(customValue)) {
         selectedOptions.push(customValue);
@@ -2337,7 +2144,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           options.push(customValue);
         }
       }
-      console.log(`[OTHER] Added custom option: "${customValue}"`);
 
       // Select the new custom value
       selectedOptions.push(customValue);
@@ -2349,7 +2155,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // Clear the input
     item.otherValue = '';
 
-    console.log('[OTHER] Custom value added:', customValue, 'New answer:', item.answer);
 
     // DEXIE-FIRST: Write-through to visualFields including updated dropdownOptions
     // This ensures custom options persist across page loads
@@ -2362,7 +2167,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       dropdownOptions: [...this.visualDropdownOptions[templateId]]  // Save the updated options array to Dexie
     });
 
-    console.log('[OTHER] Saved dropdownOptions to Dexie for category:', category, 'options:', this.visualDropdownOptions[templateId]);
 
     await this.onAnswerChange(category, item);
   }
@@ -2400,13 +2204,11 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       category,
       itemId,
       onTempPhotoAdded: (photo: StandardPhotoEntry) => {
-        console.log('[DTE CAMERA] Temp photo added:', photo.imageId);
         this.visualPhotos[key].push(photo);
         this.expandedPhotos[key] = true;
         this.changeDetectorRef.detectChanges();
       },
       onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
-        console.log('[DTE CAMERA] Upload complete:', photo.imageId);
         const index = this.visualPhotos[key].findIndex(p =>
           p.AttachID === tempId || p.imageId === tempId
         );
@@ -2465,13 +2267,11 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       itemId,
       skipAnnotator: true, // Gallery photos don't go through annotator
       onTempPhotoAdded: (photo: StandardPhotoEntry) => {
-        console.log('[DTE GALLERY] Temp photo added:', photo.imageId);
         this.visualPhotos[key].push(photo);
         this.expandedPhotos[key] = true;
         this.changeDetectorRef.detectChanges();
       },
       onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
-        console.log('[DTE GALLERY] Upload complete:', photo.imageId);
         const index = this.visualPhotos[key].findIndex(p =>
           p.AttachID === tempId || p.imageId === tempId
         );
@@ -2517,7 +2317,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     Array.from(input.files).forEach(file => {
       // Create a blob URL for preview
       const blobUrl = URL.createObjectURL(file);
-      console.log(`[FILE SELECT] File selected: ${file.name}, size: ${file.size}`);
     });
 
     // Clear the input for future selections
@@ -2566,16 +2365,10 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     caption: string
   ): Promise<string | null> {
     try {
-      console.log(`[DTE PHOTO UPLOAD] Starting upload for DTEID ${DTEID}`);
 
       // Upload photo using HUD service
       const result = await this.hudData.uploadVisualPhoto(DTEID, photo, caption);
 
-      console.log(`[DTE PHOTO UPLOAD] Upload complete for DTEID ${DTEID}`);
-      console.log(`[DTE PHOTO UPLOAD] Full result object:`, JSON.stringify(result, null, 2));
-      console.log(`[DTE PHOTO UPLOAD] Result.Result:`, result.Result);
-      console.log(`[DTE PHOTO UPLOAD] AttachID:`, result.AttachID || result.Result?.[0]?.AttachID);
-      console.log(`[DTE PHOTO UPLOAD] Photo path:`, result.Photo || result.Result?.[0]?.Photo);
 
       if (tempId && this.visualPhotos[key]) {
         const photoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === tempId || p.id === tempId);
@@ -2592,16 +2385,11 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           const uploadedPhotoUrl = actualResult.Photo || actualResult.thumbnailUrl || actualResult.url; // Old Caspio path
           let displayableUrl = uploadedPhotoUrl || '';
 
-          console.log('[DTE PHOTO UPLOAD] Actual result:', actualResult);
-          console.log('[DTE PHOTO UPLOAD] S3 key:', s3Key);
-          console.log('[DTE PHOTO UPLOAD] Uploaded photo path (old):', uploadedPhotoUrl);
 
           // Check if this is an S3 image
           if (s3Key && this.caspioService.isS3Key(s3Key)) {
             try {
-              console.log('[DTE PHOTO UPLOAD] ✨ S3 image detected, fetching pre-signed URL...');
               displayableUrl = await this.caspioService.getS3FileUrl(s3Key);
-              console.log('[DTE PHOTO UPLOAD] ✅ Got S3 pre-signed URL');
             } catch (err) {
               console.error('[DTE PHOTO UPLOAD] ❌ Failed to fetch S3 URL:', err);
               displayableUrl = 'assets/img/photo-placeholder.svg';
@@ -2610,15 +2398,12 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // Fallback to old Caspio Files API logic
           else if (uploadedPhotoUrl && !uploadedPhotoUrl.startsWith('data:') && !uploadedPhotoUrl.startsWith('blob:')) {
             try {
-              console.log('[DTE PHOTO UPLOAD] 📁 Caspio Files API path detected, fetching image data...');
               const imageData = await firstValueFrom(
                 this.caspioService.getImageFromFilesAPI(uploadedPhotoUrl)
               );
-              console.log('[DTE PHOTO UPLOAD] Files API response:', imageData?.substring(0, 100));
               
               if (imageData && imageData.startsWith('data:')) {
                 displayableUrl = imageData;
-                console.log('[DTE PHOTO UPLOAD] ✅ Successfully converted to data URL, length:', imageData.length);
               } else {
                 console.warn('[DTE PHOTO UPLOAD] ❌ Files API returned invalid data');
                 displayableUrl = 'assets/img/photo-placeholder.svg';
@@ -2628,15 +2413,11 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               displayableUrl = 'assets/img/photo-placeholder.svg';
             }
           } else {
-            console.log('[DTE PHOTO UPLOAD] Using URL directly (already data/blob URL)');
           }
 
-          console.log('[DTE PHOTO UPLOAD] Final displayableUrl length:', displayableUrl?.length || 0);
-          console.log('[DTE PHOTO UPLOAD] Updating photo at index', photoIndex);
 
           // Get AttachID from the actual result
           const attachId = actualResult.AttachID || actualResult.PK_ID || actualResult.id;
-          console.log('[DTE PHOTO UPLOAD] Using AttachID:', attachId);
 
           this.visualPhotos[key][photoIndex] = {
             ...this.visualPhotos[key][photoIndex],
@@ -2655,16 +2436,8 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             Annotation: caption || ''
           };
 
-          console.log('[DTE PHOTO UPLOAD] ✅ Photo object updated:', {
-            AttachID: this.visualPhotos[key][photoIndex].AttachID,
-            hasUrl: !!this.visualPhotos[key][photoIndex].url,
-            hasThumbnail: !!this.visualPhotos[key][photoIndex].thumbnailUrl,
-            hasDisplay: !!this.visualPhotos[key][photoIndex].displayUrl,
-            urlLength: this.visualPhotos[key][photoIndex].url?.length || 0
-          });
 
           this.changeDetectorRef.detectChanges();
-          console.log('[DTE PHOTO UPLOAD] ✅ Change detection triggered');
         } else {
           console.warn('[DTE PHOTO UPLOAD] ❌ Could not find photo with tempId:', tempId);
         }
@@ -2726,7 +2499,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         if (drawingsData.length > 50000) {
           try {
             compressedDrawings = compressAnnotationData(drawingsData, { emptyResult: '{}' });
-            console.log('[SAVE ANNOTATION] Compressed from', drawingsData.length, 'to', compressedDrawings.length, 'bytes');
           } catch (e) {
             console.error('[SAVE] Compression failed:', e);
             compressedDrawings = drawingsData;
@@ -2739,14 +2511,12 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Update the DTE attach record
     await firstValueFrom(this.caspioService.updateServicesDTEAttach(attachId, updateData));
-    console.log('[SAVE ANNOTATION] ✅ Annotations saved successfully');
 
     // TASK 4 FIX: Cache the annotated blob for thumbnail display on reload
     // This ensures annotations are visible in thumbnails after page reload
     if (annotatedBlob && annotatedBlob.size > 0) {
       try {
         const base64 = await this.indexedDb.cacheAnnotatedImage(String(attachId), annotatedBlob);
-        console.log('[SAVE ANNOTATION] ✅ Annotated image blob cached for thumbnail display');
         // Update in-memory map so same-session navigation shows the annotation
         if (base64 && this.bulkAnnotatedImagesMap) {
           this.bulkAnnotatedImagesMap.set(String(attachId), base64);
@@ -2771,7 +2541,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         if (!verifyDecompressed || !verifyDecompressed.objects || verifyDecompressed.objects.length === 0) {
           console.warn('[SAVE] ⚠️ ANNOTATION VERIFICATION WARNING: Saved Drawings decompresses to empty annotations');
         } else {
-          console.log('[SAVE] ✅ ANNOTATION VERIFICATION PASSED:', verifyDecompressed.objects.length, 'objects will be editable on reload');
         }
       } catch (verifyError) {
         console.error('[SAVE] ⚠️ ANNOTATION VERIFICATION FAILED: Cannot decompress saved Drawings:', verifyError);
@@ -2909,7 +2678,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
                 this.hudData.updateVisualPhotoCaption(photo.AttachID, newCaption)
                   .then(() => {
-                    console.log('[CAPTION] Saved caption for photo:', photo.AttachID);
                   })
                   .catch((error) => {
                     console.error('[CAPTION] Error saving caption:', error);
@@ -3016,7 +2784,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   async viewPhoto(photo: any, category: string, itemId: string | number, event?: Event) {
-    console.log('[VIEW PHOTO] Opening photo annotator for', photo.AttachID);
 
     try {
       const key = `${category}_${itemId}`;
@@ -3042,7 +2809,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const pendingFileId = photo._pendingFileId || attachId;
 
       if (isPendingPhoto) {
-        console.log('[VIEW PHOTO] Pending photo detected, retrieving from IndexedDB:', pendingFileId);
         try {
           const photoData = await this.indexedDb.getStoredPhotoData(pendingFileId);
           if (photoData && photoData.file) {
@@ -3053,7 +2819,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             photo.url = imageUrl;
             photo.originalUrl = imageUrl;
             photo.thumbnailUrl = imageUrl;
-            console.log('[VIEW PHOTO] ✅ Retrieved pending photo from IndexedDB, URL set');
           } else {
             console.warn('[VIEW PHOTO] Pending photo not found in IndexedDB');
             // If the photo has a data URL already, use it
@@ -3083,7 +2848,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       if (isLocalFirstPhoto && !isPendingPhoto) {
         const localImageId = photo.localImageId || photo.imageId;
-        console.log('[VIEW PHOTO] LocalImage detected, refreshing from Dexie:', localImageId);
 
         const localImage = await this.indexedDb.getLocalImage(localImageId);
         if (localImage) {
@@ -3092,7 +2856,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           if (localImage.drawings && localImage.drawings.length > 10) {
             photo.Drawings = localImage.drawings;
             photo.hasAnnotations = true;
-            console.log('[VIEW PHOTO] Loaded fresh drawings from Dexie:', localImage.drawings.length, 'chars');
           }
 
           // FULL RESOLUTION FIX: For the annotator, we MUST get the FULL RESOLUTION image
@@ -3105,18 +2868,15 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             if (localImage.localBlobId) {
               fullResUrl = await this.localImageService.getOriginalBlobUrl(localImage.localBlobId);
               if (fullResUrl) {
-                console.log('[VIEW PHOTO] ✅ Got FULL RESOLUTION blob URL:', fullResUrl.substring(0, 50));
                 photo._hasFullResBlob = true;
               }
             }
 
             // Second try: If no full-res blob (purged), fetch from S3
             if (!fullResUrl && localImage.remoteS3Key) {
-              console.log('[VIEW PHOTO] Full-res blob purged, fetching from S3:', localImage.remoteS3Key);
               try {
                 fullResUrl = await this.caspioService.getS3FileUrl(localImage.remoteS3Key);
                 if (fullResUrl) {
-                  console.log('[VIEW PHOTO] ✅ Got FULL RESOLUTION from S3:', fullResUrl.substring(0, 50));
                   photo._hasFullResBlob = true;
                 }
               } catch (s3Err) {
@@ -3136,7 +2896,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               photo.originalUrl = fullResUrl;
               photo.displayUrl = fullResUrl;
               imageUrl = fullResUrl;
-              console.log('[VIEW PHOTO] Final LocalImage URL for annotator:', fullResUrl?.substring(0, 50));
             }
           } catch (err) {
             console.warn('[VIEW PHOTO] Failed to get LocalImage URL:', err);
@@ -3149,18 +2908,15 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         try {
           // Check if this is an S3 key
           if (photo.Attachment && this.caspioService.isS3Key(photo.Attachment)) {
-            console.log('[VIEW PHOTO] ✨ S3 image detected, fetching URL...');
             imageUrl = await this.caspioService.getS3FileUrl(photo.Attachment);
             photo.url = imageUrl;
             photo.originalUrl = imageUrl;
             photo.thumbnailUrl = imageUrl;
             photo.displayUrl = imageUrl;
-            console.log('[VIEW PHOTO] ✅ Got S3 URL');
           }
           // Fallback to Caspio Files API
           else {
             const filePath = photo.filePath || photo.Photo;
-            console.log('[VIEW PHOTO] 📁 Fetching from Caspio Files API...');
             const fetchedImage = await firstValueFrom(
               this.caspioService.getImageFromFilesAPI(filePath)
             );
@@ -3192,7 +2948,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           try {
             const s3OriginalUrl = await this.caspioService.getS3FileUrl(photo.Attachment);
             if (s3OriginalUrl && s3OriginalUrl !== originalImageUrl) {
-              console.log('[VIEW PHOTO] ✅ Fetched original from S3, using instead of potentially flattened URL');
               originalImageUrl = s3OriginalUrl;
             }
           } catch (e) {
@@ -3358,14 +3113,12 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
           if (isLocalFirstPhoto) {
             const localImageId = photo.localImageId || photo.imageId;
-            console.log('[Delete Photo] Deleting LocalImage:', localImageId);
 
             // CRITICAL: Get LocalImage data BEFORE deleting to check if server deletion is needed
             const localImage = await this.indexedDb.getLocalImage(localImageId);
 
             // If the photo was already synced (has real attachId), queue delete for server
             if (localImage?.attachId && !String(localImage.attachId).startsWith('img_')) {
-              console.log('[Delete Photo] LocalImage was synced, queueing server delete:', localImage.attachId);
               await this.hudData.deleteVisualPhoto(localImage.attachId);
             }
 
@@ -3375,10 +3128,8 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // Legacy photo deletion
           else if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
             await this.hudData.deleteVisualPhoto(photo.AttachID);
-            console.log('[Delete Photo] Deleted photo (or queued for sync):', photo.AttachID);
           }
 
-          console.log('[Delete Photo] Photo removed successfully');
         } catch (error) {
           console.error('Error deleting photo:', error);
         }
@@ -3389,6 +3140,7 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   private async showToast(message: string, color: string = 'primary') {
+    if (color === 'success' || color === 'info') return;
     const toast = await this.toastController.create({
       message,
       duration: 2000,
@@ -3459,7 +3211,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         TemplateID: 0  // Custom visual - no template
       };
 
-      console.log('[CREATE CUSTOM] Creating HUD visual:', hudData);
 
       // Create the HUD record
       const response = await this.hudData.createVisual(hudData);
@@ -3485,7 +3236,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         throw new Error('No DTEID returned from server');
       }
 
-      console.log('[CREATE CUSTOM] Created HUD visual with ID:', visualId);
 
       // Add to local data structure
       const customItem: VisualItem = {
@@ -3516,11 +3266,9 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.visualRecordIds[key] = String(visualId);
       this.selectedItems[key] = true;
 
-      console.log('[CREATE CUSTOM] Stored DTEID:', key, '=', visualId);
 
       // Upload photos if provided
       if (files && files.length > 0) {
-        console.log('[CREATE CUSTOM] Uploading', files.length, 'photos');
 
         // Initialize photos array
         if (!this.visualPhotos[key]) {
@@ -3552,7 +3300,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.visualPhotos[key].push(...tempPhotos);
         this.changeDetectorRef.detectChanges();
 
-        console.log('[CREATE CUSTOM] Added', tempPhotos.length, 'placeholder photos');
 
         // Upload photos in background
         const uploadPromises = Array.from(files).map(async (file, index) => {
@@ -3598,7 +3345,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       }
 
       this.changeDetectorRef.detectChanges();
-      console.log('[CREATE CUSTOM] ✅ Custom visual created successfully');
 
     } catch (error) {
       console.error('[CREATE CUSTOM] Error:', error);
@@ -3611,7 +3357,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
    * Visual-detail will determine DTEID from Dexie field lookup (tempVisualId || visualId)
    */
   openVisualDetail(categoryName: string, item: VisualItem) {
-    console.log('[DTE CategoryDetail] openVisualDetail - item:', item?.name, 'item.id:', item?.id, 'templateId:', item?.templateId);
 
     // WEBAPP SIMPLIFIED: The DTEID is stored in visualRecordIds (LBW pattern)
     let dteId = '';
@@ -3624,13 +3369,11 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       if (itemIdStr.startsWith('custom_')) {
         dteId = itemIdStr.replace('custom_', '');
         routeId = dteId; // Use the numeric DTEID for the route
-        console.log('[DTE CategoryDetail] WEBAPP: Custom visual, DTEID:', dteId);
       } else {
         // Template visual: look up in visualRecordIds, fallback to item.dteId (LBW pattern)
         const key = `${categoryName}_${item.id}`;
         dteId = this.visualRecordIds[key] || (item as any).dteId || '';
         routeId = item.templateId || item.id;
-        console.log('[DTE CategoryDetail] WEBAPP: Template visual, key:', key, 'DTEID:', dteId, 'item.dteId:', (item as any).dteId);
       }
     } else {
       // MOBILE: Use LBW pattern with isCustomVisual and item.dteId fallback
@@ -3641,7 +3384,6 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       routeId = isCustomVisual ? item.id : item.templateId;
     }
 
-    console.log('[DTE CategoryDetail] FINAL: routeId:', routeId, 'dteId:', dteId);
 
     // LBW pattern: Always pass dteId in queryParams (even if empty)
     // The visual-detail page uses priority-based matching when dteId is empty

@@ -43,6 +43,13 @@ export class GenericCategoryHubPage implements OnInit, OnDestroy, ViewWillEnter 
   // WEBAPP: Expose isWeb for template conditionals
   isWeb = environment.isWeb;
 
+  // Cached template state flags (updated when serviceData or config changes)
+  showVisualLocationDropdown: boolean = false;
+  visualsCompletedHere: boolean = false;
+  visualsDisabled: boolean = false;
+  showCategories: boolean = true;
+  visualLocationFieldValue: string = '';
+
   private isLoadingCategories: boolean = false;
   private initialLoadComplete: boolean = false;
 
@@ -59,7 +66,7 @@ export class GenericCategoryHubPage implements OnInit, OnDestroy, ViewWillEnter 
     // Subscribe to template config changes
     this.configSubscription = this.templateConfigService.activeConfig$.subscribe(config => {
       this.config = config;
-      console.log(`[CategoryHub] Config loaded for template: ${config.id}`);
+      this.updateCachedState();
       this.changeDetectorRef.detectChanges();
     });
 
@@ -69,7 +76,6 @@ export class GenericCategoryHubPage implements OnInit, OnDestroy, ViewWillEnter 
     if (parentParams) {
       this.projectId = parentParams['projectId'] || '';
       this.serviceId = parentParams['serviceId'] || '';
-      console.log('[CategoryHub] Got params from parent snapshot:', this.projectId, this.serviceId);
     }
 
     // Fallback to parent.parent if not found
@@ -78,7 +84,6 @@ export class GenericCategoryHubPage implements OnInit, OnDestroy, ViewWillEnter 
       if (grandparentParams) {
         this.projectId = grandparentParams['projectId'] || '';
         this.serviceId = grandparentParams['serviceId'] || '';
-        console.log('[CategoryHub] Got params from grandparent snapshot:', this.projectId, this.serviceId);
       }
     }
 
@@ -96,14 +101,12 @@ export class GenericCategoryHubPage implements OnInit, OnDestroy, ViewWillEnter 
       if (newProjectId && newServiceId && (newProjectId !== this.projectId || newServiceId !== this.serviceId)) {
         this.projectId = newProjectId;
         this.serviceId = newServiceId;
-        console.log('[CategoryHub] Params updated - ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
         this.loadData();
       }
     });
   }
 
   async ionViewWillEnter() {
-    console.log('[CategoryHub] ionViewWillEnter - Reloading data');
 
     // Only reload if initial load is complete and we have IDs
     if (this.initialLoadComplete && this.serviceId) {
@@ -111,7 +114,7 @@ export class GenericCategoryHubPage implements OnInit, OnDestroy, ViewWillEnter 
         // Reload service data to get fresh field values (like StructStat)
         const serviceData = await this.dataProvider.getService(this.serviceId);
         this.serviceData = serviceData || {};
-        console.log('[CategoryHub] ionViewWillEnter: Reloaded serviceData, StructStat:', this.serviceData?.StructStat);
+        this.updateCachedState();
         this.changeDetectorRef.detectChanges();
       } catch (error) {
         console.error('[CategoryHub] ionViewWillEnter: Error reloading service data:', error);
@@ -132,7 +135,6 @@ export class GenericCategoryHubPage implements OnInit, OnDestroy, ViewWillEnter 
       return;
     }
 
-    console.log('[CategoryHub] loadData() starting for template:', this.config.id);
     this.loading = true;
     this.isOnline = this.offlineService.isOnline();
     this.changeDetectorRef.detectChanges();
@@ -147,16 +149,12 @@ export class GenericCategoryHubPage implements OnInit, OnDestroy, ViewWillEnter 
 
       this.serviceData = serviceData || {};
       this.hasPendingSync = visualsResult.hasPendingSync;
-
-      console.log(`[CategoryHub] Loaded serviceData, PK_ID:`, serviceData?.PK_ID);
-      console.log(`[CategoryHub] StructStat value:`, serviceData?.StructStat);
-      console.log(`[CategoryHub] hasPendingSync:`, this.hasPendingSync);
+      this.updateCachedState();
 
       // Process templates and visuals to build category cards
       await this.processTemplatesAndRecords(templates || [], visualsResult.data || []);
 
       this.isEmpty = this.categories.length === 0;
-      console.log(`[CategoryHub] ${this.categories.length} categories loaded`);
     } catch (error) {
       console.error('[CategoryHub] Error loading data:', error);
     } finally {
@@ -168,7 +166,6 @@ export class GenericCategoryHubPage implements OnInit, OnDestroy, ViewWillEnter 
 
   private async loadCategories() {
     if (this.isLoadingCategories || !this.config) {
-      console.log('[CategoryHub] Skipping - already loading or no config');
       return;
     }
 
@@ -205,7 +202,6 @@ export class GenericCategoryHubPage implements OnInit, OnDestroy, ViewWillEnter 
       }
     });
 
-    console.log('[CategoryHub] Categories:', categoriesOrder.length);
 
     // Count visuals by category and kind
     const counts: { [category: string]: { comments: number; limitations: number; deficiencies: number } } = {};
@@ -240,6 +236,10 @@ export class GenericCategoryHubPage implements OnInit, OnDestroy, ViewWillEnter 
     }));
   }
 
+  trackByCategoryName(index: number, category: CategoryCard): string {
+    return category.name;
+  }
+
   navigateToCategory(categoryName: string) {
     // Navigation pattern depends on route structure:
     // - 'nested': /structural -> /structural/category/:cat (EFE)
@@ -255,45 +255,28 @@ export class GenericCategoryHubPage implements OnInit, OnDestroy, ViewWillEnter 
     }
   }
 
-  // Visual location dropdown methods (EFE only)
-  shouldShowVisualLocationDropdown(): boolean {
-    return this.config?.categoryHubFeatures?.hasVisualLocationDropdown || false;
-  }
+  /**
+   * Recompute cached template state flags.
+   * Called when config, serviceData, or visual location changes.
+   */
+  private updateCachedState(): void {
+    this.showVisualLocationDropdown = this.config?.categoryHubFeatures?.hasVisualLocationDropdown || false;
 
-  getVisualLocationFieldValue(): string {
-    if (!this.config?.categoryHubFeatures?.visualLocationFieldName) return '';
-    const fieldName = this.config.categoryHubFeatures.visualLocationFieldName;
-    const value = this.serviceData[fieldName] || '';
-    // Log only when there's a meaningful change to avoid spamming console
-    if (value) {
-      console.log(`[CategoryHub] getVisualLocationFieldValue: ${fieldName}='${value}'`);
+    if (this.config?.categoryHubFeatures?.visualLocationFieldName) {
+      this.visualLocationFieldValue = this.serviceData[this.config.categoryHubFeatures.visualLocationFieldName] || '';
+    } else {
+      this.visualLocationFieldValue = '';
     }
-    return value;
-  }
 
-  isVisualsCompletedHere(): boolean {
-    const fieldValue = this.getVisualLocationFieldValue();
     const completedHereValue = this.config?.categoryHubFeatures?.completedHereValue || 'Completed Here';
-    return fieldValue === completedHereValue;
-  }
-
-  isVisualsDisabled(): boolean {
-    const fieldValue = this.getVisualLocationFieldValue();
     const providedElsewhereValue = this.config?.categoryHubFeatures?.providedElsewhereValue || '';
-    return fieldValue === providedElsewhereValue;
-  }
 
-  shouldShowCategories(): boolean {
-    // If no visual location dropdown, always show categories
-    if (!this.shouldShowVisualLocationDropdown()) {
-      return true;
-    }
-    // If dropdown exists, only show categories when "Completed Here" is selected
-    return this.isVisualsCompletedHere();
+    this.visualsCompletedHere = this.visualLocationFieldValue === completedHereValue;
+    this.visualsDisabled = this.visualLocationFieldValue === providedElsewhereValue;
+    this.showCategories = !this.showVisualLocationDropdown || this.visualsCompletedHere;
   }
 
   onVisualLocationChange(value: string) {
-    console.log('[CategoryHub] onVisualLocationChange called with value:', value);
 
     if (!this.config?.categoryHubFeatures?.visualLocationFieldName) {
       console.error('[CategoryHub] No visualLocationFieldName in config');
@@ -301,12 +284,12 @@ export class GenericCategoryHubPage implements OnInit, OnDestroy, ViewWillEnter 
     }
 
     const fieldName = this.config.categoryHubFeatures.visualLocationFieldName;
-    console.log('[CategoryHub] Updating field:', fieldName, 'to value:', value);
 
     // Store in local serviceData
     this.serviceData[fieldName] = value;
 
-    // Trigger change detection for conditional content visibility
+    // Recompute cached state flags and trigger change detection
+    this.updateCachedState();
     this.changeDetectorRef.detectChanges();
 
     // Save to backend
@@ -319,14 +302,12 @@ export class GenericCategoryHubPage implements OnInit, OnDestroy, ViewWillEnter 
       return;
     }
 
-    console.log(`[CategoryHub] Saving service field ${fieldName}:`, value, 'serviceId:', this.serviceId);
 
     const updateData = { [fieldName]: value };
 
     try {
       // Use unified dataProvider - handles webapp/mobile differences internally
       await this.dataProvider.updateService(this.serviceId, updateData);
-      console.log(`[CategoryHub] Successfully saved ${fieldName}`);
 
       // Update local serviceData to ensure UI consistency
       this.serviceData[fieldName] = value;
@@ -335,39 +316,39 @@ export class GenericCategoryHubPage implements OnInit, OnDestroy, ViewWillEnter 
     }
   }
 
-  getCategoryIcon(categoryName: string): string {
-    // Unified icon map for all templates
-    const iconMap: { [key: string]: string } = {
-      // EFE categories
-      'Foundations': 'reorder-four-outline',
-      'Grading and Drainage': 'water-outline',
-      'General Conditions': 'document-text-outline',
-      'Roof Structure': 'home-outline',
-      'Floor Framing': 'grid-outline',
-      'Wall Framing': 'apps-outline',
-      'Attic': 'triangle-outline',
-      'Crawlspace': 'arrow-down-outline',
-      'Crawlspaces': 'arrow-down-outline',
-      'Walls (Interior and Exterior)': 'albums-outline',
-      'Ceilings and Floors': 'layers-outline',
-      'Doors (Interior and Exterior)': 'enter-outline',
-      'Windows': 'scan-outline',
-      'Other': 'ellipsis-horizontal-circle-outline',
-      'Basements': 'cube-outline',
-      // LBW categories
-      'Target wall': 'build-outline',
-      'Target Wall': 'build-outline',
-      '1st Floor above': 'document-text-outline',
-      'Attic and roof above': 'document-text-outline',
-      '1st Floor below': 'document-text-outline',
-      'Basement': 'cube-outline',
-      'Foundation below': 'document-text-outline',
-      'Conclusion': 'document-text-outline',
-      // DTE categories
-      'Foundation': 'business-outline',
-      'Structure': 'construct-outline'
-    };
+  // Static icon map - allocated once, not per change detection cycle
+  private static readonly CATEGORY_ICON_MAP: { [key: string]: string } = {
+    // EFE categories
+    'Foundations': 'reorder-four-outline',
+    'Grading and Drainage': 'water-outline',
+    'General Conditions': 'document-text-outline',
+    'Roof Structure': 'home-outline',
+    'Floor Framing': 'grid-outline',
+    'Wall Framing': 'apps-outline',
+    'Attic': 'triangle-outline',
+    'Crawlspace': 'arrow-down-outline',
+    'Crawlspaces': 'arrow-down-outline',
+    'Walls (Interior and Exterior)': 'albums-outline',
+    'Ceilings and Floors': 'layers-outline',
+    'Doors (Interior and Exterior)': 'enter-outline',
+    'Windows': 'scan-outline',
+    'Other': 'ellipsis-horizontal-circle-outline',
+    'Basements': 'cube-outline',
+    // LBW categories
+    'Target wall': 'build-outline',
+    'Target Wall': 'build-outline',
+    '1st Floor above': 'document-text-outline',
+    'Attic and roof above': 'document-text-outline',
+    '1st Floor below': 'document-text-outline',
+    'Basement': 'cube-outline',
+    'Foundation below': 'document-text-outline',
+    'Conclusion': 'document-text-outline',
+    // DTE categories
+    'Foundation': 'business-outline',
+    'Structure': 'construct-outline'
+  };
 
-    return iconMap[categoryName] || 'construct-outline';
+  getCategoryIcon(categoryName: string): string {
+    return GenericCategoryHubPage.CATEGORY_ICON_MAP[categoryName] || 'construct-outline';
   }
 }

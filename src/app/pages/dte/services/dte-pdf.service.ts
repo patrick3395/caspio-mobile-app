@@ -45,7 +45,6 @@ export class DtePdfService {
   async generatePDF(projectId: string, serviceId: string): Promise<void> {
     // Prevent multiple simultaneous PDF generation attempts
     if (this.isPDFGenerating) {
-      console.log('[DTE PDF Service] PDF generation already in progress');
       return;
     }
 
@@ -67,7 +66,6 @@ export class DtePdfService {
             handler: () => {
               cancelRequested = true;
               this.isPDFGenerating = false;
-              console.log('[DTE PDF Service] User cancelled PDF generation');
               return true;
             }
           }
@@ -77,7 +75,6 @@ export class DtePdfService {
       });
       await loading.present();
 
-      console.log('[DTE PDF Service] Starting PDF generation for:', { projectId, serviceId });
 
       // Check cache first (5-minute cache)
       const cacheKey = this.cache.getApiCacheKey('hud_pdf_data', {
@@ -89,13 +86,11 @@ export class DtePdfService {
       const cachedData = this.cache.get(cacheKey);
 
       if (cachedData) {
-        console.log('[DTE PDF Service] ⚡ Using cached PDF data - fast path!');
         if (loading) {
           loading.message = 'Loading from cache...';
         }
         ({ hudData, projectInfo } = cachedData);
       } else {
-        console.log('[DTE PDF Service] Loading fresh PDF data...');
         if (loading) {
           loading.message = 'Loading project data...';
         }
@@ -103,7 +98,6 @@ export class DtePdfService {
 
         // Check if user cancelled
         if (cancelRequested) {
-          console.log('[DTE PDF Service] Cancelled before data fetch');
           return;
         }
 
@@ -143,7 +137,6 @@ export class DtePdfService {
           }, this.cache.CACHE_TIMES.MEDIUM);
           
           const loadTime = Date.now() - startTime;
-          console.log(`[DTE PDF Service] Cached PDF data for reuse (5 min expiry) - loaded in ${loadTime}ms`);
         } catch (dataError) {
           console.error('[DTE PDF Service] Fatal error loading PDF data:', dataError);
           // Use fallback empty data to prevent errors
@@ -161,11 +154,9 @@ export class DtePdfService {
 
       // Check if user cancelled
       if (cancelRequested) {
-        console.log('[DTE PDF Service] Cancelled after data fetch');
         return;
       }
 
-      console.log('[DTE PDF Service] Data loaded, now loading PDF preview component...');
       if (loading) {
         loading.message = 'Loading PDF preview...';
       }
@@ -173,7 +164,6 @@ export class DtePdfService {
       // Load PDF preview component
       const PdfPreviewComponent = await this.loadPdfPreview();
 
-      console.log('[DTE PDF Service] PDF preview component loaded:', !!PdfPreviewComponent);
 
       // Load primary photo after component is loaded
       if (loading) {
@@ -181,16 +171,9 @@ export class DtePdfService {
       }
       await this.loadPrimaryPhoto(projectInfo);
       
-      console.log('[DTE PDF Service] Primary photo processed:', {
-        hasPrimaryPhoto: !!projectInfo.primaryPhoto,
-        hasPrimaryPhotoBase64: !!projectInfo.primaryPhotoBase64,
-        primaryPhotoType: typeof projectInfo.primaryPhoto,
-        primaryPhotoPreview: projectInfo.primaryPhoto?.substring(0, 50)
-      });
 
       // Check if user cancelled
       if (cancelRequested) {
-        console.log('[DTE PDF Service] Cancelled after component load');
         return;
       }
 
@@ -204,10 +187,6 @@ export class DtePdfService {
         loading.message = 'Preparing PDF document...';
       }
 
-      console.log('[DTE PDF Service] Creating PDF modal with data:', {
-        projectInfo: !!projectInfo,
-        hudData: hudData?.length || 0
-      });
 
       // Create and present the PDF modal
       const modal = await this.modalController.create({
@@ -228,7 +207,6 @@ export class DtePdfService {
 
       // Check if user cancelled
       if (cancelRequested) {
-        console.log('[DTE PDF Service] Cancelled before modal present');
         return;
       }
 
@@ -236,9 +214,7 @@ export class DtePdfService {
         loading.message = 'Opening PDF...';
       }
 
-      console.log('[DTE PDF Service] Presenting PDF modal...');
       await modal.present();
-      console.log('[DTE PDF Service] PDF modal presented successfully');
 
       // Dismiss loading immediately after modal is presented
       setTimeout(async () => {
@@ -294,7 +270,6 @@ export class DtePdfService {
    * Prepare project information for PDF
    */
   private async prepareProjectInfo(projectId: string, serviceId: string): Promise<any> {
-    console.log('[DTE PDF Service] Preparing project info...');
 
     // Fetch project and service data
     const [projectData, serviceData] = await Promise.all([
@@ -302,7 +277,6 @@ export class DtePdfService {
       firstValueFrom(this.caspioService.getServiceById(serviceId))
     ]);
 
-    console.log('[DTE PDF Service] ✓ Project info loaded');
 
     // Get primary photo
     let primaryPhoto = (projectData as any)?.PrimaryPhoto || null;
@@ -365,7 +339,6 @@ export class DtePdfService {
    * Gathers all HUD visuals organized by category with photos
    */
   private async prepareHUDData(serviceId: string): Promise<any[]> {
-    console.log('[DTE PDF Service] Preparing DTE Data...');
 
     const result = [];
 
@@ -373,14 +346,9 @@ export class DtePdfService {
     // CRITICAL: Bypass cache to ensure we get the latest data for PDF
     const allVisuals = await this.hudData.getVisualsByService(serviceId, true);
     
-    console.log('[DTE PDF Service] ========== DTE Data DEBUG ==========');
-    console.log('[DTE PDF Service] ServiceID:', serviceId);
-    console.log('[DTE PDF Service] Total visuals fetched:', allVisuals?.length || 0);
     if (allVisuals && allVisuals.length > 0) {
-      console.log('[DTE PDF Service] Sample visual:', JSON.stringify(allVisuals[0], null, 2));
       // Log all category names for debugging
       const uniqueCategories = [...new Set(allVisuals.map((v: any) => v.Category))];
-      console.log('[DTE PDF Service] Unique categories in data:', uniqueCategories);
     } else {
       console.warn('[DTE PDF Service] ⚠️ NO HUD RECORDS FOUND! This is why PDF is empty.');
     }
@@ -398,11 +366,9 @@ export class DtePdfService {
       
       // CRITICAL: Skip hidden visuals
       if (visual.Notes && visual.Notes.startsWith('HIDDEN')) {
-        console.log('[DTE PDF Service] Skipping hidden visual:', visual.Name);
         continue;
       }
       
-      console.log('[DTE PDF Service] Visual:', visual.Name, 'Category:', category, 'Kind:', kind);
 
       // Initialize category if not already present
       if (!organizedData[category]) {
@@ -427,7 +393,6 @@ export class DtePdfService {
       }
     }
     
-    console.log('[DTE PDF Service] Found categories:', categoryOrder);
 
     // Load Fabric.js for annotation rendering
     const fabric = await this.fabricService.getFabric();
@@ -539,10 +504,6 @@ export class DtePdfService {
     const totalLimitations = result.reduce((sum, cat) => sum + cat.limitations.length, 0);
     const totalDeficiencies = result.reduce((sum, cat) => sum + cat.deficiencies.length, 0);
 
-    console.log(`[DTE PDF Service] ✓ DTE Data loaded: ${result.length} categories with ${totalItems} total items`);
-    console.log(`[DTE PDF Service]   - Comments: ${totalComments}`);
-    console.log(`[DTE PDF Service]   - Limitations: ${totalLimitations}`);
-    console.log(`[DTE PDF Service]   - Deficiencies: ${totalDeficiencies}`);
 
     return result;
   }
@@ -635,31 +596,22 @@ export class DtePdfService {
    * Load primary photo for project
    */
   private async loadPrimaryPhoto(projectInfo: any): Promise<void> {
-    console.log('[DTE PDF Service] loadPrimaryPhoto called with:', {
-      hasPrimaryPhoto: !!projectInfo?.primaryPhoto,
-      primaryPhotoType: typeof projectInfo?.primaryPhoto,
-      primaryPhotoStart: projectInfo?.primaryPhoto?.substring(0, 50)
-    });
 
     if (projectInfo?.primaryPhoto && typeof projectInfo.primaryPhoto === 'string') {
       let convertedPhotoData: string | null = null;
 
       if (projectInfo.primaryPhoto.startsWith('data:')) {
-        console.log('[DTE PDF Service] Primary photo already base64');
         convertedPhotoData = projectInfo.primaryPhoto;
       } else if (projectInfo.primaryPhoto.startsWith('blob:')) {
-        console.log('[DTE PDF Service] Converting blob URL to base64');
         try {
           const response = await fetch(projectInfo.primaryPhoto);
           const blob = await response.blob();
           convertedPhotoData = await this.blobToBase64(blob);
-          console.log('[DTE PDF Service] ✓ Blob converted to base64');
         } catch (error) {
           console.error('[DTE PDF Service] ✗ Error converting blob URL:', error);
         }
       } else if (this.caspioService.isS3Key(projectInfo.primaryPhoto)) {
         // S3 key - fetch from S3
-        console.log('[DTE PDF Service] Loading primary photo from S3:', projectInfo.primaryPhoto);
         try {
           const s3Url = await this.caspioService.getS3FileUrl(projectInfo.primaryPhoto);
           if (s3Url) {
@@ -667,7 +619,6 @@ export class DtePdfService {
             if (response.ok) {
               const blob = await response.blob();
               convertedPhotoData = await this.blobToBase64(blob);
-              console.log('[DTE PDF Service] ✓ S3 primary photo converted, size:', Math.round((convertedPhotoData?.length || 0) / 1024), 'KB');
             }
           }
         } catch (error) {
@@ -675,12 +626,10 @@ export class DtePdfService {
         }
       } else if (projectInfo.primaryPhoto.startsWith('/')) {
         // Caspio file path - convert to base64
-        console.log('[DTE PDF Service] Converting Caspio file path to base64:', projectInfo.primaryPhoto);
         try {
           const imageData = await firstValueFrom(this.caspioService.getImageFromFilesAPI(projectInfo.primaryPhoto));
           if (imageData && typeof imageData === 'string' && imageData.startsWith('data:')) {
             convertedPhotoData = imageData;
-            console.log('[DTE PDF Service] ✓ Primary photo converted successfully, size:', Math.round(imageData.length / 1024), 'KB');
           } else {
             console.error('[DTE PDF Service] ✗ Primary photo conversion failed - invalid data');
           }
@@ -688,19 +637,16 @@ export class DtePdfService {
           console.error('[DTE PDF Service] ✗ Error converting primary photo:', error);
         }
       } else {
-        console.log('[DTE PDF Service] Primary photo has unknown format:', projectInfo.primaryPhoto.substring(0, 50));
       }
 
       // Set both fields so PDF component can use either one
       if (convertedPhotoData) {
         projectInfo.primaryPhotoBase64 = convertedPhotoData;
         projectInfo.primaryPhoto = convertedPhotoData;
-        console.log('[DTE PDF Service] ✓ Primary photo fields set on projectInfo');
       } else {
         console.warn('[DTE PDF Service] ✗ No converted photo data - photo will not appear in PDF');
       }
     } else {
-      console.log('[DTE PDF Service] No primary photo to load');
     }
   }
 
@@ -709,9 +655,7 @@ export class DtePdfService {
    */
   private async loadPdfPreview(): Promise<any> {
     try {
-      console.log('[DTE PDF Service] Loading PDF preview component module...');
       const module = await import('../../../components/pdf-preview/pdf-preview.component');
-      console.log('[DTE PDF Service] PDF preview component module loaded:', !!module.PdfPreviewComponent);
       return module.PdfPreviewComponent;
     } catch (error) {
       console.error('[DTE PDF Service] Error loading PDF preview component:', error);

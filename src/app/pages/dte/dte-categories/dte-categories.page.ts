@@ -49,7 +49,6 @@ export class DteCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
   async ngOnInit() {
     // Get IDs from parent route (container level)
     this.route.parent?.params.subscribe(async params => {
-      console.log('[DTE Categories] Route params from parent:', params);
       this.projectId = params['projectId'];
       this.serviceId = params['serviceId'];
 
@@ -64,7 +63,6 @@ export class DteCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   ionViewWillEnter() {
-    console.log('[DTE Categories] ionViewWillEnter - liveQuery handles counts automatically');
 
     // Ensure liveQuery subscription is active
     if (this.initialLoadComplete && this.serviceId && !this.dteFieldsSubscription) {
@@ -80,7 +78,6 @@ export class DteCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   private async loadData() {
-    console.log('[DTE Categories] loadData() starting...');
 
     // WEBAPP MODE: Load from API
     if (environment.isWeb) {
@@ -95,7 +92,6 @@ export class DteCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
     // CRITICAL: Set loading=false IMMEDIATELY to prevent loading screen flash
     this.loading = false;
     this.changeDetectorRef.detectChanges();
-    console.log('[DTE Categories] ✅ Loading set to false immediately');
 
     // Load templates using cache-first pattern (fetches from API if cache empty)
     this.cachedTemplates = await this.offlineTemplate.getDteTemplates() || [];
@@ -110,7 +106,6 @@ export class DteCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
 
     this.initialLoadComplete = true;
     this.changeDetectorRef.detectChanges();
-    console.log('[DTE Categories] ✅ Data loaded');
 
     // Subscribe to liveQuery for reactive count updates
     this.subscribeToDteFieldsChanges();
@@ -145,7 +140,6 @@ export class DteCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
       deficiencyCount: 0
     }));
 
-    console.log('[DTE Categories] ✅ Categories extracted:', this.categories.length);
   }
 
   /**
@@ -170,7 +164,6 @@ export class DteCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
         // Guard against processing after destruction
         if (this.isDestroyed) return;
 
-        console.log('[DTE Categories] DEXIE-FIRST: liveQuery update -', fields.length, 'fields');
 
         // Calculate counts per category
         const counts: { [category: string]: { comments: number; limitations: number; deficiencies: number } } = {};
@@ -220,7 +213,6 @@ export class DteCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
    */
   private async loadCategoriesFromAPI() {
     try {
-      console.log('[DTE Categories] WEBAPP: Loading from API...');
       const templates = await this.caspioService.getServicesDTETemplates().toPromise();
 
       const categoriesSet = new Set<string>();
@@ -247,7 +239,6 @@ export class DteCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
         deficiencyCount: 0
       }));
 
-      console.log('[DTE Categories] WEBAPP: Loaded categories:', this.categories.length);
     } catch (error) {
       console.error('[DTE Categories] Error loading categories:', error);
     } finally {
@@ -258,7 +249,6 @@ export class DteCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   navigateToCategory(category: CategoryCard) {
-    console.log('[DTE Categories] Navigating to category:', category.title);
     this.router.navigate(['..', 'category', category.title], { relativeTo: this.route });
   }
 

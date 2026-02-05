@@ -28,7 +28,6 @@ export class DteValidationService {
    * Validate all required fields across all pages
    */
   async validateAllRequiredFields(projectId: string, serviceId: string): Promise<ValidationResult> {
-    console.log('[DTE Validation] Starting validation for:', { projectId, serviceId });
     
     const incompleteFields: IncompleteField[] = [];
 
@@ -40,7 +39,6 @@ export class DteValidationService {
     const categoryIncomplete = await this.validateCategoryFields(projectId, serviceId);
     incompleteFields.push(...categoryIncomplete);
 
-    console.log('[DTE Validation] Validation complete. Incomplete fields:', incompleteFields.length);
 
     return {
       isComplete: incompleteFields.length === 0,
@@ -106,7 +104,6 @@ export class DteValidationService {
         }
       });
 
-      console.log('[DTE Validation] Project fields incomplete:', incompleteFields.length);
     } catch (error) {
       console.error('[DTE Validation] Error validating project fields:', error);
     }
@@ -126,7 +123,6 @@ export class DteValidationService {
         .pipe(map((items: any[]) => items.filter((item: any) => item.Required === 'Yes')))
         .toPromise();
 
-      console.log('[DTE Validation] Found required template items:', requiredItems?.length || 0);
 
       // Fetch user's answers for this service
       const userAnswers = await this.caspioService.getServicesDTEByServiceId(serviceId).toPromise();
@@ -163,7 +159,6 @@ export class DteValidationService {
         }
       }
 
-      console.log('[DTE Validation] Category fields incomplete:', incompleteFields.length);
     } catch (error) {
       console.error('[DTE Validation] Error validating category fields:', error);
     }

@@ -61,7 +61,6 @@ export class BackgroundPhotoUploadService {
   private taskUpdates$ = new BehaviorSubject<UploadTask | null>(null);
 
   constructor(private imageCompression: ImageCompressionService) {
-    console.log('[UPLOAD SERVICE] BackgroundPhotoUploadService initialized');
   }
 
   /**
@@ -96,7 +95,6 @@ export class BackgroundPhotoUploadService {
     this.uploadQueue.push(task);
     this.updateQueueStatus();
 
-    console.log(`[UPLOAD SERVICE] Added task ${taskId} to queue. Queue size: ${this.uploadQueue.length}`);
 
     // Start processing if not already running
     this.processQueue();
@@ -110,12 +108,10 @@ export class BackgroundPhotoUploadService {
    */
   private async processQueue(): Promise<void> {
     if (this.isProcessing) {
-      console.log('[UPLOAD SERVICE] Already processing queue');
       return;
     }
 
     this.isProcessing = true;
-    console.log('[UPLOAD SERVICE] Starting queue processing');
 
     while (this.uploadQueue.length > 0 || this.activeUploads.size > 0) {
       // Start new uploads up to the parallel limit
@@ -140,7 +136,6 @@ export class BackgroundPhotoUploadService {
     }
 
     this.isProcessing = false;
-    console.log('[UPLOAD SERVICE] Queue processing complete');
   }
 
   /**
@@ -154,7 +149,6 @@ export class BackgroundPhotoUploadService {
     this.taskUpdates$.next(task);
     this.updateQueueStatus();
 
-    console.log(`[UPLOAD SERVICE] Starting upload for task ${task.id}`);
 
     try {
       // Compress the photo
@@ -181,7 +175,6 @@ export class BackgroundPhotoUploadService {
       task.progress = 100;
       this.taskUpdates$.next(task);
 
-      console.log(`[UPLOAD SERVICE] Task ${task.id} completed successfully`);
 
       // Store result for retrieval
       (task as any).result = result;
@@ -193,7 +186,6 @@ export class BackgroundPhotoUploadService {
 
       if (task.retryCount < maxRetries) {
         // Retry
-        console.log(`[UPLOAD SERVICE] Retrying task ${task.id} (${task.retryCount}/${maxRetries})`);
         task.status = 'queued';
         task.progress = 0;
         this.uploadQueue.unshift(task); // Add back to front of queue

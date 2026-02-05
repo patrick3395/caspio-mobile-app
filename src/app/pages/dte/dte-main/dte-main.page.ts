@@ -71,11 +71,9 @@ export class DteMainPage implements OnInit {
     // Get IDs from parent route (container level)
     // Route structure: dte/:projectId/:serviceId -> (main hub is here)
     this.route.parent?.params.subscribe(async params => {
-      console.log('Route params from parent:', params);
       this.projectId = params['projectId'];
       this.serviceId = params['serviceId'];
 
-      console.log('ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
 
       if (!this.projectId || !this.serviceId) {
         console.error('Missing projectId or serviceId');
@@ -92,7 +90,6 @@ export class DteMainPage implements OnInit {
       // Mark that changes may have been made
       if (this.isReportFinalized) {
         this.hasChangesAfterFinalization = true;
-        console.log('[DTE Main] Marked changes after finalization');
       }
       await this.checkCanFinalize();
     }
@@ -110,7 +107,6 @@ export class DteMainPage implements OnInit {
                                 status === 'Updated' || 
                                 status === 'Under Review';
       
-      console.log('[DTE Main] Report finalized status:', this.isReportFinalized, 'Status:', status);
     } catch (error) {
       console.error('[DTE Main] Error checking finalized status:', error);
     }
@@ -120,7 +116,6 @@ export class DteMainPage implements OnInit {
     try {
       const statusData: any = await this.caspioService.get('/tables/LPS_Status/records').toPromise();
       this.statusOptions = statusData?.Result || [];
-      console.log('[DTE Main] Loaded status options:', this.statusOptions.length);
     } catch (error) {
       console.error('[DTE Main] Error loading status options:', error);
     }
@@ -129,7 +124,6 @@ export class DteMainPage implements OnInit {
   getStatusAdminByClient(statusClient: string): string {
     const statusRecord = this.statusOptions.find(s => s.Status_Client === statusClient);
     if (statusRecord && statusRecord.Status_Admin) {
-      console.log(`[DTE Main] Status mapping: "${statusClient}" -> "${statusRecord.Status_Admin}"`);
       return statusRecord.Status_Admin;
     }
     console.warn(`[DTE Main] Status_Admin not found for "${statusClient}", using fallback`);
@@ -151,11 +145,9 @@ export class DteMainPage implements OnInit {
       // If report is finalized, only enable if changes have been made
       if (this.isReportFinalized) {
         this.canFinalize = this.hasChangesAfterFinalization && validationResult.isComplete;
-        console.log('[DTE Main] Report finalized. Has changes:', this.hasChangesAfterFinalization, 'Can update:', this.canFinalize);
       } else {
         // For initial finalization, enable if all fields complete
         this.canFinalize = validationResult.isComplete;
-        console.log('[DTE Main] Can finalize:', this.canFinalize);
       }
     } catch (error) {
       console.error('[DTE Main] Error checking finalize status:', error);
@@ -173,8 +165,6 @@ export class DteMainPage implements OnInit {
   }
 
   async finalizeReport() {
-    console.log('[DTE Main] Starting finalization validation...');
-    console.log('[DTE Main] Is finalized:', this.isReportFinalized, 'Has changes:', this.hasChangesAfterFinalization);
     
     // If report is finalized but no changes made, show message
     if (this.isReportFinalized && !this.hasChangesAfterFinalization) {
@@ -218,7 +208,6 @@ export class DteMainPage implements OnInit {
           buttons: ['OK']
         });
         await alert.present();
-        console.log('[DTE Main] Alert shown with', validationResult.incompleteFields.length, 'missing fields');
       } else {
         // All fields complete - show confirmation dialog
         const isUpdate = this.isReportFinalized;
@@ -228,7 +217,6 @@ export class DteMainPage implements OnInit {
           ? 'All required fields have been completed. Your report is ready to be updated.'
           : 'All required fields have been completed. Ready to finalize?';
         
-        console.log('[DTE Main] All fields complete, showing confirmation');
         const alert = await this.alertController.create({
           header: headerText,
           message: messageText,
@@ -266,11 +254,9 @@ export class DteMainPage implements OnInit {
 
     try {
       // Step 1: Check for unsynced images and force sync them
-      console.log('[DTE Main] Checking for unsynced images...');
       const imageStatus = await this.localImageService.getServiceImageSyncStatus(this.serviceId);
 
       if (imageStatus.pending > 0) {
-        console.log(`[DTE Main] Found ${imageStatus.pending} unsynced images, forcing sync...`);
         loading.message = `Syncing ${imageStatus.pending} image(s)...`;
 
         // Trigger background sync to process pending uploads
@@ -307,7 +293,6 @@ export class DteMainPage implements OnInit {
       }
 
       // Step 2: Update image pointers to remote URLs
-      console.log('[DTE Main] Updating image pointers to remote URLs...');
       loading.message = 'Updating image references...';
       await this.localImageService.updateImagePointersToRemote(this.serviceId);
 
@@ -347,22 +332,17 @@ export class DteMainPage implements OnInit {
         Status: statusAdminValue  // Use StatusAdmin value from Status table
       };
 
-      console.log('[DTE Main] Updating service status:', updateData);
       const response = await this.caspioService.updateService(this.serviceId, updateData).toPromise();
-      console.log('[DTE Main] Update response:', response);
 
       // Clear caches
-      console.log('[DTE Main] Clearing caches for project:', this.projectId);
       this.cache.clearProjectRelatedCaches(this.projectId);
       this.cache.clearByPattern('projects_active');
       this.cache.clearByPattern('projects_all');
 
       // Clean up local blob data after successful finalization
       // This frees device storage while preserving metadata (captions, annotations, remoteUrl)
-      console.log('[DTE Main] Cleaning up local blob data...');
       loading.message = 'Freeing device storage...';
       const cleanupResult = await this.localImageService.cleanupBlobDataAfterFinalization(this.serviceId);
-      console.log('[DTE Main] Blob cleanup complete:', cleanupResult);
 
       // Reset change tracking
       this.hasChangesAfterFinalization = false;
@@ -379,7 +359,6 @@ export class DteMainPage implements OnInit {
           text: 'OK',
           handler: () => {
             // Navigate back to project detail
-            console.log('[DTE Main] Navigating to project detail');
             this.navController.navigateBack(['/project', this.projectId]);
           }
         }]

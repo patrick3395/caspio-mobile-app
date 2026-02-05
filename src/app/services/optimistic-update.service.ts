@@ -79,13 +79,11 @@ export class OptimisticUpdateService {
     this.pendingOperations.set(config.id, operation);
     this.operations$.next(operation);
 
-    console.log('[OptimisticUpdate] ⚡ Started:', config.id);
 
     // Set timeout to show loading if operation takes too long
     const loadingThreshold = config.showLoadingAfter ?? this.LOADING_THRESHOLD;
     const loadingTimer = setTimeout(() => {
       if (this.pendingOperations.has(config.id)) {
-        console.log('[OptimisticUpdate] ⏳ Slow operation, showing loading:', config.id);
         // Emit updated operation status for components to show loading
         this.operations$.next({ ...operation, status: 'pending' });
       }
@@ -96,7 +94,6 @@ export class OptimisticUpdateService {
         clearTimeout(loadingTimer);
         const elapsed = Date.now() - operation.startTime;
 
-        console.log('[OptimisticUpdate] ✅ Success:', config.id, `(${elapsed}ms)`);
 
         operation.status = 'success';
         this.pendingOperations.delete(config.id);
@@ -117,7 +114,6 @@ export class OptimisticUpdateService {
         this.operations$.next(operation);
 
         // Rollback the optimistic update
-        console.log('[OptimisticUpdate] 🔄 Rolling back:', config.id);
         config.rollback();
 
         if (config.onError) {
@@ -163,7 +159,6 @@ export class OptimisticUpdateService {
   cancel(id: string): void {
     const operation = this.pendingOperations.get(id);
     if (operation) {
-      console.log('[OptimisticUpdate] ❌ Cancelled:', id);
       operation.rollback();
       this.pendingOperations.delete(id);
     }
@@ -173,7 +168,6 @@ export class OptimisticUpdateService {
    * Clear all pending operations
    */
   clearAll(): void {
-    console.log('[OptimisticUpdate] 🗑️ Clearing all pending operations');
     this.pendingOperations.forEach(op => op.rollback());
     this.pendingOperations.clear();
   }

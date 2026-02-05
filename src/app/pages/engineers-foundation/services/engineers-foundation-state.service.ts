@@ -98,18 +98,15 @@ export class EngineersFoundationStateService {
 
   // Save Methods (TODO: Implement actual API calls)
   async saveProjectField(field: string, value: any): Promise<void> {
-    console.log(`Saving project field: ${field} =`, value);
     this.updateProjectData({ [field]: value });
     // TODO: Call API to save
   }
 
   async saveStructuralItem(category: string, itemId: string, value: any): Promise<void> {
-    console.log(`Saving structural item: ${category}/${itemId} =`, value);
     // TODO: Update local state and call API
   }
 
   async saveElevationPoint(roomName: string, pointName: string, value: any): Promise<void> {
-    console.log(`Saving elevation point: ${roomName}/${pointName} =`, value);
     // TODO: Update local state and call API
   }
 }

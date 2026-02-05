@@ -483,6 +483,7 @@ export class ImageViewerComponent implements OnInit {
   }
   
   private async showToast(message: string, color: string) {
+    if (color === 'success' || color === 'info') return;
     const toast = await this.toastController.create({
       message,
       duration: 2000,

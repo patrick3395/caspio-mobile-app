@@ -47,7 +47,6 @@ export class DteDataService {
     // Subscribe to DTE-specific sync events
     this.syncSubscriptions.push(
       this.backgroundSync.dteSyncComplete$.subscribe(event => {
-        console.log('[DTE DataService] DTE synced, invalidating caches for service:', event.serviceId);
         this.hudCache.clear();
         this.cacheInvalidated$.next({ serviceId: event.serviceId, reason: 'dte_sync' });
       })
@@ -96,20 +95,16 @@ export class DteDataService {
       console.warn('[DTE Data] getVisualsByService called with empty serviceId');
       return [];
     }
-    console.log('[DTE Data] Loading existing HUD records for ServiceID:', serviceId, 'BypassCache:', bypassCache);
     
     // CRITICAL: If bypassCache is true, clear the cache first
     if (bypassCache) {
-      console.log('[DTE Data] Bypassing cache - clearing cached data for ServiceID:', serviceId);
       this.hudCache.delete(serviceId);
     }
     
     const hudRecords = await this.resolveWithCache(this.hudCache, serviceId, () =>
       firstValueFrom(this.caspioService.getServicesDTEByServiceId(serviceId, bypassCache))
     );
-    console.log('[DTE Data] API returned HUD records:', hudRecords.length, 'records');
     if (hudRecords.length > 0) {
-      console.log('[DTE Data] Sample HUD record data:', hudRecords[0]);
     }
     return hudRecords;
   }
@@ -144,7 +139,6 @@ export class DteDataService {
 
   // Clear all caches - use when returning to page to force fresh data load
   clearAllCaches(): void {
-    console.log('[DTE Data Service] Clearing ALL caches to force fresh data load');
 
     // Clear in-memory caches in this service
     this.projectCache.clear();
@@ -161,7 +155,6 @@ export class DteDataService {
 
   // Clear specific caches for a service - use when service data changes
   clearServiceCaches(serviceId: string): void {
-    console.log('[DTE Data Service] Clearing caches for ServiceID:', serviceId);
     this.hudCache.delete(serviceId);
   }
 
@@ -170,36 +163,27 @@ export class DteDataService {
   // ============================================
 
   async uploadVisualPhoto(DTEID: number, file: File, caption: string = '', drawings?: string, originalFile?: File): Promise<any> {
-    console.log('[DTE Photo] ========== Uploading photo for DTEID:', DTEID, '==========');
-    console.log('[DTE Photo] File:', file.name, 'Caption:', caption || '(empty)');
     
     const result = await firstValueFrom(
       this.caspioService.createServicesDTEAttachWithFile(DTEID, caption, file, drawings, originalFile)
     );
 
-    console.log('[DTE Photo] Upload complete! Raw result:', JSON.stringify(result, null, 2));
-    console.log('[DTE Photo] Result.Result:', result.Result);
-    console.log('[DTE Photo] Result.Result[0]:', result.Result?.[0]);
 
     // Clear attachment cache for this HUD record
     const key = String(DTEID);
     this.hudAttachmentsCache.delete(key);
 
-    console.log('[DTE Photo] Returning result to caller');
     return result;
   }
 
   async deleteVisualPhoto(attachId: string): Promise<any> {
-    console.log('[DTE Photo] Deleting photo:', attachId);
 
     // Clear all attachment caches first (optimistic update)
     this.hudAttachmentsCache.clear();
 
     // DTE: Always delete directly via API (no offline queuing support)
-    console.log('[DTE Photo] Deleting photo directly via API:', attachId);
     try {
       await firstValueFrom(this.caspioService.deleteServicesDTEAttach(String(attachId)));
-      console.log('[DTE Photo] Photo deleted successfully:', attachId);
       return { success: true, deleted: true };
     } catch (error) {
       console.error('[DTE Photo] Failed to delete photo:', error);
@@ -208,7 +192,6 @@ export class DteDataService {
   }
 
   async updateVisualPhotoCaption(attachId: string, caption: string): Promise<any> {
-    console.log('[DTE Photo] Updating caption for AttachID:', attachId);
     const result = await firstValueFrom(
       this.caspioService.updateServicesDTEAttach(attachId, { Annotation: caption })
     );
@@ -223,7 +206,6 @@ export class DteDataService {
   async createVisual(dteData: any): Promise<any> {
     // WEBAPP MODE: Create directly via API
     if (environment.isWeb) {
-      console.log('[DTE Data] WEBAPP: Creating DTE record directly via API:', dteData);
       try {
         const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_DTE/records?response=rows`, {
           method: 'POST',
@@ -237,7 +219,6 @@ export class DteDataService {
         }
 
         const result = await response.json();
-        console.log('[DTE Data] WEBAPP: DTE record created:', result);
 
         // Clear in-memory cache
         if (dteData.ServiceID) {
@@ -257,7 +238,6 @@ export class DteDataService {
     }
 
     // MOBILE MODE: Offline-first with background sync
-    console.log('[DTE Data] Creating new DTE record (OFFLINE-FIRST):', dteData);
 
     // Generate temporary ID (using 'dte' prefix for DTE records)
     const tempId = this.tempId.generateTempId('dte');
@@ -289,7 +269,6 @@ export class DteDataService {
     const serviceIdStr = String(dteData.ServiceID);
     const existingDteRecords = await this.indexedDb.getCachedServiceData(serviceIdStr, 'dte') || [];
     await this.indexedDb.cacheServiceData(serviceIdStr, 'dte', [...existingDteRecords, placeholder]);
-    console.log('[DTE Data] ✅ Cached DTE placeholder to Dexie:', tempId);
 
     // Clear in-memory cache
     if (dteData.ServiceID) {
@@ -297,7 +276,6 @@ export class DteDataService {
     }
 
     // Trigger sync on interval (batched sync)
-    console.log('[DTE Data] ✅ DTE record queued for sync with tempId:', tempId);
 
     return placeholder;
   }
@@ -306,7 +284,6 @@ export class DteDataService {
   async updateVisual(dteId: string, updateData: any, serviceId?: string): Promise<any> {
     // WEBAPP MODE: Update directly via API
     if (environment.isWeb) {
-      console.log('[DTE Data] WEBAPP: Updating DTE record directly via API:', dteId, updateData);
 
       try {
         const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_DTE/records?q.where=DTEID=${dteId}`, {
@@ -320,7 +297,6 @@ export class DteDataService {
           throw new Error(`Failed to update DTE record: ${errorText}`);
         }
 
-        console.log('[DTE Data] WEBAPP: DTE record updated:', dteId);
 
         // Clear in-memory cache
         this.hudCache.clear();
@@ -333,7 +309,6 @@ export class DteDataService {
     }
 
     // MOBILE MODE: Offline-first
-    console.log('[DTE Data] Updating DTE record (OFFLINE-FIRST):', dteId, updateData);
 
     const isTempId = String(dteId).startsWith('temp_');
 
@@ -342,7 +317,6 @@ export class DteDataService {
       if (isTempId) {
         // Update pending request data
         await this.indexedDb.updatePendingRequestData(dteId, updateData);
-        console.log('[DTE Data] Updated pending request:', dteId);
       } else {
         // Queue update for sync
         await this.indexedDb.addPendingRequest({
@@ -354,7 +328,6 @@ export class DteDataService {
           status: 'pending',
           priority: 'normal',
         });
-        console.log('[DTE Data] Queued update for sync:', dteId);
       }
 
       // Update 'dte' cache with _localUpdate flag to preserve during background refresh
@@ -373,11 +346,9 @@ export class DteDataService {
       if (!matchFound && isTempId) {
         // For temp IDs not in cache, add a new record
         updatedRecords.push({ ...updateData, _tempId: dteId, PK_ID: dteId, DTEID: dteId, _localUpdate: true });
-        console.log('[DTE Data] Added temp record to dte cache:', dteId);
       }
 
       await this.indexedDb.cacheServiceData(serviceId, 'dte', updatedRecords);
-      console.log(`[DTE Data] Updated 'dte' cache, matchFound=${matchFound}:`, dteId);
     } else {
       // If no serviceId, still queue for sync but skip cache update
       if (!isTempId) {
@@ -390,14 +361,12 @@ export class DteDataService {
           status: 'pending',
           priority: 'normal',
         });
-        console.log('[DTE Data] Queued update for sync (no serviceId):', dteId);
       }
     }
 
     // Clear in-memory cache
     this.hudCache.clear();
     this.hudAttachmentsCache.clear();
-    console.log('[DTE Data] Cleared hudCache and hudAttachmentsCache after update');
 
     return { success: true, dteId, ...updateData };
   }

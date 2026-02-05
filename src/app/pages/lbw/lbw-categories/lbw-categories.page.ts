@@ -49,7 +49,6 @@ export class LbwCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
   async ngOnInit() {
     // Get IDs from parent route (container level)
     this.route.parent?.params.subscribe(async params => {
-      console.log('[LBW Categories] Route params from parent:', params);
       this.projectId = params['projectId'];
       this.serviceId = params['serviceId'];
 
@@ -64,7 +63,6 @@ export class LbwCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   ionViewWillEnter() {
-    console.log('[LBW Categories] ionViewWillEnter - liveQuery handles counts automatically');
 
     // Ensure liveQuery subscription is active
     if (this.initialLoadComplete && this.serviceId && !this.lbwFieldsSubscription) {
@@ -80,7 +78,6 @@ export class LbwCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   private async loadData() {
-    console.log('[LBW Categories] loadData() starting...');
 
     // WEBAPP MODE: Load from API
     if (environment.isWeb) {
@@ -95,7 +92,6 @@ export class LbwCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
     // CRITICAL: Set loading=false IMMEDIATELY to prevent loading screen flash
     this.loading = false;
     this.changeDetectorRef.detectChanges();
-    console.log('[LBW Categories] ✅ Loading set to false immediately');
 
     // Load templates from cache (fast IndexedDB read)
     this.cachedTemplates = await this.indexedDb.getCachedTemplates('lbw') || [];
@@ -110,7 +106,6 @@ export class LbwCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
 
     this.initialLoadComplete = true;
     this.changeDetectorRef.detectChanges();
-    console.log('[LBW Categories] ✅ Data loaded');
 
     // Subscribe to liveQuery for reactive count updates
     this.subscribeToLbwFieldsChanges();
@@ -145,7 +140,6 @@ export class LbwCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
       deficiencyCount: 0
     }));
 
-    console.log('[LBW Categories] ✅ Categories extracted:', this.categories.length);
   }
 
   /**
@@ -170,7 +164,6 @@ export class LbwCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
         // Guard against processing after destruction
         if (this.isDestroyed) return;
 
-        console.log('[LBW Categories] DEXIE-FIRST: liveQuery update -', fields.length, 'fields');
 
         // Calculate counts per category
         const counts: { [category: string]: { comments: number; limitations: number; deficiencies: number } } = {};
@@ -267,7 +260,6 @@ export class LbwCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
         deficiencyCount: kindCounts[title]?.deficiencies || 0
       }));
 
-      console.log('[LBW Categories] WEBAPP: Loaded categories:', this.categories.length);
     } catch (error) {
       console.error('[LBW Categories] Error loading categories:', error);
     } finally {
@@ -278,7 +270,6 @@ export class LbwCategoriesPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   navigateToCategory(category: CategoryCard) {
-    console.log('[LBW Categories] Navigating to category:', category.title);
     this.router.navigate(['..', 'category', category.title], { relativeTo: this.route });
   }
 

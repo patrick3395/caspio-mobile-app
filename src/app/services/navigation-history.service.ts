@@ -83,25 +83,15 @@ export class NavigationHistoryService {
         // Update history length
         this.historyLength = window.history.length;
 
-        console.log('[NavHistory] Navigation complete:', {
-          url: this.currentUrl,
-          historyLength: this.historyLength,
-          navigationId: this.navigationId
-        });
       }
     });
 
     // Listen to browser popstate events for back/forward button detection
     window.addEventListener('popstate', (event) => {
       this.ngZone.run(() => {
-        console.log('[NavHistory] Popstate event detected:', {
-          state: event.state,
-          url: window.location.pathname
-        });
       });
     });
 
-    console.log('[NavHistory] Web history tracking initialized');
   }
 
   /**
@@ -129,14 +119,12 @@ export class NavigationHistoryService {
     }
 
     if (this.canGoBack()) {
-      console.log('[NavHistory] Navigating back via browser history');
       this.isNavigatingBack = true;
       this.navigationId--;
       this.location.back();
       return true;
     }
 
-    console.log('[NavHistory] No browser history available for back navigation');
     return false;
   }
 
@@ -150,13 +138,11 @@ export class NavigationHistoryService {
     }
 
     if (this.navigationId < this.maxNavigationId) {
-      console.log('[NavHistory] Navigating forward via browser history');
       this.navigationId++;
       this.location.forward();
       return true;
     }
 
-    console.log('[NavHistory] No forward history available');
     return false;
   }
 
@@ -198,7 +184,6 @@ export class NavigationHistoryService {
       return;
     }
 
-    console.log('[NavHistory] Replacing state:', url);
     this.location.replaceState(url);
     this.currentUrl = url;
   }

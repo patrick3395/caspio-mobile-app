@@ -680,12 +680,6 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
     this.liveQuerySub = db.liveSyncModalData$().pipe(
       debounceTime(250) // Debounce rapid-fire updates
     ).subscribe(async ({ requests, captions, outboxItems, failedImages }) => {
-      console.log('[SyncModal] Dexie liveQuery update:', {
-        requests: requests.length,
-        captions: captions.length,
-        outbox: outboxItems.length,
-        failedImages: failedImages.length
-      });
 
       // Update requests by status (fast filter operations)
       const pendingReqs = requests.filter(r => r.status === 'pending');
@@ -700,15 +694,12 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
       let photos: any[] = [];
       try {
         // DEBUG: Log outbox items received
-        console.log('[SyncModal] Processing outbox items:', outboxItems.length, 'items');
         if (outboxItems.length > 0) {
-          console.log('[SyncModal] Outbox imageIds:', outboxItems.map(i => i.imageId));
         }
 
         const photoPromises = outboxItems.map(async (item) => {
           const localImage = await this.indexedDb.getLocalImage(item.imageId);
           // DEBUG: Log each lookup result
-          console.log(`[SyncModal] getLocalImage(${item.imageId}):`, localImage ? 'FOUND' : 'NOT FOUND');
           if (localImage) {
             return {
               ...item,
@@ -726,7 +717,6 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
         });
         const results = await Promise.all(photoPromises);
         photos = results.filter(p => p !== null);
-        console.log('[SyncModal] Final photos count:', photos.length);
       } catch (e) {
         console.warn('[SyncModal] Error loading photo details:', e);
       }
@@ -786,24 +776,19 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
   }
 
   async clearStuckRequests() {
-    console.log('[SyncModal] Clearing stuck/broken requests...');
     
     // CRITICAL FIX: First reset old pending requests with high retry counts
     // Give them a fresh start by resetting retry count to 0
     const resetCount = await this.indexedDb.forceRetryOldRequests(10); // 10 min old with retries
-    console.log(`[SyncModal] Reset ${resetCount} old pending requests for retry`);
     
     // Clear requests older than 30 minutes with high retry count (truly stuck requests)
     const clearedRequests = await this.indexedDb.clearOldPendingRequests(30);
-    console.log(`[SyncModal] Cleared ${clearedRequests} stuck requests`);
     
     // Also clear stale pending captions
     const clearedCaptions = await this.indexedDb.clearStalePendingCaptions(30);
-    console.log(`[SyncModal] Cleared ${clearedCaptions} stale captions`);
     
     // CRITICAL FIX: Also clean up stuck upload outbox items
     const clearedOutbox = await this.indexedDb.cleanupStuckUploadOutboxItems(30); // 30 min old
-    console.log(`[SyncModal] Cleared ${clearedOutbox} stuck upload outbox items`);
     
     // Trigger a sync to retry the reset items
     await this.backgroundSync.forceSyncNow();
@@ -848,9 +833,7 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
   }
 
   async clearAllPending() {
-    console.log('[SyncModal] Clearing ALL pending sync items...');
     const result = await this.indexedDb.clearAllPendingSync();
-    console.log(`[SyncModal] Cleared: ${result.requests} requests, ${result.captions} captions, ${result.images} images, ${result.outbox} outbox, ${result.localImages} stuck localImages`);
 
     // TASK 3 FIX: Refresh background sync status so widget shows correct count
     await this.backgroundSync.refreshSyncStatus();
@@ -1143,7 +1126,6 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
    * Retry a single failed request
    */
   async retryFailedRequest(requestId: string): Promise<void> {
-    console.log(`[SyncModal] Retrying failed request: ${requestId}`);
     const success = await this.indexedDb.retryRequest(requestId);
     if (success) {
       // Trigger sync to process the retry immediately
@@ -1155,7 +1137,6 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
    * Retry a single failed caption update
    */
   async retryFailedCaption(captionId: string): Promise<void> {
-    console.log(`[SyncModal] Retrying failed caption: ${captionId}`);
     const success = await this.indexedDb.retryCaption(captionId);
     if (success) {
       // Trigger sync to process the retry immediately
@@ -1167,7 +1148,6 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
    * Retry a single failed photo upload
    */
   async retryFailedPhoto(imageId: string): Promise<void> {
-    console.log(`[SyncModal] Retrying failed photo: ${imageId}`);
     // Reset the photo status to 'queued' and re-add to outbox
     await this.indexedDb.retryFailedPhoto(imageId);
     // Trigger sync to process the retry immediately
@@ -1178,7 +1158,6 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
    * Retry all failed items (requests, captions, and photos)
    */
   async retryAllFailed(): Promise<void> {
-    console.log(`[SyncModal] Retrying all failed items...`);
 
     // Reset all failed requests
     for (const req of this.failedRequests) {
@@ -1195,7 +1174,6 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
       await this.indexedDb.retryFailedPhoto(photo.imageId);
     }
 
-    console.log(`[SyncModal] Reset ${this.failedRequests.length} requests, ${this.failedCaptions.length} captions, and ${this.failedPhotos.length} photos for retry`);
 
     // Trigger sync to process all retries
     await this.backgroundSync.forceSyncNow();
@@ -1205,9 +1183,7 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
    * Clear all failed items permanently (removes stale failure data)
    */
   async clearAllFailed(): Promise<void> {
-    console.log(`[SyncModal] Clearing all failed items...`);
     const result = await this.indexedDb.clearAllFailed();
-    console.log(`[SyncModal] Cleared: ${result.requests} requests, ${result.captions} captions, ${result.photos} photos`);
 
     // Refresh sync status so widget shows correct count
     await this.backgroundSync.refreshSyncStatus();

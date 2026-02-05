@@ -34,12 +34,10 @@ export class OperationsQueueService {
     // Monitor network status
     if (typeof window !== 'undefined') {
       window.addEventListener('online', () => {
-        console.log('[OperationsQueue] Network restored - processing queue');
         this.processQueue();
       });
 
       window.addEventListener('offline', () => {
-        console.log('[OperationsQueue] Network lost - operations will be queued');
       });
 
       // FIXED: Auto-restore queue on service initialization
@@ -79,7 +77,6 @@ export class OperationsQueueService {
 
     // Check for duplicates
     if (op.dedupeKey && this.isDuplicate(op.dedupeKey)) {
-      console.log(`[OperationsQueue] Skipping duplicate operation: ${op.dedupeKey}`);
       const existingOp = this.findOperationByDedupeKey(op.dedupeKey);
       // Transfer callbacks to existing operation
       if (existingOp && (operation.onSuccess || operation.onError || operation.onProgress)) {
@@ -96,7 +93,6 @@ export class OperationsQueueService {
     this.queueSubject.next([...this.queue]);
     await this.persist();
 
-    console.log(`[OperationsQueue] Enqueued ${op.type} operation ${op.id}`);
 
     // Start processing if not already running
     if (!this.processing) {
@@ -111,12 +107,10 @@ export class OperationsQueueService {
    */
   async processQueue(): Promise<void> {
     if (this.processing) {
-      console.log('[OperationsQueue] Already processing queue');
       return;
     }
 
     if (!navigator.onLine) {
-      console.log('[OperationsQueue] Offline - waiting for network');
       return;
     }
 
@@ -127,7 +121,6 @@ export class OperationsQueueService {
         const nextOp = this.getNextReadyOperation();
 
         if (!nextOp) {
-          console.log('[OperationsQueue] No more operations ready');
           break;
         }
 
@@ -149,7 +142,6 @@ export class OperationsQueueService {
     this.queueSubject.next([...this.queue]);
 
     try {
-      console.log(`[OperationsQueue] Executing ${op.type} (attempt ${op.retryCount + 1}/${op.maxRetries + 1})`);
 
       const result = await this.performOperation(op);
 
@@ -171,7 +163,6 @@ export class OperationsQueueService {
       // Remove from queue and cleanup callbacks
       this.removeOperation(op.id);
       callbackMap.delete(op.id);
-      console.log(`[OperationsQueue] Completed ${op.type} operation ${op.id}`);
 
     } catch (error: any) {
       console.error(`[OperationsQueue] Error executing ${op.type}:`, error);
@@ -184,7 +175,6 @@ export class OperationsQueueService {
 
         // FIXED: Exponential backoff with cap at 5 minutes to prevent infinite waits
         const delay = Math.min(Math.pow(2, op.retryCount) * 1000, 5 * 60 * 1000);
-        console.log(`[OperationsQueue] Will retry ${op.type} in ${delay}ms`);
 
         await this.sleep(delay);
 
@@ -372,7 +362,6 @@ export class OperationsQueueService {
    */
   async restore(): Promise<void> {
     if (this.initialized) {
-      console.log('[OperationsQueue] Already initialized, skipping restore');
       return;
     }
     this.initialized = true;
@@ -384,7 +373,6 @@ export class OperationsQueueService {
       if (storedOps.length > 0) {
         this.queue = storedOps.map(op => ({ ...op }));
         this.queueSubject.next([...this.queue]);
-        console.log(`[OperationsQueue] Restored ${this.queue.length} operations from IndexedDB`);
       } else {
         // Migrate from localStorage if exists
         const localStorageData = localStorage.getItem('operations_queue');
@@ -397,7 +385,6 @@ export class OperationsQueueService {
             await this.persist();
             // Remove localStorage after successful migration
             localStorage.removeItem('operations_queue');
-            console.log(`[OperationsQueue] Migrated ${this.queue.length} operations from localStorage to IndexedDB`);
           }
         }
       }
@@ -406,7 +393,6 @@ export class OperationsQueueService {
       if (this.queue.length > 0 && navigator.onLine) {
         const pendingCount = this.queue.filter(op => op.status === 'pending').length;
         if (pendingCount > 0) {
-          console.log(`[OperationsQueue] Found ${pendingCount} pending operations, resuming processing`);
           this.processQueue();
         }
       }

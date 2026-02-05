@@ -94,7 +94,6 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     // Subscribe to project mutations to auto-refresh when projects are modified
     this.mutationSubscription = this.mutationTracker.mutations.subscribe((mutation: Mutation) => {
       if (mutation.entityType === EntityType.PROJECT) {
-        console.log('[ActiveProjects] Project mutation detected, invalidating cache');
         // Reset cache timer so next ionViewWillEnter will reload
         this.lastLoadTime = 0;
       }
@@ -134,12 +133,10 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     const hasData = this.projects && this.projects.length > 0;
 
     if (hasData && timeSinceLoad < this.CACHE_VALIDITY_MS) {
-      console.log(`⚡ Using cached data (${(timeSinceLoad / 1000).toFixed(1)}s old)`);
       // Data is fresh, no need to reload
       return;
     }
 
-    console.log('🔄 Loading fresh data (cache expired or no data)');
     this.checkAuthAndLoadProjects();
   }
 
@@ -217,7 +214,6 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
           const dateB = b['DateOfRequest'] ? new Date(b['DateOfRequest']).getTime() : 0;
           return dateB - dateA; // Descending order (newest first)
         });
-        console.log('📦 Loaded projects:', this.projects.length);
         
         // Load service types, status options, and companies (for admin) in parallel
         const requests: any = {
@@ -233,8 +229,6 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
           next: (results: any) => {
             this.serviceTypes = results.serviceTypes || [];
             this.statusOptions = results.statusOptions?.Result || [];
-            console.log('📦 Loaded service types:', this.serviceTypes.length);
-            console.log('📦 Loaded status options:', this.statusOptions.length);
 
             // Build company name lookup for admin view
             if (this.isAdminView && results.companies?.Result) {
@@ -246,7 +240,6 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
                   this.companyNameLookup.set(Number(companyId), companyName);
                 }
               });
-              console.log('📦 Loaded company names:', this.companyNameLookup.size);
             }
 
             // Simple services loading for each project
@@ -260,7 +253,6 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
             // This ensures the UI updates even when there are no projects
             this.cdr.markForCheck();
             const elapsed = performance.now() - startTime;
-            console.log(`🏁 Total loading time: ${elapsed.toFixed(2)}ms`);
           },
           error: (typeError) => {
             console.error('Error loading service types or status options:', typeError);
@@ -286,15 +278,12 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
    * Performance improvement: ~80-90% faster for lists with many projects
    */
   loadServicesSimple() {
-    console.log('🚀 Starting OPTIMIZED batch services loading...');
 
     if (!this.projects || !this.serviceTypes) {
-      console.log('❌ Cannot load services: missing projects or serviceTypes');
       return;
     }
 
     if (this.projects.length === 0) {
-      console.log('ℹ️ No projects to load services for');
       return;
     }
 
@@ -304,11 +293,9 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
       .filter(id => id != null && id !== '');
 
     if (projectIds.length === 0) {
-      console.log('❌ No valid ProjectIDs found');
       return;
     }
 
-    console.log(`📦 Batch loading services for ${projectIds.length} projects in single API call`);
     const startTime = performance.now();
 
     // OPTIMIZATION: Single API call to get ALL services for ALL projects
@@ -319,7 +306,6 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
       next: (response: any) => {
         const allServices = response?.Result || [];
         const elapsed = performance.now() - startTime;
-        console.log(`✅ Loaded ${allServices.length} services in ${elapsed.toFixed(2)}ms`);
 
         // Group services by ProjectID client-side
         const servicesByProject: { [projectId: string]: any[] } = {};
@@ -332,7 +318,6 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
           servicesByProject[projectId].push(service);
         });
 
-        console.log(`📊 Services grouped by project:`, Object.keys(servicesByProject).length, 'projects have services');
 
         // Map services to display format for each project
         this.projects.forEach(project => {
@@ -361,7 +346,6 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
           }
         });
 
-        console.log(`🎯 Services cache populated for ${Object.keys(this.servicesCache).length} projects`);
 
         // Trigger change detection to update UI
         this.cdr.markForCheck();
@@ -501,14 +485,12 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     
     this.savingPrimaryPhoto.add(projectId);
     
-    console.log(`📸 Saving Google image URL to database for project ${projectId}`);
     
     this.projectsService.updateProjectPrimaryPhoto(projectId, googleImageUrl).subscribe({
       next: () => {
         // Update the local project object so we don't try to save again
         project['PrimaryPhoto'] = googleImageUrl;
         this.savingPrimaryPhoto.delete(projectId);
-        console.log(`✅ Successfully saved Google image URL for project ${projectId}`);
       },
       error: (error) => {
         console.error(`❌ Error saving Google image URL for project ${projectId}:`, error);
@@ -863,7 +845,6 @@ URL Attempted: ${imgUrl}`;
     this.servicesCache = {};
 
     // Clear all caches to ensure fresh data from server
-    console.log('[ActiveProjects] Manual refresh - clearing all caches');
     this.projectsService.clearProjectCache();
 
     try {
@@ -877,7 +858,6 @@ URL Attempted: ${imgUrl}`;
   }
 
   async handlePullRefresh(event: any) {
-    console.log('[ActiveProjects] Pull-to-refresh triggered');
     await this.refreshProjects(event);
   }
 

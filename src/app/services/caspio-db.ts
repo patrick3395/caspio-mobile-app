@@ -502,7 +502,6 @@ export class CaspioDB extends Dexie {
     }).upgrade(tx => {
       // Migrate existing localImages to have thumbBlobId: null
       // This ensures the field exists for all images, new ones will get thumbnails on capture
-      console.log('[CaspioDB] v10 migration: Adding thumbBlobId to existing localImages');
       return tx.table('localImages').toCollection().modify(img => {
         if (img.thumbBlobId === undefined) {
           img.thumbBlobId = null;
@@ -688,7 +687,6 @@ export class CaspioDB extends Dexie {
 
     // Log successful database open
     this.on('ready', () => {
-      console.log('[CaspioDB] Database initialized successfully with Dexie');
     });
   }
 
@@ -842,7 +840,6 @@ export class CaspioDB extends Dexie {
       try {
         // MOBILE FIX: Check if database connection is open, reopen if needed
         if (!this.isOpen()) {
-          console.log('[LIVEQUERY] Database not open, reopening...');
           await this.open();
         }
 
@@ -854,11 +851,9 @@ export class CaspioDB extends Dexie {
         ]);
 
         // DEBUG: Log what we got from the database
-        console.log(`[LIVEQUERY] liveSyncModalData: requests=${requests.length}, outbox=${outboxItems.length}`);
 
         // DEBUG: If outbox has items, log their imageIds for debugging
         if (outboxItems.length > 0) {
-          console.log('[LIVEQUERY] Outbox imageIds:', outboxItems.map(i => i.imageId));
         }
 
         // Cache the successful result
@@ -871,7 +866,6 @@ export class CaspioDB extends Dexie {
 
         // MOBILE FIX: On connection lost, try to reopen database
         if (err?.message?.includes('Connection') || err?.name === 'UnknownError') {
-          console.log('[LIVEQUERY] Connection lost, attempting to reopen database...');
           try {
             await this.close();
             await this.open();
@@ -882,7 +876,6 @@ export class CaspioDB extends Dexie {
               this.uploadOutbox.toArray(),
               this.localImages.where('status').equals('failed').toArray()
             ]);
-            console.log('[LIVEQUERY] Reconnected successfully');
             const result = { requests, captions, outboxItems, failedImages };
             this._lastSyncModalData = result;
             return result;
@@ -895,7 +888,6 @@ export class CaspioDB extends Dexie {
         // This prevents the sync modal from clearing when IndexedDB has temporary issues
         // during photo upload transactions (common issue on mobile WebView)
         if (this._lastSyncModalData) {
-          console.log('[LIVEQUERY] Returning cached data to prevent UI clear');
           return this._lastSyncModalData;
         }
 
@@ -1060,12 +1052,10 @@ export class CaspioDB extends Dexie {
       try {
         // MOBILE FIX: Check if database connection is open, reopen if needed
         if (!this.isOpen()) {
-          console.log('[LIVEQUERY] liveEfeFields$ - Database not open, reopening...');
           await this.open();
         }
 
         const fields = await this.efeFields.where('serviceId').equals(serviceId).toArray();
-        console.log(`[LIVEQUERY] liveEfeFields$: serviceId=${serviceId}, fields=${fields.length}`);
 
         // Cache the successful result
         this._lastEfeFieldsCache.set(serviceId, fields);
@@ -1076,13 +1066,11 @@ export class CaspioDB extends Dexie {
 
         // MOBILE FIX: On connection lost, try to reopen database
         if (err?.message?.includes('Connection') || err?.name === 'UnknownError') {
-          console.log('[LIVEQUERY] liveEfeFields$ - Connection lost, attempting to reopen database...');
           try {
             await this.close();
             await this.open();
             // Retry the query after reopening
             const fields = await this.efeFields.where('serviceId').equals(serviceId).toArray();
-            console.log('[LIVEQUERY] liveEfeFields$ - Reconnected successfully');
             this._lastEfeFieldsCache.set(serviceId, fields);
             return fields;
           } catch (retryErr) {
@@ -1094,7 +1082,6 @@ export class CaspioDB extends Dexie {
         // This prevents the hub from hanging when IndexedDB has temporary issues
         const cached = this._lastEfeFieldsCache.get(serviceId);
         if (cached) {
-          console.log('[LIVEQUERY] liveEfeFields$ - Returning cached data to prevent hang');
           return cached;
         }
 
@@ -1125,7 +1112,6 @@ export class CaspioDB extends Dexie {
    * This prevents room-elevation from hanging when IndexedDB has temporary connection issues
    */
   liveEfeFieldByRoom$(serviceId: string, roomName: string): Observable<EfeField | undefined> {
-    console.log(`[CaspioDB] liveEfeFieldByRoom$ called: serviceId=${serviceId}, roomName=${roomName}`);
     // Use the simple 'key' index (format: serviceId:roomName) instead of compound index
     // This matches the pattern used by liveVisualFields$ which works on mobile
     const key = `${serviceId}:${roomName}`;
@@ -1134,7 +1120,6 @@ export class CaspioDB extends Dexie {
       try {
         // MOBILE FIX: Check if database connection is open
         if (!this.isOpen()) {
-          console.log('[LIVEQUERY] liveEfeFieldByRoom$ - Database not open, reopening...');
           await this.open();
         }
 
@@ -1149,12 +1134,10 @@ export class CaspioDB extends Dexie {
 
         // MOBILE FIX: On connection lost, try to reopen database
         if (err?.message?.includes('Connection') || err?.name === 'UnknownError') {
-          console.log('[LIVEQUERY] liveEfeFieldByRoom$ - Connection lost, attempting to reopen database...');
           try {
             await this.close();
             await this.open();
             const field = await this.efeFields.where('key').equals(key).first();
-            console.log('[LIVEQUERY] liveEfeFieldByRoom$ - Reconnected successfully');
             this._lastEfeFieldCache.set(key, field);
             return field;
           } catch (retryErr) {
@@ -1165,7 +1148,6 @@ export class CaspioDB extends Dexie {
         // CRITICAL FIX: Return cached data instead of undefined on error
         const cached = this._lastEfeFieldCache.get(key);
         if (cached !== undefined) {
-          console.log('[LIVEQUERY] liveEfeFieldByRoom$ - Returning cached data to prevent hang');
           return cached;
         }
 
@@ -1204,7 +1186,6 @@ export class CaspioDB extends Dexie {
       try {
         // MOBILE FIX: Check if database connection is open, reopen if needed
         if (!this.isOpen()) {
-          console.log('[LIVEQUERY] liveHudFields$ - Database not open, reopening...');
           await this.open();
         }
 
@@ -1212,7 +1193,6 @@ export class CaspioDB extends Dexie {
           .where('[serviceId+category]')
           .equals([serviceId, category])
           .toArray();
-        console.log(`[LIVEQUERY] liveHudFields$: serviceId=${serviceId}, category=${category}, fields=${fields.length}`);
 
         // Cache the successful result
         this._lastHudFieldsCache.set(cacheKey, fields);
@@ -1223,7 +1203,6 @@ export class CaspioDB extends Dexie {
 
         // MOBILE FIX: On connection lost, try to reopen database
         if (err?.message?.includes('Connection') || err?.name === 'UnknownError') {
-          console.log('[LIVEQUERY] liveHudFields$ - Connection lost, attempting to reopen database...');
           try {
             await this.close();
             await this.open();
@@ -1232,7 +1211,6 @@ export class CaspioDB extends Dexie {
               .where('[serviceId+category]')
               .equals([serviceId, category])
               .toArray();
-            console.log('[LIVEQUERY] liveHudFields$ - Reconnected successfully');
             this._lastHudFieldsCache.set(cacheKey, fields);
             return fields;
           } catch (retryErr) {
@@ -1244,7 +1222,6 @@ export class CaspioDB extends Dexie {
         // This prevents the page from hanging when IndexedDB has temporary issues
         const cached = this._lastHudFieldsCache.get(cacheKey);
         if (cached) {
-          console.log('[LIVEQUERY] liveHudFields$ - Returning cached data to prevent hang');
           return cached;
         }
 
@@ -1266,12 +1243,10 @@ export class CaspioDB extends Dexie {
       try {
         // MOBILE FIX: Check if database connection is open, reopen if needed
         if (!this.isOpen()) {
-          console.log('[HUD] liveHudField$ - Database not open, reopening...');
           await this.open();
         }
 
         const field = await this.hudFields.where('key').equals(key).first();
-        console.log(`[HUD] liveHudField$: key=${key}, found=${!!field}`);
 
         // Cache the successful result
         this._lastHudFieldCache.set(key, field);
@@ -1282,13 +1257,11 @@ export class CaspioDB extends Dexie {
 
         // MOBILE FIX: On connection lost, try to reopen database
         if (err?.message?.includes('Connection') || err?.name === 'UnknownError') {
-          console.log('[HUD] liveHudField$ - Connection lost, attempting to reopen database...');
           try {
             await this.close();
             await this.open();
             // Retry the query after reopening
             const field = await this.hudFields.where('key').equals(key).first();
-            console.log('[HUD] liveHudField$ - Reconnected successfully');
             this._lastHudFieldCache.set(key, field);
             return field;
           } catch (retryErr) {
@@ -1300,7 +1273,6 @@ export class CaspioDB extends Dexie {
         // This prevents the UI from losing data when IndexedDB has temporary issues
         const cached = this._lastHudFieldCache.get(key);
         if (cached !== undefined) {
-          console.log('[HUD] liveHudField$ - Returning cached data to prevent data loss');
           return cached;
         }
 
@@ -1322,12 +1294,10 @@ export class CaspioDB extends Dexie {
       try {
         // MOBILE FIX: Check if database connection is open, reopen if needed
         if (!this.isOpen()) {
-          console.log('[HUD] liveDirtyHudFields$ - Database not open, reopening...');
           await this.open();
         }
 
         const fields = await this.hudFields.where('dirty').equals(1).toArray();
-        console.log(`[HUD] liveDirtyHudFields$: count=${fields.length}`);
 
         // Cache the successful result
         this._lastDirtyHudFieldsCache = fields;
@@ -1338,13 +1308,11 @@ export class CaspioDB extends Dexie {
 
         // MOBILE FIX: On connection lost, try to reopen database
         if (err?.message?.includes('Connection') || err?.name === 'UnknownError') {
-          console.log('[HUD] liveDirtyHudFields$ - Connection lost, attempting to reopen database...');
           try {
             await this.close();
             await this.open();
             // Retry the query after reopening
             const fields = await this.hudFields.where('dirty').equals(1).toArray();
-            console.log('[HUD] liveDirtyHudFields$ - Reconnected successfully');
             this._lastDirtyHudFieldsCache = fields;
             return fields;
           } catch (retryErr) {
@@ -1355,7 +1323,6 @@ export class CaspioDB extends Dexie {
         // CRITICAL FIX: Return cached data instead of empty array on error
         // This prevents the UI from clearing when IndexedDB has temporary issues
         if (this._lastDirtyHudFieldsCache) {
-          console.log('[HUD] liveDirtyHudFields$ - Returning cached data to prevent data loss');
           return this._lastDirtyHudFieldsCache;
         }
 
@@ -1377,12 +1344,10 @@ export class CaspioDB extends Dexie {
       try {
         // MOBILE FIX: Check if database connection is open, reopen if needed
         if (!this.isOpen()) {
-          console.log('[HUD] liveAllHudFieldsForService$ - Database not open, reopening...');
           await this.open();
         }
 
         const fields = await this.hudFields.where('serviceId').equals(serviceId).toArray();
-        console.log(`[HUD] liveAllHudFieldsForService$: serviceId=${serviceId}, count=${fields.length}`);
 
         // Cache the successful result
         this._lastAllHudFieldsCache.set(serviceId, fields);
@@ -1393,13 +1358,11 @@ export class CaspioDB extends Dexie {
 
         // MOBILE FIX: On connection lost, try to reopen database
         if (err?.message?.includes('Connection') || err?.name === 'UnknownError') {
-          console.log('[HUD] liveAllHudFieldsForService$ - Connection lost, attempting to reopen database...');
           try {
             await this.close();
             await this.open();
             // Retry the query after reopening
             const fields = await this.hudFields.where('serviceId').equals(serviceId).toArray();
-            console.log('[HUD] liveAllHudFieldsForService$ - Reconnected successfully');
             this._lastAllHudFieldsCache.set(serviceId, fields);
             return fields;
           } catch (retryErr) {
@@ -1411,7 +1374,6 @@ export class CaspioDB extends Dexie {
         // This prevents the UI from clearing when IndexedDB has temporary issues
         const cached = this._lastAllHudFieldsCache.get(serviceId);
         if (cached) {
-          console.log('[HUD] liveAllHudFieldsForService$ - Returning cached data to prevent data loss');
           return cached;
         }
 
@@ -1441,7 +1403,6 @@ export class CaspioDB extends Dexie {
       try {
         // MOBILE FIX: Check if database connection is open, reopen if needed
         if (!this.isOpen()) {
-          console.log('[LIVEQUERY] liveLbwFields$ - Database not open, reopening...');
           await this.open();
         }
 
@@ -1449,7 +1410,6 @@ export class CaspioDB extends Dexie {
           .where('[serviceId+category]')
           .equals([serviceId, category])
           .toArray();
-        console.log(`[LIVEQUERY] liveLbwFields$: serviceId=${serviceId}, category=${category}, fields=${fields.length}`);
 
         // Cache the successful result
         this._lastLbwFieldsCache.set(cacheKey, fields);
@@ -1460,7 +1420,6 @@ export class CaspioDB extends Dexie {
 
         // MOBILE FIX: On connection lost, try to reopen database
         if (err?.message?.includes('Connection') || err?.name === 'UnknownError') {
-          console.log('[LIVEQUERY] liveLbwFields$ - Connection lost, attempting to reopen database...');
           try {
             await this.close();
             await this.open();
@@ -1469,7 +1428,6 @@ export class CaspioDB extends Dexie {
               .where('[serviceId+category]')
               .equals([serviceId, category])
               .toArray();
-            console.log('[LIVEQUERY] liveLbwFields$ - Reconnected successfully');
             this._lastLbwFieldsCache.set(cacheKey, fields);
             return fields;
           } catch (retryErr) {
@@ -1481,7 +1439,6 @@ export class CaspioDB extends Dexie {
         // This prevents the page from hanging when IndexedDB has temporary issues
         const cached = this._lastLbwFieldsCache.get(cacheKey);
         if (cached) {
-          console.log('[LIVEQUERY] liveLbwFields$ - Returning cached data to prevent hang');
           return cached;
         }
 
@@ -1511,7 +1468,6 @@ export class CaspioDB extends Dexie {
       try {
         // MOBILE FIX: Check if database connection is open, reopen if needed
         if (!this.isOpen()) {
-          console.log('[LIVEQUERY] liveDteFields$ - Database not open, reopening...');
           await this.open();
         }
 
@@ -1519,7 +1475,6 @@ export class CaspioDB extends Dexie {
           .where('[serviceId+category]')
           .equals([serviceId, category])
           .toArray();
-        console.log(`[LIVEQUERY] liveDteFields$: serviceId=${serviceId}, category=${category}, fields=${fields.length}`);
 
         // Cache the successful result
         this._lastDteFieldsCache.set(cacheKey, fields);
@@ -1530,7 +1485,6 @@ export class CaspioDB extends Dexie {
 
         // MOBILE FIX: On connection lost, try to reopen database
         if (err?.message?.includes('Connection') || err?.name === 'UnknownError') {
-          console.log('[LIVEQUERY] liveDteFields$ - Connection lost, attempting to reopen database...');
           try {
             await this.close();
             await this.open();
@@ -1539,7 +1493,6 @@ export class CaspioDB extends Dexie {
               .where('[serviceId+category]')
               .equals([serviceId, category])
               .toArray();
-            console.log('[LIVEQUERY] liveDteFields$ - Reconnected successfully');
             this._lastDteFieldsCache.set(cacheKey, fields);
             return fields;
           } catch (retryErr) {
@@ -1551,7 +1504,6 @@ export class CaspioDB extends Dexie {
         // This prevents the page from hanging when IndexedDB has temporary issues
         const cached = this._lastDteFieldsCache.get(cacheKey);
         if (cached) {
-          console.log('[LIVEQUERY] liveDteFields$ - Returning cached data to prevent hang');
           return cached;
         }
 
@@ -1581,7 +1533,6 @@ export class CaspioDB extends Dexie {
       try {
         // MOBILE FIX: Check if database connection is open, reopen if needed
         if (!this.isOpen()) {
-          console.log('[LIVEQUERY] liveCsaFields$ - Database not open, reopening...');
           await this.open();
         }
 
@@ -1589,7 +1540,6 @@ export class CaspioDB extends Dexie {
           .where('[serviceId+category]')
           .equals([serviceId, category])
           .toArray();
-        console.log(`[LIVEQUERY] liveCsaFields$: serviceId=${serviceId}, category=${category}, fields=${fields.length}`);
 
         // Cache the successful result
         this._lastCsaFieldsCache.set(cacheKey, fields);
@@ -1600,7 +1550,6 @@ export class CaspioDB extends Dexie {
 
         // MOBILE FIX: On connection lost, try to reopen database
         if (err?.message?.includes('Connection') || err?.name === 'UnknownError') {
-          console.log('[LIVEQUERY] liveCsaFields$ - Connection lost, attempting to reopen database...');
           try {
             await this.close();
             await this.open();
@@ -1609,7 +1558,6 @@ export class CaspioDB extends Dexie {
               .where('[serviceId+category]')
               .equals([serviceId, category])
               .toArray();
-            console.log('[LIVEQUERY] liveCsaFields$ - Reconnected successfully');
             this._lastCsaFieldsCache.set(cacheKey, fields);
             return fields;
           } catch (retryErr) {
@@ -1621,7 +1569,6 @@ export class CaspioDB extends Dexie {
         // This prevents the page from hanging when IndexedDB has temporary issues
         const cached = this._lastCsaFieldsCache.get(cacheKey);
         if (cached) {
-          console.log('[LIVEQUERY] liveCsaFields$ - Returning cached data to prevent hang');
           return cached;
         }
 
@@ -1648,17 +1595,12 @@ export class CaspioDB extends Dexie {
     pendingImages: { count: number; totalBytes: number; totalMB: string };
     total: { totalBytes: number; totalMB: string };
   }> {
-    console.log('[StorageDebug] ========== STORAGE BREAKDOWN ==========');
 
     // localBlobs - binary image data
     const blobs = await this.localBlobs.toArray();
     const blobsTotal = blobs.reduce((sum, b) => sum + (b.sizeBytes || 0), 0);
-    console.log(`[StorageDebug] localBlobs: ${blobs.length} items, ${(blobsTotal / 1024 / 1024).toFixed(2)} MB`);
     for (const blob of blobs.slice(0, 5)) {
-      console.log(`  - ${blob.blobId}: ${(blob.sizeBytes / 1024).toFixed(1)} KB`);
     }
-    if (blobs.length > 5) console.log(`  ... and ${blobs.length - 5} more`);
-
     // cachedPhotos - base64 images (regular + annotated)
     const photos = await this.cachedPhotos.toArray();
     let photosTotal = 0;
@@ -1673,21 +1615,14 @@ export class CaspioDB extends Dexie {
         regularCount++;
       }
     }
-    console.log(`[StorageDebug] cachedPhotos: ${photos.length} items, ${(photosTotal / 1024 / 1024).toFixed(2)} MB`);
-    console.log(`  - Annotated: ${annotatedCount}, Regular: ${regularCount}`);
     for (const photo of photos.slice(0, 5)) {
       const size = photo.imageData?.length || 0;
-      console.log(`  - ${photo.photoKey}: ${(size / 1024).toFixed(1)} KB ${photo.isAnnotated ? '(ANNOTATED)' : ''}`);
     }
-    if (photos.length > 5) console.log(`  ... and ${photos.length - 5} more`);
-
     // localImages - metadata only
     const images = await this.localImages.toArray();
-    console.log(`[StorageDebug] localImages: ${images.length} metadata records`);
 
     // uploadOutbox
     const outbox = await this.uploadOutbox.toArray();
-    console.log(`[StorageDebug] uploadOutbox: ${outbox.length} pending uploads`);
 
     // pendingImages - legacy binary storage
     const pendingImages = await this.pendingImages.toArray();
@@ -1695,10 +1630,8 @@ export class CaspioDB extends Dexie {
     for (const img of pendingImages) {
       pendingTotal += img.fileSize || 0;
     }
-    console.log(`[StorageDebug] pendingImages: ${pendingImages.length} items, ${(pendingTotal / 1024 / 1024).toFixed(2)} MB`);
 
     const grandTotal = blobsTotal + photosTotal + pendingTotal;
-    console.log(`[StorageDebug] ========== TOTAL: ${(grandTotal / 1024 / 1024).toFixed(2)} MB ==========`);
 
     return {
       localBlobs: { count: blobs.length, totalBytes: blobsTotal, totalMB: (blobsTotal / 1024 / 1024).toFixed(2) },
@@ -1721,10 +1654,6 @@ export class CaspioDB extends Dexie {
       const deltaPhotos = current.cachedPhotos.totalBytes - beforeSnapshot.cachedPhotos.totalBytes;
       const deltaTotal = current.total.totalBytes - beforeSnapshot.total.totalBytes;
 
-      console.log(`[StorageDebug] DELTA after "${label}":`);
-      console.log(`  localBlobs: ${deltaBlobs >= 0 ? '+' : ''}${(deltaBlobs / 1024).toFixed(1)} KB`);
-      console.log(`  cachedPhotos: ${deltaPhotos >= 0 ? '+' : ''}${(deltaPhotos / 1024).toFixed(1)} KB`);
-      console.log(`  TOTAL: ${deltaTotal >= 0 ? '+' : ''}${(deltaTotal / 1024).toFixed(1)} KB (${(deltaTotal / 1024 / 1024).toFixed(2)} MB)`);
     }
 
     return current;

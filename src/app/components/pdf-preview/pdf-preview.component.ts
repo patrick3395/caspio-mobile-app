@@ -73,13 +73,11 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   private setupPrintListeners() {
     // Listen for beforeprint event to force visibility
     window.addEventListener('beforeprint', () => {
-      console.log('[PDF Print] beforeprint event fired');
       this.preparePrintView();
     });
 
     // Listen for afterprint to clean up
     window.addEventListener('afterprint', () => {
-      console.log('[PDF Print] afterprint event fired');
     });
   }
 
@@ -104,7 +102,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       });
     });
 
-    console.log('[PDF Print] Forced visibility on elements');
   }
   
   async ngAfterViewInit() {
@@ -229,7 +226,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
 
     // Already a full URL or blob URL
     if (photoPath.startsWith('http') || photoPath.startsWith('blob:')) {
-      console.log('[PDF Preview] Using HTTP/blob URL:', photoPath.substring(0, 100));
       return photoPath;
     }
 
@@ -306,7 +302,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
         throw new Error('No PDF pages found');
       }
 
-      console.log('[PDF] Found', pages.length, 'pages to process');
 
       // Load libraries
       const jsPDFModule = await import('jspdf');
@@ -331,12 +326,10 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
         // Update progress
         loading.message = `Processing page ${i + 1} of ${pages.length}...`;
 
-        console.log(`[PDF] Processing page ${i + 1}/${pages.length}`);
 
         try {
           // Extract text content from the page BEFORE converting to image
           const textContent = this.extractTextFromElement(pageElement);
-          console.log(`[PDF] Extracted ${textContent.length} text elements from page ${i + 1}`);
 
           // Scroll the original page into view first to ensure images are loaded
           pageElement.scrollIntoView({ behavior: 'auto', block: 'start' });
@@ -402,16 +395,12 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
                 const naturalWidth = (originalImg as HTMLImageElement).naturalWidth;
                 const naturalHeight = (originalImg as HTMLImageElement).naturalHeight;
 
-                console.log(`[PDF] Original cover image rendered size: ${imgWidth}x${imgHeight}`);
-                console.log(`[PDF] Original cover image natural size: ${naturalWidth}x${naturalHeight}`);
-                console.log(`[PDF] Original cover image aspect ratio: ${(naturalWidth/naturalHeight).toFixed(2)}, rendered ratio: ${(imgWidth/imgHeight).toFixed(2)}`);
 
                 // Use the natural image dimensions to preserve aspect ratio
                 // Scale to match the rendered width
                 const scale = imgWidth / naturalWidth;
                 const scaledHeight = naturalHeight * scale;
 
-                console.log(`[PDF] Scaling image by ${scale.toFixed(2)}, target size: ${imgWidth}x${scaledHeight}`);
 
                 // Set dimensions maintaining proper aspect ratio
                 clonedImg.style.width = imgWidth + 'px';
@@ -458,14 +447,12 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
             });
 
             if (fixedImageCount > 0) {
-              console.log(`[PDF] Fixed aspect ratio for ${fixedImageCount} images on page ${i + 1}`);
             }
           }
 
           // Ensure all images are loaded in the clone
           const images = clone.querySelectorAll('img');
           const imageCount = images.length;
-          console.log(`[PDF] Page ${i + 1} has ${imageCount} images`);
 
           // Wait for all images to load (don't force reload if already loaded)
           let loadedCount = 0;
@@ -499,7 +486,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
             })
           );
 
-          console.log(`[PDF] Page ${i + 1}: ${loadedCount}/${imageCount} images loaded, ${failedCount} failed`);
 
           // Wait for render
           await new Promise(resolve => setTimeout(resolve, 300));
@@ -508,7 +494,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
           if (isCoverPage) {
             const clonedImg = clone.querySelector('.property-photo-container img') as HTMLElement;
             if (clonedImg) {
-              console.log(`[PDF] Cloned image size after render: ${clonedImg.offsetWidth}x${clonedImg.offsetHeight}`);
             }
           }
 
@@ -524,7 +509,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
             ...(isCoverPage ? {} : { height: originalHeight })
           });
 
-          console.log(`[PDF] Canvas size for page ${i + 1}: ${canvas.width}x${canvas.height}`);
 
           // Remove the clone
           document.body.removeChild(clone);
@@ -543,11 +527,9 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
 
           // Check if content exceeds page height and needs to be split
           if (imgHeight > pageHeight) {
-            console.log(`[PDF] Page ${i + 1} content is too tall (${imgHeight}mm > ${pageHeight}mm), splitting across multiple pages`);
 
             // Calculate how many PDF pages we need
             const numPages = Math.ceil(imgHeight / pageHeight);
-            console.log(`[PDF] Splitting into ${numPages} pages`);
 
             // Split the canvas into multiple pages
             for (let pageIdx = 0; pageIdx < numPages; pageIdx++) {
@@ -584,7 +566,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
                 const sliceTextContent = this.filterTextForSlice(textContent, sliceRatio, 1 / numPages, imgHeight);
                 this.addTextLayer(pdf, sliceTextContent, pageWidth, sliceImgHeight);
 
-                console.log(`[PDF] Added page ${i + 1}-${pageIdx + 1} (${imgWidth}mm x ${sliceImgHeight}mm) with text layer`);
               }
             }
           } else {
@@ -600,7 +581,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
             // Add invisible text layer for text extraction (OCR-like functionality)
             this.addTextLayer(pdf, textContent, pageWidth, imgHeight);
 
-            console.log(`[PDF] Added page ${i + 1} (${imgWidth}mm x ${imgHeight}mm) with text layer`);
           }
 
         } catch (pageError) {
@@ -615,12 +595,10 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       const date = new Date().toISOString().split('T')[0];
       const fileName = `EFE_Report_${clientName}_${projectId}_${date}.pdf`;
 
-      console.log('[PDF] Saving PDF...');
 
       // Save the PDF
       pdf.save(fileName);
 
-      console.log('[PDF] PDF generated successfully');
 
       await loading.dismiss();
       await this.showToast('PDF downloaded successfully!', 'success');
@@ -660,11 +638,9 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
         URL.revokeObjectURL(blobUrl);
       }, 100);
 
-      console.log('[PDF Download] Mobile download triggered:', fileName);
     } else {
       // For web browsers: Use jsPDF's built-in save method
       pdf.save(fileName);
-      console.log('[PDF Download] Web download triggered:', fileName);
     }
   }
 
@@ -1617,6 +1593,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   }
   
   private async showToast(message: string, color: string = 'primary') {
+    if (color === 'success' || color === 'info') return;
     const toast = await this.toastController.create({
       message,
       duration: 2000,
@@ -1897,7 +1874,6 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       // Add the text (it will be white on white, so invisible)
       pdf.text(lines, margin, margin);
 
-      console.log(`[PDF] Added ${allText.length} characters of extractable text to page`);
     } catch (err) {
       console.warn('[PDF] Failed to add text layer:', err);
     }

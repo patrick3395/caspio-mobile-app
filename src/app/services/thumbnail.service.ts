@@ -47,11 +47,9 @@ export class ThumbnailService {
     
     // Check cache first
     if (this.thumbnailCache.has(cacheKey)) {
-      console.log('🖼️ Thumbnail cache hit for:', imageUrl);
       return this.thumbnailCache.get(cacheKey)!;
     }
 
-    console.log('🖼️ Generating thumbnail for:', imageUrl);
     
     try {
       const thumbnailConfig = { ...this.DEFAULT_CONFIG, ...config };
@@ -203,7 +201,6 @@ export class ThumbnailService {
     imageUrls: string[],
     config: Partial<ThumbnailConfig> = {}
   ): Promise<void> {
-    console.log('🖼️ Preloading thumbnails for', imageUrls.length, 'images');
     
     const batchSize = 5; // Process in batches to avoid overwhelming the browser
     for (let i = 0; i < imageUrls.length; i += batchSize) {
@@ -216,7 +213,6 @@ export class ThumbnailService {
       }
     }
     
-    console.log('✅ Thumbnail preloading complete');
   }
 
   /**
@@ -236,7 +232,6 @@ export class ThumbnailService {
   clearCache(): void {
     this.thumbnailCache.clear();
     this.cacheTimestamps.clear();
-    console.log('[ThumbnailService] Cache cleared');
   }
 
   /**
@@ -283,7 +278,6 @@ export class ThumbnailService {
     const expired = this.pruneExpiredCache();
     const oversized = this.enforceMaxCacheSize();
     if (expired > 0 || oversized > 0) {
-      console.log(`[ThumbnailService] Cache maintenance: ${expired} expired, ${oversized} oversized removed`);
     }
     return { expired, oversized };
   }
@@ -378,7 +372,6 @@ export class ThumbnailService {
                 // Convert blob to ArrayBuffer for Dexie storage
                 const arrayBuffer = await thumbnailBlob.arrayBuffer();
 
-                console.log(`[ThumbnailService] Generated thumbnail: ${width}x${height}, ${thumbnailBlob.size} bytes (original: ${imageData.byteLength} bytes)`);
 
                 resolve({
                   data: arrayBuffer,

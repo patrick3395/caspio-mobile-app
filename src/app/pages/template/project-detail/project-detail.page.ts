@@ -105,24 +105,19 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
   ) {}
 
   async ngOnInit() {
-    console.log('[GenericProjectDetail] ngOnInit() called');
 
     // Subscribe to template config changes
     this.configSubscription = this.templateConfigService.activeConfig$.subscribe(config => {
       this.config = config;
-      console.log('[GenericProjectDetail] Config loaded for template:', config.id);
     });
 
     // Get IDs from parent route snapshot immediately (for offline reliability)
     const parentParams = this.route.parent?.snapshot?.params;
-    console.log('[GenericProjectDetail] parentParams from snapshot:', parentParams);
     if (parentParams) {
       this.projectId = parentParams['projectId'] || '';
       this.serviceId = parentParams['serviceId'] || '';
-      console.log('[GenericProjectDetail] Got params from snapshot:', this.projectId, this.serviceId);
 
       if (this.projectId && this.serviceId) {
-        console.log('[GenericProjectDetail] Calling loadData() from SNAPSHOT');
         await this.loadData();
 
         // Load dropdown options AFTER data is loaded
@@ -133,12 +128,10 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
 
     // Subscribe to param changes (for dynamic updates)
     this.route.parent?.params.subscribe(async params => {
-      console.log('[GenericProjectDetail] params.subscribe fired with:', params);
       const newProjectId = params['projectId'];
       const newServiceId = params['serviceId'];
 
       if (newProjectId !== this.projectId || newServiceId !== this.serviceId) {
-        console.log('[GenericProjectDetail] IDs CHANGED - calling loadData() from SUBSCRIPTION');
         this.projectId = newProjectId;
         this.serviceId = newServiceId;
         await this.loadData();
@@ -155,7 +148,6 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
   }
 
   async ionViewWillEnter() {
-    console.log('[GenericProjectDetail] ionViewWillEnter - Reloading data from cache');
 
     if (this.initialLoadComplete && this.projectId && this.serviceId) {
       await this.loadData();
@@ -165,14 +157,12 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
   private subscribeToSyncEvents(): void {
     // WEBAPP MODE: Skip sync event subscription
     if (environment.isWeb) {
-      console.log('[GenericProjectDetail] WEBAPP MODE: Skipping sync event subscription');
       return;
     }
 
     // MOBILE MODE: Subscribe to service data sync completion
     this.serviceDataSyncSubscription = this.backgroundSync.serviceDataSyncComplete$.subscribe(event => {
       if (event.serviceId === this.serviceId || event.projectId === this.projectId) {
-        console.log('[GenericProjectDetail] Service/project data synced, reloading...');
         if (this.initialLoadComplete) {
           this.loadData();
         }
@@ -194,14 +184,12 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
   private async loadData() {
     this.loadDataCallCount++;
     const callNum = this.loadDataCallCount;
-    console.log(`[GenericProjectDetail] ========== loadData() CALL #${callNum} ==========`);
 
     try {
       await Promise.all([
         this.loadProjectData(),
         this.loadServiceData()
       ]);
-      console.log(`[GenericProjectDetail] loadData() #${callNum}: COMPLETED`);
     } catch (error) {
       console.error(`[GenericProjectDetail] loadData() #${callNum}: ERROR:`, error);
     }
@@ -211,7 +199,6 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
     let project: any = null;
 
     if (environment.isWeb) {
-      console.log('[GenericProjectDetail] WEBAPP MODE: Loading project directly from API');
       try {
         project = await firstValueFrom(this.caspioService.getProject(this.projectId, false));
       } catch (error) {
@@ -222,9 +209,7 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
       project = await this.offlineTemplate.getProject(this.projectId);
 
       if (project) {
-        console.log('[GenericProjectDetail] Loaded project from IndexedDB cache');
       } else {
-        console.log('[GenericProjectDetail] Project not in cache, fetching from API...');
         try {
           const freshProject = await this.caspioService.getProject(this.projectId, false).toPromise();
           if (freshProject) {
@@ -246,11 +231,9 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
   }
 
   private async loadServiceData() {
-    console.log(`[GenericProjectDetail] loadServiceData() called for serviceId=${this.serviceId}`);
     let service: any = null;
 
     if (environment.isWeb) {
-      console.log('[GenericProjectDetail] WEBAPP MODE: Loading service directly from API');
       try {
         service = await firstValueFrom(this.caspioService.getService(this.serviceId, false));
       } catch (error) {
@@ -261,9 +244,7 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
       service = await this.offlineTemplate.getService(this.serviceId);
 
       if (service) {
-        console.log('[GenericProjectDetail] Loaded service from IndexedDB cache');
       } else {
-        console.log('[GenericProjectDetail] Service not in cache, fetching from API...');
         try {
           const freshService = await this.caspioService.getService(this.serviceId, false).toPromise();
           if (freshService) {
@@ -305,12 +286,10 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
 
   // Load dropdown options from Services_Drop table
   private async loadDropdownOptions() {
-    console.log('[GenericProjectDetail] loadDropdownOptions() called');
     try {
       let servicesDropData: any[] = [];
 
       if (environment.isWeb) {
-        console.log('[GenericProjectDetail] WEBAPP MODE: Loading Services_Drop directly from API');
         servicesDropData = await firstValueFrom(this.caspioService.getServicesDrop()) || [];
       } else {
         servicesDropData = await this.offlineTemplate.getServicesDrop();
@@ -581,7 +560,6 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
       let dropdownData: any[] = [];
 
       if (environment.isWeb) {
-        console.log('[GenericProjectDetail] WEBAPP MODE: Loading Projects_Drop directly from API');
         dropdownData = await firstValueFrom(this.caspioService.getProjectsDrop()) || [];
       } else {
         dropdownData = await this.offlineTemplate.getProjectsDrop();
@@ -1019,7 +997,6 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
   }
 
   private async saveOtherValueToDatabase(tableType: 'project' | 'service', fieldName: string, value: string) {
-    console.log(`[GenericProjectDetail] Saving Other value for ${fieldName}: "${value}"`);
 
     if (environment.isWeb) {
       try {
@@ -1027,11 +1004,9 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
           if (!this.projectId || this.projectId === 'new') return;
           const projectIdForUpdate = this.projectData?.PK_ID || this.projectId;
           await firstValueFrom(this.caspioService.updateProject(projectIdForUpdate, { [fieldName]: value }));
-          console.log(`[GenericProjectDetail] WEBAPP: Project Other value ${fieldName} saved to API`);
         } else {
           if (!this.serviceId || this.serviceId === 'new') return;
           await firstValueFrom(this.caspioService.updateService(this.serviceId, { [fieldName]: value }));
-          console.log(`[GenericProjectDetail] WEBAPP: Service Other value ${fieldName} saved to API`);
         }
         this.showSaveStatus(`${fieldName} saved`, 'success');
       } catch (error) {
@@ -1069,14 +1044,12 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
   private async autoSaveProjectField(fieldName: string, value: any) {
     if (!this.projectId || this.projectId === 'new') return;
 
-    console.log(`[GenericProjectDetail] Saving project field ${fieldName}:`, value);
     this.projectData[fieldName] = value;
 
     if (environment.isWeb) {
       try {
         const projectIdForUpdate = this.projectData?.PK_ID || this.projectId;
         await firstValueFrom(this.caspioService.updateProject(projectIdForUpdate, { [fieldName]: value }));
-        console.log(`[GenericProjectDetail] WEBAPP: Project field ${fieldName} saved to API`);
         this.showSaveStatus(`${fieldName} saved`, 'success');
       } catch (error) {
         console.error(`[GenericProjectDetail] WEBAPP: Error saving to API:`, error);
@@ -1106,13 +1079,11 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
       return;
     }
 
-    console.log(`[GenericProjectDetail] Saving service field ${fieldName}:`, value);
     this.serviceData[fieldName] = value;
 
     if (environment.isWeb) {
       try {
         await firstValueFrom(this.caspioService.updateService(this.serviceId, { [fieldName]: value }));
-        console.log(`[GenericProjectDetail] WEBAPP: Service field ${fieldName} saved to API`);
         this.showSaveStatus(`${fieldName} saved`, 'success');
       } catch (error) {
         console.error(`[GenericProjectDetail] WEBAPP: Error saving to API:`, error);
@@ -1146,6 +1117,7 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
   }
 
   async showToast(message: string, color: string = 'primary') {
+    if (color === 'success' || color === 'info') return;
     const toast = await this.toastController.create({
       message,
       duration: 2000,
