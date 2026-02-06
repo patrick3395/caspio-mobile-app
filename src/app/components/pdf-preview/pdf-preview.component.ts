@@ -340,8 +340,9 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
           const clone = pageElement.cloneNode(true) as HTMLElement;
 
           // Get the computed dimensions from the original element
+          // Use scrollHeight to capture full content including overflow
           const originalWidth = pageElement.offsetWidth;
-          const originalHeight = pageElement.offsetHeight;
+          const originalHeight = Math.max(pageElement.offsetHeight, pageElement.scrollHeight);
 
           // Check if this is the cover page (has special flex layout)
           const isCoverPage = pageElement.classList.contains('cover-page');
@@ -359,13 +360,15 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
           clone.style.overflow = 'visible';
 
           // For cover page, preserve flex layout; otherwise use block
+          // Use minHeight (not fixed height) so content is never clipped
           if (isCoverPage) {
             clone.style.display = 'flex';
             clone.style.flexDirection = 'column';
             clone.style.minHeight = originalHeight + 'px';
           } else {
             clone.style.display = 'block';
-            clone.style.height = originalHeight + 'px';
+            clone.style.minHeight = originalHeight + 'px';
+            clone.style.height = 'auto';
           }
 
           // Append to body (outside modal)
@@ -496,16 +499,14 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
             }
           }
 
-          // Capture the cloned element - special handling for cover page
+          // Capture the cloned element - let html2canvas auto-detect full height
           const canvas = await html2canvas(clone, {
             scale: 2,
             useCORS: true,
             allowTaint: true,
             backgroundColor: '#ffffff',
             logging: false,
-            width: originalWidth,
-            // Only set height for non-cover pages to prevent stretching
-            ...(isCoverPage ? {} : { height: originalHeight })
+            width: originalWidth
           });
 
 
