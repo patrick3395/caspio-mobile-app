@@ -319,25 +319,11 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
 
-      // Hide alert backdrop/overlay during capture so html2canvas doesn't pick it up
-      const alertBackdrop = document.querySelector('ion-backdrop') as HTMLElement;
-      const alertWrapper = document.querySelector('ion-alert') as HTMLElement;
-      if (alertBackdrop) alertBackdrop.style.display = 'none';
-      if (alertWrapper) alertWrapper.style.display = 'none';
-
       // Process each page individually
       for (let i = 0; i < pages.length; i++) {
         const pageElement = pages[i] as HTMLElement;
 
-        // Update progress (restore alert briefly for UX, then hide again for next capture)
-        if (alertWrapper) {
-          alertWrapper.style.display = '';
-          if (alertBackdrop) alertBackdrop.style.display = '';
-          loading.message = `Processing page ${i + 1} of ${pages.length}...`;
-          await new Promise(resolve => setTimeout(resolve, 50));
-          alertWrapper.style.display = 'none';
-          if (alertBackdrop) alertBackdrop.style.display = 'none';
-        }
+        loading.message = `Processing page ${i + 1} of ${pages.length}...`;
 
 
         try {
@@ -360,14 +346,14 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
           // Check if this is the cover page (has special flex layout)
           const isCoverPage = pageElement.classList.contains('cover-page');
 
-          // Style the clone to be visible but off-screen with exact dimensions
+          // Style the clone to be visible but far off-screen so no overlay covers it
           clone.style.position = 'fixed';
-          clone.style.left = '0';
+          clone.style.left = '-99999px';
           clone.style.top = '0';
           clone.style.width = originalWidth + 'px';
           clone.style.minWidth = originalWidth + 'px';
           clone.style.maxWidth = originalWidth + 'px';
-          clone.style.zIndex = '-9999';
+          clone.style.zIndex = '999999';
           clone.style.opacity = '1';
           clone.style.visibility = 'visible';
           clone.style.overflow = 'visible';
@@ -612,20 +598,11 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       // Save the PDF
       pdf.save(fileName);
 
-      // Restore alert visibility before dismissing
-      if (alertWrapper) alertWrapper.style.display = '';
-      if (alertBackdrop) alertBackdrop.style.display = '';
-
       await loading.dismiss();
       await this.showToast('PDF downloaded successfully!', 'success');
 
     } catch (error) {
       console.error('[PDF] Error generating PDF:', error);
-      // Restore alert visibility in case it was hidden during capture
-      const errBackdrop = document.querySelector('ion-backdrop') as HTMLElement;
-      const errWrapper = document.querySelector('ion-alert') as HTMLElement;
-      if (errBackdrop) errBackdrop.style.display = '';
-      if (errWrapper) errWrapper.style.display = '';
       await loading.dismiss();
       await this.showToast('Failed to download PDF: ' + (error as Error).message, 'danger');
     }

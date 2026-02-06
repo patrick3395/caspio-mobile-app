@@ -942,6 +942,18 @@ body.dark-theme ion-alert .alert-button-group .alert-button:not(.editor-save-btn
   border-color: var(--noble-orange) !important;
 }
 
+/* Dark theme: Alert button interactive states (specificity 0,5,2 beats light-mode 0,5,0) */
+body.dark-theme ion-alert .alert-button-group .alert-button:not(.editor-save-btn):hover,
+body.dark-theme ion-alert .alert-button-group .alert-button:not(.editor-save-btn):active,
+body.dark-theme ion-alert .alert-button-group .alert-button:not(.editor-save-btn):focus,
+body.dark-theme ion-alert .alert-button-group .alert-button:not(.editor-save-btn):focus-visible {
+  color: var(--color-text-primary) !important;
+  background: var(--color-bg-elevated) !important;
+  border-color: var(--noble-orange) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 /* Dark theme: Image container */
 body.dark-theme .image-container {
   background-color: var(--color-bg-inset);
@@ -1610,12 +1622,6 @@ body.dark-theme ion-alert.payment-method-alert .alert-button {
     border-color: var(--noble-orange, #F15A27) !important;
   }
 
-  // Dark mode: alert button hovers (specificity 0,4,2 to beat light-mode rules)
-  body.dark-theme ion-alert .alert-button-group .alert-button:not(.editor-save-btn):hover {
-    background: var(--color-bg-elevated) !important;
-    color: var(--color-text-primary) !important;
-    border-color: var(--noble-orange) !important;
-  }
 }
 
 // Link URL Alert - for displaying external links on mobile
