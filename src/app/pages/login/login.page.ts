@@ -77,21 +77,19 @@ export class LoginPage implements OnInit, OnDestroy {
     }
 
     // Check for saved email (G2-SEC-002: Only store email, never passwords)
-    if (this.isWeb) {
-      const savedEmail = localStorage.getItem('savedEmail');
-      if (savedEmail) {
-        try {
-          const saved = JSON.parse(savedEmail);
-          this.credentials.email = saved.email || '';
-          this.credentials.companyId = saved.companyId || 1;
-          this.rememberMe = true;
-        } catch (e) {
-          // Silent fail - not logging errors that could expose what we're looking for
-        }
+    const savedEmail = localStorage.getItem('savedEmail');
+    if (savedEmail) {
+      try {
+        const saved = JSON.parse(savedEmail);
+        this.credentials.email = saved.email || '';
+        this.credentials.companyId = saved.companyId || 1;
+        this.rememberMe = true;
+      } catch (e) {
+        // Silent fail - not logging errors that could expose what we're looking for
       }
-      // G2-SEC-002: Clean up any legacy savedCredentials that may contain passwords
-      localStorage.removeItem('savedCredentials');
     }
+    // G2-SEC-002: Clean up any legacy savedCredentials that may contain passwords
+    localStorage.removeItem('savedCredentials');
   }
 
   ngOnDestroy() {
@@ -208,15 +206,13 @@ export class LoginPage implements OnInit, OnDestroy {
     }
     
     // G2-SEC-002: Save only email if remember me is checked (never store passwords)
-    if (this.isWeb) {
-      if (this.rememberMe) {
-        localStorage.setItem('savedEmail', JSON.stringify({
-          email: this.credentials.email,
-          companyId: this.credentials.companyId
-        }));
-      } else {
-        localStorage.removeItem('savedEmail');
-      }
+    if (this.rememberMe) {
+      localStorage.setItem('savedEmail', JSON.stringify({
+        email: this.credentials.email,
+        companyId: this.credentials.companyId
+      }));
+    } else {
+      localStorage.removeItem('savedEmail');
     }
     
     // Only dismiss loading if it exists (it might already be dismissed)

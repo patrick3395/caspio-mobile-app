@@ -16,9 +16,10 @@ ion-header ion-toolbar {
   --color: white;
 
   ion-title {
-    text-align: center;
+    position: absolute;
     left: 0;
     right: 0;
+    text-align: center;
     pointer-events: none;
   }
 

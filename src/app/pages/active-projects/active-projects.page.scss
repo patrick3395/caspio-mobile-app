@@ -32,11 +32,13 @@
       margin-right: 8px;
     }
 
-    // Center title on web version
+    // Center title on web version - absolute position to center regardless of buttons
     &.web-centered ion-title {
+      position: absolute;
+      left: 0;
+      right: 0;
       text-align: center;
-      flex: 1;
-      width: 100%;
+      pointer-events: none;
     }
   }
 }
@@ -80,18 +82,26 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
   border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  background: rgba(255, 255, 255, 0.85);
-  color: var(--noble-orange);
+  border: none;
+  background: #333333;
+  color: white;
   cursor: pointer;
   transition: none;
   -webkit-tap-highlight-color: transparent;
+  box-shadow: none;
+  margin: 0;
+  padding: 0;
 
   ion-icon {
-    font-size: 20px;
+    font-size: 24px;
+    color: white !important;
+    --ionicon-stroke-width: 48px;
+    margin: 0;
   }
 
   &:hover,
@@ -101,15 +111,17 @@
 
   &:active {
     transform: none;
+    background: var(--noble-orange, #F15A27);
   }
 
   &.primary {
-    background: var(--noble-white);
-    color: var(--noble-orange);
+    background: #333333;
+    color: white;
     border-color: transparent;
 
     ion-icon {
-      font-size: 22px;
+      font-size: 24px;
+      color: white !important;
     }
   }
 }
@@ -165,23 +177,6 @@
     font-size: 17px;
     font-weight: 600;
     color: #ffffff;
-  }
-
-  .settings-close-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border: none;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.15);
-    color: #ffffff;
-    cursor: pointer;
-
-    ion-icon {
-      font-size: 20px;
-    }
   }
 }
 

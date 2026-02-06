@@ -38,9 +38,6 @@
 <div class="settings-pane" [class.open]="settingsPaneOpen">
   <div class="settings-pane-header">
     <h3>Settings</h3>
-    <button class="settings-close-btn" (click)="toggleSettingsPane()">
-      <ion-icon name="close"></ion-icon>
-    </button>
   </div>
   <div class="settings-pane-body">
     <div class="settings-group">
@@ -221,7 +218,6 @@
       <div *ngIf="filteredProjects.length === 0" class="empty-state" role="status" aria-live="polite">
         <ion-icon name="folder-open-outline" aria-hidden="true"></ion-icon>
         <h3>{{ searchTerm.trim() ? 'No Matches Found' : 'No Active Projects' }}</h3>
-        <p>{{ searchTerm.trim() ? 'Try adjusting your search terms' : 'There are no active projects at this time' }}</p>
       </div>
     </div>
   </div>
