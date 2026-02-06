@@ -311,11 +311,9 @@ input[type="date"] {
   }
 }
 
-// Add bottom padding to content so it's not hidden behind the tab bar
-@media (hover: hover) and (pointer: fine) {
-  ion-content {
-    --padding-bottom: 80px;
-  }
+// Add bottom padding for fixed tab bar
+ion-content {
+  --padding-bottom: 80px;
 }
 
 :host-context(body.dark-theme) {

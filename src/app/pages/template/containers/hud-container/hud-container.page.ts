@@ -653,6 +653,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
         // Only update breadcrumbs after initial load has completed
         if (this.serviceInstanceLoaded) {
           this.updateBreadcrumbs();
+          this.changeDetectorRef.detectChanges();
         }
       })
     );

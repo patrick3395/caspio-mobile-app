@@ -126,10 +126,8 @@ ion-header.page-header {
 
 ion-content{--padding-start:0;--padding-end:0;--padding-top:0;--padding-bottom:0}
 
-// Web: add bottom padding for fixed tab bar
-@media (hover: hover) and (pointer: fine) {
-  ion-content { --padding-bottom: 80px !important; }
-}
+// Add bottom padding for fixed tab bar
+ion-content { --padding-bottom: 80px !important; }
 
 .error-container{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;padding:20px}
 

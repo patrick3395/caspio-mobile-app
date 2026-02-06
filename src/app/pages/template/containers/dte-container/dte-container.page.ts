@@ -122,6 +122,7 @@ export class DteContainerPage implements OnInit {
       filter(event => event instanceof NavigationEnd)
     ).subscribe(() => {
       this.updateBreadcrumbs();
+      this.changeDetectorRef.detectChanges();
     });
 
     // Initial breadcrumb update

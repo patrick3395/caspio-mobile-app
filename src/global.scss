@@ -722,7 +722,7 @@ body.dark-theme ion-textarea {
 body.dark-theme input,
 body.dark-theme select,
 body.dark-theme textarea {
-  background: #1f1f1f;
+  background-color: #1f1f1f;
   color: var(--ion-text-color);
   border: 1px solid var(--ion-border-color);
 }
@@ -901,6 +901,13 @@ body.dark-theme .styled-input::placeholder {
   color: var(--color-text-muted);
 }
 
+body.dark-theme select.styled-input {
+  background-color: var(--color-bg-elevated);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23F15A27' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
 /* Dark theme: Alerts */
 body.dark-theme .custom-other-alert .alert-wrapper,
 body.dark-theme .custom-document-alert .alert-wrapper,
@@ -933,6 +940,25 @@ body.dark-theme .custom-document-alert .alert-button,
 body.dark-theme .template-loading-alert .alert-button {
   color: var(--color-text-primary) !important;
   background: var(--color-bg-elevated) !important;
+}
+
+/* Dark theme: Confirmation dialog button overrides (higher specificity) */
+body.dark-theme .custom-document-alert.confirmation-dialog .alert-button.alert-button-confirm,
+body.dark-theme .custom-document-alert.confirmation-dialog .alert-button.alert-button-destructive,
+body.dark-theme .custom-document-alert.confirmation-dialog .alert-button.alert-button-cancel {
+  color: var(--color-text-primary) !important;
+  background: var(--color-bg-elevated) !important;
+  border-color: var(--noble-orange) !important;
+}
+
+@media (hover: hover) {
+  body.dark-theme .custom-document-alert.confirmation-dialog .alert-button.alert-button-confirm:hover,
+  body.dark-theme .custom-document-alert.confirmation-dialog .alert-button.alert-button-destructive:hover,
+  body.dark-theme .custom-document-alert.confirmation-dialog .alert-button.alert-button-cancel:hover {
+    color: var(--color-text-primary) !important;
+    background: var(--color-bg-elevated) !important;
+    border-color: var(--noble-orange) !important;
+  }
 }
 
 /* Dark theme: Image container */
@@ -997,7 +1023,43 @@ body.dark-theme ion-toggle {
 /* Dark theme: Cursor color for dark inputs */
 body.dark-theme input,
 body.dark-theme textarea {
-  caret-color: var(--color-text-primary);
+  caret-color: var(--color-text-primary) !important;
+}
+
+body.dark-theme ion-input,
+body.dark-theme ion-textarea {
+  caret-color: var(--color-text-primary) !important;
+  --color: var(--color-text-primary) !important;
+}
+
+body.dark-theme ion-input::part(native),
+body.dark-theme ion-textarea::part(native) {
+  caret-color: var(--color-text-primary) !important;
+}
+
+/* Dark theme: Action sheet buttons */
+body.dark-theme ion-action-sheet .action-sheet-group {
+  background: var(--color-bg-card);
+}
+
+body.dark-theme ion-action-sheet .action-sheet-button {
+  color: var(--color-text-primary) !important;
+}
+
+body.dark-theme ion-action-sheet .action-sheet-button.action-sheet-destructive {
+  color: var(--ion-color-danger) !important;
+}
+
+body.dark-theme .room-selection-sheet .action-sheet-group .action-sheet-button {
+  color: var(--color-text-primary) !important;
+
+  &:hover, &:active, &:focus, &.activated, &.ion-activated {
+    color: var(--color-text-primary) !important;
+  }
+}
+
+body.dark-theme .photo-source-sheet .action-sheet-button {
+  color: var(--noble-orange) !important;
 }
 
 .custom-other-alert {
@@ -1524,6 +1586,26 @@ ion-alert.payment-method-alert {
   }
 }
 
+/* Dark theme: Payment Method Alert */
+body.dark-theme ion-alert.payment-method-alert .alert-wrapper {
+  background: var(--color-bg-card) !important;
+  box-shadow: 0 22px 60px var(--color-shadow-heavy);
+}
+
+body.dark-theme ion-alert.payment-method-alert .alert-title {
+  color: var(--color-text-primary);
+}
+
+body.dark-theme ion-alert.payment-method-alert .alert-message {
+  color: var(--color-text-secondary);
+}
+
+body.dark-theme ion-alert.payment-method-alert .alert-button {
+  color: var(--color-text-primary) !important;
+  background: var(--color-bg-elevated) !important;
+  border-color: var(--noble-orange) !important;
+}
+
 // Global override - Disable ALL hover effects on alert buttons (webapp only)
 @media (hover: hover) {
   ion-alert .alert-button:hover {
@@ -1546,6 +1628,19 @@ ion-alert.payment-method-alert {
     background: #f5f5f5 !important;
     color: #333 !important;
     border-color: var(--noble-orange, #F15A27) !important;
+  }
+
+  // Dark mode: alert button hovers
+  body.dark-theme ion-alert .alert-button:not([role="cancel"]):hover {
+    background: var(--color-bg-elevated) !important;
+    color: var(--color-text-primary) !important;
+    border-color: var(--noble-orange) !important;
+  }
+
+  body.dark-theme ion-alert .alert-button[role="cancel"]:hover {
+    background: var(--color-bg-elevated) !important;
+    color: var(--color-text-primary) !important;
+    border-color: var(--noble-orange) !important;
   }
 }
 
@@ -1627,6 +1722,27 @@ ion-alert.payment-method-alert {
   }
 }
 
+/* Dark theme: Link URL Alert */
+body.dark-theme .link-url-alert .alert-wrapper {
+  background: var(--color-bg-card);
+  box-shadow: 0 22px 60px var(--color-shadow-heavy);
+}
+
+body.dark-theme .link-url-alert .alert-title {
+  color: var(--color-text-primary);
+}
+
+body.dark-theme .link-url-alert .alert-message {
+  background: var(--color-bg-elevated);
+  color: #66b3ff;
+}
+
+body.dark-theme .link-url-alert .alert-button {
+  color: var(--color-text-primary) !important;
+  background: var(--color-bg-elevated) !important;
+  border-color: var(--noble-orange) !important;
+}
+
 // Custom Loading Popup - styled to match other popups
 .custom-loading-popup {
   --backdrop-opacity: 0.55;
@@ -1668,6 +1784,15 @@ ion-alert.payment-method-alert {
     line-height: 1.4;
     text-align: center;
   }
+}
+
+/* Dark theme: Custom Loading Popup */
+body.dark-theme .custom-loading-popup .loading-wrapper {
+  background: var(--color-bg-card) !important;
+}
+
+body.dark-theme .custom-loading-popup .loading-message {
+  color: var(--color-text-primary) !important;
 }
 
 // Edit Address Alert - styled to match confirmation dialog theme
@@ -1865,6 +1990,12 @@ ion-alert.payment-method-alert {
           background: #444 !important;
           border-color: var(--noble-orange, #F15A27);
         }
+
+        &:not([role="cancel"]) {
+          color: #ddd !important;
+          background: #444 !important;
+          border-color: var(--noble-orange, #F15A27);
+        }
       }
     }
   }
@@ -1971,6 +2102,45 @@ ion-alert.payment-method-alert {
       }
     }
   }
+}
+
+/* Dark theme: Zelle Info Alert */
+body.dark-theme .zelle-info-alert .alert-wrapper {
+  background: var(--color-bg-card);
+  box-shadow: 0 22px 60px var(--color-shadow-heavy);
+}
+
+body.dark-theme .zelle-info-alert .alert-title {
+  color: var(--color-text-primary);
+}
+
+body.dark-theme .zelle-info-alert .alert-message {
+  color: var(--color-text-secondary);
+}
+
+body.dark-theme .zelle-info-alert .zelle-details {
+  color: var(--color-text-secondary);
+}
+
+body.dark-theme .zelle-info-alert .zelle-pay-to {
+  color: var(--color-text-primary);
+  border-bottom-color: var(--color-border-default);
+}
+
+body.dark-theme .zelle-info-alert .zelle-recipient {
+  background: var(--color-bg-elevated);
+  border-color: var(--color-border-default);
+
+  .zelle-name,
+  .zelle-number {
+    color: var(--color-text-primary);
+  }
+}
+
+body.dark-theme .zelle-info-alert .alert-button.alert-button-ok {
+  color: var(--color-text-primary) !important;
+  background: var(--color-bg-elevated) !important;
+  border-color: var(--noble-orange) !important;
 }
 
 // Caption Popup Alert - Photo Annotator
@@ -2194,6 +2364,51 @@ ion-alert.payment-method-alert {
       }
     }
   }
+}
+
+/* Dark theme: Caption Popup Alert */
+body.dark-theme .caption-popup-alert .alert-wrapper {
+  background: var(--color-bg-card);
+  box-shadow: 0 22px 60px var(--color-shadow-heavy);
+}
+
+body.dark-theme .caption-popup-alert .alert-title {
+  color: var(--color-text-primary);
+}
+
+body.dark-theme .caption-popup-alert .caption-text-input {
+  background: var(--color-bg-elevated) !important;
+  color: var(--color-text-primary) !important;
+  border-color: var(--color-border-default) !important;
+
+  &::placeholder {
+    color: var(--color-text-muted) !important;
+  }
+
+  &:focus {
+    border-color: var(--noble-orange) !important;
+  }
+}
+
+body.dark-theme .caption-popup-alert .undo-caption-btn {
+  background: var(--color-bg-inset);
+  border-color: var(--color-border-default);
+
+  ion-icon {
+    color: var(--color-text-secondary);
+  }
+}
+
+body.dark-theme .caption-popup-alert .preset-btn {
+  background: var(--color-bg-elevated) !important;
+  color: var(--color-text-primary) !important;
+  border-color: var(--color-border-default) !important;
+}
+
+body.dark-theme .caption-popup-alert .alert-button {
+  color: var(--color-text-primary) !important;
+  background: var(--color-bg-elevated) !important;
+  border-color: var(--noble-orange) !important;
 }
 
 
@@ -3021,6 +3236,44 @@ ion-alert.text-editor-modal .alert-button.editor-save-btn,
     min-height: 200px !important;
     height: 200px !important;
   }
+}
+
+/* Dark theme: Text Editor Modal */
+body.dark-theme .text-editor-modal .alert-head,
+body.dark-theme ion-alert.text-editor-modal .alert-head {
+  background: var(--color-bg-elevated) !important;
+  border-bottom-color: var(--color-border-default) !important;
+}
+
+body.dark-theme .text-editor-modal .alert-title,
+body.dark-theme ion-alert.text-editor-modal .alert-title {
+  color: var(--color-text-primary) !important;
+}
+
+body.dark-theme .text-editor-modal textarea,
+body.dark-theme ion-alert.text-editor-modal textarea {
+  background: var(--color-bg-elevated) !important;
+  color: var(--color-text-primary) !important;
+  border-color: var(--color-border-default) !important;
+}
+
+body.dark-theme .text-editor-modal .editor-title-input,
+body.dark-theme ion-alert.text-editor-modal .editor-title-input {
+  background: var(--color-bg-inset) !important;
+  color: var(--color-text-primary) !important;
+  border-color: var(--color-border-default) !important;
+}
+
+body.dark-theme .text-editor-modal .alert-button-group,
+body.dark-theme ion-alert.text-editor-modal .alert-button-group {
+  background: var(--color-bg-elevated) !important;
+  border-top-color: var(--color-border-default) !important;
+}
+
+body.dark-theme .text-editor-modal .alert-button:not(.editor-save-btn),
+body.dark-theme ion-alert.text-editor-modal .alert-button:not(.editor-save-btn) {
+  color: var(--color-text-primary) !important;
+  background: var(--color-bg-inset) !important;
 }
 
 /* ============================================

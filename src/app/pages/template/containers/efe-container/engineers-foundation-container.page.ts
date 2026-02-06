@@ -199,6 +199,7 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
       // The initial breadcrumb update is done in loadServiceInstanceNumber()
       if (this.serviceInstanceLoaded) {
         this.updateBreadcrumbs();
+        this.changeDetectorRef.detectChanges();
       }
     });
   }

@@ -126,6 +126,7 @@ export class LbwContainerPage implements OnInit, OnDestroy {
       filter(event => event instanceof NavigationEnd)
     ).subscribe(() => {
       this.updateBreadcrumbs();
+      this.changeDetectorRef.detectChanges();
     });
 
     // Initial breadcrumb update
