@@ -61,15 +61,14 @@
         </div>
       </div>
 
-      <ion-item lines="none" class="remember-item">
+      <div class="remember-item">
         <ion-checkbox
-          slot="start"
           [(ngModel)]="rememberMe"
           color="primary"
           [tabindex]="isWeb ? 3 : undefined">
         </ion-checkbox>
-        <ion-label>Remember me</ion-label>
-      </ion-item>
+        <span class="remember-label">Remember me</span>
+      </div>
 
       <ion-button
         data-testid="sign-in-button"

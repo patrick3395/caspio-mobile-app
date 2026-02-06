@@ -2,14 +2,14 @@
   padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
-  background: #f5f5f5;
+  background: var(--color-bg-page);
   min-height: 100vh;
 }
 
 .content-section {
-  background: white;
+  background: var(--color-bg-card);
   border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 20px var(--color-shadow);
   padding: 24px;
   min-height: 200px;
 }
@@ -20,7 +20,7 @@
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: #666;
+  color: var(--color-text-secondary);
 
   ion-spinner {
     margin-bottom: 16px;
@@ -35,7 +35,7 @@
 
 .visual-location-section {
   padding-bottom: 16px;
-  border-bottom: 1px solid #e8e8e8;
+  border-bottom: 1px solid var(--color-border-default);
   margin-bottom: 16px;
 }
 
@@ -48,7 +48,7 @@
     align-items: baseline;
     font-size: 14px;
     font-weight: 600;
-    color: #333;
+    color: var(--color-text-primary);
     margin-bottom: 8px;
 
     .required {
@@ -63,7 +63,7 @@
 
   &.filled {
     label {
-      color: #000;
+      color: var(--color-text-primary);
     }
   }
 }
@@ -72,12 +72,12 @@
   width: 100%;
   max-width: 100%;
   padding: 12px 16px;
-  border: 2px solid #e8e8e8;
+  border: 2px solid var(--color-border-default);
   border-radius: 8px;
   font-size: 14px;
   font-family: inherit;
   transition: all 0.2s ease;
-  background: white;
+  background: var(--color-bg-card);
 
   &:focus {
     outline: none;
@@ -86,12 +86,12 @@
   }
 
   &:hover:not(:disabled) {
-    border-color: #d0d0d0;
+    border-color: var(--color-border-heavy);
   }
 
   &:disabled {
-    background: #f5f5f5;
-    color: #999;
+    background: var(--color-bg-page);
+    color: var(--color-text-muted);
     cursor: not-allowed;
   }
 }
@@ -110,9 +110,9 @@ select.styled-input {
   align-items: center;
   gap: 12px;
   padding: 24px;
-  background: #f8f9fa;
+  background: var(--color-bg-elevated);
   border-radius: 8px;
-  color: #666;
+  color: var(--color-text-secondary);
   margin-top: 16px;
 
   ion-icon {
@@ -136,16 +136,16 @@ select.styled-input {
 
 .navigation-card {
   margin: 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px var(--color-shadow);
   border-radius: 4px;
   transition: box-shadow 0.2s, background-color 0.2s;
   cursor: pointer;
-  background: #f8f9fa;
+  background: var(--color-bg-elevated);
 
   @media (hover: hover) and (pointer: fine) {
     &:hover {
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
-      background: #f0f0f0;
+      box-shadow: 0 2px 6px var(--color-shadow-heavy);
+      background: var(--color-bg-inset);
     }
   }
 
@@ -180,7 +180,7 @@ select.styled-input {
     ion-card-title {
       font-size: 18px;
       font-weight: 600;
-      color: #333;
+      color: var(--color-text-primary);
       margin: 0;
     }
 
@@ -247,12 +247,12 @@ select.styled-input {
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: #999;
+  color: var(--color-text-muted);
 
   ion-icon {
     font-size: 64px;
     margin-bottom: 16px;
-    color: #ccc;
+    color: var(--color-text-muted);
   }
 
   p {
@@ -267,8 +267,8 @@ select.styled-input {
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: #999;
-  background: #f9f9f9;
+  color: var(--color-text-muted);
+  background: var(--color-bg-elevated);
   border-radius: 12px;
   margin: 20px 0;
 
@@ -288,7 +288,7 @@ select.styled-input {
   .empty-subtitle {
     font-size: 14px;
     font-weight: 400;
-    color: #999;
+    color: var(--color-text-muted);
   }
 }
 

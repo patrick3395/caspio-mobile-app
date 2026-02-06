@@ -1,6 +1,7 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Injector } from '@angular/core';
 import { BehaviorSubject, Observable, from } from 'rxjs';
 import { environment } from '../../environments/environment';
+import type { PushNotificationService } from './push-notification.service';
 
 // Cognito types (install with: npm install amazon-cognito-identity-js)
 // For now, we'll use type: any until the package is installed
@@ -30,8 +31,19 @@ export class CognitoAuthService {
   private userPool: any;
   private cognitoUser: any;
 
-  constructor() {
+  // Lazy-loaded to avoid circular dependency
+  private _pushService: PushNotificationService | null = null;
+
+  constructor(private injector: Injector) {
     this.loadStoredSession();
+  }
+
+  private get pushService(): PushNotificationService {
+    if (!this._pushService) {
+      const { PushNotificationService } = require('./push-notification.service');
+      this._pushService = this.injector.get(PushNotificationService);
+    }
+    return this._pushService!;
   }
 
   /**
@@ -94,6 +106,12 @@ export class CognitoAuthService {
                 attributes,
               };
               this.currentUserSubject.next(user);
+
+              // Register push notification token with backend
+              try {
+                const companyId = attributes.find((attr: any) => attr.getName() === 'custom:companyId')?.getValue();
+                this.pushService.registerTokenWithBackend(user.username, user.email, companyId);
+              } catch { /* push registration is non-critical */ }
             }
           });
 
@@ -118,13 +136,18 @@ export class CognitoAuthService {
    * Sign out current user
    */
   signOut(): void {
+    // Unregister push notification token before clearing session
+    try {
+      this.pushService.unregisterToken();
+    } catch { /* push unregistration is non-critical */ }
+
     if (this.cognitoUser) {
       this.cognitoUser.signOut();
     }
 
     localStorage.removeItem('cognito_access_token');
     localStorage.removeItem('cognito_id_token');
-    
+
     this.currentUserSubject.next(null);
     this.tokenSubject.next(null);
   }

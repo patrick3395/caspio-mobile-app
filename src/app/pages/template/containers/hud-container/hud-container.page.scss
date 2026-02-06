@@ -1,6 +1,6 @@
 // ion-content background
 ion-content {
-  --background: #f5f5f5;
+  --background: var(--color-bg-page);
 }
 
 // Template loading overlay
@@ -14,7 +14,7 @@ ion-content {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  background: linear-gradient(135deg, var(--color-bg-elevated) 0%, var(--color-bg-inset) 100%);
   z-index: 1000;
   // Use opacity and pointer-events for smooth transitions
   opacity: 1;
@@ -42,18 +42,18 @@ ion-content {
       margin: 0 0 12px;
       font-size: 20px;
       font-weight: 600;
-      color: #333;
+      color: var(--color-text-primary);
     }
 
     p {
       margin: 0 0 8px;
       font-size: 14px;
-      color: #666;
+      color: var(--color-text-secondary);
     }
 
     .loading-hint {
       font-size: 12px;
-      color: #999;
+      color: var(--color-text-muted);
       font-style: italic;
     }
   }
@@ -228,10 +228,10 @@ ion-toolbar {
 // Breadcrumb Footer
 .breadcrumb-footer {
   ion-toolbar {
-    --background: white;
-    --color: #333;
+    --background: var(--color-bg-card);
+    --color: var(--color-text-primary);
     --border-width: 1px 0 0 0;
-    --border-color: #e0e0e0;
+    --border-color: var(--color-border-default);
     --padding-top: 8px;
     --padding-bottom: 8px;
     --min-height: 48px;
@@ -258,7 +258,7 @@ ion-toolbar {
   display: flex;
   align-items: center;
   cursor: pointer;
-  color: #666;
+  color: var(--color-text-secondary);
   font-size: 14px;
   font-weight: 500;
   padding: 4px 8px;
@@ -269,12 +269,12 @@ ion-toolbar {
   @media (hover: hover) and (pointer: fine) {
     &:hover {
       background-color: rgba(0, 0, 0, 0.05);
-      color: #333;
+      color: var(--color-text-primary);
     }
   }
 
   &.active {
-    color: #333;
+    color: var(--color-text-primary);
     cursor: default;
     font-weight: 700;
 
@@ -302,7 +302,7 @@ ion-toolbar {
 }
 
 .breadcrumb-arrow {
-  color: #999;
+  color: var(--color-text-muted);
   font-size: 16px;
   flex-shrink: 0;
 }
@@ -342,7 +342,7 @@ ion-header {
   pointer-events: auto !important;
   position: relative !important;
   z-index: 10000 !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+  box-shadow: 0 2px 8px var(--color-shadow-heavy) !important;
   border: none !important;
   outline: none !important;
   -webkit-tap-highlight-color: transparent !important;
@@ -475,7 +475,7 @@ ion-toolbar.template-toolbar {
   background: #6c757d;
   color: white;
   padding: 10px 16px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  box-shadow: 0 2px 8px var(--color-shadow-heavy);
 
   ion-icon {
     font-size: 22px;
@@ -564,7 +564,7 @@ ion-toolbar.template-toolbar {
 
 // FDF Photo Buttons - Enhanced for 50% bigger measurements area
 .fdf-photo-button {
-  color: #333 !important; // Black text
+  color: var(--color-text-primary) !important; // Black text
   margin-bottom: 0 !important; // No margin by default, only when photo exists
   background: transparent !important; // No white background on mobile - just icons
   border: none !important; // No border on mobile - just icons
@@ -572,18 +572,18 @@ ion-toolbar.template-toolbar {
   // Hover effect removed for mobile optimization
 
   &:active {
-    background: #e0e0e0 !important;
+    background: var(--color-border-default) !important;
   }
 
   ion-icon {
     vertical-align: middle;
-    color: #333 !important; // Black icons
+    color: var(--color-text-primary) !important; // Black icons
   }
 
   // WEBAPP ONLY: Add back white containers around icons
   @media (min-width: 768px) {
-    background: white !important; // White background for webapp
-    border: 1px solid #ddd !important; // Border for webapp
+    background: var(--color-bg-card) !important; // White background for webapp
+    border: 1px solid var(--color-border-heavy) !important; // Border for webapp
     border-radius: 6px !important; // Rounded corners for webapp
 
     // 50% bigger sizing for measurement area (web-specific)
@@ -616,19 +616,19 @@ ion-toolbar.template-toolbar {
 
 .item-text{font-size:13px !important;line-height:1.5 !important;max-height:39px !important;overflow:hidden !important;text-overflow:ellipsis !important;display:-webkit-box !important;-webkit-line-clamp:2 !important;-webkit-box-orient:vertical !important;word-break:break-word;position:relative;transition:padding-right 0.3s ease;
   &.text-with-camera{padding-right:45px;
-    &::after{content:'';position:absolute;right:40px;bottom:0;width:30px;height:20px;background:linear-gradient(to right, transparent, white 70%);pointer-events:none}
+    &::after{content:'';position:absolute;right:40px;bottom:0;width:30px;height:20px;background:linear-gradient(to right, transparent, var(--color-bg-card) 70%);pointer-events:none}
   }
 }
 
-.answer-type-1-container{padding:12px;background:#fff;border-radius:8px;margin-bottom:12px;border:1px solid #e0e0e0;cursor:pointer;transition:all 0.2s ease;
+.answer-type-1-container{padding:12px;background:var(--color-bg-card);border-radius:8px;margin-bottom:12px;border:1px solid var(--color-border-default);cursor:pointer;transition:all 0.2s ease;
   // Hover effect removed for mobile optimization
   .item-header{margin-bottom:8px;
-    .item-name{font-size:15px;font-weight:600;color:#333;margin:0;
+    .item-name{font-size:15px;font-weight:600;color:var(--color-text-primary);margin:0;
       .required-indicator{color:var(--noble-orange);font-weight:bold;margin-left:4px}
     }
   }
   .item-text-wrapper{margin-bottom:12px;
-    .item-text{margin:0;color:#666}
+    .item-text{margin:0;color:var(--color-text-secondary)}
   }
   .dropdown-container{display:flex;align-items:center;gap:10px;
     .saving-spinner{--color:var(--noble-orange);width:20px;height:20px}
@@ -734,9 +734,9 @@ ion-app.modal-open {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: white;
-  border-top: 1px solid #e0e0e0;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.08);
+  background: var(--color-bg-card);
+  border-top: 1px solid var(--color-border-default);
+  box-shadow: 0 -2px 10px var(--color-shadow);
   z-index: 100000;
   pointer-events: auto;
 
@@ -773,7 +773,7 @@ ion-app.modal-open {
 
 .template-container {
   padding: 12px;
-  background: #f9f9f9;
+  background: var(--color-bg-page);
   min-height: 100%;
   overflow: visible;
   padding-bottom: 120px; // Increased padding for mobile sync control bar to ensure finalize button is accessible (was 80px)
@@ -791,7 +791,7 @@ ion-app.modal-open {
   font-size: 13px;
   font-weight: 600;
   z-index: 1000;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px var(--color-shadow-heavy);
   backdrop-filter: blur(10px);
   animation: slideIn 0.3s ease;
   
@@ -888,11 +888,11 @@ ion-app.modal-open {
     width: 100%;
     max-width: 100%; // Ensure it never exceeds container
     padding: 12px 16px;
-    border: 2px solid #e8e8e8;
+    border: 2px solid var(--color-border-default);
     border-radius: 8px;
     font-size: 15px;
-    background: white;
-    color: #333;
+    background: var(--color-bg-card);
+    color: var(--color-text-primary);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     box-sizing: border-box; // Include padding and border in width calculation
     
@@ -906,11 +906,11 @@ ion-app.modal-open {
     }
     
     &::placeholder {
-      color: #b0b0b0;
+      color: var(--color-text-muted);
       font-size: 14px;
     }
   }
-  
+
   select.styled-input {
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23F15A27' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
@@ -926,11 +926,11 @@ ion-app.modal-open {
     gap: 6px;
     margin-top: 8px;
     padding: 8px 12px;
-    background: #f8f9fa;
+    background: var(--color-bg-elevated);
     border-left: 3px solid var(--noble-orange);
     border-radius: 4px;
     font-size: 13px;
-    color: #666;
+    color: var(--color-text-secondary);
     line-height: 1.5;
 
     ion-icon {
@@ -945,7 +945,7 @@ ion-app.modal-open {
     margin-top: -4px;
     margin-bottom: 12px;
     font-size: 13px;
-    color: #666;
+    color: var(--color-text-secondary);
     font-weight: normal;
     text-transform: none;
     letter-spacing: normal;
@@ -954,9 +954,9 @@ ion-app.modal-open {
   
   &.filled {
     .styled-input {
-      background: #ffffff;
-      border-color: #ddd;
-      color: #000000;
+      background: var(--color-bg-card);
+      border-color: var(--color-border-heavy);
+      color: var(--color-text-primary);
     }
 
     // Ensure dropdown arrow persists after selection
@@ -965,16 +965,16 @@ ion-app.modal-open {
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23F15A27' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
       background-position: right 12px center;
-      background-color: #ffffff;
+      background-color: var(--color-bg-card);
       padding-right: 36px;
       cursor: pointer;
     }
 
     label {
-      color: #000000;
+      color: var(--color-text-primary);
 
       ion-icon {
-        color: #000000;
+        color: var(--color-text-primary);
       }
     }
   }
@@ -987,17 +987,17 @@ ion-app.modal-open {
 
   // Container for dropdown with "Other" option - visually groups them together
   .dropdown-with-other-container {
-    background: #f8f9fa;
-    border: 2px solid #e8e8e8;
+    background: var(--color-bg-elevated);
+    border: 2px solid var(--color-border-default);
     border-radius: 12px;
     padding: 12px;
     transition: all 0.3s ease;
 
     // When "Other" is selected, keep light gray styling
     &.has-other {
-      border-color: #d0d0d0;
-      background: #f8f9fa;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      border-color: var(--color-border-heavy);
+      background: var(--color-bg-elevated);
+      box-shadow: 0 2px 8px var(--color-shadow);
     }
 
     // Remove border-radius from select inside container so it fits nicely
@@ -1009,16 +1009,16 @@ ion-app.modal-open {
     .other-input-container {
       margin-top: 12px;
       padding-top: 12px;
-      border-top: 1px solid #d0d0d0;
+      border-top: 1px solid var(--color-border-heavy);
 
       .other-input {
         width: 100%;
         padding: 12px 16px;
-        border: 2px solid #e8e8e8;
+        border: 2px solid var(--color-border-default);
         border-radius: 8px;
         font-size: 15px;
-        background: white;
-        color: #333;
+        background: var(--color-bg-card);
+        color: var(--color-text-primary);
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         box-sizing: border-box;
 
@@ -1030,7 +1030,7 @@ ion-app.modal-open {
         }
 
         &::placeholder {
-          color: #b0b0b0;
+          color: var(--color-text-muted);
           font-size: 14px;
         }
       }
@@ -1056,10 +1056,10 @@ ion-app.modal-open {
 
 // Sections
 .section-card {
-  background: white;
+  background: var(--color-bg-card);
   border-radius: 16px;
   margin-bottom: 12px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 20px var(--color-shadow);
   border: none;
   overflow: visible;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -1179,8 +1179,8 @@ ion-app.modal-open {
           margin: 0 0 4px 0; // Small margin between name and text
           font-size: 14px;
           font-weight: 600;
-          color: #333;
-          
+          color: var(--color-text-primary);
+
           .required-indicator {
             color: var(--noble-orange);
             margin-left: 4px;
@@ -1202,7 +1202,7 @@ ion-app.modal-open {
             -webkit-box-orient: vertical;
             line-height: 1.5;
             font-size: 13px;
-            color: #666;
+            color: var(--color-text-secondary);
             margin: 0;
             padding: 0;
             overflow: hidden;
@@ -1224,7 +1224,7 @@ ion-app.modal-open {
             left: 0;
             right: 0;
             height: 13px; // Half line height to ensure coverage
-            background: white; // Solid white to cut off any bleed
+            background: var(--color-bg-card); // Solid color to cut off any bleed
             pointer-events: none;
             z-index: 1;
           }
@@ -1239,7 +1239,7 @@ ion-app.modal-open {
           text-overflow: ellipsis;
           line-height: 1.23;
           font-size: 13px;
-          color: #666;
+          color: var(--color-text-secondary);
           margin: 0;
           padding: 0;
           max-height: 32px;
@@ -1251,8 +1251,8 @@ ion-app.modal-open {
   
   .section-header {
     padding: 20px 24px;
-    background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
-    border-bottom: 2px solid #f0f0f0;
+    background: linear-gradient(135deg, var(--color-bg-card) 0%, var(--color-bg-elevated) 100%);
+    border-bottom: 2px solid var(--color-border-light);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1267,7 +1267,7 @@ ion-app.modal-open {
       .section-title {
         font-size: 18px;
         font-weight: 700;
-        color: #333;
+        color: var(--color-text-primary);
         display: flex;
         align-items: center;
         gap: 12px;
@@ -1302,8 +1302,8 @@ ion-app.modal-open {
       gap: 12px;
       
       .completion-badge {
-        background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%);
-        color: #666;
+        background: linear-gradient(135deg, var(--color-bg-inset) 0%, var(--color-border-default) 100%);
+        color: var(--color-text-secondary);
         padding: 3px 10px;
         border-radius: 12px;
         font-size: 11px;
@@ -1319,12 +1319,12 @@ ion-app.modal-open {
       
       ion-icon {
         font-size: 24px;
-        color: #999;
+        color: var(--color-text-muted);
         transition: transform 0.3s ease;
       }
     }
   }
-  
+
   &.expanded .section-header .section-toggle ion-icon {
     transform: rotate(180deg);
   }
@@ -1332,13 +1332,13 @@ ion-app.modal-open {
 
 .section-content {
     padding: 16px;
-    background: white;
+    background: var(--color-bg-card);
     overflow: visible;
-    
+
     .info-group {
       padding: 24px;
-      background: white;
-      border-bottom: 1px solid #f5f5f5;
+      background: var(--color-bg-card);
+      border-bottom: 1px solid var(--color-border-light);
       
       &:first-child {
         padding-top: 10px;
@@ -1400,7 +1400,7 @@ ion-app.modal-open {
   .categories-title {
     font-size: 20px;
     font-weight: 700;
-    color: #333;
+    color: var(--color-text-primary);
     margin-bottom: 20px;
     padding-bottom: 12px;
     border-bottom: 3px solid var(--noble-orange);
@@ -1420,7 +1420,7 @@ ion-app.modal-open {
     overflow: visible !important; // CRITICAL: Allow delete buttons to show outside
 
     ion-accordion {
-      border: 1px solid #e0e0e0;
+      border: 1px solid var(--color-border-default);
       border-radius: 8px;
       margin-bottom: 10px;
       overflow: visible !important;
@@ -1444,8 +1444,8 @@ ion-app.modal-open {
       }
       
       ion-item[slot="header"] {
-        --background: #f9f9f9;
-        --color: #333;
+        --background: var(--color-bg-elevated);
+        --color: var(--color-text-primary);
         --padding-top: 12px;
         --padding-bottom: 12px;
         --padding-start: 16px;
@@ -1464,7 +1464,7 @@ ion-app.modal-open {
       }
       
       .category-content {
-        background: white;
+        background: var(--color-bg-card);
         padding: 20px;
         overflow: hidden; // Clip corners properly to prevent white hue at bottom corners
         border-radius: 0 0 7px 7px; // Match header approach - round bottom corners to align with parent (8px)
@@ -1483,7 +1483,7 @@ ion-app.modal-open {
             color: var(--noble-gray);
             margin-bottom: 12px;
             padding: 10px 16px;
-            background: linear-gradient(135deg, #f8f8f8 0%, #f0f0f0 100%);
+            background: linear-gradient(135deg, var(--color-bg-elevated) 0%, var(--color-bg-inset) 100%);
             border-radius: 8px;
             border-left: 4px solid var(--noble-orange);
             display: flex;
@@ -1518,7 +1518,7 @@ ion-app.modal-open {
           .no-items-message {
             padding: 20px;
             text-align: center;
-            color: #999;
+            color: var(--color-text-muted);
             font-size: 14px;
             font-style: italic;
             background: rgba(0, 0, 0, 0.02);
@@ -1547,14 +1547,14 @@ ion-app.modal-open {
 
                 .checkbox-item {
                   border-color: transparent;
-                  --background: #f8f8f8;
-                  background: #f8f8f8 !important; // Solid color instead of gradient to prevent corner fading
+                  --background: var(--color-bg-elevated);
+                  background: var(--color-bg-elevated) !important; // Solid color instead of gradient to prevent corner fading
                 }
               }
             }
             
             .checkbox-item {
-              --background: white;
+              --background: var(--color-bg-card);
               --inner-border-width: 0;
               --border-width: 0;
               --highlight-height: 0;
@@ -1564,7 +1564,7 @@ ion-app.modal-open {
               transition: all 0.3s ease;
               border: none; // Remove border to prevent light hue over parent container border in corners
               overflow: visible; // CRITICAL: Allow delete buttons to show outside
-              background: white; // Explicitly set to ensure no transparency
+              background: var(--color-bg-card); // Explicitly set to ensure no transparency
               
               // Hover effect removed for mobile optimization
               
@@ -1577,11 +1577,11 @@ ion-app.modal-open {
               
               .item-label {
                 flex: 1;
-                
+
                 h3 {
                   font-size: 15px;
                   font-weight: 600;
-                  color: #333;
+                  color: var(--color-text-primary);
                   margin-bottom: 4px;
                   
                   .required-indicator {
@@ -1593,10 +1593,10 @@ ion-app.modal-open {
                   .answer-type-badge {
                     font-size: 11px;
                     font-weight: normal;
-                    color: #7f8c8d;
+                    color: var(--color-text-muted);
                     margin-left: 8px;
                     padding: 2px 6px;
-                    background: #ecf0f1;
+                    background: var(--color-bg-inset);
                     border-radius: 4px;
                   }
                 }
@@ -1633,15 +1633,15 @@ ion-app.modal-open {
             // Multi-select container styling - moved to correct level
             .multi-select-container {
               margin-bottom: 4px;
-              border: 1px solid #f0f0f0;
+              border: 1px solid var(--color-border-light);
               border-radius: 8px;
-              background: white;
+              background: var(--color-bg-card);
               transition: all 0.3s ease;
               overflow: visible;
 
               // Remove border from checkbox-item when inside multi-select
               .checkbox-item {
-                --background: white;
+                --background: var(--color-bg-card);
                 --inner-border-width: 0;
                 --border-width: 0;
                 --highlight-height: 0;
@@ -1651,7 +1651,7 @@ ion-app.modal-open {
                 border: none !important;
                 border-radius: 8px 8px 0 0;
                 padding: 4px 8px 0 8px !important; // Minimal padding, flush left
-                background: white;
+                background: var(--color-bg-card);
 
                 .item-label {
                   margin-left: 0 !important;
@@ -1672,8 +1672,8 @@ ion-app.modal-open {
 
               .multi-select-options {
                 padding: 0 8px 4px 8px; // Flush left, minimal padding
-                background: white;
-                border-top: 1px solid #f0f0f0;
+                background: var(--color-bg-card);
+                border-top: 1px solid var(--color-border-light);
                 margin-top: 0;
                 border-radius: 0 0 8px 8px;
 
@@ -1699,7 +1699,7 @@ ion-app.modal-open {
 
               .no-options-message {
                 padding: 12px 16px;
-                color: #666;
+                color: var(--color-text-secondary);
                 font-style: italic;
                 font-size: 14px;
               }
@@ -1707,12 +1707,12 @@ ion-app.modal-open {
               // "Other" custom input field
               .other-input-container {
                 padding: 8px 16px 12px; // Reduced top/bottom padding for more condensed spacing
-                background: white;
+                background: var(--color-bg-card);
 
                 .other-input {
                   width: 100%;
                   padding: 10px 12px;
-                  border: 1px solid #ddd;
+                  border: 1px solid var(--color-border-heavy);
                   border-radius: 6px;
                   font-size: 14px;
                   transition: border-color 0.2s;
@@ -1723,7 +1723,7 @@ ion-app.modal-open {
                   }
 
                   &::placeholder {
-                    color: #999;
+                    color: var(--color-text-muted);
                     font-style: italic;
                   }
                 }
@@ -1733,8 +1733,8 @@ ion-app.modal-open {
             // Image preview section
             .image-preview-section {
               padding: 12px; // Increased padding to give space for delete buttons at edges
-              background: #f8f8f8;
-              border-top: 1px solid #e0e0e0;
+              background: var(--color-bg-elevated);
+              border-top: 1px solid var(--color-border-default);
               border-radius: 0 0 12px 12px;
               clear: both; // Clear any floats
               display: block; // Ensure block display
@@ -1772,21 +1772,21 @@ ion-app.modal-open {
                   width: 100%;
                   padding: 20px;
                   text-align: center;
-                  color: #999;
+                  color: var(--color-text-muted);
                   background: rgba(0, 0, 0, 0.03);
                   border-radius: 8px;
-                  border: 2px dashed #ddd;
+                  border: 2px dashed var(--color-border-heavy);
                   
                   ion-icon {
                     font-size: 32px;
-                    color: #ccc;
+                    color: var(--color-text-muted);
                     margin-bottom: 8px;
                   }
-                  
+
                   p {
                     margin: 0;
                     font-size: 14px;
-                    color: #888;
+                    color: var(--color-text-muted);
                   }
                 }
                 
@@ -1826,10 +1826,10 @@ ion-app.modal-open {
                     border-radius: 20px !important;
                     object-fit: cover !important;
                     display: block !important;
-                    border: 2px solid #ddd !important;
+                    border: 2px solid var(--color-border-heavy) !important;
                     cursor: pointer;
                     transition: all 0.3s ease;
-                    background: #f5f5f5;
+                    background: var(--color-bg-page);
                     // NO margin-bottom - caption goes in padding-bottom space
                     
                     // Hover effect removed for mobile optimization
@@ -1878,21 +1878,21 @@ ion-app.modal-open {
                     padding: 6px 8px !important;
                     font-size: 11px !important;
                     text-align: center !important;
-                    border: 1px solid #e0e0e0 !important;
+                    border: 1px solid var(--color-border-default) !important;
                     border-radius: 6px !important;
-                    background: white !important;
-                    color: #666 !important;
+                    background: var(--color-bg-card) !important;
+                    color: var(--color-text-secondary) !important;
                     transition: all 0.2s ease !important;
                     margin-top: 8px !important;
                     display: block !important;
                     position: relative !important;
                     box-sizing: border-box !important;
-                    
+
                     &::placeholder {
-                      color: #ccc !important;
+                      color: var(--color-text-muted) !important;
                       font-size: 10px !important;
                     }
-                    
+
                     &:focus {
                       outline: none !important;
                       border-color: var(--noble-orange) !important;
@@ -1910,41 +1910,41 @@ ion-app.modal-open {
                   display: inline-block; // Ensure proper layout
                   vertical-align: top;
                   flex-shrink: 0; // Prevent shrinking
-                  
+
                   &.uploading img {
                     opacity: 0.6;
                   }
-                  
+
                   .upload-indicator {
                     position: absolute;
                     top: 50%;
                     left: 50%;
                     transform: translate(-50%, -50%);
                     z-index: 10;
-                    
+
                     ion-spinner {
                       --color: var(--noble-orange);
                     }
                   }
-                  
+
                   img {
                     width: 60px; // Match elevation plot size
                     height: 60px; // Match elevation plot size
                     aspect-ratio: 1 / 1;
                     object-fit: cover;
                     border-radius: 8px;
-                    border: 2px solid #ddd;
+                    border: 2px solid var(--color-border-heavy);
                     cursor: pointer;
                     transition: all 0.3s ease;
                     display: block; // Ensure proper display
-                    background: #f5f5f5; // Background color in case image doesn't load
+                    background: var(--color-bg-page); // Background color in case image doesn't load
                     
                     // Hover effect removed for mobile optimization
                     
                     &[src=""],
                     &:not([src]) {
                       // If no src, show a background
-                      background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+                      background: linear-gradient(135deg, var(--color-bg-page) 0%, var(--color-border-default) 100%);
                       &::after {
                         content: "📷";
                         position: absolute;
@@ -2005,9 +2005,9 @@ ion-app.modal-open {
                 .add-more-btn {
                   width: 60px; // Match elevation plot size
                   height: 60px; // Match elevation plot size
-                  border: 2px dashed #ccc;
+                  border: 2px dashed var(--color-border-heavy);
                   border-radius: 8px;
-                  background: white;
+                  background: var(--color-bg-card);
                   display: flex;
                   flex-direction: column;
                   align-items: center;
@@ -2024,9 +2024,9 @@ ion-app.modal-open {
                   
                   span {
                     font-size: 10px;
-                    color: #666;
+                    color: var(--color-text-secondary);
                   }
-                  
+
                   // Hover effect removed for mobile optimization
                 }
               }
@@ -2051,7 +2051,7 @@ ion-app.modal-open {
 .subsection-header {
   font-size: 17px;
   font-weight: 700;
-  color: #333;
+  color: var(--color-text-primary);
   margin-bottom: 16px;
   padding-bottom: 8px;
   border-bottom: 2px solid var(--noble-orange);
@@ -2071,7 +2071,7 @@ ion-app.modal-open {
   .delimiter-label {
     font-size: 12px;
     font-weight: 600;
-    color: #666;
+    color: var(--color-text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     padding-right: 10px;
@@ -2090,12 +2090,12 @@ ion-app.modal-open {
   .add-room-button {
     width: auto;
     min-width: 150px;
-    background: white;
-    border: 1px solid #ddd;
-    color: #000;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-heavy);
+    color: var(--color-text-primary);
 
     ion-icon {
-      color: #000;
+      color: var(--color-text-primary);
     }
 
     // Hover effect removed for mobile optimization
@@ -2111,12 +2111,12 @@ ion-app.modal-open {
   
   .room-templates-list {
     .room-item-container {
-      border: 1px solid #e0e0e0;
+      border: 1px solid var(--color-border-default);
       border-radius: 8px;
       margin-bottom: 10px;
       overflow: visible;
-      background: white;
-      
+      background: var(--color-bg-card);
+
       .room-card-header {
         // Room action buttons styling (for webapp header)
         .room-action-btn {
@@ -2133,8 +2133,8 @@ ion-app.modal-open {
         }
 
         .checkbox-item {
-          --background: #f9f9f9;
-          --color: #333;
+          --background: var(--color-bg-elevated);
+          --color: var(--color-text-primary);
           --padding-top: 12px;
           --padding-bottom: 12px;
           --padding-start: 16px;
@@ -2156,18 +2156,18 @@ ion-app.modal-open {
             // Re-enable pointer events for checkbox so it remains clickable
             pointer-events: auto;
           }
-          
+
           .item-label {
             h3 {
               font-size: 15px;
               font-weight: 600;
-              color: #333;
+              color: var(--color-text-primary);
               margin-bottom: 0;
             }
-            
+
             .item-text {
               font-size: 13px;
-              color: #666;
+              color: var(--color-text-secondary);
               line-height: 1.5;
               max-height: 39px; // Exactly 2 lines: 13px * 1.5 * 2 = 39px
               overflow: hidden;
@@ -2198,16 +2198,16 @@ ion-app.modal-open {
       }
 
       .room-collapse-control {
-        background: #f0f0f0;
+        background: var(--color-bg-inset);
         padding: 8px;
-        border-left: 1px solid #e0e0e0;
-        border-right: 1px solid #e0e0e0;
-        border-bottom: 1px solid #e0e0e0;
-        
+        border-left: 1px solid var(--color-border-default);
+        border-right: 1px solid var(--color-border-default);
+        border-bottom: 1px solid var(--color-border-default);
+
         .collapse-button {
           width: 100%;
           padding: 8px 12px;
-          background: white;
+          background: var(--color-bg-card);
           border: 1px solid var(--noble-orange);
           border-radius: 6px;
           color: var(--noble-gray);
@@ -2234,7 +2234,7 @@ ion-app.modal-open {
       }
       
       .room-card-content {
-        background: white;
+        background: var(--color-bg-card);
         padding: 20px;
         border-radius: 0 0 7px 7px; // Round bottom corners to match parent (8px) with slight reduction
         overflow: hidden; // Clip corners properly
@@ -2247,14 +2247,14 @@ ion-app.modal-open {
             &:disabled {
               opacity: 0.4;
               cursor: not-allowed !important;
-              background: #f5f5f5 !important;
+              background: var(--color-bg-page) !important;
             }
             
             // Hover effect removed for mobile optimization
             
             &:not(:disabled):active {
               transform: scale(0.98);
-              background: #e8e8e8 !important;
+              background: var(--color-border-default) !important;
             }
           }
         }
@@ -2262,9 +2262,9 @@ ion-app.modal-open {
         .fdf-dropdown-container {
           margin-bottom: 20px;
           padding: 15px;
-          background: white;
+          background: var(--color-bg-card);
           border-radius: 8px;
-          border: 1px solid #e0e0e0;
+          border: 1px solid var(--color-border-default);
 
           .fdf-label {
             display: block;
@@ -2278,9 +2278,9 @@ ion-app.modal-open {
         .location-field-container {
           margin-bottom: 20px;
           padding: 15px;
-          background: white;
+          background: var(--color-bg-card);
           border-radius: 8px;
-          border: 1px solid #e0e0e0;
+          border: 1px solid var(--color-border-default);
 
           .location-input {
             width: 100%;
@@ -2298,22 +2298,22 @@ ion-app.modal-open {
               padding: 8px 16px;
               font-size: 13px;
               font-weight: 600;
-              color: #333;
-              background: white;
-              border: 2px solid #ddd;
+              color: var(--color-text-primary);
+              background: var(--color-bg-card);
+              border: 2px solid var(--color-border-heavy);
               border-radius: 6px;
               cursor: pointer;
               transition: all 0.2s ease;
 
               &:hover {
-                background: #f9f9f9;
+                background: var(--color-bg-elevated);
                 border-color: var(--noble-orange);
                 color: var(--noble-orange);
               }
 
               &:active {
                 transform: scale(0.98);
-                background: #f0f0f0;
+                background: var(--color-bg-inset);
               }
 
               // Delete button styling - orange theme
@@ -2350,7 +2350,7 @@ ion-app.modal-open {
             color: var(--noble-gray);
             margin-bottom: 15px;
             padding-bottom: 8px;
-            border-bottom: 1px solid #e0e0e0;
+            border-bottom: 1px solid var(--color-border-default);
           }
           
           .elevation-points-grid {
@@ -2360,8 +2360,8 @@ ion-app.modal-open {
             margin-bottom: 30px; // 50% bigger bottom margin
             
             .elevation-point-card {
-              background: white;
-              border: 1px solid #e0e0e0;
+              background: var(--color-bg-card);
+              border: 1px solid var(--color-border-default);
               border-radius: 12px; // 50% bigger border radius (8px * 1.5 = 12px)
               padding: 18px; // 50% bigger padding (12px * 1.5 = 18px)
               transition: all 0.3s ease;
@@ -2392,7 +2392,7 @@ ion-app.modal-open {
                 .point-label {
                   font-size: 12px; // Match MEASUREMENTS header size
                   font-weight: 600;
-                  color: #333;
+                  color: var(--color-text-primary);
                   flex: 1; // Take up remaining space
                 }
 
@@ -2487,7 +2487,7 @@ ion-app.modal-open {
                       height: 60px;
                       object-fit: cover;
                       border-radius: 3px 3px 0 0;
-                      border: 1px solid #e0e0e0;
+                      border: 1px solid var(--color-border-default);
                       border-bottom: none;
                       cursor: pointer;
                       transition: all 0.3s ease;
@@ -2531,23 +2531,23 @@ ion-app.modal-open {
                       padding: 6px 8px !important; // More padding for better readability
                       font-size: 11px !important; // Slightly larger font
                       text-align: center !important;
-                      border: 1px solid #e0e0e0 !important;
+                      border: 1px solid var(--color-border-default) !important;
                       border-radius: 6px !important; // Fully rounded box
-                      background: white !important;
-                      color: #666 !important;
+                      background: var(--color-bg-card) !important;
+                      color: var(--color-text-secondary) !important;
                       transition: all 0.2s ease !important;
                       margin-top: 8px !important; // Space below image
                       display: block !important;
                       position: relative !important; // Changed from absolute for proper spacing
-                      
+
                       &:focus {
                         outline: none;
                         border-color: var(--noble-orange);
                         background: #fffbf8;
                       }
-                      
+
                       &::placeholder {
-                        color: #ccc;
+                        color: var(--color-text-muted);
                         font-size: 9px;
                       }
                     }
@@ -2571,11 +2571,11 @@ ion-app.modal-open {
 
           ion-textarea {
             width: 100%;
-            border: 1px solid #e0e0e0;
+            border: 1px solid var(--color-border-default);
             border-radius: 6px;
             padding: 10px;
             font-size: 14px;
-            background: white;
+            background: var(--color-bg-card);
             --color: #000;
             --highlight-color-focused: #000;
             --highlight-color-valid: #000;
@@ -2604,10 +2604,10 @@ ion-app.modal-open {
           .fdf-select-styled {
             width: 100%;
             max-width: 300px;
-            border: 1px solid #e0e0e0;
+            border: 1px solid var(--color-border-default);
             border-radius: 8px;
             padding: 8px 12px;
-            background: white;
+            background: var(--color-bg-card);
             font-size: 14px;
             
             // Hover effect removed for mobile optimization
@@ -2651,11 +2651,11 @@ ion-app.modal-open {
           
           .notes-textarea {
             width: 100%;
-            border: 1px solid #e0e0e0;
+            border: 1px solid var(--color-border-default);
             border-radius: 8px;
             padding: 10px;
             font-size: 14px;
-            background: white;
+            background: var(--color-bg-card);
             min-height: 80px;
             
             &:focus {
@@ -2676,11 +2676,11 @@ ion-app.modal-open {
     .room-templates-list {
       .room-item-container {
         margin-bottom: 15px;
-        border: 1px solid #e0e0e0;
+        border: 1px solid var(--color-border-default);
         border-radius: 12px;
         overflow: visible;
         transition: all 0.3s ease;
-        background: white;
+        background: var(--color-bg-card);
 
         &.selected {
           border: 2px solid var(--noble-orange);
@@ -2695,7 +2695,7 @@ ion-app.modal-open {
         
         .room-card-header {
           .checkbox-item {
-            --background: white;
+            --background: var(--color-bg-card);
             --inner-border-width: 0;
             --border-width: 0;
             --highlight-height: 0;
@@ -2703,7 +2703,7 @@ ion-app.modal-open {
             padding: 12px;
             border-radius: 11px; // All corners rounded by default (collapsed state)
             transition: all 0.3s ease;
-            background: white; // Explicitly set to ensure no transparency
+            background: var(--color-bg-card); // Explicitly set to ensure no transparency
             overflow: hidden; // Clip corners properly
 
             // CRITICAL: Make ion-item transparent to clicks so they pass through to parent
@@ -2725,7 +2725,7 @@ ion-app.modal-open {
               h3 {
                 font-size: 15px;
                 font-weight: 600;
-                color: #333;
+                color: var(--color-text-primary);
                 margin-bottom: 4px;
               }
               
@@ -2762,15 +2762,15 @@ ion-app.modal-open {
 
         .room-card-content {
           padding: 20px;
-          background: #f8f8f8;
-          border-top: 1px solid #e0e0e0;
+          background: var(--color-bg-elevated);
+          border-top: 1px solid var(--color-border-default);
           border-radius: 0 0 11px 11px; // Round bottom corners to match parent (12px) with slight reduction
           overflow: hidden; // Clip corners properly
           
           .room-section-delimiter {
             margin: 15px 0 10px 0;
             padding-bottom: 5px;
-            border-bottom: 1px solid #e0e0e0;
+            border-bottom: 1px solid var(--color-border-default);
             
             .delimiter-label {
               font-size: 12px;
@@ -2816,11 +2816,11 @@ ion-app.modal-open {
                   aspect-ratio: 1 / 1;
                         object-fit: cover;
                   border-radius: 8px;
-                  border: 2px solid #ddd;
+                  border: 2px solid var(--color-border-heavy);
                         cursor: pointer;
                         transition: all 0.3s ease;
                   display: block;
-                  background: #f5f5f5;
+                  background: var(--color-bg-page);
                         
                         // Hover effect removed for mobile optimization
                       }
@@ -2884,7 +2884,7 @@ ion-app.modal-open {
               border-radius: 20px !important;
               object-fit: cover !important;
               display: block !important;
-              border: 2px solid #ddd !important;
+              border: 2px solid var(--color-border-heavy) !important;
 
         // Hover effect removed for mobile optimization
             }
@@ -3089,10 +3089,10 @@ ion-app.modal-open {
     flex-direction: column !important;
     align-items: center !important;
     text-align: center !important;
-    border: 2px solid #ddd !important; // Keep border
+    border: 2px solid var(--color-border-heavy) !important; // Keep border
     border-radius: 8px !important; // Keep rounded corners
     padding: 8px !important; // Keep padding
-    background: #f9f9f9 !important; // Keep background color
+    background: var(--color-bg-elevated) !important; // Keep background color
 
     // Reduce gap between buttons on mobile
     > div {
@@ -3261,10 +3261,10 @@ ion-app.modal-open {
     flex-direction: column !important;
     align-items: center !important; // Center all content in column
     text-align: center !important;
-    border: 2px solid #ddd !important; // Keep border
+    border: 2px solid var(--color-border-heavy) !important; // Keep border
     border-radius: 8px !important; // Keep rounded corners
     padding: 8px !important; // Keep padding
-    background: #f9f9f9 !important; // Keep background color
+    background: var(--color-bg-elevated) !important; // Keep background color
   }
   
   // FIXED caption width to match new photo sizing
@@ -3306,10 +3306,10 @@ ion-app.modal-open {
     flex-direction: column !important;
     align-items: center !important;
     text-align: center !important;
-    border: 2px solid #ddd !important; // Keep border
+    border: 2px solid var(--color-border-heavy) !important; // Keep border
     border-radius: 8px !important; // Keep rounded corners
     padding: 8px !important; // Keep padding
-    background: #f9f9f9 !important; // Keep background color
+    background: var(--color-bg-elevated) !important; // Keep background color
 
     .fdf-photo-button {
       padding: 16px 8px !important; // Larger padding for easier clicking
@@ -3459,10 +3459,10 @@ ion-app.modal-open {
     flex-direction: column !important;
     align-items: center !important;
     text-align: center !important;
-    border: 2px solid #ddd !important; // Keep border
+    border: 2px solid var(--color-border-heavy) !important; // Keep border
     border-radius: 8px !important; // Keep rounded corners
     padding: 8px !important; // Keep padding
-    background: #f9f9f9 !important; // Keep background color
+    background: var(--color-bg-elevated) !important; // Keep background color
   }
   
   // FIXED caption sizing for extra small screens
@@ -3547,24 +3547,24 @@ ion-app.modal-open {
       padding: 6px 8px !important;
       font-size: 11px !important;
       text-align: center !important;
-      border: 1px solid #e0e0e0 !important;
+      border: 1px solid var(--color-border-default) !important;
       border-radius: 6px !important; // Fully rounded box
-      background: white !important;
-      color: #666 !important;
+      background: var(--color-bg-card) !important;
+      color: var(--color-text-secondary) !important;
       transition: all 0.2s ease !important;
       margin-top: 8px !important; // Space below image
       display: block !important;
       position: relative !important; // Changed from absolute for proper spacing
       box-sizing: border-box !important;
-      
+
       &:focus {
         outline: none !important;
         border-color: var(--noble-orange) !important;
         background: #fffbf8 !important;
       }
-      
+
       &::placeholder {
-        color: #ccc !important;
+        color: var(--color-text-muted) !important;
         font-size: 10px !important;
       }
     }
@@ -3611,9 +3611,9 @@ ion-app.modal-open {
 
 // Caption buttons - ensure they look identical to inputs
 button.room-photo-caption {
-  border: 1px solid #ddd !important;
-  background: white !important;
-  color: #333 !important;
+  border: 1px solid var(--color-border-heavy) !important;
+  background: var(--color-bg-card) !important;
+  color: var(--color-text-primary) !important;
   cursor: pointer !important;
   display: block !important;
   overflow: hidden !important;
@@ -3628,7 +3628,7 @@ button.room-photo-caption {
   transform: none !important;
 
   &:active {
-    background: #f5f5f5 !important;
+    background: var(--color-bg-page) !important;
     transform: none !important; // Prevent any transform on tap
   }
 
@@ -3640,42 +3640,42 @@ button.room-photo-caption {
 
 // In Attendance Multi-Select Inline Styling
 .multi-select-container-inline {
-  background: white;
-  border: 1px solid #e0e0e0;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-default);
   border-radius: 8px;
   padding: 12px;
-  
+
   .multi-select-options-inline {
     display: flex;
     flex-wrap: wrap;
     gap: 16px;
     margin-bottom: 8px;
-    
+
     .option-item-inline {
       display: flex;
       align-items: center;
       gap: 8px;
       min-width: 120px;
-      
+
       ion-checkbox {
         --size: 20px;
         --checkbox-background-checked: var(--noble-orange);
         --border-color-checked: var(--noble-orange);
         margin: 0;
       }
-      
+
       ion-label {
         font-size: 14px;
-        color: #333;
+        color: var(--color-text-primary);
         margin: 0;
       }
     }
   }
-  
+
   .other-input-container {
     margin-top: 8px;
     padding-top: 8px;
-    border-top: 1px solid #f0f0f0;
+    border-top: 1px solid var(--color-border-light);
   }
 }
 
@@ -3747,8 +3747,8 @@ button.room-photo-caption {
 ::ng-deep .finalize-alert {
   .alert-wrapper {
     border-radius: 16px;
-    background: white;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    background: var(--color-bg-card);
+    box-shadow: 0 8px 32px var(--color-shadow-heavy);
     max-width: 400px; // Reduced from 600px for mobile
     width: 90vw; // Responsive width
   }
@@ -3760,7 +3760,7 @@ button.room-photo-caption {
     h2 {
       font-size: 18px; // Reduced from 22px
       font-weight: 700;
-      color: #333;
+      color: var(--color-text-primary);
       margin: 0;
     }
   }
@@ -3769,7 +3769,7 @@ button.room-photo-caption {
     padding: 8px 20px 20px; // Reduced padding
     font-size: 13px; // Reduced from 14px
     line-height: 1.5; // Tighter line height
-    color: #666;
+    color: var(--color-text-secondary);
     white-space: pre-line;
     max-height: 300px; // Reduced from 400px
     overflow-y: auto;
@@ -3787,7 +3787,7 @@ button.room-photo-caption {
       flex: 1;
       max-width: 140px; // Reduced from 200px
       min-width: 100px; // Reduced from 140px
-      background: #f5f5f5;
+      background: var(--color-bg-page);
       border: 2px solid var(--noble-orange);
       border-radius: 50px;
       font-weight: 700;
@@ -3796,7 +3796,7 @@ button.room-photo-caption {
       margin: 0;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      color: #333;
+      color: var(--color-text-primary);
       transition: all 0.2s ease;
       text-align: center;
       display: flex;
@@ -3818,11 +3818,11 @@ button.room-photo-caption {
       }
 
       &[role="cancel"] {
-        color: #333;
+        color: var(--color-text-primary);
       }
 
       &:not([role="cancel"]) {
-        color: #333;
+        color: var(--color-text-primary);
       }
     }
   }
@@ -3830,42 +3830,42 @@ button.room-photo-caption {
 
 // In Attendance Multi-Select Inline Styling
 .multi-select-container-inline {
-  background: white;
-  border: 1px solid #e0e0e0;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-default);
   border-radius: 8px;
   padding: 12px;
-  
+
   .multi-select-options-inline {
     display: flex;
     flex-wrap: wrap;
     gap: 16px;
     margin-bottom: 8px;
-    
+
     .option-item-inline {
       display: flex;
       align-items: center;
       gap: 8px;
       min-width: 120px;
-      
+
       ion-checkbox {
         --size: 20px;
         --checkbox-background-checked: var(--noble-orange);
         --border-color-checked: var(--noble-orange);
         margin: 0;
       }
-      
+
       ion-label {
         font-size: 14px;
-        color: #333;
+        color: var(--color-text-primary);
         margin: 0;
       }
     }
   }
-  
+
   .other-input-container {
     margin-top: 8px;
     padding-top: 8px;
-    border-top: 1px solid #f0f0f0;
+    border-top: 1px solid var(--color-border-light);
   }
 }
 
@@ -3891,18 +3891,18 @@ button.room-photo-caption {
   .skeleton-image {
     width: 90px;
     height: 90px;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background: linear-gradient(90deg, var(--color-bg-inset) 25%, var(--color-border-default) 50%, var(--color-bg-inset) 75%);
     background-size: 200% 100%;
     animation: skeleton-pulse 1.5s ease-in-out infinite;
     border-radius: 8px;
-    border: 2px solid #ddd;
+    border: 2px solid var(--color-border-heavy);
     display: block;
   }
 
   .skeleton-caption {
     width: 90px;
     height: 24px;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background: linear-gradient(90deg, var(--color-bg-inset) 25%, var(--color-border-default) 50%, var(--color-bg-inset) 75%);
     background-size: 200% 100%;
     animation: skeleton-pulse 1.5s ease-in-out infinite;
     border-radius: 6px;

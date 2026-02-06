@@ -28,6 +28,6 @@
 }
 
 .error-text {
-  color: #f44336;
+  color: var(--color-status-danger, #dc3545);
   font-weight: 500;
 }

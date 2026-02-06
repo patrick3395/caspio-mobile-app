@@ -27,14 +27,14 @@
 }
 
 ion-content {
-  --background: #f5f5f5;
+  --background: var(--color-bg-page);
 }
 
 // Tab container matching Company page style
 .tab-container {
-  background: #ffffff;
+  background: var(--color-bg-card);
   border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px var(--color-shadow);
   padding: 16px;
   margin: 16px;
 }
@@ -52,12 +52,12 @@ ion-content {
   justify-content: center;
   padding: 8px 4px;
   min-height: 65px;
-  background: #f8f9fa;
-  border: 2px solid #dee2e6;
+  background: var(--color-bg-elevated);
+  border: 2px solid var(--color-border-default);
   border-radius: 10px;
   font-size: 0.75rem;
   font-weight: 500;
-  color: #495057;
+  color: var(--color-text-primary);
   cursor: pointer;
   transition: all 0.15s ease;
   -webkit-tap-highlight-color: transparent;
@@ -66,7 +66,7 @@ ion-content {
   ion-icon {
     font-size: 22px;
     margin-bottom: 4px;
-    color: #6c757d;
+    color: var(--color-text-secondary);
     transition: all 0.15s ease;
   }
 
@@ -77,7 +77,7 @@ ion-content {
   }
 
   &:hover {
-    background: #ffffff;
+    background: var(--color-bg-card);
     border-color: #f15a27;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(241, 90, 39, 0.15);
@@ -92,9 +92,9 @@ ion-content {
   }
 
   &.active {
-    background: #f0f0f0;
-    border-color: #dee2e6;
-    color: #212529;
+    background: var(--color-bg-inset);
+    border-color: var(--color-border-default);
+    color: var(--color-text-primary);
     box-shadow: none;
 
     ion-icon {
@@ -139,7 +139,7 @@ ion-content {
 
   p {
     font-size: 16px;
-    color: #666;
+    color: var(--color-text-secondary);
     margin-bottom: 20px;
   }
 }
@@ -167,21 +167,21 @@ ion-content {
 .section-title {
   font-size: 18px;
   font-weight: 600;
-  color: #999999;
+  color: var(--color-text-muted);
   margin: 0 0 16px 0;
   padding-bottom: 8px;
-  border-bottom: 2px solid #e5e5e5;
+  border-bottom: 2px solid var(--color-border-default);
 }
 
 .files-table {
-  background: white;
+  background: var(--color-bg-card);
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px var(--color-shadow);
 }
 
 .file-row {
-  border-bottom: 1px solid #e5e5e5;
+  border-bottom: 1px solid var(--color-border-default);
   transition: background-color 0.2s;
 
   &:last-child {
@@ -189,7 +189,7 @@ ion-content {
   }
 
   &:hover {
-    background-color: #f8f9fa;
+    background-color: var(--color-bg-elevated);
   }
 }
 
@@ -215,7 +215,7 @@ ion-content {
 
   span {
     font-size: 15px;
-    color: #333;
+    color: var(--color-text-primary);
     font-weight: 500;
     line-height: 1.4;
   }
@@ -235,12 +235,12 @@ ion-content {
   overflow: hidden;
   cursor: pointer;
   position: relative;
-  background: #f8f9fa;
+  background: var(--color-bg-elevated);
   transition: transform 0.2s, box-shadow 0.2s;
 
   &:hover {
     transform: scale(1.05);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 12px var(--color-shadow-heavy);
 
     .preview-overlay {
       opacity: 1;
@@ -283,8 +283,8 @@ ion-content {
   }
 
   .pdf-preview {
-    background: #fff;
-    border: 1px solid #e0e0e0;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-default);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -293,7 +293,7 @@ ion-content {
 
     .preview-icon {
       font-size: 36px;
-      color: #333;
+      color: var(--color-text-primary);
       margin-bottom: 4px;
     }
 
@@ -302,7 +302,7 @@ ion-content {
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      color: #333;
+      color: var(--color-text-primary);
     }
   }
 
@@ -347,20 +347,20 @@ ion-content {
 
   .empty-icon {
     font-size: 80px;
-    color: #ccc;
+    color: var(--color-text-muted);
     margin-bottom: 20px;
   }
 
   h3 {
     font-size: 20px;
     font-weight: 600;
-    color: #666;
+    color: var(--color-text-secondary);
     margin: 0 0 8px 0;
   }
 
   p {
     font-size: 14px;
-    color: #999;
+    color: var(--color-text-muted);
     margin: 0;
   }
 }
@@ -412,10 +412,10 @@ ion-content {
 }
 
 .video-section {
-  background: white;
+  background: var(--color-bg-card);
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px var(--color-shadow);
   margin-bottom: 20px;
   
   &:last-child {
@@ -426,7 +426,7 @@ ion-content {
 .onboarding-title {
   font-size: 20px;
   font-weight: 600;
-  color: #333;
+  color: var(--color-text-primary);
   margin: 0 0 20px 0;
   text-align: center;
 }
@@ -478,7 +478,7 @@ ion-content {
   
   p {
     font-size: 15px;
-    color: #666;
+    color: var(--color-text-secondary);
     line-height: 1.6;
     text-align: center;
     margin: 0;
@@ -524,23 +524,23 @@ ion-content {
   height: 20px;
   margin-bottom: 16px;
   border-radius: 4px;
-  background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
+  background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
   background-size: 200% 100%;
   animation: help-skeleton-shimmer 1.5s infinite ease-in-out;
 }
 
 .skeleton-files-table {
-  background: white;
+  background: var(--color-bg-card);
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px var(--color-shadow);
 }
 
 .skeleton-file-row {
   display: flex;
   align-items: center;
   padding: 16px;
-  border-bottom: 1px solid #e5e5e5;
+  border-bottom: 1px solid var(--color-border-default);
 
   &:last-child {
     border-bottom: none;
@@ -556,7 +556,7 @@ ion-content {
   .skeleton-text-line {
     height: 14px;
     border-radius: 4px;
-    background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
+    background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
     background-size: 200% 100%;
     animation: help-skeleton-shimmer 1.5s infinite ease-in-out;
 
@@ -576,7 +576,7 @@ ion-content {
   border-radius: 8px;
   margin-left: 16px;
   flex-shrink: 0;
-  background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
+  background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
   background-size: 200% 100%;
   animation: help-skeleton-shimmer 1.5s infinite ease-in-out;
 

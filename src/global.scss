@@ -505,17 +505,19 @@ ion-textarea::part(native) {
 }
 
 // PDF Preview Modal
-.fullscreen-modal {
-  --width: 100%;
-  --height: 100%;
-  --max-width: 100%;
-  --max-height: 100%;
+ion-modal.fullscreen-modal {
+  --width: 100% !important;
+  --height: 100% !important;
+  --max-width: 100% !important;
+  --max-height: 100% !important;
+  --border-radius: 0 !important;
 
   .modal-wrapper {
-    width: var(--width);
-    height: var(--height);
-    max-width: var(--max-width);
-    max-height: var(--max-height);
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    border-radius: 0 !important;
   }
 }
 
@@ -824,6 +826,178 @@ body.dark-theme .alert-button,
 body.dark-theme .popover-content ion-item,
 body.dark-theme .popover-content ion-label {
   color: var(--ion-text-color);
+}
+
+/* Dark theme: Skeleton loaders */
+body.dark-theme .skeleton-image,
+body.dark-theme .skeleton-line,
+body.dark-theme .skeleton-id,
+body.dark-theme .skeleton-arrow {
+  background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
+  background-size: 200% 100%;
+}
+
+body.dark-theme .project-image.loading::after {
+  background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
+  background-size: 200% 100%;
+}
+
+/* Dark theme: Search container */
+body.dark-theme .search-container {
+  background: var(--color-bg-card);
+  box-shadow: 0 2px 6px var(--color-shadow);
+}
+
+body.dark-theme .search-container .enhanced-search-bar {
+  --background: var(--color-bg-inset);
+  --placeholder-color: var(--color-text-muted);
+  --icon-color: var(--color-text-muted);
+}
+
+/* Dark theme: Toolbar buttons */
+body.dark-theme .toolbar-btn {
+  background: var(--ion-toolbar-background);
+}
+
+/* Dark theme: Settings pane */
+body.dark-theme .settings-pane {
+  background: var(--color-bg-card);
+  box-shadow: 2px 0 12px var(--color-shadow-heavy);
+}
+
+body.dark-theme .settings-pane-header {
+  border-bottom-color: var(--color-border-default);
+}
+
+body.dark-theme .settings-group .settings-group-title {
+  border-bottom-color: var(--color-border-light);
+}
+
+body.dark-theme .settings-group .settings-group-title ion-icon,
+body.dark-theme .settings-group .settings-group-title span {
+  color: var(--color-text-secondary);
+}
+
+body.dark-theme .settings-row .settings-row-label {
+  color: var(--color-text-primary);
+}
+
+body.dark-theme .settings-row .settings-row-desc {
+  color: var(--color-text-muted);
+}
+
+body.dark-theme .settings-row ion-toggle {
+  --track-background: #555;
+}
+
+/* Dark theme: Styled inputs */
+body.dark-theme .styled-input {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-default);
+}
+
+body.dark-theme .styled-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+/* Dark theme: Alerts */
+body.dark-theme .custom-other-alert .alert-wrapper,
+body.dark-theme .custom-document-alert .alert-wrapper,
+body.dark-theme .template-loading-alert .alert-wrapper {
+  background: var(--color-bg-card);
+  box-shadow: 0 22px 60px var(--color-shadow-heavy);
+}
+
+body.dark-theme .custom-other-alert .alert-title,
+body.dark-theme .custom-document-alert .alert-title,
+body.dark-theme .template-loading-alert .alert-title {
+  color: var(--color-text-primary);
+}
+
+body.dark-theme .custom-other-alert .alert-message,
+body.dark-theme .custom-document-alert .alert-message,
+body.dark-theme .template-loading-alert .alert-message {
+  color: var(--color-text-secondary);
+}
+
+body.dark-theme .custom-other-alert .alert-input,
+body.dark-theme .custom-document-alert .alert-input {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-default);
+}
+
+body.dark-theme .custom-other-alert .alert-button,
+body.dark-theme .custom-document-alert .alert-button,
+body.dark-theme .template-loading-alert .alert-button {
+  color: var(--color-text-primary) !important;
+  background: var(--color-bg-elevated) !important;
+}
+
+/* Dark theme: Image container */
+body.dark-theme .image-container {
+  background-color: var(--color-bg-inset);
+}
+
+/* Dark theme: Empty state */
+body.dark-theme .empty-state {
+  background: var(--color-bg-card);
+  box-shadow: 0 2px 8px var(--color-shadow);
+}
+
+body.dark-theme .empty-state h3 {
+  color: var(--color-text-primary);
+}
+
+/* Dark theme: Progress bars */
+body.dark-theme .progress-bar-wrapper {
+  background: var(--color-bg-inset);
+}
+
+body.dark-theme .upload-progress-container {
+  background: var(--color-bg-card);
+  border-color: var(--color-border-default);
+}
+
+body.dark-theme .upload-progress-item {
+  background: var(--color-bg-elevated);
+  border-color: var(--color-border-default);
+}
+
+body.dark-theme .upload-progress-bar {
+  background: var(--color-bg-inset);
+}
+
+/* Dark theme: Page tab bar (project-detail, new-project) */
+body.dark-theme .page-tab-bar {
+  background: var(--ion-tab-bar-background);
+  border-top-color: var(--color-border-default);
+}
+
+/* Dark theme: Validation */
+body.dark-theme .validation-error {
+  background: rgba(255, 94, 115, 0.12);
+  color: var(--color-status-danger);
+}
+
+/* Dark theme: ion-searchbar */
+body.dark-theme ion-searchbar {
+  --background: var(--color-bg-inset);
+  --color: var(--color-text-primary);
+  --placeholder-color: var(--color-text-muted);
+  --icon-color: var(--color-text-muted);
+}
+
+/* Dark theme: ion-toggle (inside settings) */
+body.dark-theme ion-toggle {
+  --track-background: #444;
+}
+
+/* Dark theme: Cursor color for dark inputs */
+body.dark-theme input,
+body.dark-theme textarea {
+  caret-color: var(--color-text-primary);
 }
 
 .custom-other-alert {

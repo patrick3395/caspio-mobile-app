@@ -8,7 +8,7 @@
 .subsection-header {
   font-size: 19px;
   font-weight: 700;
-  color: #333;
+  color: var(--color-text-primary);
   margin-bottom: 16px;
   padding-bottom: 8px;
   border-bottom: 2px solid var(--noble-orange, #F15A27);
@@ -32,12 +32,12 @@
 
 .room-item {
   border-radius: 8px;
-  background: white;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  background: var(--color-bg-card);
+  box-shadow: 0 1px 3px var(--color-shadow);
   transition: all 0.2s;
 
   &.selected {
-    border: 2px solid #000;
+    border: 2px solid var(--color-text-primary);
   }
 
   &.saving {
@@ -45,7 +45,7 @@
   }
 
   &:hover {
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 2px 6px var(--color-shadow-heavy);
   }
 }
 
@@ -55,7 +55,7 @@
   transition: background 0.2s;
 
   &:hover {
-    background: rgba(0, 0, 0, 0.02);
+    background: var(--color-bg-elevated);
   }
 }
 
@@ -74,7 +74,7 @@
 .room-name {
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: var(--color-text-primary);
   margin: 0 0 4px 0;
   white-space: nowrap;
   overflow: hidden;
@@ -88,7 +88,7 @@
 
 .room-info {
   font-size: 13px;
-  color: #666;
+  color: var(--color-text-secondary);
   margin: 0;
 }
 
@@ -106,7 +106,7 @@
 
 .chevron-icon {
   font-size: 20px;
-  color: #999;
+  color: var(--color-text-muted);
 }
 
 .room-actions {
@@ -114,7 +114,7 @@
   gap: 8px;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--color-border-light);
   flex-wrap: wrap;
 }
 
@@ -124,13 +124,13 @@
   justify-content: center;
   gap: 6px;
   padding: 8px;
-  background: white;
-  border: 1px solid #ddd;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-default);
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
-  color: #666;
+  color: var(--color-text-secondary);
   transition: all 0.2s;
 
   ion-icon {
@@ -139,8 +139,8 @@
   }
 
   &:hover:not(:disabled) {
-    background: #f5f5f5;
-    border-color: #ccc;
+    background: var(--color-bg-elevated);
+    border-color: var(--color-border-heavy);
   }
 
   &:disabled {
@@ -160,7 +160,7 @@
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: #666;
+  color: var(--color-text-secondary);
 
   ion-spinner {
     width: 40px;
@@ -180,7 +180,7 @@
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: #999;
+  color: var(--color-text-muted);
 
   ion-icon {
     font-size: 64px;
@@ -200,8 +200,8 @@
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: #999;
-  background: #f9f9f9;
+  color: var(--color-text-muted);
+  background: var(--color-bg-elevated);
   border-radius: 12px;
   margin: 20px 0;
 
@@ -221,7 +221,7 @@
   .empty-subtitle {
     font-size: 14px;
     font-weight: 400;
-    color: #999;
+    color: var(--color-text-muted);
   }
 }
 
@@ -278,14 +278,14 @@
 }
 
 .add-room-button {
-  background: white;
-  border: 1px solid #ddd;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-default);
   padding: 12px 24px;
   border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
-  color: #000;
+  color: var(--color-text-primary);
   transition: all 0.3s ease;
   display: inline-flex;
   align-items: center;
@@ -294,13 +294,13 @@
 
   ion-icon {
     font-size: 18px;
-    color: #000;
+    color: var(--color-text-primary);
   }
 
   &:hover {
-    background: #f5f5f5;
-    border-color: #ccc;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    background: var(--color-bg-elevated);
+    border-color: var(--color-border-heavy);
+    box-shadow: 0 2px 4px var(--color-shadow);
   }
 
   &:active {
@@ -384,7 +384,7 @@
     height: 19px;
     margin-bottom: 16px;
     border-radius: 4px;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
     background-size: 200% 100%;
     animation: elevation-skeleton-shimmer 1.5s infinite ease-in-out;
   }
@@ -395,9 +395,9 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px;
-  background: white;
+  background: var(--color-bg-card);
   border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px var(--color-shadow);
   margin-bottom: 12px;
 
   .skeleton-room-content {
@@ -410,7 +410,7 @@
       width: 50%;
       height: 16px;
       border-radius: 4px;
-      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
       background-size: 200% 100%;
       animation: elevation-skeleton-shimmer 1.5s infinite ease-in-out;
     }
@@ -419,7 +419,7 @@
       width: 35%;
       height: 13px;
       border-radius: 4px;
-      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
       background-size: 200% 100%;
       animation: elevation-skeleton-shimmer 1.5s infinite ease-in-out;
     }
@@ -429,7 +429,7 @@
     width: 20px;
     height: 20px;
     border-radius: 4px;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
     background-size: 200% 100%;
     animation: elevation-skeleton-shimmer 1.5s infinite ease-in-out;
   }

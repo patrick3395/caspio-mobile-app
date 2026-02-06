@@ -46,7 +46,7 @@
     <ion-button
       expand="block"
       size="large"
-      [color]="canFinalize ? 'primary' : 'medium'"
+      [class.can-finalize]="canFinalize"
       (click)="finalizeReport()">
       <ion-icon slot="start" name="checkmark-done-outline"></ion-icon>
       {{ isReportFinalized ? 'Update' : 'Finalize Report' }}

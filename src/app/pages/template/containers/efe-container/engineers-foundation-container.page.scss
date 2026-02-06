@@ -1,5 +1,5 @@
 ion-content {
-  --background: #f5f5f5;
+  --background: var(--color-bg-page);
 }
 
 // Template loading overlay
@@ -14,7 +14,7 @@ ion-content {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  background: linear-gradient(135deg, var(--color-bg-elevated) 0%, var(--color-bg-inset) 100%);
   z-index: 1000;
   // US-002: Use opacity and pointer-events for smooth transitions
   opacity: 1;
@@ -42,18 +42,18 @@ ion-content {
       margin: 0 0 12px;
       font-size: 20px;
       font-weight: 600;
-      color: #333;
+      color: var(--color-text-primary);
     }
 
     p {
       margin: 0 0 8px;
       font-size: 14px;
-      color: #666;
+      color: var(--color-text-secondary);
     }
 
     .loading-hint {
       font-size: 12px;
-      color: #999;
+      color: var(--color-text-muted);
       font-style: italic;
     }
   }
@@ -227,10 +227,10 @@ ion-toolbar {
 // Breadcrumb Footer
 .breadcrumb-footer {
   ion-toolbar {
-    --background: white;
-    --color: #333;
+    --background: var(--color-bg-card);
+    --color: var(--color-text-primary);
     --border-width: 1px 0 0 0;
-    --border-color: #e0e0e0;
+    --border-color: var(--color-border-default);
     --padding-top: 8px;
     --padding-bottom: 8px;
     --min-height: 48px;
@@ -257,7 +257,7 @@ ion-toolbar {
   display: flex;
   align-items: center;
   cursor: pointer;
-  color: #666;
+  color: var(--color-text-secondary);
   font-size: 14px;
   font-weight: 500;
   padding: 4px 8px;
@@ -268,12 +268,12 @@ ion-toolbar {
   @media (hover: hover) and (pointer: fine) {
     &:hover {
       background-color: rgba(0, 0, 0, 0.05);
-      color: #333;
+      color: var(--color-text-primary);
     }
   }
 
   &.active {
-    color: #333;
+    color: var(--color-text-primary);
     cursor: default;
     font-weight: 700;
 
@@ -301,7 +301,7 @@ ion-toolbar {
 }
 
 .breadcrumb-arrow {
-  color: #999;
+  color: var(--color-text-muted);
   font-size: 16px;
   flex-shrink: 0;
 }

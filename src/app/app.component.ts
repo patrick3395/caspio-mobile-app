@@ -9,6 +9,7 @@ import { BackgroundSyncService } from './services/background-sync.service';
 import { NavigationHistoryService } from './services/navigation-history.service';
 import { ScreenReaderAnnouncementService } from './services/screen-reader-announcement.service';
 import { MemoryDiagnosticsService } from './services/memory-diagnostics.service';
+import { PushNotificationService } from './services/push-notification.service';
 import { environment } from '../environments/environment';
 import { addIcons } from 'ionicons';
 import {
@@ -120,7 +121,9 @@ export class AppComponent {
     // G2-A11Y-003: Inject ScreenReaderAnnouncementService at app startup for web accessibility
     private readonly screenReaderAnnouncement: ScreenReaderAnnouncementService,
     // Storage warning: Check if IndexedDB storage is critical on startup
-    private readonly memoryDiagnostics: MemoryDiagnosticsService
+    private readonly memoryDiagnostics: MemoryDiagnosticsService,
+    // Push notifications: Initialize on native platforms
+    private readonly pushNotificationService: PushNotificationService
   ) {
     // Register icons for offline use
     addIcons({
@@ -237,6 +240,9 @@ export class AppComponent {
       if (environment.isWeb) {
         // G2-A11Y-003: Log screen reader announcement service initialization
       }
+
+      // Initialize push notifications (native only, no-op on web)
+      this.pushNotificationService.initialize();
 
       // Trigger a sync status refresh to show correct state on app load
       this.backgroundSync.refreshSyncStatus();

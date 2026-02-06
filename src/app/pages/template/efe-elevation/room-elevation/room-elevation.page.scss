@@ -20,14 +20,14 @@
 
   .subtitle {
     font-size: 16px;
-    color: #666;
+    color: var(--color-text-secondary);
     margin: 0;
   }
 }
 
 .content-section {
   .placeholder-text {
-    color: #666;
+    color: var(--color-text-secondary);
     font-style: italic;
     margin-top: 12px;
   }
@@ -45,7 +45,7 @@
   .delimiter-label {
     font-size: 14px;
     font-weight: 700;
-    color: #333;
+    color: var(--color-text-primary);
     margin-right: auto;
   }
 
@@ -63,11 +63,11 @@
   width: 100%;
   max-width: 100%;
   padding: 12px 16px;
-  border: 2px solid #e8e8e8;
+  border: 2px solid var(--color-border-default);
   border-radius: 8px;
   font-size: 15px;
-  color: #000;
-  background: #ffffff;
+  color: var(--color-text-primary);
+  background: var(--color-bg-card);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   font-family: inherit;
   letter-spacing: normal;
@@ -76,11 +76,11 @@
   &:focus {
     outline: none;
     border-color: #F15A27;
-    background: #ffffff;
+    background: var(--color-bg-card);
   }
 
   &::placeholder {
-    color: #b0b0b0;
+    color: var(--color-text-muted);
     font-size: 14px;
   }
 }
@@ -98,7 +98,7 @@ select.styled-input {
 // FDF PHOTO BUTTONS
 // ========================================
 .fdf-photo-button {
-  color: #333 !important;
+  color: var(--color-text-primary) !important;
   margin-bottom: 0 !important;
   background: transparent !important;
   border: none !important;
@@ -106,7 +106,7 @@ select.styled-input {
   transition-timing-function: ease-out !important;
 
   ion-icon {
-    color: #333;
+    color: var(--color-text-primary);
   }
 
   &:hover:not(:disabled) {
@@ -137,23 +137,23 @@ select.styled-input {
     padding: 8px 16px;
     font-size: 13px;
     font-weight: 600;
-    color: #333;
-    background: white;
-    border: 1px solid #ddd;
+    color: var(--color-text-primary);
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-default);
     border-radius: 5px;
     cursor: pointer;
     transition: all 0.2s ease;
     white-space: nowrap;
 
     &:hover {
-      background: #f8f8f8;
+      background: var(--color-bg-elevated);
       transform: translateY(-1px);
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 4px var(--color-shadow);
     }
 
     &:active {
       transform: scale(0.98);
-      background: #f0f0f0;
+      background: var(--color-bg-inset);
     }
 
     &.location-delete-btn {
@@ -161,7 +161,7 @@ select.styled-input {
       border-color: var(--ion-color-primary);
 
       &:hover {
-        background: #fff3e0;
+        background: rgba(241, 90, 39, 0.08);
       }
     }
   }
@@ -188,15 +188,15 @@ select.styled-input {
     }
 
     .elevation-point-card {
-      background: white;
-      border: 1px solid #e0e0e0;
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border-default);
       border-radius: 12px;
       padding: 18px;
       transition: all 0.3s ease;
 
       &:hover {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        border-color: #d0d0d0;
+        box-shadow: 0 4px 12px var(--color-shadow);
+        border-color: var(--color-border-heavy);
       }
 
       .point-header {
@@ -208,7 +208,7 @@ select.styled-input {
         .point-label {
           font-size: 12px;
           font-weight: 600;
-          color: #666;
+          color: var(--color-text-secondary);
           flex: 1;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -226,13 +226,13 @@ select.styled-input {
             border: none;
             padding: 6px;
             cursor: pointer;
-            color: #666;
+            color: var(--color-text-secondary);
             transition: all 0.2s ease;
             border-radius: 4px;
 
             &:hover {
-              background: #f0f0f0;
-              color: #333;
+              background: var(--color-bg-inset);
+              color: var(--color-text-primary);
             }
 
             &:active {
@@ -246,8 +246,8 @@ select.styled-input {
 
           .delete-point-btn {
             &:hover {
-              color: #ff4444;
-              background: #ffebee;
+              color: var(--color-status-danger);
+              background: rgba(220, 53, 69, 0.08);
             }
           }
 
@@ -309,11 +309,11 @@ select.styled-input {
     clip-path: inset(0 round 12px) !important;
     cursor: pointer;
     transition: all 0.3s ease;
-    border: 2px solid #ddd;
+    border: 2px solid var(--color-border-default);
 
     &:hover {
       transform: scale(1.02);
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 8px var(--color-shadow);
     }
 
     &:active {
@@ -361,7 +361,7 @@ select.styled-input {
     height: 24px !important;
     border-radius: 6px !important;
     background: rgba(255, 255, 255, 0.95) !important;
-    border: 1px solid #ccc !important;
+    border: 1px solid var(--color-border-heavy) !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -369,16 +369,16 @@ select.styled-input {
     cursor: pointer !important;
     transition: all 0.15s ease !important;
     z-index: 10 !important;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2) !important;
+    box-shadow: 0 2px 6px var(--color-shadow-heavy) !important;
 
     ion-icon {
       font-size: 14px !important;
-      color: #666 !important;
+      color: var(--color-text-secondary) !important;
     }
 
     &:hover {
-      background: #dc3545 !important;
-      border-color: #dc3545 !important;
+      background: var(--color-status-danger) !important;
+      border-color: var(--color-status-danger) !important;
 
       ion-icon {
         color: white !important;
@@ -398,10 +398,10 @@ select.styled-input {
   padding: 4px 6px !important;
   font-size: 10px !important;
   text-align: center !important;
-  border: 1px solid #e0e0e0 !important;
+  border: 1px solid var(--color-border-default) !important;
   border-radius: 6px !important;
-  background: white !important;
-  color: #666 !important;
+  background: var(--color-bg-card) !important;
+  color: var(--color-text-secondary) !important;
   cursor: pointer !important;
   display: block !important;
   margin: 6px auto 0 auto !important;
@@ -440,11 +440,11 @@ select.styled-input {
   .skeleton-image {
     width: 90px;
     height: 90px;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
     background-size: 200% 100%;
     animation: skeleton-pulse 1.5s ease-in-out infinite;
     border-radius: 16px;
-    border: 2px solid #ddd;
+    border: 2px solid var(--color-border-default);
     display: block;
     position: relative;
 
@@ -456,8 +456,8 @@ select.styled-input {
       transform: translate(-50%, -50%);
       width: 24px;
       height: 24px;
-      border: 2px solid #ccc;
-      border-top-color: #999;
+      border: 2px solid var(--color-border-heavy);
+      border-top-color: var(--color-text-muted);
       border-radius: 50%;
       animation: skeleton-spin 0.8s linear infinite;
     }
@@ -466,7 +466,7 @@ select.styled-input {
   .skeleton-caption {
     width: 90px;
     height: 22px;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
     background-size: 200% 100%;
     animation: skeleton-pulse 1.5s ease-in-out infinite;
     border-radius: 6px;
@@ -480,32 +480,32 @@ select.styled-input {
 // ========================================
 // Light gray container for notes section
 .room-notes-container {
-  background: #f5f5f5;
+  background: var(--color-bg-elevated);
   padding: 16px;
   border-radius: 8px;
   margin-top: 8px;
 
   .notes-textarea {
     width: 100%;
-    background: white;
-    color: #333;
+    background: var(--color-bg-card);
+    color: var(--color-text-primary);
     padding: 12px;
-    border: 2px solid #e8e8e8;
+    border: 2px solid var(--color-border-default);
     border-radius: 6px;
     font-size: 14px;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     line-height: 1.5;
     resize: vertical;
     min-height: 100px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-    
+    box-shadow: 0 1px 3px var(--color-shadow);
+
     &:focus {
       outline: none;
       border-color: #F15A27;
     }
 
     &::placeholder {
-      color: #999;
+      color: var(--color-text-muted);
     }
   }
 }
@@ -515,10 +515,10 @@ select.styled-input {
 // ========================================
 @media (max-width: 768px) {
   .fdf-photo-column {
-    border: 2px solid #ddd !important;
+    border: 2px solid var(--color-border-default) !important;
     border-radius: 8px !important;
     padding: 8px !important;
-    background: #f9f9f9 !important;
+    background: var(--color-bg-elevated) !important;
 
     > div {
       gap: 2px !important;
@@ -660,7 +660,7 @@ select.styled-input {
 }
 
 .loading-skeleton-card {
-  background: #f5f5f5;
+  background: var(--color-bg-elevated);
   border-radius: 12px;
   padding: 16px;
   animation: pulse 1.5s ease-in-out infinite;
@@ -672,7 +672,7 @@ select.styled-input {
 
 .skeleton-line {
   height: 14px;
-  background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
+  background: linear-gradient(90deg, var(--color-skeleton-shine) 25%, var(--color-skeleton-base) 50%, var(--color-skeleton-shine) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 4px;
@@ -690,7 +690,7 @@ select.styled-input {
 .skeleton-box {
   flex: 1;
   height: 80px;
-  background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
+  background: linear-gradient(90deg, var(--color-skeleton-shine) 25%, var(--color-skeleton-base) 50%, var(--color-skeleton-shine) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 8px;
@@ -740,7 +740,7 @@ select.styled-input {
     height: 18px;
     margin-bottom: 12px;
     border-radius: 4px;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
     background-size: 200% 100%;
     animation: room-skeleton-shimmer 1.5s infinite ease-in-out;
   }
@@ -749,7 +749,7 @@ select.styled-input {
     width: 100%;
     height: 48px;
     border-radius: 8px;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
     background-size: 200% 100%;
     animation: room-skeleton-shimmer 1.5s infinite ease-in-out;
   }
@@ -763,17 +763,17 @@ select.styled-input {
 }
 
 .skeleton-point-card {
-  background: #f8f9fa;
+  background: var(--color-bg-elevated);
   border-radius: 12px;
   padding: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px var(--color-shadow);
 
   .skeleton-point-header {
     width: 50%;
     height: 16px;
     margin-bottom: 16px;
     border-radius: 4px;
-    background: linear-gradient(90deg, #e8e8e8 25%, #d8d8d8 50%, #e8e8e8 75%);
+    background: linear-gradient(90deg, var(--color-skeleton-shine) 25%, var(--color-skeleton-base) 50%, var(--color-skeleton-shine) 75%);
     background-size: 200% 100%;
     animation: room-skeleton-shimmer 1.5s infinite ease-in-out;
   }
@@ -786,7 +786,7 @@ select.styled-input {
       flex: 1;
       height: 120px;
       border-radius: 8px;
-      background: linear-gradient(90deg, #e8e8e8 25%, #d8d8d8 50%, #e8e8e8 75%);
+      background: linear-gradient(90deg, var(--color-skeleton-shine) 25%, var(--color-skeleton-base) 50%, var(--color-skeleton-shine) 75%);
       background-size: 200% 100%;
       animation: room-skeleton-shimmer 1.5s infinite ease-in-out;
     }
@@ -797,7 +797,7 @@ select.styled-input {
   width: 100%;
   height: 100px;
   border-radius: 8px;
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
   background-size: 200% 100%;
   animation: room-skeleton-shimmer 1.5s infinite ease-in-out;
 }

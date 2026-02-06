@@ -146,7 +146,7 @@ ion-content {
 .admin-main-tabs {
   display: flex;
   gap: 0;
-  background: #f5f5f5;
+  background: var(--color-bg-page);
   border-radius: 12px;
   padding: 4px;
   margin-bottom: 16px;
@@ -164,7 +164,7 @@ ion-content {
   border-radius: 10px;
   font-size: 1rem;
   font-weight: 600;
-  color: #666;
+  color: var(--color-text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
 
@@ -173,14 +173,14 @@ ion-content {
   }
 
   &:hover {
-    color: #333;
+    color: var(--color-text-primary);
     background: rgba(255, 255, 255, 0.5);
   }
 
   &.active {
-    background: #ffffff;
+    background: var(--color-bg-card);
     color: #f15a27;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px var(--color-shadow);
   }
 }
 
@@ -191,8 +191,8 @@ ion-content {
 }
 
 .sub-tab-bar {
-  display: grid;
-  grid-template-columns: repeat(4, auto);
+  display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
   padding: 8px 0;
@@ -203,12 +203,12 @@ ion-content {
   align-items: center;
   gap: 6px;
   padding: 10px 16px;
-  background: #ffffff;
-  border: 1px solid #e0e0e0;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-default);
   border-radius: 8px;
   font-size: 0.9rem;
   font-weight: 500;
-  color: #666;
+  color: var(--color-text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
 
@@ -230,8 +230,8 @@ ion-content {
 
 // Global Company Filter Styling
 .global-company-filter {
-  background: linear-gradient(135deg, #f8f9fa, #ffffff);
-  border: 2px solid #ccc;
+  background: linear-gradient(135deg, var(--color-bg-elevated), var(--color-bg-card));
+  border: 2px solid var(--color-border-heavy);
   border-radius: 16px;
   padding: 20px;
   box-shadow: 0 4px 12px rgba(241, 90, 39, 0.15);
@@ -246,7 +246,7 @@ ion-content {
       margin: 0;
       font-size: 1.1rem;
       font-weight: 600;
-      color: #212529;
+      color: var(--color-text-primary);
     }
   }
 
@@ -255,8 +255,8 @@ ion-content {
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
-    background: #e9ecef;
-    color: #495057;
+    background: var(--color-bg-inset);
+    color: var(--color-text-secondary);
     border: none;
     border-radius: 8px;
     font-size: 0.875rem;
@@ -266,9 +266,9 @@ ion-content {
     -webkit-tap-highlight-color: transparent;
 
     &:hover {
-      background: #dee2e6;
+      background: var(--color-bg-inset);
       transform: translateY(-1px);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 2px 8px var(--color-shadow);
     }
 
     &:active {
@@ -284,15 +284,15 @@ ion-content {
     position: relative;
 
     ion-searchbar {
-      --background: #ffffff;
+      --background: var(--color-bg-card);
       --border-radius: 12px;
-      --box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      --color: #212529;
-      --placeholder-color: #6c757d;
+      --box-shadow: 0 2px 8px var(--color-shadow);
+      --color: var(--color-text-primary);
+      --placeholder-color: var(--color-text-muted);
 
       &.has-selection {
-        --background: #f8f9fa;
-        --box-shadow: 0 0 0 2px #dee2e6;
+        --background: var(--color-bg-elevated);
+        --box-shadow: 0 0 0 2px var(--color-border-default);
       }
     }
   }
@@ -302,9 +302,9 @@ ion-content {
     top: 100%;
     left: 0;
     right: 0;
-    background: white;
+    background: var(--color-bg-card);
     border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 8px 24px var(--color-shadow-heavy);
     max-height: 300px;
     overflow-y: auto;
     z-index: 1000;
@@ -313,12 +313,12 @@ ion-content {
     .suggestion-item {
       padding: 12px 16px;
       cursor: pointer;
-      border-bottom: 1px solid #f0f0f0;
+      border-bottom: 1px solid var(--color-border-light);
       transition: background 0.2s;
       -webkit-tap-highlight-color: rgba(241, 90, 39, 0.1);
 
       &:hover {
-        background: #f8f9fa;
+        background: var(--color-bg-elevated);
       }
 
       &:active {
@@ -341,13 +341,13 @@ ion-content {
 
         strong {
           font-size: 1rem;
-          color: #212529;
+          color: var(--color-text-primary);
           font-weight: 600;
         }
 
         .company-location {
           font-size: 0.875rem;
-          color: #6c757d;
+          color: var(--color-text-muted);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -361,8 +361,8 @@ ion-content {
     align-items: center;
     gap: 8px;
     padding: 10px 14px;
-    background: #e9ecef;
-    color: #495057;
+    background: var(--color-bg-inset);
+    color: var(--color-text-secondary);
     border-radius: 8px;
     margin-top: 12px;
     font-size: 0.875rem;
@@ -393,11 +393,11 @@ ion-content {
 .main-tab-bar {
   display: flex;
   gap: 0;
-  background: #ffffff;
+  background: var(--color-bg-card);
   border-radius: 12px;
   padding: 4px;
   margin-bottom: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px var(--color-shadow);
 }
 
 .main-tab {
@@ -412,7 +412,7 @@ ion-content {
   border-radius: 10px;
   font-size: 1rem;
   font-weight: 600;
-  color: #6c757d;
+  color: var(--color-text-muted);
   cursor: pointer;
   transition: all 0.2s ease;
 
@@ -421,13 +421,13 @@ ion-content {
   }
 
   &:hover {
-    background: #f8f9fa;
+    background: var(--color-bg-elevated);
     color: #f15a27;
   }
 
   &.active {
-    background: #f0f0f0;
-    color: #212529;
+    background: var(--color-bg-inset);
+    color: var(--color-text-primary);
     box-shadow: none;
 
     ion-icon {
@@ -438,11 +438,11 @@ ion-content {
 
 // Subtab Container - subtabs for Company main tab
 .subtab-container {
-  background: #ffffff;
+  background: var(--color-bg-card);
   border-radius: 12px;
   padding: 12px;
   margin-bottom: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px var(--color-shadow);
 }
 
 .subtab-button-grid {
@@ -458,19 +458,19 @@ ion-content {
   justify-content: center;
   padding: 10px 4px;
   min-height: 60px;
-  background: #f8f9fa;
+  background: var(--color-bg-elevated);
   border: 2px solid transparent;
   border-radius: 8px;
   font-size: 0.7rem;
   font-weight: 500;
-  color: #495057;
+  color: var(--color-text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
 
   ion-icon {
     font-size: 20px;
     margin-bottom: 4px;
-    color: #6c757d;
+    color: var(--color-text-muted);
   }
 
   span {
@@ -479,7 +479,7 @@ ion-content {
   }
 
   &:hover {
-    background: #ffffff;
+    background: var(--color-bg-card);
     border-color: #f15a27;
 
     ion-icon {
@@ -538,7 +538,7 @@ ion-content {
 
 // Collapsible Section (matches Deliverables table on project-detail page)
 .collapsible-section {
-  background: #ffffff;
+  background: var(--color-bg-card);
   border-radius: 8px;
   border: 1px solid var(--ion-border-color, #E0E0E0);
   overflow: hidden;
@@ -576,19 +576,19 @@ ion-content {
       margin: 0;
       font-size: 14px;
       font-weight: 600;
-      color: #333333;
+      color: var(--color-text-primary);
     }
 
     .collapsible-count {
       font-size: 13px;
-      color: rgba(51, 51, 51, 0.75);
+      color: var(--color-text-secondary);
       font-weight: 400;
     }
   }
 
   .fee-header-edit-btn {
     font-size: 20px;
-    color: #999;
+    color: var(--color-text-muted);
     cursor: pointer;
     transition: color 0.15s;
 
@@ -651,20 +651,20 @@ ion-content {
   .responsive-table {
     border-radius: 12px;
     box-shadow: none;
-    border: 1px solid #e9ecef;
+    border: 1px solid var(--color-border-default);
 
     table {
       margin: 0;
     }
 
     th {
-      background: #f5f5f5;
+      background: var(--color-bg-page);
       font-weight: 600;
-      color: #333333;
+      color: var(--color-text-primary);
     }
 
     td {
-      color: #69635d;
+      color: var(--color-text-secondary);
     }
   }
 
@@ -680,17 +680,17 @@ ion-content {
     .services-list-header {
       font-size: 12px;
       font-weight: 600;
-      color: #999;
+      color: var(--color-text-muted);
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      border-bottom: 2px solid #e0e0e0;
+      border-bottom: 2px solid var(--color-border-default);
       padding-bottom: 8px;
     }
 
     .services-list-row {
-      border-bottom: 1px solid #f0f0f0;
+      border-bottom: 1px solid var(--color-border-light);
       font-size: 14px;
-      color: #333;
+      color: var(--color-text-primary);
 
       &:last-child {
         border-bottom: none;
@@ -748,7 +748,7 @@ ion-content {
 
     .balance-label {
       font-size: 0.9rem;
-      color: #666;
+      color: var(--color-text-secondary);
       font-weight: 500;
     }
 
@@ -793,7 +793,7 @@ ion-content {
 
 // Outstanding Balance Card
 .outstanding-balance-card {
-  background: linear-gradient(135deg, #fff5f0 0%, #fff 100%);
+  background: linear-gradient(135deg, #fff5f0 0%, var(--color-bg-card) 100%);
   border: 2px solid #f15a27;
   border-radius: 12px;
   padding: 20px;
@@ -813,7 +813,7 @@ ion-content {
     span {
       font-size: 0.9rem;
       font-weight: 600;
-      color: #666;
+      color: var(--color-text-secondary);
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
@@ -833,7 +833,7 @@ ion-content {
 
     .balance-details {
       font-size: 0.9rem;
-      color: #888;
+      color: var(--color-text-muted);
       margin-top: 4px;
 
       &.paid {
@@ -855,7 +855,7 @@ ion-content {
   justify-content: space-between;
   align-items: center;
   padding: 20px 0;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--color-border-light);
 
   &:last-of-type {
     border-bottom: none;
@@ -871,14 +871,14 @@ ion-content {
 
     span {
       font-weight: 600;
-      color: #333;
+      color: var(--color-text-primary);
       font-size: 0.95rem;
       display: block;
     }
 
     .setting-description {
       font-size: 0.8rem;
-      color: #999;
+      color: var(--color-text-muted);
       margin: 4px 0 0 0;
       font-weight: 400;
     }
@@ -889,7 +889,7 @@ ion-content {
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    color: #69635d;
+    color: var(--color-text-secondary);
 
     .autopay-toggle {
       --background: #e0e0e0;
@@ -900,12 +900,12 @@ ion-content {
 
     .autopay-day-select {
       padding: 10px 36px 10px 16px;
-      border: 2px solid #e9ecef;
+      border: 2px solid var(--color-border-default);
       border-radius: 10px;
       font-size: 0.9rem;
       font-weight: 500;
-      color: #333;
-      background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23f15a27' d='M6 8L1 3h10z'/%3E%3C/svg%3E") no-repeat right 12px center;
+      color: var(--color-text-primary);
+      background: var(--color-bg-card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23f15a27' d='M6 8L1 3h10z'/%3E%3C/svg%3E") no-repeat right 12px center;
       appearance: none;
       cursor: pointer;
       transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -926,9 +926,9 @@ ion-content {
       align-items: center;
       gap: 10px;
       padding: 10px 16px;
-      background: #f8f9fa;
+      background: var(--color-bg-elevated);
       border-radius: 10px;
-      border: 1px solid #e9ecef;
+      border: 1px solid var(--color-border-default);
 
       .paypal-icon {
         font-size: 24px;
@@ -937,7 +937,7 @@ ion-content {
 
       span {
         font-weight: 500;
-        color: #333;
+        color: var(--color-text-primary);
       }
     }
 
@@ -946,26 +946,26 @@ ion-content {
       align-items: flex-start;
       gap: 12px;
       padding: 14px 18px;
-      background: #fafafa;
+      background: var(--color-bg-elevated);
       border-radius: 12px;
-      border: 1px dashed #ddd;
+      border: 1px dashed var(--color-border-default);
       text-align: left;
 
       ion-icon {
         font-size: 28px;
-        color: #ccc;
+        color: var(--color-text-muted);
         flex-shrink: 0;
       }
 
       .no-payment-method {
-        color: #666;
+        color: var(--color-text-secondary);
         font-weight: 500;
         display: block;
       }
 
       .payment-hint {
         font-size: 0.8rem;
-        color: #999;
+        color: var(--color-text-muted);
         margin-top: 4px;
       }
     }
@@ -993,8 +993,8 @@ ion-content {
       gap: 8px;
       padding: 10px 16px;
       background: transparent;
-      color: #333;
-      border: 1px solid #ddd;
+      color: var(--color-text-primary);
+      border: 1px solid var(--color-border-default);
       border-radius: 8px;
       font-size: 0.9rem;
       font-weight: 500;
@@ -1003,16 +1003,16 @@ ion-content {
 
       ion-icon {
         font-size: 18px;
-        color: #666;
+        color: var(--color-text-secondary);
       }
 
       &:hover {
-        background: #f5f5f5;
-        border-color: #ccc;
+        background: var(--color-bg-page);
+        border-color: var(--color-border-heavy);
       }
 
       &:active {
-        background: #eee;
+        background: var(--color-bg-inset);
       }
     }
   }
@@ -1038,7 +1038,7 @@ ion-content {
   p {
     margin: 0;
     font-size: 0.9rem;
-    color: #555;
+    color: var(--color-text-secondary);
     line-height: 1.6;
   }
 }
@@ -1052,19 +1052,19 @@ ion-content {
 
 .org-user-card {
   position: relative;
-  background: #ffffff;
+  background: var(--color-bg-card);
   border-radius: 20px;
   padding: 28px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px var(--color-shadow);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 
   &:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 8px 30px var(--color-shadow-heavy);
   }
 
   .org-user-actions {
@@ -1076,12 +1076,12 @@ ion-content {
 
     ion-icon {
       font-size: 18px;
-      color: #999;
+      color: var(--color-text-muted);
       cursor: pointer;
       transition: color 0.15s;
 
       &.action-edit:hover {
-        color: #333;
+        color: var(--color-text-primary);
       }
 
       &.action-delete:hover {
@@ -1096,10 +1096,10 @@ ion-content {
     border-radius: 50%;
     overflow: hidden;
     flex-shrink: 0;
-    background: #f5f5f5;
+    background: var(--color-bg-page);
     margin-bottom: 20px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    border: 4px solid #ffffff;
+    box-shadow: 0 4px 12px var(--color-shadow);
+    border: 4px solid var(--color-bg-card);
 
     img {
       width: 100%;
@@ -1127,13 +1127,13 @@ ion-content {
       margin: 0 0 6px 0;
       font-size: 1.3rem;
       font-weight: 700;
-      color: #333333;
+      color: var(--color-text-primary);
     }
 
     .org-user-title {
       margin: 0 0 20px 0;
       font-size: 0.95rem;
-      color: #69635d;
+      color: var(--color-text-secondary);
       font-weight: 500;
     }
 
@@ -1141,7 +1141,7 @@ ion-content {
       display: flex;
       flex-direction: column;
       gap: 12px;
-      background: #f8f8f8;
+      background: var(--color-bg-elevated);
       border-radius: 12px;
       padding: 16px;
 
@@ -1152,7 +1152,7 @@ ion-content {
         justify-content: center;
         gap: 10px;
         font-size: 0.9rem;
-        color: #69635d;
+        color: var(--color-text-secondary);
         text-decoration: none;
 
         ion-icon {
@@ -1163,7 +1163,7 @@ ion-content {
       }
 
       .org-user-email {
-        color: #333333;
+        color: var(--color-text-primary);
         font-weight: 500;
 
         &:hover {
@@ -1218,15 +1218,15 @@ ion-content {
 }
 
 .client-stat-card {
-  background: #ffffff;
+  background: var(--color-bg-card);
   border-radius: 16px;
   padding: 24px;
   display: flex;
   align-items: center;
-  color: #333333;
+  color: var(--color-text-primary);
 
   .stat-content {
-    background: #f5f5f5;
+    background: var(--color-bg-page);
     border-radius: 12px;
     padding: 16px;
     display: flex;
@@ -1241,13 +1241,13 @@ ion-content {
       font-size: 2.5rem;
       font-weight: 700;
       line-height: 1;
-      color: #333333;
+      color: var(--color-text-primary);
     }
 
     .stat-label {
       font-size: 0.9rem;
       font-weight: 500;
-      color: #69635d;
+      color: var(--color-text-secondary);
     }
   }
 }
@@ -1260,10 +1260,10 @@ ion-content {
 }
 
 .client-chart-card {
-  background: #ffffff;
+  background: var(--color-bg-card);
   border-radius: 16px;
   padding: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 12px var(--color-shadow);
 
   .chart-header {
     margin-bottom: 20px;
@@ -1272,13 +1272,13 @@ ion-content {
       margin: 0 0 4px 0;
       font-size: 1.1rem;
       font-weight: 600;
-      color: #212529;
+      color: var(--color-text-primary);
     }
 
     p {
       margin: 0;
       font-size: 0.85rem;
-      color: #6c757d;
+      color: var(--color-text-muted);
     }
   }
 
@@ -1343,9 +1343,9 @@ ion-content {
 }
 
 .tab-section {
-  background: #ffffff;
+  background: var(--color-bg-card);
   border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px var(--color-shadow);
   padding: 16px;
 }
 
@@ -1353,7 +1353,7 @@ ion-content {
   margin: 0 0 12px 0;
   font-size: 1rem;
   font-weight: 600;
-  color: #212529;
+  color: var(--color-text-primary);
   padding-bottom: 8px;
   border-bottom: 2px solid #f15a27;
 }
@@ -1372,12 +1372,12 @@ ion-content {
   justify-content: center;
   padding: 8px 4px;
   min-height: 65px;
-  background: #f8f9fa;
-  border: 2px solid #dee2e6;
+  background: var(--color-bg-elevated);
+  border: 2px solid var(--color-border-default);
   border-radius: 10px;
   font-size: 0.75rem;
   font-weight: 500;
-  color: #495057;
+  color: var(--color-text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
   -webkit-tap-highlight-color: transparent;
@@ -1386,7 +1386,7 @@ ion-content {
   ion-icon {
     font-size: 22px;
     margin-bottom: 4px;
-    color: #6c757d;
+    color: var(--color-text-muted);
     transition: all 0.15s ease;
   }
 
@@ -1397,7 +1397,7 @@ ion-content {
   }
 
   &:hover {
-    background: #ffffff;
+    background: var(--color-bg-card);
     border-color: #f15a27;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(241, 90, 39, 0.15);
@@ -1471,10 +1471,10 @@ ion-content {
 }
 
 .selected-company-card {
-  background: #fff;
+  background: var(--color-bg-card);
   border-radius: 18px;
   padding: 20px;
-  box-shadow: 0 18px 30px rgba(15, 37, 83, 0.1);
+  box-shadow: 0 18px 30px var(--color-shadow);
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -1558,9 +1558,9 @@ ion-content {
   gap: 12px;
   padding: 16px;
   border-radius: 14px;
-  background: linear-gradient(140deg, #f4f8ff 0%, #ffffff 100%);
+  background: linear-gradient(140deg, var(--color-bg-elevated) 0%, var(--color-bg-card) 100%);
   align-items: flex-start;
-  box-shadow: 0 6px 16px rgba(15, 57, 116, 0.08);
+  box-shadow: 0 6px 16px var(--color-shadow);
 }
 
 .stat-card ion-icon {
@@ -1595,15 +1595,15 @@ ion-content {
 .stage-summary-card {
   border-radius: 14px;
   padding: 16px;
-  background: #ffffff;
-  border: 1px solid rgba(15, 57, 116, 0.1);
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-shadow);
   cursor: pointer;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .stage-summary-card.active {
   border-color: var(--ion-color-primary);
-  box-shadow: 0 12px 24px rgba(18, 60, 150, 0.12);
+  box-shadow: 0 12px 24px var(--color-shadow-heavy);
 }
 
 .stage-summary-header {
@@ -1653,10 +1653,10 @@ ion-content {
 }
 
 .stage-column {
-  background: #fff;
+  background: var(--color-bg-card);
   border-radius: 16px;
   padding: 16px;
-  box-shadow: 0 18px 30px rgba(15, 37, 83, 0.08);
+  box-shadow: 0 18px 30px var(--color-shadow);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1689,12 +1689,12 @@ ion-content {
 
 .company-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 24px rgba(18, 60, 150, 0.15);
+  box-shadow: 0 10px 24px var(--color-shadow-heavy);
 }
 
 .company-card.selected {
   border: 2px solid var(--ion-color-primary);
-  box-shadow: 0 12px 24px rgba(18, 60, 150, 0.18);
+  box-shadow: 0 12px 24px var(--color-shadow-heavy);
 }
 
 .company-card-header {
@@ -1780,8 +1780,8 @@ ion-content {
 
     .add-button {
       flex-shrink: 0;
-      --background: #d3d3d3;
-      --color: #000000;
+      --background: var(--color-bg-inset);
+      --color: var(--color-text-primary);
       --padding-start: 16px;
       --padding-end: 16px;
       --border-radius: 12px;
@@ -1820,19 +1820,19 @@ ion-content {
       label {
         font-size: 0.875rem;
         font-weight: 600;
-        color: #495057;
+        color: var(--color-text-secondary);
         margin-bottom: 4px;
       }
 
       .styled-input {
         width: 100%;
         padding: 10px 12px;
-        border: 2px solid #dee2e6;
+        border: 2px solid var(--color-border-default);
         border-radius: 8px;
         font-size: 0.9rem;
         font-family: inherit;
-        color: #212529;
-        background: #ffffff;
+        color: var(--color-text-primary);
+        background: var(--color-bg-card);
         height: 42px;
         transition: all 0.2s ease;
 
@@ -1854,7 +1854,7 @@ ion-content {
       display: flex;
       gap: 4px;
       flex: 1;
-      background: #f8f9fa;
+      background: var(--color-bg-elevated);
       border-radius: 12px;
       padding: 4px;
     }
@@ -1862,11 +1862,11 @@ ion-content {
 }
 
 .modern-search {
-  --background: #ffffff;
+  --background: var(--color-bg-card);
   --border-radius: 10px;
-  --box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  --placeholder-color: #6c757d;
-  --color: #212529;
+  --box-shadow: 0 2px 8px var(--color-shadow);
+  --placeholder-color: var(--color-text-muted);
+  --color: var(--color-text-primary);
   height: 40px;
   --padding-top: 4px;
   --padding-bottom: 4px;
@@ -1876,7 +1876,7 @@ ion-content {
 .task-time-tabs {
   display: flex;
   gap: 4px;
-  background: #f8f9fa;
+  background: var(--color-bg-elevated);
   padding: 4px;
   border-radius: 8px;
 
@@ -1885,7 +1885,7 @@ ion-content {
     padding: 8px 12px;
     border: none;
     background: transparent;
-    color: #666;
+    color: var(--color-text-secondary);
     border-radius: 6px;
     font-size: 0.875rem;
     font-weight: 500;
@@ -1894,29 +1894,29 @@ ion-content {
     white-space: nowrap;
 
     &:hover:not(.active) {
-      background: #f8f9fa;
+      background: var(--color-bg-elevated);
     }
 
     &.active {
       background: #f15a27;
       color: #fff;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 2px 4px var(--color-shadow);
     }
   }
 }
 
 // Meetings segment styling
 ion-segment.filter-segment {
-  --background: #ffffff;
+  --background: var(--color-bg-card);
   border-radius: 8px;
   padding: 4px;
 
   ion-segment-button {
-    --color: #666;
+    --color: var(--color-text-secondary);
     --color-checked: #ffffff;
     --indicator-color: #f15a27;
     --indicator-height: 100%;
-    --indicator-box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    --indicator-box-shadow: 0 2px 4px var(--color-shadow);
     min-height: 36px;
     font-size: 0.875rem;
     border-radius: 6px;
@@ -1930,8 +1930,8 @@ ion-segment.filter-segment {
 .responsive-table {
   overflow-x: auto;
   border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 18px 28px rgba(10, 31, 68, 0.12);
+  background: var(--color-bg-card);
+  box-shadow: 0 18px 28px var(--color-shadow-heavy);
 }
 
 .responsive-table table {
@@ -1941,8 +1941,8 @@ ion-segment.filter-segment {
 }
 
 .responsive-table thead {
-  background: #e9ecef;
-  color: #495057;
+  background: var(--color-bg-inset);
+  color: var(--color-text-secondary);
 }
 
 .responsive-table th,
@@ -1958,7 +1958,7 @@ ion-segment.filter-segment {
 }
 
 .responsive-table tbody tr:nth-child(even) {
-  background: rgba(15, 57, 116, 0.05);
+  background: var(--color-bg-elevated);
 }
 
 .fee-display-wrapper {
@@ -1968,12 +1968,12 @@ ion-segment.filter-segment {
 
   .fee-value {
     font-size: 0.9rem;
-    color: #333;
+    color: var(--color-text-primary);
   }
 
   .fee-edit-btn {
     font-size: 15px;
-    color: #999;
+    color: var(--color-text-muted);
     cursor: pointer;
     transition: color 0.15s;
 
@@ -1989,14 +1989,14 @@ ion-segment.filter-segment {
   gap: 2px;
 
   .fee-prefix {
-    color: #6c757d;
+    color: var(--color-text-muted);
     font-size: 0.9rem;
   }
 
   .fee-input {
     width: 80px;
     padding: 4px 6px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--color-border-default);
     border-radius: 6px;
     font-size: 0.9rem;
     text-align: right;
@@ -2055,13 +2055,13 @@ ion-segment.filter-segment {
 
     ion-icon {
       font-size: 1.1rem;
-      color: #666;
+      color: var(--color-text-secondary);
     }
 
     span {
       font-size: 0.9rem;
       font-weight: 600;
-      color: #333;
+      color: var(--color-text-primary);
     }
   }
 }
@@ -2104,15 +2104,15 @@ ion-segment.filter-segment {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: #f8f9fa;
-  color: #333333;
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
   border-radius: 10px;
   margin-bottom: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
 
   &:hover {
-    background: #e9ecef;
+    background: var(--color-bg-inset);
     transform: translateX(2px);
   }
 }
@@ -2127,12 +2127,12 @@ ion-segment.filter-segment {
   margin: 0;
   font-size: 1.125rem;
   font-weight: 600;
-  color: #333333;
+  color: var(--color-text-primary);
 }
 
 .stage-count {
   font-size: 0.75rem;
-  color: #666666;
+  color: var(--color-text-secondary);
   text-transform: lowercase;
 }
 
@@ -2141,19 +2141,19 @@ ion-segment.filter-segment {
   height: 28px;
   border-radius: 6px;
   background: rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--color-shadow);
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
 
   &:hover {
-    background: rgba(0, 0, 0, 0.1);
+    background: var(--color-shadow);
   }
 
   ion-icon {
     font-size: 18px;
-    color: #333333;
+    color: var(--color-text-primary);
   }
 }
 
@@ -2164,16 +2164,16 @@ ion-segment.filter-segment {
 }
 
 .company-rollup {
-  background: #ffffff;
+  background: var(--color-bg-card);
   border: 2px solid #000000;
   border-radius: 12px;
   transition: all 0.2s ease;
   overflow: hidden;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px var(--color-shadow);
 
   &:hover {
     border-color: #000000;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 16px var(--color-shadow-heavy);
     transform: translateX(2px);
   }
 
@@ -2185,8 +2185,8 @@ ion-segment.filter-segment {
 
   &.expanded {
     .rollup-header {
-      background: #f8f9fa;
-      border-bottom: 1px solid #dee2e6;
+      background: var(--color-bg-elevated);
+      border-bottom: 1px solid var(--color-border-default);
     }
   }
 }
@@ -2200,7 +2200,7 @@ ion-segment.filter-segment {
   transition: background 0.2s ease;
 
   &:hover {
-    background: #f8f9fa;
+    background: var(--color-bg-elevated);
   }
 }
 
@@ -2215,7 +2215,7 @@ ion-segment.filter-segment {
   margin: 0 0 4px 0;
   font-size: 1rem;
   font-weight: 600;
-  color: #212529;
+  color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2224,7 +2224,7 @@ ion-segment.filter-segment {
 .company-location {
   margin: 0;
   font-size: 0.75rem;
-  color: #6c757d;
+  color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2243,15 +2243,15 @@ ion-segment.filter-segment {
   align-items: center;
   gap: 4px;
   padding: 4px 8px;
-  background: #f8f9fa;
+  background: var(--color-bg-elevated);
   border-radius: 8px;
   font-size: 0.75rem;
-  color: #495057;
+  color: var(--color-text-secondary);
   white-space: nowrap;
 
   ion-icon {
     font-size: 16px;
-    color: #6c757d;
+    color: var(--color-text-muted);
   }
 
   &.warning {
@@ -2269,7 +2269,7 @@ ion-segment.filter-segment {
   height: 32px;
   border-radius: 6px;
   background: transparent;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--color-border-default);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2277,7 +2277,7 @@ ion-segment.filter-segment {
   transition: all 0.2s ease;
 
   &:hover {
-    background: #f8f9fa;
+    background: var(--color-bg-elevated);
     border-color: #f15a27;
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(241, 90, 39, 0.15);
@@ -2300,7 +2300,7 @@ ion-segment.filter-segment {
 
   ion-icon {
     font-size: 18px;
-    color: #495057;
+    color: var(--color-text-secondary);
     transition: color 0.2s ease;
   }
 }
@@ -2310,7 +2310,7 @@ ion-segment.filter-segment {
   height: 28px;
   border-radius: 6px;
   background: transparent;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--color-border-default);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2318,19 +2318,19 @@ ion-segment.filter-segment {
   transition: all 0.2s ease;
 
   &:hover {
-    background: #f8f9fa;
-    border-color: #ced4da;
+    background: var(--color-bg-elevated);
+    border-color: var(--color-border-heavy);
   }
 
   ion-icon {
     font-size: 18px;
-    color: #495057;
+    color: var(--color-text-secondary);
   }
 }
 
 .rollup-content {
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--color-bg-elevated);
   animation: slideDown 0.2s ease;
 }
 
@@ -2364,13 +2364,13 @@ ion-segment.filter-segment {
 .company-detail-header {
   margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #dee2e6;
+  border-bottom: 1px solid var(--color-border-default);
 
   h4 {
     margin: 0;
     font-size: 1.125rem;
     font-weight: 600;
-    color: #212529;
+    color: var(--color-text-primary);
   }
 }
 
@@ -2383,7 +2383,7 @@ ion-segment.filter-segment {
   label {
     display: block;
     font-size: 0.75rem;
-    color: #6c757d;
+    color: var(--color-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.8px;
     font-weight: 600;
@@ -2393,7 +2393,7 @@ ion-segment.filter-segment {
   p {
     margin: 0;
     font-size: 0.9rem;
-    color: #212529;
+    color: var(--color-text-primary);
     font-weight: 500;
     line-height: 1.5;
     word-break: break-word;
@@ -2436,7 +2436,7 @@ ion-segment.filter-segment {
 
 // Autopay status styling
 .autopay-status-row {
-  background: #f8f9fa;
+  background: var(--color-bg-elevated);
   padding: 12px;
   border-radius: 8px;
   margin-bottom: 16px;
@@ -2497,7 +2497,7 @@ ion-segment.filter-segment {
 
   &:disabled {
     background: #e0e0e0;
-    color: #999;
+    color: var(--color-text-muted);
     cursor: not-allowed;
   }
 
@@ -2539,21 +2539,21 @@ ion-segment.filter-segment {
 }
 
 .no-payment-method {
-  color: #6c757d;
+  color: var(--color-text-muted);
   font-style: italic;
 }
 
 .autopay-day-select {
   padding: 6px 10px;
-  border: 1px solid #ced4da;
+  border: 1px solid var(--color-border-heavy);
   border-radius: 6px;
   font-size: 0.9rem;
-  background: white;
+  background: var(--color-bg-card);
   cursor: pointer;
   min-width: 180px;
 
   &:disabled {
-    background: #e9ecef;
+    background: var(--color-bg-inset);
     cursor: not-allowed;
     opacity: 0.7;
   }
@@ -2568,18 +2568,18 @@ ion-segment.filter-segment {
 .autopay-hint {
   display: block;
   font-size: 0.75rem;
-  color: #6c757d;
+  color: var(--color-text-muted);
   margin-top: 4px;
   font-style: italic;
 }
 
 // Outstanding Balance Section
 .outstanding-balance-section {
-  background: #f8f9fa;
+  background: var(--color-bg-elevated);
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 16px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--color-border-default);
 
   .balance-header-row {
     display: flex;
@@ -2592,12 +2592,12 @@ ion-segment.filter-segment {
       align-items: center;
       gap: 8px;
       font-weight: 600;
-      color: #495057;
+      color: var(--color-text-secondary);
       font-size: 0.95rem;
 
       ion-icon {
         font-size: 1.2rem;
-        color: #6c757d;
+        color: var(--color-text-muted);
       }
     }
 
@@ -2618,7 +2618,7 @@ ion-segment.filter-segment {
   }
 
   .unpaid-invoices-list {
-    border-top: 1px solid #dee2e6;
+    border-top: 1px solid var(--color-border-default);
     padding-top: 12px;
 
     .unpaid-invoice-item {
@@ -2626,7 +2626,7 @@ ion-segment.filter-segment {
       justify-content: space-between;
       align-items: center;
       padding: 8px 0;
-      border-bottom: 1px solid #e9ecef;
+      border-bottom: 1px solid var(--color-border-default);
 
       &:last-child {
         border-bottom: none;
@@ -2639,13 +2639,13 @@ ion-segment.filter-segment {
 
         .invoice-address {
           font-weight: 500;
-          color: #212529;
+          color: var(--color-text-primary);
           font-size: 0.9rem;
         }
 
         .invoice-service {
           font-size: 0.8rem;
-          color: #6c757d;
+          color: var(--color-text-muted);
         }
       }
 
@@ -2672,24 +2672,24 @@ ion-segment.filter-segment {
 
 // Payment History Section
 .payment-history-section {
-  background: #fff;
+  background: var(--color-bg-card);
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 16px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--color-border-default);
 
   .section-title {
     display: flex;
     align-items: center;
     gap: 8px;
     font-weight: 600;
-    color: #495057;
+    color: var(--color-text-secondary);
     font-size: 0.95rem;
     margin-bottom: 12px;
 
     ion-icon {
       font-size: 1.2rem;
-      color: #6c757d;
+      color: var(--color-text-muted);
     }
   }
 
@@ -2699,7 +2699,7 @@ ion-segment.filter-segment {
     th {
       font-size: 0.75rem;
       text-transform: uppercase;
-      color: #6c757d;
+      color: var(--color-text-muted);
       font-weight: 600;
     }
 
@@ -2726,8 +2726,8 @@ ion-segment.filter-segment {
       border-radius: 4px;
       font-size: 0.75rem;
       font-weight: 500;
-      background: #e9ecef;
-      color: #495057;
+      background: var(--color-bg-inset);
+      color: var(--color-text-secondary);
 
       &.paypal {
         background: #0070ba;
@@ -2741,11 +2741,11 @@ ion-segment.filter-segment {
       cursor: pointer;
       padding: 4px 8px;
       border-radius: 4px;
-      color: #6c757d;
+      color: var(--color-text-muted);
       transition: all 0.2s ease;
 
       &:hover {
-        background: #f0f0f0;
+        background: var(--color-bg-inset);
         color: var(--noble-orange, #F15A27);
       }
 
@@ -2761,7 +2761,7 @@ ion-segment.filter-segment {
   padding: 16px;
 
   .payments-section {
-    background: #ffffff;
+    background: var(--color-bg-card);
     border-radius: 8px;
     border: 1px solid var(--ion-border-color, #E0E0E0);
     padding: 0;
@@ -2806,7 +2806,7 @@ ion-segment.filter-segment {
           margin: 0;
           font-size: 14px;
           font-weight: 600;
-          color: #333333;
+          color: var(--color-text-primary);
         }
       }
 
@@ -2853,7 +2853,7 @@ ion-segment.filter-segment {
     }
 
     .no-payments-message {
-      color: #6c757d;
+      color: var(--color-text-muted);
     }
   }
 
@@ -2869,10 +2869,10 @@ ion-segment.filter-segment {
     .list-table-header {
       font-size: 12px;
       font-weight: 600;
-      color: #999;
+      color: var(--color-text-muted);
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      border-bottom: 2px solid #e0e0e0;
+      border-bottom: 2px solid var(--color-border-default);
       padding-bottom: 8px;
 
       .lt-col {
@@ -2881,9 +2881,9 @@ ion-segment.filter-segment {
     }
 
     .list-table-row {
-      border-bottom: 1px solid #f0f0f0;
+      border-bottom: 1px solid var(--color-border-light);
       font-size: 14px;
-      color: #333;
+      color: var(--color-text-primary);
 
       &:last-child {
         border-bottom: none;
@@ -2899,7 +2899,7 @@ ion-segment.filter-segment {
       gap: 2px;
 
       .currency-sign {
-        color: #999;
+        color: var(--color-text-muted);
         font-weight: 400;
       }
 
@@ -2947,8 +2947,8 @@ ion-segment.filter-segment {
       border-radius: 4px;
       font-size: 0.8rem;
       font-weight: 500;
-      background: #e9ecef;
-      color: #495057;
+      background: var(--color-bg-inset);
+      color: var(--color-text-secondary);
 
       &.paypal {
         background: #0070ba;
@@ -2967,11 +2967,11 @@ ion-segment.filter-segment {
 
     .download-invoice-btn {
       background: none;
-      border: 1px solid #dee2e6;
+      border: 1px solid var(--color-border-default);
       border-radius: 4px;
       padding: 4px 6px;
       cursor: pointer;
-      color: #495057;
+      color: var(--color-text-secondary);
       transition: all 0.2s ease;
 
       &:hover {
@@ -2995,7 +2995,7 @@ ion-segment.filter-segment {
         justify-content: space-between;
         align-items: center;
         padding: 16px 0;
-        border-bottom: 1px solid #e9ecef;
+        border-bottom: 1px solid var(--color-border-default);
 
         &:last-child {
           border-bottom: none;
@@ -3008,13 +3008,13 @@ ion-segment.filter-segment {
 
           .setting-label {
             font-weight: 400;
-            color: #333;
+            color: var(--color-text-primary);
             font-size: 14px;
           }
 
           .setting-description {
             font-size: 0.8rem;
-            color: #6c757d;
+            color: var(--color-text-muted);
           }
         }
 
@@ -3059,21 +3059,21 @@ ion-segment.filter-segment {
             gap: 6px;
             padding: 10px 16px;
             background: transparent;
-            color: #333;
-            border: 1px solid #ddd;
+            color: var(--color-text-primary);
+            border: 1px solid var(--color-border-default);
             border-radius: 8px;
             font-weight: 500;
             cursor: pointer;
             transition: all 0.2s ease;
 
             &:hover {
-              background: #f5f5f5;
-              border-color: #ccc;
+              background: var(--color-bg-page);
+              border-color: var(--color-border-heavy);
             }
 
             ion-icon {
               font-size: 1.1rem;
-              color: #666;
+              color: var(--color-text-secondary);
             }
           }
 
@@ -3099,15 +3099,15 @@ ion-segment.filter-segment {
 
         .autopay-day-select {
           padding: 10px 14px;
-          border: 1px solid #ced4da;
+          border: 1px solid var(--color-border-heavy);
           border-radius: 8px;
           font-size: 0.9rem;
-          background: white;
+          background: var(--color-bg-card);
           cursor: pointer;
           min-width: 180px;
 
           &:disabled {
-            background: #e9ecef;
+            background: var(--color-bg-inset);
             cursor: not-allowed;
             opacity: 0.7;
           }
@@ -3134,15 +3134,15 @@ ion-segment.filter-segment {
   display: flex;
   gap: 8px;
   padding-top: 12px;
-  border-top: 1px solid #e9ecef;
+  border-top: 1px solid var(--color-border-default);
 }
 
 .action-btn {
   padding: 6px 12px;
   border-radius: 8px;
-  border: 1px solid #dee2e6;
-  background: #ffffff;
-  color: #495057;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
   font-size: 0.75rem;
   font-weight: 500;
   display: flex;
@@ -3170,9 +3170,9 @@ ion-segment.filter-segment {
 }
 
 .task-card {
-  --background: #ffffff;
+  --background: var(--color-bg-card);
   border-radius: 16px;
-  box-shadow: 0 16px 26px rgba(15, 37, 83, 0.1);
+  box-shadow: 0 16px 26px var(--color-shadow);
   margin: 0; // Remove default ion-card margin to minimize spacing
 }
 
@@ -3190,7 +3190,7 @@ ion-segment.filter-segment {
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 18px 32px rgba(15, 37, 83, 0.15);
+    box-shadow: 0 18px 32px var(--color-shadow-heavy);
   }
 
   &:active {
@@ -3208,7 +3208,7 @@ ion-segment.filter-segment {
     --size: 22px;
     --border-radius: 4px; // Make it a square/box instead of circle
     --border-width: 2px;
-    --border-color: #dee2e6;
+    --border-color: var(--color-border-default);
     --checkbox-background-checked: #f15a27;
     --border-color-checked: #f15a27;
     margin-top: 2px;
@@ -3231,8 +3231,8 @@ ion-segment.filter-segment {
   margin-left: 8px;
 
   &.completed-badge {
-    --background: #e9ecef;
-    --color: #6c757d;
+    --background: var(--color-bg-inset);
+    --color: var(--color-text-muted);
   }
 
   &.overdue-badge {
@@ -3293,7 +3293,7 @@ ion-segment.filter-segment {
   margin-bottom: 20px;
 
   ion-searchbar {
-    --background: #fff;
+    --background: var(--color-bg-card);
     border-radius: 12px;
   }
 }
@@ -3301,7 +3301,7 @@ ion-segment.filter-segment {
 .invoice-tabs {
   display: flex;
   gap: 4px;
-  background: #f8f9fa;
+  background: var(--color-bg-elevated);
   border-radius: 12px;
   padding: 4px;
   justify-content: center;
@@ -3314,14 +3314,14 @@ ion-segment.filter-segment {
     border-radius: 8px;
     font-size: 0.875rem;
     font-weight: 500;
-    color: #666;
+    color: var(--color-text-secondary);
     cursor: pointer;
     transition: all 0.2s;
 
     &.active {
-      background: #ffffff;
+      background: var(--color-bg-card);
       color: #f15a27;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 2px 4px var(--color-shadow);
     }
 
     &:not(.active):hover {
@@ -3341,10 +3341,10 @@ ion-segment.filter-segment {
 }
 
 .timeline-content {
-  background: #fff;
+  background: var(--color-bg-card);
   border-radius: 14px;
   padding: 16px;
-  box-shadow: 0 12px 20px rgba(15, 37, 83, 0.1);
+  box-shadow: 0 12px 20px var(--color-shadow);
   flex: 1;
 }
 
@@ -3404,10 +3404,10 @@ ion-segment.filter-segment {
 }
 
 .communication-card {
-  background: #fff;
+  background: var(--color-bg-card);
   border-radius: 16px;
   padding: 12px;
-  box-shadow: 0 18px 30px rgba(10, 31, 68, 0.1);
+  box-shadow: 0 18px 30px var(--color-shadow);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -3478,10 +3478,10 @@ ion-segment.filter-segment {
 }
 
 .invoice-group-card {
-  background: #fff;
+  background: var(--color-bg-card);
   border-radius: 18px;
   padding: 16px;
-  box-shadow: 0 16px 28px rgba(10, 31, 68, 0.12);
+  box-shadow: 0 16px 28px var(--color-shadow-heavy);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -3498,7 +3498,7 @@ ion-segment.filter-segment {
   h4 {
     margin: 0;
     font-size: 1rem;
-    color: #212529;
+    color: var(--color-text-primary);
   }
 
   .metric-badge {
@@ -3508,13 +3508,13 @@ ion-segment.filter-segment {
 
     ion-icon {
       font-size: 1.1rem;
-      color: #666;
+      color: var(--color-text-secondary);
     }
 
     span {
       font-size: 0.9rem;
       font-weight: 600;
-      color: #333;
+      color: var(--color-text-primary);
     }
   }
 }
@@ -3573,10 +3573,10 @@ ion-segment.filter-segment {
 }
 
 .summary-pill {
-  background: #fff;
+  background: var(--color-bg-card);
   padding: 14px 18px;
   border-radius: 14px;
-  box-shadow: 0 12px 22px rgba(10, 31, 68, 0.12);
+  box-shadow: 0 12px 22px var(--color-shadow-heavy);
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -3621,7 +3621,7 @@ ion-segment.filter-segment {
   width: 80px;
   height: 80px;
   border-radius: 20px;
-  background: #f8f9fa;
+  background: var(--color-bg-elevated);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3630,7 +3630,7 @@ ion-segment.filter-segment {
 
   ion-icon {
     font-size: 40px;
-    color: #6c757d;
+    color: var(--color-text-muted);
   }
 }
 
@@ -3649,13 +3649,13 @@ ion-segment.filter-segment {
   margin: 0 0 8px 0;
   font-size: 1.5rem;
   font-weight: 700;
-  color: #212529;
+  color: var(--color-text-primary);
 }
 
 .empty-state-modern p {
   margin: 0;
   font-size: 1rem;
-  color: #6c757d;
+  color: var(--color-text-muted);
   max-width: 400px;
 }
 
@@ -3675,10 +3675,10 @@ ion-segment.filter-segment {
 
 // Metrics tab chart styles
 .chart-container {
-  background: #ffffff;
+  background: var(--color-bg-card);
   border-radius: 16px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px var(--color-shadow);
   margin-bottom: 24px;
 }
 
@@ -3689,13 +3689,13 @@ ion-segment.filter-segment {
     margin: 0 0 4px 0;
     font-size: 1.2rem;
     font-weight: 600;
-    color: #212529;
+    color: var(--color-text-primary);
   }
 
   p {
     margin: 0;
     font-size: 0.875rem;
-    color: #6c757d;
+    color: var(--color-text-muted);
   }
 }
 
@@ -3713,11 +3713,11 @@ ion-segment.filter-segment {
 // Pagination styles
 .pagination-info {
   padding: 12px 16px;
-  background: #f8f9fa;
+  background: var(--color-bg-elevated);
   border-radius: 8px;
   margin-bottom: 16px;
   font-size: 0.875rem;
-  color: #6c757d;
+  color: var(--color-text-muted);
   text-align: center;
 }
 
@@ -3728,9 +3728,9 @@ ion-segment.filter-segment {
   gap: 16px;
   margin-top: 24px;
   padding: 16px;
-  background: #ffffff;
+  background: var(--color-bg-card);
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px var(--color-shadow);
 }
 
 .pagination-btn {
@@ -3769,7 +3769,7 @@ ion-segment.filter-segment {
   }
 
   &:disabled {
-    background: #dee2e6;
+    background: var(--color-bg-inset);
     color: #adb5bd;
     cursor: not-allowed;
     opacity: 0.6;
@@ -3779,7 +3779,7 @@ ion-segment.filter-segment {
 .page-indicator {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #495057;
+  color: var(--color-text-secondary);
 }
 
 // Modal Styling - match project-detail Add Document modal
@@ -3787,6 +3787,7 @@ ion-segment.filter-segment {
   &::part(content) {
     border-radius: 16px 16px 0 0;
     max-width: 600px;
+    max-height: 90vh;
     margin: 0 auto;
   }
 
@@ -3821,7 +3822,7 @@ ion-segment.filter-segment {
   }
 
   ion-content {
-    --background: #f8f9fa;
+    --background: var(--color-bg-elevated);
   }
 }
 
@@ -3844,7 +3845,7 @@ ion-segment.filter-segment {
     margin: 0 0 16px 0;
     font-size: 1.125rem;
     font-weight: 600;
-    color: #212529;
+    color: var(--color-text-primary);
     padding-bottom: 8px;
     border-bottom: 2px solid #f15a27;
   }
@@ -3877,7 +3878,7 @@ ion-segment.filter-segment {
   label {
     font-size: 0.875rem;
     font-weight: 600;
-    color: #495057;
+    color: var(--color-text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
@@ -3891,12 +3892,12 @@ ion-segment.filter-segment {
 .form-textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 2px solid #dee2e6;
+  border: 2px solid var(--color-border-default);
   border-radius: 8px;
   font-size: 0.9rem;
   font-family: inherit;
-  color: #212529;
-  background: #ffffff;
+  color: var(--color-text-primary);
+  background: var(--color-bg-card);
   transition: all 0.2s ease;
 
   &:focus {
@@ -3929,8 +3930,8 @@ select.form-input {
 .delete-task-btn {
   width: 100%;
   padding: 12px 16px;
-  background: #dee2e6;
-  color: #212529;
+  background: var(--color-bg-inset);
+  color: var(--color-text-primary);
   border: none;
   border-radius: 8px;
   font-size: 0.9rem;
@@ -3948,9 +3949,9 @@ select.form-input {
   }
 
   &:hover {
-    background: #ced4da;
+    background: var(--color-bg-inset);
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 12px var(--color-shadow-heavy);
   }
 
   &:active {
@@ -3962,7 +3963,7 @@ select.form-input {
 .hint-text {
   display: block;
   font-size: 0.8rem;
-  color: #6c757d;
+  color: var(--color-text-muted);
   margin-top: 4px;
 }
 
@@ -3971,7 +3972,7 @@ select.form-input {
   align-items: center;
   gap: 8px;
   padding: 12px;
-  background: #f8f9fa;
+  background: var(--color-bg-elevated);
   border-radius: 8px;
   margin-top: 4px;
 
@@ -4111,7 +4112,7 @@ select.form-input {
 
   &:disabled {
     background: #ccc;
-    color: #888;
+    color: var(--color-text-muted);
     cursor: not-allowed;
     opacity: 0.7;
   }
@@ -4179,13 +4180,13 @@ select.form-input {
 
 // Custom Alert Styling
 ion-alert.custom-alert {
-  --background: #ffffff;
+  --background: var(--color-bg-card);
   --max-width: 400px;
   --backdrop-opacity: 0.5;
 
   .alert-wrapper {
     border-radius: 16px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 10px 40px var(--color-shadow-heavy);
   }
 
   .alert-head {
@@ -4195,14 +4196,14 @@ ion-alert.custom-alert {
   .alert-title {
     font-size: 1.25rem;
     font-weight: 600;
-    color: #212529;
+    color: var(--color-text-primary);
     text-align: center;
   }
 
   .alert-message {
     padding: 16px 20px;
     font-size: 0.9rem;
-    color: #495057;
+    color: var(--color-text-secondary);
     text-align: center;
     line-height: 1.5;
   }
@@ -4224,13 +4225,13 @@ ion-alert.custom-alert {
     letter-spacing: 0.5px;
     height: 48px;
     border: 2px solid #f15a27;
-    background: #e8e8e8;
-    color: #333;
+    background: var(--color-bg-inset);
+    color: var(--color-text-primary);
     transition: all 0.2s ease;
 
     &.alert-button-cancel {
-      background: #e8e8e8;
-      color: #333;
+      background: var(--color-bg-inset);
+      color: var(--color-text-primary);
       border-color: #f15a27;
 
       &:hover {
@@ -4244,8 +4245,8 @@ ion-alert.custom-alert {
     }
 
     &.alert-button-confirm {
-      background: #e8e8e8;
-      color: #333;
+      background: var(--color-bg-inset);
+      color: var(--color-text-primary);
       border-color: #f15a27;
 
       &:hover {
@@ -4293,7 +4294,7 @@ ion-alert.custom-alert {
   }
 
   &:disabled {
-    background: #dee2e6;
+    background: var(--color-bg-inset);
     color: #adb5bd;
     cursor: not-allowed;
     opacity: 0.6;
@@ -4315,14 +4316,14 @@ ion-alert.custom-alert {
 
 .user-card {
   position: relative;
-  background: #ffffff;
+  background: var(--color-bg-card);
   border-radius: 12px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--color-border-default);
   overflow: hidden;
   transition: all 0.3s ease;
 
   &:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px var(--color-shadow);
     transform: translateY(-2px);
     border-color: #f15a27;
   }
@@ -4337,12 +4338,12 @@ ion-alert.custom-alert {
 
     ion-icon {
       font-size: 18px;
-      color: #999;
+      color: var(--color-text-muted);
       cursor: pointer;
       transition: color 0.15s;
 
       &.action-edit:hover {
-        color: #333;
+        color: var(--color-text-primary);
       }
 
       &.action-delete:hover {
@@ -4362,7 +4363,7 @@ ion-alert.custom-alert {
   gap: 16px;
   margin-bottom: 16px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--color-border-default);
 }
 
 .user-avatar {
@@ -4375,7 +4376,7 @@ ion-alert.custom-alert {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px var(--color-shadow-heavy);
 
   .headshot-image {
     width: 100%;
@@ -4405,7 +4406,7 @@ ion-alert.custom-alert {
     margin: 0 0 4px 0;
     font-size: 1.1rem;
     font-weight: 600;
-    color: #212529;
+    color: var(--color-text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -4414,7 +4415,7 @@ ion-alert.custom-alert {
   .user-role {
     margin: 0;
     font-size: 0.9rem;
-    color: #6c757d;
+    color: var(--color-text-muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -4432,7 +4433,7 @@ ion-alert.custom-alert {
   align-items: center;
   gap: 10px;
   font-size: 0.9rem;
-  color: #495057;
+  color: var(--color-text-secondary);
 
   ion-icon {
     font-size: 18px;
@@ -4441,7 +4442,7 @@ ion-alert.custom-alert {
   }
 
   a {
-    color: #333333;
+    color: var(--color-text-primary);
     text-decoration: none;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -4488,12 +4489,12 @@ ion-alert.custom-alert {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px var(--color-shadow-heavy);
   cursor: pointer;
   transition: all 0.2s ease;
 
   &:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 12px var(--color-shadow-heavy);
     transform: scale(1.02);
   }
 
@@ -4526,13 +4527,13 @@ ion-alert.custom-alert {
   border-radius: 50%;
   background: #f15a27;
   color: #ffffff;
-  border: 3px solid #ffffff;
+  border: 3px solid var(--color-bg-card);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px var(--color-shadow-heavy);
 
   ion-icon {
     font-size: 20px;
@@ -4554,26 +4555,26 @@ ion-alert.custom-alert {
   text-align: center;
   margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--color-border-default);
 
   h4 {
     margin: 0 0 4px 0;
     font-size: 1.2rem;
     font-weight: 600;
-    color: #212529;
+    color: var(--color-text-primary);
   }
 
   p {
     margin: 0;
     font-size: 0.9rem;
-    color: #6c757d;
+    color: var(--color-text-muted);
   }
 }
 
 .form-hint {
   margin-top: 8px;
   font-size: 0.85rem;
-  color: #6c757d;
+  color: var(--color-text-muted);
   text-align: center;
 }
 
@@ -4589,13 +4590,13 @@ ion-alert.custom-alert {
     margin: 0 0 4px 0;
     font-size: 1.3rem;
     font-weight: 600;
-    color: #212529;
+    color: var(--color-text-primary);
   }
 
   p {
     margin: 0;
     font-size: 0.9rem;
-    color: #6c757d;
+    color: var(--color-text-muted);
   }
 
   .add-button {
@@ -4608,10 +4609,10 @@ ion-alert.custom-alert {
 
 // Current Company Display Styling
 .company-details-card {
-  background: #ffffff;
+  background: var(--color-bg-card);
   border-radius: 16px;
   padding: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 12px var(--color-shadow);
 }
 
 .company-header-display {
@@ -4623,14 +4624,14 @@ ion-alert.custom-alert {
     margin: 0;
     font-size: 1.5rem;
     font-weight: 700;
-    color: #212529;
+    color: var(--color-text-primary);
   }
 }
 
 .detail-section {
   margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--color-border-default);
 
   &:last-child {
     border-bottom: none;
@@ -4642,12 +4643,12 @@ ion-alert.custom-alert {
     margin: 0 0 16px 0;
     font-size: 1.1rem;
     font-weight: 600;
-    color: #495057;
+    color: var(--color-text-secondary);
   }
 
   p {
     margin: 0;
-    color: #212529;
+    color: var(--color-text-primary);
   }
 
   a {
@@ -4681,7 +4682,7 @@ ion-alert.custom-alert {
     display: block;
     font-size: 0.85rem;
     font-weight: 600;
-    color: #6c757d;
+    color: var(--color-text-muted);
     margin-bottom: 4px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -4707,7 +4708,7 @@ ion-alert.custom-alert {
 }
 
 .no-data-text {
-  color: #6c757d;
+  color: var(--color-text-muted);
   font-style: italic;
   margin: 0;
 }
@@ -4717,43 +4718,43 @@ ion-alert.custom-alert {
   table {
     width: 100%;
     border-collapse: collapse;
-    background: #ffffff;
+    background: var(--color-bg-card);
     border-radius: 8px;
     overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 3px var(--color-shadow);
 
     thead {
-      background: #f8f9fa;
+      background: var(--color-bg-elevated);
       
       th {
         padding: 12px;
         text-align: left;
         font-size: 0.85rem;
         font-weight: 600;
-        color: #495057;
+        color: var(--color-text-secondary);
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        border-bottom: 2px solid #dee2e6;
+        border-bottom: 2px solid var(--color-border-default);
       }
     }
 
     tbody {
       tr {
-        border-bottom: 1px solid #e9ecef;
+        border-bottom: 1px solid var(--color-border-default);
 
         &:last-child {
           border-bottom: none;
         }
 
         &:hover {
-          background: #f8f9fa;
+          background: var(--color-bg-elevated);
         }
       }
 
       td {
         padding: 12px;
         font-size: 0.9rem;
-        color: #212529;
+        color: var(--color-text-primary);
 
         &:first-child {
           font-weight: 500;
@@ -4777,12 +4778,12 @@ ion-alert.custom-alert {
 }
 
 .invoice-item {
-  background: #ffffff;
-  border: 1px solid #dee2e6;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-default);
   border-radius: 8px;
   overflow: hidden;
   transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px var(--color-shadow);
 
   &:hover {
     border-color: #f15a27;
@@ -4791,7 +4792,7 @@ ion-alert.custom-alert {
 
   @media (max-width: 768px) {
     border-width: 2px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px var(--color-shadow);
   }
 }
 
@@ -4799,9 +4800,9 @@ ion-alert.custom-alert {
   display: grid;
   grid-template-columns: 2fr 2fr 1fr;
   gap: 16px;
-  background: #e9ecef;
+  background: var(--color-bg-inset);
   padding: 8px 16px;
-  border-bottom: 1px solid #dee2e6;
+  border-bottom: 1px solid var(--color-border-default);
 
   @media (max-width: 768px) {
     gap: 8px;
@@ -4812,7 +4813,7 @@ ion-alert.custom-alert {
 .invoice-header-cell {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #212529;
+  color: var(--color-text-primary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 
@@ -4862,7 +4863,7 @@ ion-alert.custom-alert {
 
 .invoice-value {
   font-size: 0.95rem;
-  color: #212529;
+  color: var(--color-text-primary);
   word-wrap: break-word;
   overflow-wrap: break-word;
   display: flex;
@@ -5002,18 +5003,19 @@ ion-alert.custom-alert {
 
 // Skeleton base mixin
 @mixin skeleton-shimmer {
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
   background-size: 200% 100%;
   animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
   border-radius: 4px;
 }
 
+
 // Skeleton for company details card (when loading company info)
 .skeleton-company-details {
-  background: var(--noble-white, #ffffff);
+  background: var(--color-bg-card);
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px var(--color-shadow);
 
   .skeleton-company-header {
     margin-bottom: 24px;
@@ -5077,8 +5079,8 @@ ion-alert.custom-alert {
 
 // Skeleton for company rollup cards
 .skeleton-company-card {
-  background: #ffffff;
-  border: 2px solid #e9ecef;
+  background: var(--color-bg-card);
+  border: 2px solid var(--color-border-default);
   border-radius: 12px;
   padding: 16px;
   display: flex;
@@ -5095,7 +5097,7 @@ ion-alert.custom-alert {
     .skeleton-company-name {
       width: 60%;
       height: 18px;
-      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
       background-size: 200% 100%;
       animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
       border-radius: 4px;
@@ -5104,7 +5106,7 @@ ion-alert.custom-alert {
     .skeleton-company-location {
       width: 40%;
       height: 12px;
-      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
       background-size: 200% 100%;
       animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
       border-radius: 4px;
@@ -5119,7 +5121,7 @@ ion-alert.custom-alert {
       width: 50px;
       height: 28px;
       border-radius: 8px;
-      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
       background-size: 200% 100%;
       animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
     }
@@ -5129,7 +5131,7 @@ ion-alert.custom-alert {
     width: 28px;
     height: 28px;
     border-radius: 6px;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
     background-size: 200% 100%;
     animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
   }
@@ -5141,7 +5143,7 @@ ion-alert.custom-alert {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: #f8f9fa;
+  background: var(--color-bg-elevated);
   border-radius: 10px;
   margin-bottom: 8px;
 
@@ -5153,7 +5155,7 @@ ion-alert.custom-alert {
     .skeleton-stage-name {
       width: 120px;
       height: 18px;
-      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
       background-size: 200% 100%;
       animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
       border-radius: 4px;
@@ -5162,7 +5164,7 @@ ion-alert.custom-alert {
     .skeleton-stage-count {
       width: 80px;
       height: 12px;
-      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
       background-size: 200% 100%;
       animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
       border-radius: 4px;
@@ -5173,7 +5175,7 @@ ion-alert.custom-alert {
     width: 28px;
     height: 28px;
     border-radius: 6px;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
     background-size: 200% 100%;
     animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
   }
@@ -5181,10 +5183,10 @@ ion-alert.custom-alert {
 
 // Skeleton for task cards
 .skeleton-task-card {
-  background: #ffffff;
+  background: var(--color-bg-card);
   border-radius: 16px;
   padding: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px var(--color-shadow);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -5198,7 +5200,7 @@ ion-alert.custom-alert {
       width: 22px;
       height: 22px;
       border-radius: 4px;
-      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
       background-size: 200% 100%;
       animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
     }
@@ -5212,7 +5214,7 @@ ion-alert.custom-alert {
       .skeleton-task-title {
         width: 65%;
         height: 16px;
-        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
         background-size: 200% 100%;
         animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
         border-radius: 4px;
@@ -5221,7 +5223,7 @@ ion-alert.custom-alert {
       .skeleton-task-company {
         width: 45%;
         height: 14px;
-        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
         background-size: 200% 100%;
         animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
         border-radius: 4px;
@@ -5232,7 +5234,7 @@ ion-alert.custom-alert {
       width: 60px;
       height: 20px;
       border-radius: 10px;
-      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
       background-size: 200% 100%;
       animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
     }
@@ -5246,7 +5248,7 @@ ion-alert.custom-alert {
     .skeleton-meta-line {
       width: 50%;
       height: 14px;
-      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
       background-size: 200% 100%;
       animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
       border-radius: 4px;
@@ -5260,9 +5262,9 @@ ion-alert.custom-alert {
 
 // Skeleton for user cards
 .skeleton-user-card {
-  background: #ffffff;
+  background: var(--color-bg-card);
   border-radius: 12px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--color-border-default);
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -5273,13 +5275,13 @@ ion-alert.custom-alert {
     align-items: center;
     gap: 16px;
     padding-bottom: 16px;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid var(--color-border-default);
 
     .skeleton-user-avatar {
       width: 64px;
       height: 64px;
       border-radius: 50%;
-      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
       background-size: 200% 100%;
       animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
     }
@@ -5293,7 +5295,7 @@ ion-alert.custom-alert {
       .skeleton-user-name {
         width: 60%;
         height: 18px;
-        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
         background-size: 200% 100%;
         animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
         border-radius: 4px;
@@ -5302,7 +5304,7 @@ ion-alert.custom-alert {
       .skeleton-user-role {
         width: 40%;
         height: 14px;
-        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
         background-size: 200% 100%;
         animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
         border-radius: 4px;
@@ -5324,7 +5326,7 @@ ion-alert.custom-alert {
         width: 18px;
         height: 18px;
         border-radius: 4px;
-        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
         background-size: 200% 100%;
         animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
       }
@@ -5332,7 +5334,7 @@ ion-alert.custom-alert {
       .skeleton-detail-text {
         width: 70%;
         height: 14px;
-        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
         background-size: 200% 100%;
         animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
         border-radius: 4px;
@@ -5364,8 +5366,8 @@ ion-alert.custom-alert {
 
 // Skeleton for invoice items
 .skeleton-invoice-item {
-  background: #ffffff;
-  border: 1px solid #dee2e6;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-default);
   border-radius: 8px;
   overflow: hidden;
 
@@ -5373,12 +5375,12 @@ ion-alert.custom-alert {
     display: grid;
     grid-template-columns: 2fr 2fr 1fr;
     gap: 16px;
-    background: #e9ecef;
+    background: var(--color-bg-inset);
     padding: 8px 16px;
 
     .skeleton-header-cell {
       height: 12px;
-      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
       background-size: 200% 100%;
       animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
       border-radius: 4px;
@@ -5410,7 +5412,7 @@ ion-alert.custom-alert {
 
       .skeleton-value-line {
         height: 14px;
-        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
         background-size: 200% 100%;
         animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
         border-radius: 4px;
@@ -5429,10 +5431,10 @@ ion-alert.custom-alert {
 
 // Skeleton for meetings/communications
 .skeleton-timeline-card {
-  background: #ffffff;
+  background: var(--color-bg-card);
   border-radius: 16px;
   padding: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px var(--color-shadow);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -5445,7 +5447,7 @@ ion-alert.custom-alert {
     .skeleton-title {
       width: 50%;
       height: 16px;
-      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
       background-size: 200% 100%;
       animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
       border-radius: 4px;
@@ -5454,7 +5456,7 @@ ion-alert.custom-alert {
     .skeleton-date {
       width: 80px;
       height: 14px;
-      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
       background-size: 200% 100%;
       animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
       border-radius: 4px;
@@ -5468,7 +5470,7 @@ ion-alert.custom-alert {
 
     .skeleton-meta-line {
       height: 14px;
-      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
       background-size: 200% 100%;
       animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
       border-radius: 4px;
@@ -5497,9 +5499,9 @@ ion-alert.custom-alert {
   gap: 16px;
 
   .skeleton-contact-group {
-    background: #ffffff;
+    background: var(--color-bg-card);
     border-radius: 12px;
-    border: 1px solid #e9ecef;
+    border: 1px solid var(--color-border-default);
     overflow: hidden;
 
     .skeleton-contact-group-header {
@@ -5507,13 +5509,13 @@ ion-alert.custom-alert {
       justify-content: space-between;
       align-items: center;
       padding: 12px 16px;
-      background: #f8f9fa;
-      border-bottom: 1px solid #e9ecef;
+      background: var(--color-bg-elevated);
+      border-bottom: 1px solid var(--color-border-default);
 
       .skeleton-company-name {
         width: 150px;
         height: 18px;
-        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
         background-size: 200% 100%;
         animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
         border-radius: 4px;
@@ -5522,7 +5524,7 @@ ion-alert.custom-alert {
       .skeleton-badge {
         width: 40px;
         height: 24px;
-        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
         background-size: 200% 100%;
         animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
         border-radius: 12px;
@@ -5540,7 +5542,7 @@ ion-alert.custom-alert {
         grid-template-columns: 2fr 1.5fr 1fr;
         gap: 16px;
         padding: 8px 0;
-        border-bottom: 1px solid #f0f0f0;
+        border-bottom: 1px solid var(--color-border-light);
 
         &:last-child {
           border-bottom: none;
@@ -5549,7 +5551,7 @@ ion-alert.custom-alert {
         .skeleton-contact-name {
           width: 80%;
           height: 16px;
-          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
           background-size: 200% 100%;
           animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
           border-radius: 4px;
@@ -5558,7 +5560,7 @@ ion-alert.custom-alert {
         .skeleton-contact-title {
           width: 60%;
           height: 14px;
-          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
           background-size: 200% 100%;
           animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
           border-radius: 4px;
@@ -5567,7 +5569,7 @@ ion-alert.custom-alert {
         .skeleton-contact-phone {
           width: 70%;
           height: 14px;
-          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
           background-size: 200% 100%;
           animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
           border-radius: 4px;
@@ -5584,10 +5586,10 @@ ion-alert.custom-alert {
   gap: 16px;
 
   .skeleton-meeting-item {
-    background: #ffffff;
+    background: var(--color-bg-card);
     border-radius: 16px;
     padding: 16px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 2px 8px var(--color-shadow);
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -5600,7 +5602,7 @@ ion-alert.custom-alert {
       .skeleton-meeting-subject {
         width: 50%;
         height: 18px;
-        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
         background-size: 200% 100%;
         animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
         border-radius: 4px;
@@ -5615,7 +5617,7 @@ ion-alert.custom-alert {
         .skeleton-date {
           width: 80px;
           height: 14px;
-          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
           background-size: 200% 100%;
           animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
           border-radius: 4px;
@@ -5624,7 +5626,7 @@ ion-alert.custom-alert {
         .skeleton-time {
           width: 60px;
           height: 12px;
-          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
           background-size: 200% 100%;
           animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
           border-radius: 4px;
@@ -5635,7 +5637,7 @@ ion-alert.custom-alert {
     .skeleton-meeting-description {
       width: 70%;
       height: 14px;
-      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
       background-size: 200% 100%;
       animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
       border-radius: 4px;
@@ -5648,7 +5650,7 @@ ion-alert.custom-alert {
       .skeleton-meta-item {
         width: 120px;
         height: 14px;
-        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
         background-size: 200% 100%;
         animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
         border-radius: 4px;
@@ -5664,10 +5666,10 @@ ion-alert.custom-alert {
   gap: 16px;
 
   .skeleton-communication-card {
-    background: #ffffff;
+    background: var(--color-bg-card);
     border-radius: 16px;
     padding: 16px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 2px 8px var(--color-shadow);
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -5680,7 +5682,7 @@ ion-alert.custom-alert {
       .skeleton-comm-type {
         width: 100px;
         height: 18px;
-        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
         background-size: 200% 100%;
         animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
         border-radius: 4px;
@@ -5689,7 +5691,7 @@ ion-alert.custom-alert {
       .skeleton-comm-date {
         width: 80px;
         height: 14px;
-        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
         background-size: 200% 100%;
         animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
         border-radius: 4px;
@@ -5699,7 +5701,7 @@ ion-alert.custom-alert {
     .skeleton-comm-notes {
       width: 80%;
       height: 14px;
-      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
       background-size: 200% 100%;
       animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
       border-radius: 4px;
@@ -5713,7 +5715,7 @@ ion-alert.custom-alert {
       .skeleton-meta-item {
         width: 100px;
         height: 14px;
-        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
         background-size: 200% 100%;
         animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
         border-radius: 4px;
@@ -5729,10 +5731,10 @@ ion-alert.custom-alert {
   gap: 24px;
 
   .skeleton-chart-container {
-    background: #ffffff;
+    background: var(--color-bg-card);
     border-radius: 16px;
     padding: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 2px 8px var(--color-shadow);
 
     .skeleton-chart-header {
       margin-bottom: 16px;
@@ -5740,7 +5742,7 @@ ion-alert.custom-alert {
       .skeleton-chart-title {
         width: 180px;
         height: 20px;
-        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
         background-size: 200% 100%;
         animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
         border-radius: 4px;
@@ -5750,7 +5752,7 @@ ion-alert.custom-alert {
       .skeleton-chart-subtitle {
         width: 220px;
         height: 14px;
-        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
         background-size: 200% 100%;
         animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
         border-radius: 4px;
@@ -5761,11 +5763,85 @@ ion-alert.custom-alert {
       .skeleton-chart {
         width: 100%;
         height: 200px;
-        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
         background-size: 200% 100%;
         animation: crm-skeleton-shimmer 1.5s infinite ease-in-out;
         border-radius: 8px;
       }
     }
+  }
+}
+
+// ==============================================
+// Dark Theme Overrides
+// ==============================================
+:host-context(body.dark-theme) {
+
+  // Translucent hover overlays: white overlay -> subtle light overlay for dark bg
+  .admin-main-tab:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .invoice-tab:not(.active):hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  // Light hover/press overlays that use rgba black (invisible on dark bg)
+  .collapsible-header:hover,
+  .section-header-row:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .stage-expand-toggle {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+  }
+
+  // Selected company rollup gradient
+  .company-rollup.selected {
+    background: linear-gradient(to right, rgba(255, 255, 255, 0.05), transparent);
+  }
+
+  // Alert button hover/active states
+  .alert-button {
+    &.alert-button-cancel,
+    &.alert-button-confirm {
+      &:hover {
+        background: var(--color-bg-elevated);
+      }
+
+      &:active {
+        background: var(--color-bg-page);
+      }
+    }
+  }
+
+  // Stat card gradient
+  .stat-card {
+    background: linear-gradient(140deg, var(--color-bg-elevated) 0%, var(--color-bg-card) 100%);
+  }
+
+  // Outstanding balance card gradient
+  .outstanding-balance-card {
+    background: linear-gradient(135deg, rgba(241, 90, 39, 0.08) 0%, var(--color-bg-card) 100%);
+  }
+
+  // Global company filter gradient
+  .global-company-filter {
+    background: linear-gradient(135deg, var(--color-bg-elevated), var(--color-bg-card));
+  }
+
+  // Active subtab tinted background
+  .subtab-button.active {
+    background: rgba(241, 90, 39, 0.12);
+  }
+
+  // Suggestion item active state
+  .company-suggestions .suggestion-item:active {
+    background: rgba(241, 90, 39, 0.1);
   }
 }

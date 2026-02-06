@@ -1,5 +1,5 @@
 ion-content {
-  --background: #f5f5f5;
+  --background: var(--color-bg-page);
 
   // Center content like Active Projects page
   &.ion-padding {
@@ -90,16 +90,16 @@ form {
 }
 
 .form-section {
-  background: white;
+  background: var(--color-bg-card);
   margin-bottom: 12px;
   padding: 16px;
   border-radius: 12px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 6px var(--color-shadow);
   
   .section-title {
     font-size: 12px;
     font-weight: 600;
-    color: #666;
+    color: var(--color-text-secondary);
     letter-spacing: 1px;
     margin: 0 0 16px 0;
     text-transform: uppercase;
@@ -112,7 +112,7 @@ form {
     
     ion-label {
       font-size: 14px;
-      color: #333;
+      color: var(--color-text-primary);
       margin-bottom: 4px;
     }
     
@@ -122,7 +122,7 @@ form {
       --padding-end: 12px;
       --padding-top: 10px;
       --padding-bottom: 10px;
-      border: 1px solid #ddd;
+      border: 1px solid var(--color-border-default);
       border-radius: 4px;
       margin-top: 4px;
     }
@@ -157,7 +157,7 @@ ion-grid {
     ion-checkbox {
       --size: 18px;
       --checkbox-background-checked: #3880ff;
-      --border-color: #999;
+      --border-color: var(--color-text-muted);
       --border-color-checked: #3880ff;
       margin-right: 12px;
       margin-inline-end: 12px;
@@ -165,7 +165,7 @@ ion-grid {
     
     ion-label {
       font-size: 14px;
-      color: #333;
+      color: var(--color-text-primary);
       margin-left: 0;
     }
   }
@@ -173,8 +173,8 @@ ion-grid {
 
 .button-container {
   padding: 20px 16px;
-  background: white;
-  
+  background: var(--color-bg-card);
+
   ion-button {
     --border-radius: 4px;
     font-weight: 500;
@@ -188,11 +188,11 @@ ion-grid {
 .native-input {
   width: 100%;
   padding: 10px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--color-border-default);
   border-radius: 4px;
   font-size: 16px;
   margin-top: 4px;
-  background: white;
+  background: var(--color-bg-card);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica", "Arial", sans-serif;
 
   &:focus {
@@ -202,14 +202,14 @@ ion-grid {
 
 // Override styled-input to match native-input border color
 .styled-input {
-  border: 1px solid #ddd !important;
+  border: 1px solid var(--color-border-default) !important;
   border-radius: 4px;
 }
 
 // Google Places Autocomplete dropdown styling
 :global(.pac-container) {
   z-index: 99999 !important;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 6px var(--color-shadow-heavy);
   border-radius: 4px;
   border-top: 1px solid #e6e6e6;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica", "Arial", sans-serif;
@@ -222,7 +222,7 @@ ion-grid {
   cursor: pointer;
   
   &:hover {
-    background-color: #f5f5f5;
+    background-color: var(--color-bg-inset);
   }
 }
 
@@ -232,7 +232,7 @@ ion-grid {
 
 :global(.pac-item-query) {
   font-size: 14px;
-  color: #333;
+  color: var(--color-text-primary);
 }
 
 // Date input styling for better cross-browser compatibility
@@ -315,5 +315,16 @@ input[type="date"] {
 @media (hover: hover) and (pointer: fine) {
   ion-content {
     --padding-bottom: 80px;
+  }
+}
+
+:host-context(body.dark-theme) {
+  .form-section ion-item {
+    --background: transparent;
+  }
+
+  .pac-container {
+    background: var(--color-bg-card);
+    border-color: var(--color-border-default);
   }
 }

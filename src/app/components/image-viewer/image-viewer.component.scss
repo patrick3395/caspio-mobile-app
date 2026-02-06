@@ -17,7 +17,7 @@
   background: linear-gradient(180deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 100%);
   padding: env(safe-area-inset-top) 0 0 0; // Respect safe area for notches
   z-index: 10;
-  
+
   .header-content {
     display: flex;
     align-items: center;
@@ -25,19 +25,19 @@
     padding: 8px;
     min-height: 56px;
   }
-  
+
   .header-left,
   .header-right {
     display: flex;
     align-items: center;
     gap: 4px;
   }
-  
+
   .header-center {
     flex: 1;
     text-align: center;
     padding: 0 8px;
-    
+
     .document-title {
       color: #fff;
       font-size: 16px;
@@ -46,14 +46,14 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    
+
     .image-counter {
       color: rgba(255, 255, 255, 0.7);
       font-size: 12px;
       margin-top: 2px;
     }
   }
-  
+
   .nav-btn,
   .close-btn {
     --background: transparent;
@@ -63,24 +63,24 @@
     margin: 0;
     height: 40px;
     width: 40px;
-    
+
     ion-icon {
       font-size: 24px;
     }
-    
+
     &:hover {
       --background: rgba(255, 255, 255, 0.1);
     }
-    
+
     &[disabled] {
       opacity: 0.3;
     }
   }
-  
+
   .close-btn {
     --background: rgba(255, 255, 255, 0.1);
     border-radius: 8px;
-    
+
     &:hover {
       --background: rgba(255, 255, 255, 0.2);
     }
@@ -96,13 +96,13 @@
   position: relative;
 }
 
-// Annotation toolbar
+// Annotation toolbar - theme-aware since it overlays the image editor
 .annotation-bar {
-  background: rgba(255, 255, 255, 0.95);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  background: var(--color-bg-card);
+  border-bottom: 1px solid var(--color-border-default);
   padding: 8px;
   z-index: 5;
-  
+
   .annotation-tools-wrapper {
     display: flex;
     align-items: center;
@@ -110,16 +110,16 @@
     gap: 12px;
     flex-wrap: wrap;
   }
-  
+
   .tool-group {
     display: flex;
     align-items: center;
     gap: 4px;
   }
-  
+
   .tool-btn {
-    background: white;
-    border: 2px solid #e0e0e0;
+    background: var(--color-bg-surface);
+    border: 2px solid var(--color-border-default);
     border-radius: 8px;
     padding: 8px;
     cursor: pointer;
@@ -127,73 +127,73 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    
+
     ion-icon {
       font-size: 18px;
-      color: #333;
+      color: var(--color-text-primary);
     }
-    
+
     &:hover {
-      background: #f5f5f5;
+      background: var(--color-bg-elevated);
       border-color: #3880ff;
     }
-    
+
     &.active {
       background: #3880ff;
       border-color: #3880ff;
-      
+
       ion-icon {
         color: white;
       }
     }
-    
+
     &:disabled {
       opacity: 0.4;
       cursor: not-allowed;
     }
-    
+
     &.save-btn {
       background: #10dc60;
       border-color: #10dc60;
       color: white;
       padding: 8px 16px;
-      
+
       ion-icon {
         color: white;
       }
-      
+
       &:hover {
         background: #0ec254;
       }
     }
   }
-  
+
   .tool-divider {
     width: 1px;
     height: 24px;
-    background: #e0e0e0;
+    background: var(--color-border-default);
   }
-  
+
   .color-input {
     width: 36px;
     height: 36px;
-    border: 2px solid #e0e0e0;
+    border: 2px solid var(--color-border-default);
     border-radius: 8px;
     cursor: pointer;
     padding: 2px;
-    
+
     &:hover {
       border-color: #3880ff;
     }
   }
-  
+
   .width-slider {
     width: 100px;
     height: 36px;
   }
 }
 
-// Image container
+// Image container - stays black for image viewing
 .image-container {
   flex: 1;
   display: flex;
@@ -202,11 +202,11 @@
   position: relative;
   overflow: hidden;
   background: #000;
-  
+
   &.editing {
-    background: #f0f0f0;
+    background: var(--color-bg-inset);
   }
-  
+
   .image-wrapper {
     position: relative;
     max-width: 100%;
@@ -215,14 +215,14 @@
     justify-content: center;
     align-items: center;
   }
-  
+
   .displayed-image {
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
     display: block;
   }
-  
+
   .annotation-layer {
     position: absolute;
     top: 0;
@@ -230,7 +230,7 @@
     cursor: crosshair;
     z-index: 2;
   }
-  
+
   .loading-indicator {
     position: absolute;
     top: 50%;
@@ -238,20 +238,20 @@
     transform: translate(-50%, -50%);
     text-align: center;
     color: white;
-    
+
     ion-spinner {
       --color: white;
       width: 48px;
       height: 48px;
     }
-    
+
     p {
       margin-top: 16px;
       font-size: 14px;
       opacity: 0.8;
     }
   }
-  
+
   .error-state {
     position: absolute;
     top: 50%;
@@ -259,18 +259,18 @@
     transform: translate(-50%, -50%);
     text-align: center;
     color: white;
-    
+
     .error-icon {
       font-size: 64px;
       opacity: 0.5;
     }
-    
+
     p {
       margin: 16px 0;
       font-size: 14px;
       opacity: 0.8;
     }
-    
+
     .retry-btn {
       background: rgba(255, 255, 255, 0.2);
       border: 1px solid rgba(255, 255, 255, 0.3);
@@ -282,11 +282,11 @@
       align-items: center;
       gap: 8px;
       transition: all 0.2s;
-      
+
       &:hover {
         background: rgba(255, 255, 255, 0.3);
       }
-      
+
       ion-icon {
         font-size: 18px;
       }
@@ -294,12 +294,12 @@
   }
 }
 
-// Thumbnail strip
+// Thumbnail strip - stays dark (lightbox chrome)
 .thumbnail-strip {
   background: rgba(0, 0, 0, 0.8);
   padding: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-  
+
   .thumbnails-wrapper {
     display: flex;
     gap: 8px;
@@ -307,21 +307,21 @@
     overflow-y: hidden;
     padding: 4px;
     justify-content: center;
-    
+
     &::-webkit-scrollbar {
       height: 4px;
     }
-    
+
     &::-webkit-scrollbar-track {
       background: rgba(255, 255, 255, 0.1);
     }
-    
+
     &::-webkit-scrollbar-thumb {
       background: rgba(255, 255, 255, 0.3);
       border-radius: 2px;
     }
   }
-  
+
   .thumbnail {
     position: relative;
     min-width: 60px;
@@ -331,13 +331,13 @@
     overflow: hidden;
     cursor: pointer;
     transition: all 0.2s;
-    
+
     img {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
-    
+
     .thumb-number {
       position: absolute;
       bottom: 2px;
@@ -348,12 +348,12 @@
       padding: 2px 4px;
       border-radius: 4px;
     }
-    
+
     &:hover {
       transform: scale(1.05);
       border-color: rgba(255, 255, 255, 0.5);
     }
-    
+
     &.active {
       border-color: #3880ff;
       transform: scale(1.1);
@@ -362,7 +362,7 @@
   }
 }
 
-// Action bar
+// Action bar - stays dark (lightbox chrome)
 .action-bar {
   background: rgba(0, 0, 0, 0.9);
   border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -372,7 +372,7 @@
   align-items: center;
   z-index: 5;
   padding-bottom: calc(12px + env(safe-area-inset-bottom)); // Respect safe area
-  
+
   .file-info {
     display: flex;
     align-items: center;
@@ -381,12 +381,12 @@
     font-size: 14px;
     flex: 1;
     min-width: 0;
-    
+
     ion-icon {
       font-size: 18px;
       opacity: 0.7;
     }
-    
+
     span {
       white-space: nowrap;
       overflow: hidden;
@@ -394,11 +394,11 @@
       opacity: 0.9;
     }
   }
-  
+
   .action-buttons {
     display: flex;
     gap: 8px;
-    
+
     .action-btn {
       background: rgba(255, 255, 255, 0.1);
       border: none;
@@ -410,15 +410,15 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      
+
       ion-icon {
         font-size: 20px;
       }
-      
+
       &:hover {
         background: rgba(255, 255, 255, 0.2);
       }
-      
+
       &.active {
         background: #3880ff;
       }
@@ -433,18 +433,18 @@
     transform: translateY(-100%);
     transition: transform 0.3s;
   }
-  
+
   .thumbnail-strip {
     transform: translateY(100%);
     transition: transform 0.3s;
   }
-  
+
   &:hover {
     .viewer-header,
     .action-bar {
       transform: translateY(0);
     }
-    
+
     .thumbnail-strip {
       transform: translateY(0);
     }
@@ -457,10 +457,10 @@
     .annotation-tools-wrapper {
       gap: 8px;
     }
-    
+
     .tool-btn {
       padding: 6px;
-      
+
       ion-icon {
         font-size: 16px;
       }

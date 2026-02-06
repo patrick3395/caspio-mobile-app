@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "323615927295",
+    "project_id": "partnership-bcd4f",
+    "storage_bucket": "partnership-bcd4f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:323615927295:android:be02f84a7d4ba4bf5055ca",
+        "android_client_info": {
+          "package_name": "com.nes.dcp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAvrPKJJzBzr8ItSP4rR7V6sLNS41CKn68"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

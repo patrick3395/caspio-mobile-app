@@ -42,14 +42,14 @@ $white: #FFFFFF;
 }
 
 .projects-content {
-  --background: #{$light-gray};
+  --background: var(--color-bg-page);
 }
 
 .user-banner {
   background: rgba(241, 90, 39, 0.9);
   padding: 8px 16px;
   text-align: center;
-  
+
   .user-info {
     font-size: 12px;
     color: white;
@@ -58,14 +58,14 @@ $white: #FFFFFF;
 }
 
 .search-container {
-  background: var(--noble-white, #ffffff);
+  background: var(--color-bg-card);
   padding: 12px 16px;
   margin-bottom: 16px;
   border-radius: 12px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-  
+  box-shadow: 0 2px 6px var(--color-shadow);
+
   .enhanced-search-bar {
-    --background: var(--noble-light-gray, #f5f5f5);
+    --background: var(--color-bg-inset);
     --border-radius: 8px;
     --box-shadow: none;
     --placeholder-color: rgba(105, 99, 93, 0.7);
@@ -73,7 +73,7 @@ $white: #FFFFFF;
     --icon-color: var(--noble-orange, #F15A27);
     --clear-button-color: var(--noble-orange, #F15A27);
     padding: 0;
-    
+
     .searchbar-input-container {
       .searchbar-input {
         font-size: 14px;
@@ -98,10 +98,10 @@ $white: #FFFFFF;
     gap: 8px;
     font-size: 16px;
     font-weight: 600;
-    color: #{$dark-gray};
+    color: var(--color-text-primary);
     margin-bottom: 12px;
     padding-bottom: 8px;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid var(--color-border-default);
 
     ion-icon {
       font-size: 20px;
@@ -125,37 +125,37 @@ $white: #FFFFFF;
   gap: 8px;
   padding: 10px 12px;
   margin-bottom: 8px;
-  background: $white;
+  background: var(--color-bg-card);
   border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px var(--color-shadow);
   cursor: pointer;
   user-select: none;
   transition: background 0.2s ease;
 
   &:hover {
-    background: #f0f0f0;
+    background: var(--color-bg-inset);
   }
 
   &:active {
-    background: #e8e8e8;
+    background: var(--color-bg-elevated);
   }
 
   .month-chevron {
     font-size: 16px;
-    color: $gray;
+    color: var(--color-text-secondary);
     flex-shrink: 0;
   }
 
   .month-label {
     font-size: 15px;
     font-weight: 600;
-    color: $dark-gray;
+    color: var(--color-text-primary);
   }
 
   .month-count {
     font-size: 13px;
     font-weight: 400;
-    color: $gray;
+    color: var(--color-text-secondary);
   }
 }
 
@@ -201,16 +201,16 @@ ion-item-sliding {
   --padding-start: 0;
   --padding-end: 8px;
   --inner-padding-end: 16px;
-  --background: #{$white};
+  --background: var(--color-bg-card);
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(105, 99, 93, 0.1);
+  box-shadow: 0 2px 4px var(--color-shadow);
+  border: 1px solid var(--color-border-light);
   transition: all 0.3s ease;
   margin-bottom: 0;
 
   &:active {
     transform: scale(0.98);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 1px 2px var(--color-shadow-heavy);
   }
 
   // WEBAPP: Visual feedback when project is being selected/navigated to
@@ -253,7 +253,7 @@ ion-item-sliding {
 
 .project-id {
   font-size: 12px;
-  color: #{$gray};
+  color: var(--color-text-secondary);
   font-weight: 600;
   opacity: 0.8;
   text-align: right;
@@ -262,7 +262,7 @@ ion-item-sliding {
 
 .project-arrow {
   font-size: 20px;
-  color: #{$gray};
+  color: var(--color-text-secondary);
   opacity: 0.5;
   position: absolute;
   top: 50%;
@@ -275,7 +275,7 @@ ion-item-sliding {
   height: 80px;
   border-radius: 8px;
   overflow: hidden;
-  background: #{$light-gray};
+  background: var(--color-bg-page);
   flex-shrink: 0;
   border: none;
 
@@ -295,7 +295,7 @@ ion-item-sliding {
 
 .project-company-name {
   font-size: 13px;
-  color: var(--noble-dark-gray, #333);
+  color: var(--color-text-primary);
   font-weight: 700;
   line-height: 1.3;
 }
@@ -303,13 +303,13 @@ ion-item-sliding {
 .project-address {
   font-size: 14px;
   font-weight: 500;
-  color: #{$dark-gray};
+  color: var(--color-text-primary);
   line-height: 1.4;
 }
 
 .project-city-state {
   font-size: 13px;
-  color: #{$gray};
+  color: var(--color-text-secondary);
   font-weight: 400;
 }
 
@@ -319,7 +319,7 @@ ion-item-sliding {
   font-weight: 500;
   font-style: italic;
   margin-top: 2px;
-  
+
   // Handle long service names gracefully
   overflow: hidden;
   text-overflow: ellipsis;
@@ -329,7 +329,7 @@ ion-item-sliding {
 
 .project-date {
   font-size: 11px;
-  color: #{$gray};
+  color: var(--color-text-secondary);
   font-weight: 400;
   margin-top: 2px;
 }
@@ -340,7 +340,7 @@ ion-item-sliding {
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  
+
   ion-spinner {
     width: 40px;
     height: 40px;
@@ -349,7 +349,7 @@ ion-item-sliding {
   }
 
   p {
-    color: #{$gray};
+    color: var(--color-text-secondary);
     font-size: 14px;
   }
 }
@@ -363,7 +363,7 @@ ion-item-sliding {
   text-align: center;
 
   p {
-    color: #{$gray};
+    color: var(--color-text-secondary);
     font-size: 14px;
     margin-bottom: 16px;
   }
@@ -381,9 +381,9 @@ ion-item-sliding {
   justify-content: center;
   padding: 80px 24px;
   text-align: center;
-  background: $white;
+  background: var(--color-bg-card);
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px var(--color-shadow);
   margin: 0;
   width: 100%;
 
@@ -397,12 +397,12 @@ ion-item-sliding {
   h3 {
     font-size: 20px;
     font-weight: 600;
-    color: $dark-gray;
+    color: var(--color-text-primary);
     margin: 0 0 8px 0;
   }
 
   p {
-    color: $gray;
+    color: var(--color-text-secondary);
     font-size: 16px;
     margin: 0;
     max-width: 280px;
@@ -436,10 +436,10 @@ ion-item-sliding {
   --padding-start: 0;
   --padding-end: 8px;
   --inner-padding-end: 16px;
-  --background: #{$white};
+  --background: var(--color-bg-card);
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(105, 99, 93, 0.1);
+  box-shadow: 0 2px 4px var(--color-shadow);
+  border: 1px solid var(--color-border-light);
   padding: 12px;
   display: flex;
   align-items: center;
@@ -452,7 +452,7 @@ ion-item-sliding {
   height: 80px;
   border-radius: 8px;
   flex-shrink: 0;
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s infinite ease-in-out;
 }
@@ -469,7 +469,7 @@ ion-item-sliding {
 .skeleton-line {
   height: 14px;
   border-radius: 4px;
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s infinite ease-in-out;
 
@@ -507,7 +507,7 @@ ion-item-sliding {
     width: 40px;
     height: 12px;
     border-radius: 4px;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
     background-size: 200% 100%;
     animation: skeleton-shimmer 1.5s infinite ease-in-out;
   }
@@ -516,7 +516,7 @@ ion-item-sliding {
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
     background-size: 200% 100%;
     animation: skeleton-shimmer 1.5s infinite ease-in-out;
     animation-delay: 0.2s;
@@ -535,7 +535,7 @@ ion-item-sliding {
       left: 0;
       width: 100%;
       height: 100%;
-      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton-base) 75%);
       background-size: 200% 100%;
       animation: skeleton-shimmer 1.5s infinite ease-in-out;
       border-radius: 8px;
@@ -586,40 +586,40 @@ ion-item-sliding {
     --max-width: 90%;
     --width: 600px;
   }
-  
+
   .alert-head {
     h2 {
-      color: #{$dark-gray};
+      color: var(--color-text-primary);
       font-size: 18px;
       font-weight: 600;
     }
   }
-  
+
   .alert-message {
     max-height: 70vh;
     overflow-y: auto;
-    color: #{$dark-gray};
-    
+    color: var(--color-text-primary);
+
     .project-detail-content {
       padding: 8px 0;
-      
+
       .detail-row {
         padding: 8px 0;
         font-size: 14px;
         line-height: 1.5;
-        
+
         strong {
-          color: #{$dark-gray};
+          color: var(--color-text-primary);
           font-weight: 600;
         }
       }
-      
+
       .detail-separator {
         height: 1px;
-        background: #e0e0e0;
+        background: var(--color-border-default);
         margin: 12px 0;
       }
-      
+
       .status-badge {
         padding: 2px 8px;
         border-radius: 12px;
@@ -627,44 +627,98 @@ ion-item-sliding {
         font-weight: 600;
         text-transform: uppercase;
         display: inline-block;
-        
+
         &.success {
           background: #d4edda;
           color: #155724;
         }
-        
+
         &.warning {
           background: #fff3cd;
           color: #856404;
         }
-        
+
         &.danger {
           background: #f8d7da;
           color: #721c24;
         }
-        
+
         &.medium {
           background: #e2e3e5;
           color: #383d41;
         }
       }
-      
+
       .notes-text {
         margin-top: 8px;
         padding: 8px;
-        background: #{$light-gray};
+        background: var(--color-bg-inset);
         border-radius: 4px;
         font-size: 13px;
         white-space: pre-wrap;
       }
     }
   }
-  
+
   .alert-button-group {
     .alert-button {
       .button-inner {
         color: #{$orange};
         font-weight: 600;
+      }
+    }
+  }
+}
+
+// ==============================================
+// Dark Theme Overrides
+// ==============================================
+
+:host-context(body.dark-theme) {
+  .skeleton-card {
+    background: var(--color-bg-card);
+    border-color: var(--color-border-default);
+  }
+
+  .month-header {
+    background: var(--color-bg-card);
+    box-shadow: 0 1px 3px var(--color-shadow);
+
+    &:hover {
+      background: var(--color-bg-elevated);
+    }
+  }
+
+  .project-detail-alert {
+    .alert-wrapper {
+      background: var(--color-bg-card);
+    }
+    .alert-head h2,
+    .alert-message {
+      color: var(--color-text-primary);
+    }
+    .detail-separator {
+      background: var(--color-border-default);
+    }
+    .notes-text {
+      background: var(--color-bg-inset);
+    }
+    .status-badge {
+      &.success {
+        background: rgba(52, 199, 89, 0.15);
+        color: #34C759;
+      }
+      &.warning {
+        background: rgba(255, 179, 71, 0.15);
+        color: #FFB347;
+      }
+      &.danger {
+        background: rgba(255, 94, 115, 0.15);
+        color: #FF5E73;
+      }
+      &.medium {
+        background: var(--color-bg-elevated);
+        color: var(--color-text-secondary);
       }
     }
   }

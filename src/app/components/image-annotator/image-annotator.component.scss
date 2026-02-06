@@ -2,8 +2,8 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #1a1a1a;
-  color: white;
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
 }
 
 // Header
@@ -12,27 +12,27 @@
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  
+  background: var(--color-bg-elevated);
+  border-bottom: 1px solid var(--color-border-default);
+
   .header-title {
     font-size: 18px;
     font-weight: 500;
   }
-  
+
   .icon-btn {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--color-bg-inset);
     border: none;
     border-radius: 8px;
     padding: 8px;
-    color: white;
+    color: var(--color-text-primary);
     cursor: pointer;
     transition: all 0.2s;
-    
+
     &:hover {
-      background: rgba(255, 255, 255, 0.2);
+      background: var(--color-border-default);
     }
-    
+
     ion-icon {
       font-size: 20px;
     }
@@ -45,48 +45,49 @@
   align-items: center;
   gap: 16px;
   padding: 12px 16px;
-  background: #2d2d2d;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--color-bg-elevated);
+  border-bottom: 1px solid var(--color-border-default);
   overflow-x: auto;
-  
+
   &::-webkit-scrollbar {
     height: 4px;
   }
-  
+
   &::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--color-bg-inset);
   }
-  
+
   &::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
+    background: var(--color-border-heavy);
     border-radius: 2px;
   }
-  
+
   .tool-group {
     display: flex;
     align-items: center;
     gap: 8px;
   }
-  
+
   .tool-btn {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--color-bg-inset);
     border: 2px solid transparent;
     border-radius: 8px;
     padding: 10px;
-    color: white;
+    color: var(--color-text-primary);
     cursor: pointer;
     transition: all 0.2s;
     position: relative;
-    
+
     &:hover {
-      background: rgba(255, 255, 255, 0.15);
-      border-color: rgba(255, 255, 255, 0.2);
+      background: var(--color-border-default);
+      border-color: var(--color-border-heavy);
     }
-    
+
     &.active {
       background: #3880ff;
       border-color: #3880ff;
-      
+      color: white;
+
       &::after {
         content: '';
         position: absolute;
@@ -100,73 +101,73 @@
         border-top: 6px solid #3880ff;
       }
     }
-    
+
     &:disabled {
       opacity: 0.3;
       cursor: not-allowed;
     }
-    
+
     ion-icon {
       font-size: 20px;
     }
   }
-  
+
   .divider {
     width: 1px;
     height: 32px;
-    background: rgba(255, 255, 255, 0.2);
+    background: var(--color-border-default);
   }
-  
+
   .spacer {
     flex: 1;
   }
-  
+
   // Color Picker
   .color-picker-wrapper {
     display: flex;
     align-items: center;
     gap: 8px;
-    
+
     .color-picker {
       width: 40px;
       height: 40px;
-      border: 2px solid rgba(255, 255, 255, 0.2);
+      border: 2px solid var(--color-border-default);
       border-radius: 8px;
       cursor: pointer;
       padding: 2px;
       background: transparent;
-      
+
       &:hover {
-        border-color: rgba(255, 255, 255, 0.4);
+        border-color: var(--color-border-heavy);
       }
     }
-    
+
     .color-label {
       font-size: 12px;
-      opacity: 0.7;
+      color: var(--color-text-muted);
     }
   }
-  
+
   // Slider
   .slider-wrapper {
     display: flex;
     align-items: center;
     gap: 8px;
-    
+
     ion-icon {
       font-size: 16px;
-      opacity: 0.7;
+      color: var(--color-text-muted);
     }
-    
+
     .width-slider {
       width: 100px;
       height: 4px;
       -webkit-appearance: none;
       appearance: none;
-      background: rgba(255, 255, 255, 0.2);
+      background: var(--color-border-default);
       border-radius: 2px;
       outline: none;
-      
+
       &::-webkit-slider-thumb {
         -webkit-appearance: none;
         appearance: none;
@@ -176,7 +177,7 @@
         border-radius: 50%;
         cursor: pointer;
       }
-      
+
       &::-moz-range-thumb {
         width: 16px;
         height: 16px;
@@ -186,15 +187,15 @@
         border: none;
       }
     }
-    
+
     .slider-value {
       font-size: 12px;
       min-width: 20px;
       text-align: center;
-      opacity: 0.7;
+      color: var(--color-text-muted);
     }
   }
-  
+
   // Save Button
   .save-btn {
     background: linear-gradient(135deg, #10dc60 0%, #0ec254 100%);
@@ -208,50 +209,50 @@
     align-items: center;
     gap: 8px;
     font-weight: 500;
-    
+
     &:hover {
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(16, 220, 96, 0.3);
     }
-    
+
     ion-icon {
       font-size: 20px;
     }
   }
 }
 
-// Canvas Area
+// Canvas Area - keep neutral dark background for image viewing
 .canvas-area {
   flex: 1;
   display: flex;
   justify-content: center;
   align-items: center;
   overflow: auto;
-  background: #0d0d0d;
+  background: var(--color-bg-inset);
   padding: 20px;
   position: relative;
-  
+
   .image-container {
     position: relative;
     display: inline-block;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 10px 40px var(--color-shadow-heavy);
     border-radius: 8px;
     overflow: hidden;
-    
+
     .base-image {
       display: block;
       max-width: 100%;
       max-height: 100%;
       height: auto;
     }
-    
+
     .annotation-layer {
       position: absolute;
       top: 0;
       left: 0;
       cursor: crosshair;
       z-index: 10;
-      
+
       &:hover {
         cursor: crosshair;
       }
@@ -265,28 +266,28 @@
   justify-content: space-between;
   align-items: center;
   padding: 8px 16px;
-  background: #2d2d2d;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--color-bg-elevated);
+  border-top: 1px solid var(--color-border-default);
   font-size: 12px;
-  
+
   .status-info {
     display: flex;
     gap: 16px;
-    
+
     .status-item {
       display: flex;
       align-items: center;
       gap: 4px;
-      opacity: 0.8;
-      
+      color: var(--color-text-secondary);
+
       ion-icon {
         font-size: 16px;
       }
     }
   }
-  
+
   .status-tips {
-    opacity: 0.6;
+    color: var(--color-text-muted);
     font-style: italic;
   }
 }
@@ -296,22 +297,22 @@
   .tools-panel {
     flex-wrap: nowrap;
     padding: 8px;
-    
+
     .tool-btn {
       padding: 8px;
-      
+
       ion-icon {
         font-size: 18px;
       }
     }
-    
+
     .slider-wrapper {
       .width-slider {
         width: 80px;
       }
     }
   }
-  
+
   .status-bar {
     flex-direction: column;
     gap: 8px;

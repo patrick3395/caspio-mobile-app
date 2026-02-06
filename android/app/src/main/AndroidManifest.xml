@@ -33,6 +33,9 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Push notifications (Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- Camera access - REQUIRED for taking photos -->
     <uses-permission android:name="android.permission.CAMERA" />
 

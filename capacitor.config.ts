@@ -68,6 +68,10 @@ const config: CapacitorConfig = {
     // Network optimizations
     Network: {
       timeout: 30000
+    },
+    // Push notification options
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert']
     }
   }
 };

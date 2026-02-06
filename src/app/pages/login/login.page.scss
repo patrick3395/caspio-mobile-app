@@ -1,20 +1,20 @@
 // Custom header to match app style
 .custom-header {
   ion-toolbar {
-    --background: #f8f8f8;
+    --background: var(--color-bg-elevated);
     --border-width: 0;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 2px 4px var(--color-shadow);
   }
   
   .page-title {
     font-weight: 600;
-    color: #333;
+    color: var(--color-text-primary);
     font-size: 18px;
   }
 }
 
 .login-content {
-  --background: #f5f5f5;
+  --background: var(--color-bg-page);
 }
 
 .login-container {
@@ -29,7 +29,7 @@
 .logo-section {
   text-align: center;
   margin-bottom: 30px;
-  color: #333;
+  color: var(--color-text-primary);
 
   .app-logo {
     width: 120px;
@@ -40,7 +40,7 @@
     align-items: center;
     justify-content: center;
     margin: 0 auto 20px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 10px 25px var(--color-shadow-heavy);
     overflow: hidden;
 
     .logo-img {
@@ -67,15 +67,15 @@
 .form-section {
   width: 100%;
   max-width: 380px;
-  background: white;
+  background: var(--color-bg-card);
   border-radius: 20px;
   padding: 25px 20px;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 15px 35px var(--color-shadow-heavy);
 
   .section-title {
     font-size: 20px;
     font-weight: 600;
-    color: #333;
+    color: var(--color-text-primary);
     margin-bottom: 20px;
     text-align: center;
   }
@@ -115,17 +115,17 @@
 .input-item {
   display: flex;
   align-items: center;
-  background: #f8f9fa;
+  background: var(--color-bg-elevated);
   border-radius: 12px;
   margin-bottom: 15px;
   padding: 0 10px 0 15px;
   height: 52px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--color-border-default);
   transition: border-color 0.3s ease;
   overflow: hidden;
 
   &:focus-within {
-    border-color: #e0e0e0;
+    border-color: var(--color-border-default);
     box-shadow: none;
     outline: none;
   }
@@ -146,9 +146,9 @@
     --padding-end: 0;
     height: 52px;
     font-size: 15px;
-    --placeholder-color: #999;
+    --placeholder-color: var(--color-text-muted);
     --placeholder-opacity: 1;
-    --color: #333;
+    --color: var(--color-text-primary);
     caret-color: #000 !important;
     --background: transparent;
     --highlight-color-focused: transparent !important;
@@ -181,10 +181,11 @@
 }
 
 .remember-item {
-  background: transparent;
-  --padding-start: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   margin: 10px 0 20px 0;
-  
+
   ion-checkbox {
     --size: 22px;
     --border-radius: 6px;
@@ -193,10 +194,10 @@
     --border-color-checked: #F15A27;
     margin-right: 10px;
   }
-  
-  ion-label {
+
+  .remember-label {
     font-size: 14px;
-    color: #666;
+    color: var(--color-text-secondary);
   }
 }
 
@@ -221,7 +222,7 @@
 
   &:disabled {
     --background: #ccc;
-    --color: #999;
+    --color: var(--color-text-muted);
     box-shadow: none;
   }
 }
@@ -246,7 +247,7 @@
 .footer-text {
   margin-top: 30px;
   text-align: center;
-  color: #666;
+  color: var(--color-text-secondary);
 
   p {
     margin: 5px 0;
@@ -269,9 +270,9 @@
 // Custom alert styling to match app theme
 ::ng-deep .custom-alert {
   .alert-wrapper {
-    background: white;
+    background: var(--color-bg-card);
     border-radius: 16px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 10px 30px var(--color-shadow-heavy);
   }
 
   .alert-head {
@@ -280,14 +281,14 @@
     .alert-title {
       font-size: 18px;
       font-weight: 600;
-      color: #333;
+      color: var(--color-text-primary);
     }
   }
 
   .alert-message {
     padding: 10px 20px 20px;
     font-size: 14px;
-    color: #666;
+    color: var(--color-text-secondary);
     line-height: 1.5;
   }
 
@@ -295,8 +296,8 @@
     padding: 0 16px 16px;
 
     .alert-button {
-      background: #f5f5f5;
-      color: #333;
+      background: var(--color-bg-elevated);
+      color: var(--color-text-primary);
       border: 2px solid #F15A27;
       border-radius: 8px;
       font-weight: 600;
@@ -304,8 +305,33 @@
       margin: 0;
 
       &:hover {
-        background: #eee;
+        background: var(--color-bg-page);
       }
     }
+  }
+}
+
+:host-context(body.dark-theme) {
+  .custom-header ion-toolbar {
+    --background: var(--ion-toolbar-background);
+    box-shadow: 0 2px 4px var(--color-shadow);
+  }
+
+  .form-section {
+    box-shadow: 0 15px 35px var(--color-shadow-heavy);
+  }
+
+  .remembered-info {
+    background: rgba(52, 199, 89, 0.15);
+    border-color: rgba(52, 199, 89, 0.3);
+    color: #34C759;
+
+    ion-icon {
+      color: #34C759;
+    }
+  }
+
+  .remember-item .remember-label {
+    color: var(--color-text-secondary);
   }
 }
