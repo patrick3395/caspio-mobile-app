@@ -173,14 +173,48 @@ ion-grid {
 
 .button-container {
   padding: 20px 16px;
-  background: var(--color-bg-card);
+  text-align: center;
 
-  ion-button {
-    --border-radius: 4px;
-    font-weight: 500;
-    font-size: 16px;
-    height: 48px;
-    text-transform: none;
+  .create-project-btn {
+    background: #e9ecef;
+    color: #6c757d;
+    border: none;
+    border-radius: 12px;
+    padding: 16px 40px;
+    font-size: 18px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    width: 100%;
+    justify-content: center;
+
+    ion-icon {
+      font-size: 24px;
+    }
+
+    &:hover:not(:disabled) {
+      background: #dee2e6;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    }
+
+    &:active:not(:disabled) {
+      transform: translateY(0);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    &:disabled,
+    &.incomplete {
+      background: #e9ecef;
+      color: #adb5bd;
+      cursor: not-allowed;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
   }
 }
 

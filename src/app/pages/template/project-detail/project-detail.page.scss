@@ -170,26 +170,19 @@
   }
 
   .dropdown-with-other-container {
-    background: var(--color-bg-elevated);
-    border: 2px solid var(--color-border-default);
-    border-radius: 12px;
-    padding: 12px;
-    transition: all 0.3s ease;
+    background: none;
+    border: none;
+    border-radius: 0;
+    padding: 0;
 
     &.has-other {
-      border-color: var(--color-border-heavy);
-      background: var(--color-bg-elevated);
-      box-shadow: 0 2px 8px var(--color-shadow);
-    }
-
-    select.styled-input {
-      border-radius: 8px;
+      border: none;
+      background: none;
+      box-shadow: none;
     }
 
     .other-input-container {
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid var(--color-border-heavy);
+      margin-top: 8px;
 
       .other-input {
         width: 100%;

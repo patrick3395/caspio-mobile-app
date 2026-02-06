@@ -174,7 +174,7 @@
 
           <!-- Notes to Engineer Row -->
           <tr class="deliverable-row field-row" *ngIf="isDeliverableExpanded(service)">
-            <td class="field-label-cell">Notes to Engineer</td>
+            <td class="field-label-cell">Notes to Engineer / Reviewer</td>
             <td class="field-value-cell">
               <textarea
                 class="deliverable-textarea"
@@ -283,69 +283,6 @@
       </table>
     </div>
 
-    <!-- Reports Section -->
-    <div class="info-section" *ngIf="getServicesForTemplates().length > 0">
-      <div class="reports-header">
-        <h2 class="section-title">Reports</h2>
-        <button class="pdf-btn" (click)="generateServicePDF(); $event.stopPropagation()" title="Generate PDF">
-          <ion-icon name="document-text-outline"></ion-icon>
-          <span class="btn-text">PDF</span>
-        </button>
-        <!-- Sync/Save Buttons (mobile only) -->
-        <div class="sync-save-buttons" *ngIf="!isWeb">
-          <button class="save-btn"
-                  (click)="saveToCloud(); $event.stopPropagation()"
-                  [disabled]="isSaving"
-                  title="Push pending changes to cloud">
-            <ion-icon [name]="isSaving ? 'sync' : 'cloud-upload-outline'"
-                      [class.spinning]="isSaving"></ion-icon>
-            <span class="btn-text">Save</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="templates-container">
-      <div *ngFor="let service of getServicesForTemplates(); trackBy: trackTemplateService"
-           class="template-bar"
-           (click)="handleTemplateClick(service, $event)">
-
-        <!-- Progress fill background -->
-        <div class="template-progress"
-             [style.width.%]="getTemplateProgress(service)">
-        </div>
-
-        <!-- Service name and info overlay -->
-        <div class="template-content">
-          <div class="template-name">
-            <img *ngIf="service.typeIconUrl" [src]="service.typeIconUrl" class="report-icon" alt="">
-            <ion-icon *ngIf="!service.typeIconUrl" name="document-text" class="report-icon-fallback"></ion-icon>
-            <span class="service-title">
-              <span *ngIf="service.typeShort">{{ service.typeShort }} - </span>{{ service.typeName }}
-            </span>
-            <span *ngIf="getServiceCount(service.offersId) > 1" class="template-instance">
-              #{{ getServiceInstanceNumber(service) }}
-            </span>
-          </div>
-          
-          <!-- Status in Top Right Corner -->
-          <div *ngIf="service.StatusID || service.Status" class="report-status-container">
-            <span class="report-status">
-              {{ getStatusClientById(service.StatusID) || service.Status }}
-            </span>
-            <span *ngIf="service.StatusDateTime" class="status-datetime">
-              {{ service.StatusDateTime | date:'short' }}
-            </span>
-          </div>
-          
-          <!-- Arrow Centered -->
-          <div class="template-icons">
-            <ion-icon name="chevron-forward" class="status-arrow"></ion-icon>
-          </div>
-        </div>
-      </div>
-      </div>
-    </div>
-
     <!-- Service Selection Section -->
     <div class="info-section">
       <div class="section-header-with-total">
@@ -359,6 +296,24 @@
             <ion-icon name="card-outline"></ion-icon>
             Pay Now
           </button>
+
+          <button class="pdf-btn" (click)="generateServicePDF(); $event.stopPropagation()" title="Generate PDF"
+                  *ngIf="getServicesForTemplates().length > 0">
+            <ion-icon name="document-text-outline"></ion-icon>
+            <span class="btn-text">PDF</span>
+          </button>
+
+          <!-- Sync/Save Buttons (mobile only) -->
+          <div class="sync-save-buttons" *ngIf="!isWeb">
+            <button class="save-btn"
+                    (click)="saveToCloud(); $event.stopPropagation()"
+                    [disabled]="isSaving"
+                    title="Push pending changes to cloud">
+              <ion-icon [name]="isSaving ? 'sync' : 'cloud-upload-outline'"
+                        [class.spinning]="isSaving"></ion-icon>
+              <span class="btn-text">Save</span>
+            </button>
+          </div>
         </div>
       </div>
       <div class="section-divider"></div>
@@ -404,125 +359,149 @@
           <!-- Expanded details (only when selected) -->
           <div *ngIf="isServiceSelected(offer.OffersID)" class="service-details">
             <ng-container *ngFor="let service of getServiceInstances(offer.OffersID); let i = index">
-              <div class="service-number-header" *ngIf="getServiceInstances(offer.OffersID).length > 1">#{{ i + 1 }}</div>
-              <div class="instance-fields">
-                <div class="field-group">
-                  <label>Inspection Date</label>
-                  <input
-                    type="date"
-                    class="date-input"
-                    [value]="formatDateForInput(service.dateOfInspection)"
-                    (change)="updateServiceDateFromInput(service, $event)"
-                    [disabled]="updatingServices || isReadOnly"
-                    [readonly]="isReadOnly">
-                  <span *ngIf="service.saving" class="saving-indicator">
-                    <ion-spinner name="dots"></ion-spinner>
-                  </span>
-                  <span *ngIf="service.saved" class="saved-indicator">
-                    <ion-icon name="checkmark-circle" color="success"></ion-icon>
-                  </span>
-                </div>
+                <div class="service-number-header" *ngIf="getServiceInstances(offer.OffersID).length > 1">#{{ i + 1 }}</div>
+                <div class="instance-fields">
+                  <div class="field-group">
+                    <label>Inspection Date</label>
+                    <input
+                      type="date"
+                      class="date-input"
+                      [value]="formatDateForInput(service.dateOfInspection)"
+                      (change)="updateServiceDateFromInput(service, $event)"
+                      [disabled]="updatingServices || isReadOnly"
+                      [readonly]="isReadOnly">
+                    <span *ngIf="service.saving" class="saving-indicator">
+                      <ion-spinner name="dots"></ion-spinner>
+                    </span>
+                    <span *ngIf="service.saved" class="saved-indicator">
+                      <ion-icon name="checkmark-circle" color="success"></ion-icon>
+                    </span>
+                  </div>
 
-                <div class="field-group">
-                  <label>Price</label>
-                  <div class="price-display">
-                    ${{ getServicePrice(service) | number:'1.2-2' }}
+                  <div class="field-group">
+                    <label>Price</label>
+                    <input
+                      *ngIf="isCompanyOne && !isReadOnly"
+                      type="number"
+                      class="date-input"
+                      step="0.01"
+                      [value]="getServicePrice(service)"
+                      (blur)="updateServicePrice(service, $event)">
+                    <div *ngIf="!isCompanyOne || isReadOnly" class="price-display">
+                      ${{ getServicePrice(service) | number:'1.2-2' }}
+                    </div>
                   </div>
                 </div>
-              </div>
+
+                <!-- Reports sub-section (only for services with templates, i.e. NOT DCR/EIR) -->
+                <div class="service-reports-section" *ngIf="hasTemplate(service)">
+                  <h3 class="sub-section-title">Reports</h3>
+                  <div class="templates-container">
+                    <div class="template-bar"
+                         (click)="handleTemplateClick(service, $event)">
+                      <div class="template-progress"
+                           [style.width.%]="getTemplateProgress(service)">
+                      </div>
+                      <div class="template-content">
+                        <div class="template-name">
+                          <img *ngIf="service.typeIconUrl" [src]="service.typeIconUrl" class="report-icon" alt="">
+                          <ion-icon *ngIf="!service.typeIconUrl" name="document-text" class="report-icon-fallback"></ion-icon>
+                          <span class="service-title">
+                            <span *ngIf="service.typeShort">{{ service.typeShort }} - </span>{{ service.typeName }}
+                          </span>
+                        </div>
+                        <div *ngIf="service.StatusID || service.Status" class="report-status-container">
+                          <span class="report-status">
+                            {{ getStatusClientById(service.StatusID) || service.Status }}
+                          </span>
+                          <span *ngIf="service.StatusDateTime" class="status-datetime">
+                            {{ service.StatusDateTime | date:'short' }}
+                          </span>
+                        </div>
+                        <div class="template-icons">
+                          <ion-icon name="chevron-forward" class="status-arrow"></ion-icon>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Support Documents sub-section -->
+                <div class="service-documents-section" *ngIf="getServiceDocumentGroup(service) as serviceDoc">
+                  <h3 class="sub-section-title">Support Documents</h3>
+                  <table class="documents-table">
+                    <tbody class="support-doc-group">
+                      <ng-container *ngIf="serviceDoc.documents.length > 0; else noInstanceDocs">
+                        <tr class="support-doc-row doc-row" *ngFor="let doc of serviceDoc.documents; trackBy: trackDocument" [class.pending]="!doc.uploaded">
+                          <td class="doc-info-cell">
+                            <div class="doc-title">
+                              {{ doc.title }}
+                              <span class="required-indicator" *ngIf="doc.required" style="color: #F15A27; margin-left: 4px;">*</span>
+                            </div>
+                            <div class="doc-filename" *ngIf="doc.uploaded && (doc.linkName || doc.filename)">
+                              {{ doc.linkName || doc.filename }}
+                            </div>
+                            <div class="doc-status" *ngIf="!doc.uploaded && isReadOnly">
+                              Awaiting upload
+                            </div>
+                          </td>
+                          <td class="doc-actions-cell">
+                            <ion-button size="small" fill="clear" class="orange-icon" *ngIf="doc.uploaded" (click)="viewDocument(doc)">
+                              <ion-icon name="eye-outline"></ion-icon>
+                            </ion-button>
+                            <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly"
+                                        (click)="editLink(serviceDoc.serviceId, doc)" title="Edit Link">
+                              <ion-icon name="create-outline"></ion-icon>
+                            </ion-button>
+                            <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly"
+                                        (click)="uploadDocument(serviceDoc.serviceId, serviceDoc.typeId, doc)" title="Upload Document">
+                              <ion-icon name="cloud-upload-outline"></ion-icon>
+                            </ion-button>
+                            <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly"
+                                        (click)="doc.uploaded ? deleteRequiredDocument(serviceDoc.serviceId, doc) : removePendingDocument(serviceDoc.serviceId, doc)" title="Delete">
+                              <ion-icon name="trash-outline"></ion-icon>
+                            </ion-button>
+                          </td>
+                        </tr>
+                      </ng-container>
+
+                      <ng-template #noInstanceDocs>
+                        <tr class="support-doc-row doc-row no-docs">
+                          <td class="doc-info-cell">
+                            <span class="no-docs-text">No documents uploaded</span>
+                          </td>
+                          <td class="doc-actions-cell">
+                            <span class="no-docs-text">--</span>
+                          </td>
+                        </tr>
+                      </ng-template>
+
+                      <tr class="support-doc-row add-row">
+                        <td class="doc-info-cell">
+                          <a class="add-doc-link" *ngIf="!isReadOnly" (click)="showOptionalDocuments(serviceDoc)">+ Add Document</a>
+                          <span *ngIf="isReadOnly" class="add-doc-link disabled">+ Add Document</span>
+                        </td>
+                        <td class="doc-actions-cell add-doc-actions"></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Submit button -->
+                <div class="submit-button-container" *ngIf="!isReadOnly">
+                  <button class="submit-report-btn"
+                          [class.finalized]="isSubmitButtonEnabled(service)"
+                          (click)="handleSubmitClick(service)">
+                    {{ hasBeenSubmitted(service) ? 'Resubmit' : 'Submit' }}
+                  </button>
+                  <div *ngIf="hasBeenSubmitted(service)" class="submitted-note">
+                    Submitted {{ service.StatusDateTime | date:'short' }}
+                  </div>
+                </div>
             </ng-container>
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- Support Documents Section -->
-    <div class="info-section">
-      <h2 class="section-title">Support Documents</h2>
-      
-      <!-- Loading documents -->
-      <div *ngIf="loadingDocuments" class="documents-loading">
-        <ion-spinner name="crescent"></ion-spinner>
-        <span>Loading documents...</span>
-      </div>
-      
-      <!-- No services selected -->
-      <div *ngIf="!loadingDocuments && selectedServices.length === 0" class="no-services-message">
-        <ion-text color="medium">
-          <p>Please select services above to see required documents.</p>
-        </ion-text>
-      </div>
-      
-      <!-- Documents table -->
-      <table *ngIf="!loadingDocuments && selectedServices.length > 0" class="documents-table">
-        <tbody *ngFor="let serviceDoc of serviceDocuments; trackBy: trackServiceDocument" class="support-doc-group">
-          <tr class="support-doc-row service-row">
-            <td class="service-header" colspan="2">
-              <span *ngIf="serviceDoc.typeShort">{{ serviceDoc.typeShort }} - </span>{{ serviceDoc.serviceName }}
-              <span *ngIf="hasMultipleDocumentInstances(serviceDoc.typeId)" class="instance-number">
-                #{{ serviceDoc.instanceNumber }}
-              </span>
-            </td>
-          </tr>
-
-          <ng-container *ngIf="serviceDoc.documents.length > 0; else noServiceDocuments">
-            <tr class="support-doc-row doc-row" *ngFor="let doc of serviceDoc.documents; trackBy: trackDocument" [class.pending]="!doc.uploaded">
-              <td class="doc-info-cell">
-                <div class="doc-title">
-                  {{ doc.title }}
-                  <span class="required-indicator" *ngIf="doc.required" style="color: #F15A27; margin-left: 4px;">*</span>
-                </div>
-                <div class="doc-filename" *ngIf="doc.uploaded && (doc.linkName || doc.filename)">
-                  {{ doc.linkName || doc.filename }}
-                </div>
-                <div class="doc-status" *ngIf="!doc.uploaded && isReadOnly">
-                  Awaiting upload
-                </div>
-              </td>
-              <td class="doc-actions-cell">
-                <!-- View button - only show if document is uploaded -->
-                <ion-button size="small" fill="clear" class="orange-icon" *ngIf="doc.uploaded" (click)="viewDocument(doc)">
-                  <ion-icon name="eye-outline"></ion-icon>
-                </ion-button>
-                <!-- Edit Link button - always show if not read-only -->
-                <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly"
-                            (click)="editLink(serviceDoc.serviceId, doc)" title="Edit Link">
-                  <ion-icon name="create-outline"></ion-icon>
-                </ion-button>
-                <!-- Upload Document button - always show if not read-only -->
-                <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly"
-                            (click)="uploadDocument(serviceDoc.serviceId, serviceDoc.typeId, doc)" title="Upload Document">
-                  <ion-icon name="cloud-upload-outline"></ion-icon>
-                </ion-button>
-                <!-- Delete button - always show if not read-only -->
-                <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly"
-                            (click)="doc.uploaded ? deleteRequiredDocument(serviceDoc.serviceId, doc) : removePendingDocument(serviceDoc.serviceId, doc)" title="Delete">
-                  <ion-icon name="trash-outline"></ion-icon>
-                </ion-button>
-              </td>
-            </tr>
-          </ng-container>
-
-          <ng-template #noServiceDocuments>
-            <tr class="support-doc-row doc-row no-docs">
-              <td class="doc-info-cell">
-                <span class="no-docs-text">No documents uploaded</span>
-              </td>
-              <td class="doc-actions-cell">
-                <span class="no-docs-text">--</span>
-              </td>
-            </tr>
-          </ng-template>
-
-          <tr class="support-doc-row add-row">
-            <td class="doc-info-cell">
-              <a class="add-doc-link" *ngIf="!isReadOnly" (click)="showOptionalDocuments(serviceDoc)">+ Add Document</a>
-              <span *ngIf="isReadOnly" class="add-doc-link disabled">+ Add Document</span>
-            </td>
-            <td class="doc-actions-cell add-doc-actions"></td>
-          </tr>
-        </tbody>
-      </table>
     </div>
 
     <!-- Notes Section -->

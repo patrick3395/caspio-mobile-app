@@ -113,23 +113,44 @@ ion-item {
   }
 }
 
-// Camera button styling
-.camera-button-structural {
-  background: transparent;
-  border: none;
-  padding: 0;
-  margin: 0;
-  cursor: pointer;
+// Action button grid - matching template category-detail
+.action-button-grid {
   display: flex;
-  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
   justify-content: center;
 
-  &:active {
-    transform: scale(0.95);
-  }
+  .action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 80px;
+    height: 56px;
+    padding: 8px 16px;
+    background: #bdbdbd;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    gap: 4px;
 
-  ion-icon {
-    transition: transform 0.2s ease;
+    ion-icon {
+      font-size: 22px;
+    }
+
+    span {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    &:active {
+      transform: scale(0.95);
+      background: #b0b0b0;
+    }
   }
 }
 

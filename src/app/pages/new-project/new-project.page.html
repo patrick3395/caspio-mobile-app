@@ -128,15 +128,16 @@
 
     <!-- Submit Button -->
     <div class="button-container">
-      <ion-button
-        expand="block"
+      <button
         type="submit"
-        color="primary"
+        class="create-project-btn"
+        [class.incomplete]="!isFormValid()"
         [disabled]="!isFormValid()"
         [tabindex]="isWeb ? 5 : undefined"
         [attr.aria-disabled]="!isFormValid()">
-        Create Project
-      </ion-button>
+        <ion-icon name="add-circle-outline"></ion-icon>
+        <span>Create Project</span>
+      </button>
     </div>
   </form>
 </ion-content>

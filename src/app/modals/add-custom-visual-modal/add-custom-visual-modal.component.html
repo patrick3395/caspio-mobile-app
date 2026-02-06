@@ -50,12 +50,14 @@
       <h3 id="photos-section-heading">Photos</h3>
 
       <!-- Camera and Gallery Buttons -->
-      <div style="display: flex; gap: 16px; margin-bottom: 16px; justify-content: center;" role="group" aria-label="Add photos">
-        <button class="camera-button-structural" *ngIf="!isWeb" (click)="addPhotoFromCamera()" aria-label="Take photo from camera">
-          <ion-icon name="camera" style="font-size: 32px; color: var(--noble-orange, #F15A27);" aria-hidden="true"></ion-icon>
+      <div class="action-button-grid" role="group" aria-label="Add photos">
+        <button class="action-btn" *ngIf="!isWeb" (click)="addPhotoFromCamera()" aria-label="Take photo from camera">
+          <ion-icon name="camera" aria-hidden="true"></ion-icon>
+          <span>Camera</span>
         </button>
-        <button class="camera-button-structural" (click)="addPhotosFromGallery()" aria-label="Select photos from gallery">
-          <ion-icon name="images" style="font-size: 32px; color: var(--noble-orange, #F15A27);" aria-hidden="true"></ion-icon>
+        <button class="action-btn" (click)="addPhotosFromGallery()" aria-label="Select photos from gallery">
+          <ion-icon name="images" aria-hidden="true"></ion-icon>
+          <span>Gallery</span>
         </button>
       </div>
 

@@ -170,26 +170,19 @@
   }
 
   .dropdown-with-other-container {
-    background: #f8f9fa;
-    border: 2px solid #e8e8e8;
-    border-radius: 12px;
-    padding: 12px;
-    transition: all 0.3s ease;
+    background: none;
+    border: none;
+    border-radius: 0;
+    padding: 0;
 
     &.has-other {
-      border-color: #d0d0d0;
-      background: #f8f9fa;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    }
-
-    select.styled-input {
-      border-radius: 8px;
+      border: none;
+      background: none;
+      box-shadow: none;
     }
 
     .other-input-container {
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid #d0d0d0;
+      margin-top: 8px;
 
       .other-input {
         width: 100%;

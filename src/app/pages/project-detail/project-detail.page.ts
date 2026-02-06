@@ -46,6 +46,7 @@ interface ServiceSelection {
   StatusDateTime?: string; // ISO date string when the status was last updated (also used for submission date)
   saving?: boolean;
   saved?: boolean;
+  serviceFee?: number; // Per-instance fee (editable by admin)
   // Deliverables fields (for CompanyID = 1)
   StatusEng?: string;
   Deliverable?: string; // File URL
@@ -737,6 +738,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           typeIcon: offer?.TypeIcon || '',
           typeIconUrl: offer?.TypeIconUrl || '',  // Use the loaded base64 URL
           dateOfInspection: service.DateOfInspection || service.InspectionDate || new Date().toISOString(),
+          serviceFee: service.ServiceFee != null ? parseFloat(service.ServiceFee) || 0 : (offer?.ServiceFee ? parseFloat(offer.ServiceFee) || 0 : 0),
           ReportFinalized: service.Status === 'Finalized' || service.Status === 'Updated' || service.Status === 'Under Review' || service.ReportFinalized || false,
           Status: service.Status || '',
           StatusID: service.StatusID || null,  // FK to LPS_Status.StatusID
@@ -1042,6 +1044,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           typeIcon: offer?.TypeIcon || '',
           typeIconUrl: offer?.TypeIconUrl || '',  // Include the loaded icon URL
           dateOfInspection: service.DateOfInspection || new Date().toISOString(),
+          serviceFee: service.ServiceFee != null ? parseFloat(service.ServiceFee) || 0 : (offer?.ServiceFee ? parseFloat(offer.ServiceFee) || 0 : 0),
           ReportFinalized: service.Status === 'Finalized' || service.Status === 'Updated' || service.Status === 'Under Review' || service.ReportFinalized || false,
           Status: service.Status || '',
           StatusID: service.StatusID || null,  // FK to LPS_Status.StatusID
@@ -1157,12 +1160,33 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
 
   getServicePrice(service: ServiceSelection): number {
-    // Find the matching offer to get the price
+    if (service.serviceFee != null) {
+      return service.serviceFee;
+    }
     const offer = this.availableOffers.find(o => o.OffersID === service.offersId);
     if (offer && offer.ServiceFee) {
       return parseFloat(offer.ServiceFee) || 0;
     }
     return 0;
+  }
+
+  async updateServicePrice(service: ServiceSelection, event: Event) {
+    const input = event.target as HTMLInputElement;
+    const newFee = parseFloat(input.value) || 0;
+    service.serviceFee = newFee;
+
+    if (!service.serviceId) return;
+
+    try {
+      await this.caspioService.put(
+        `/tables/LPS_Services/records?q.where=PK_ID='${service.serviceId}'`,
+        { ServiceFee: newFee }
+      ).toPromise();
+    } catch (error) {
+      console.error('[ProjectDetail] Error updating service fee:', error);
+    }
+
+    this.changeDetectorRef.markForCheck();
   }
 
   calculateServicesTotal(): number {
@@ -1534,6 +1558,19 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   // Get all instances of a specific service type
   getServiceInstances(offersId: string): ServiceSelection[] {
     return this.selectedServices.filter(s => s.offersId === offersId);
+  }
+
+  hasTemplate(service: ServiceSelection): boolean {
+    const name = service.typeName?.toLowerCase() || '';
+    return !name.includes('defect cost report') &&
+           !name.includes('engineers inspection review') &&
+           !name.includes("engineer's inspection review");
+  }
+
+  getServiceDocumentGroup(service: ServiceSelection): ServiceDocumentGroup | undefined {
+    if (!service.serviceId && !service.instanceId) return undefined;
+    const id = service.serviceId || service.instanceId;
+    return this.serviceDocuments.find(sd => sd.serviceId === id);
   }
 
   // Check if service has been submitted before

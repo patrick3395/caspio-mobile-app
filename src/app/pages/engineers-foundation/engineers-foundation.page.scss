@@ -255,20 +255,21 @@ ion-toolbar.template-toolbar {
 
 // FDF Photo Buttons - Enhanced for 50% bigger measurements area
 .fdf-photo-button {
-  color: #333 !important; // Black text
+  color: #333 !important;
   margin-bottom: 0 !important; // No margin by default, only when photo exists
-  background: transparent !important; // No white background on mobile - just icons
-  border: none !important; // No border on mobile - just icons
+  background: white !important;
+  border: 1px solid #e0e0e0 !important;
+  border-radius: 8px !important;
 
   // Hover effect removed for mobile optimization
 
   &:active {
-    background: #e0e0e0 !important;
+    background: #f5f5f5 !important;
   }
 
   ion-icon {
     vertical-align: middle;
-    color: #333 !important; // Black icons
+    color: #444 !important;
   }
 
   // WEBAPP ONLY: Add back white containers around icons
@@ -676,31 +677,22 @@ ion-app.modal-open {
     background: #fff5f5;
   }
 
-  // Container for dropdown with "Other" option - visually groups them together
+  // Container for dropdown with "Other" option
   .dropdown-with-other-container {
-    background: #f8f9fa;
-    border: 2px solid #e8e8e8;
-    border-radius: 12px;
-    padding: 12px;
-    transition: all 0.3s ease;
+    background: none;
+    border: none;
+    border-radius: 0;
+    padding: 0;
 
-    // When "Other" is selected, keep light gray styling
     &.has-other {
-      border-color: #d0d0d0;
-      background: #f8f9fa;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    }
-
-    // Remove border-radius from select inside container so it fits nicely
-    select.styled-input {
-      border-radius: 8px;
+      border: none;
+      background: none;
+      box-shadow: none;
     }
 
     // "Other" input container styling
     .other-input-container {
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid #d0d0d0;
+      margin-top: 8px;
 
       .other-input {
         width: 100%;

@@ -100,13 +100,14 @@ select.styled-input {
 .fdf-photo-button {
   color: #333 !important;
   margin-bottom: 0 !important;
-  background: transparent !important;
-  border: none !important;
+  background: white !important;
+  border: 1px solid #e0e0e0 !important;
+  border-radius: 8px !important;
   transition-duration: 0.15s !important;
   transition-timing-function: ease-out !important;
 
   ion-icon {
-    color: #333;
+    color: #444;
   }
 
   &:hover:not(:disabled) {
