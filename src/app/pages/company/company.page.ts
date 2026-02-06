@@ -5295,8 +5295,6 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Reapply filters
       this.applyUserFilters();
-      this.changeDetectorRef.markForCheck();
-
       await this.showToast('User deleted successfully', 'success');
     } catch (error: any) {
       console.error('Error deleting user:', error);
