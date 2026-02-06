@@ -133,12 +133,6 @@
     </div>
     <div *ngIf="selectedTab === 'company'" class="tab-content company-tab">
 
-      <div class="section-header">
-        <div>
-          <h3>Company Information</h3>
-          <p>Your company details</p>
-        </div>
-      </div>
 
       <!-- Loading State - Skeleton loader -->
       <div *ngIf="!currentCompany" class="skeleton-company-details">
@@ -1096,7 +1090,11 @@
       </div>
 
       <div *ngIf="!isLoading && filteredUsers.length; else emptyUsers" class="users-grid">
-        <div class="user-card clickable-card" *ngFor="let user of filteredUsers" (click)="openEditUserModal(user)">
+        <div class="user-card" *ngFor="let user of filteredUsers">
+          <div class="org-user-actions">
+            <ion-icon name="create-outline" class="action-edit" (click)="openEditUserModal(user)" title="Edit user"></ion-icon>
+            <ion-icon name="trash-outline" class="action-delete" (click)="deleteUser(user, $event)" title="Delete user"></ion-icon>
+          </div>
           <div class="user-card-content">
             <div class="user-header">
               <div class="user-avatar">

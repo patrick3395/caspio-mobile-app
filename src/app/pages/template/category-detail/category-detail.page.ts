@@ -1660,7 +1660,10 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         }
         const withinPhotoGuard = (Date.now() - this.lastPhotoOperationTime) < 5000;
         if (!withinPhotoGuard) {
-          this.photoCountsByKey[selectionKey] = field.photoCount;
+          // Trust in-memory photo count over stale Dexie field.photoCount.
+          // Generic templates don't write photoCount back to Dexie (avoids liveQuery feedback loops).
+          const inMemoryCount = this.visualPhotos[selectionKey]?.length || 0;
+          this.photoCountsByKey[selectionKey] = inMemoryCount > 0 ? inMemoryCount : field.photoCount;
         }
       }
 
@@ -2921,6 +2924,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     }
 
     this.expandedPhotos[key] = !this.expandedPhotos[key];
+    this.scheduleDetectChanges();
 
     if (this.expandedPhotos[key] && !this.visualPhotos[key]) {
       this.loadPhotosForVisual(category, itemId);
@@ -3236,7 +3240,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     } finally {
       // Grace period: let UI settle before liveQuery cascade
       setTimeout(() => {
-        this.lastPhotoOperationTime = Date.now();
         this.isCameraCaptureInProgress = false;
         this.scheduleDetectChanges();
       }, 300);
@@ -3326,7 +3329,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     } finally {
       // Grace period: let UI settle before liveQuery cascade
       setTimeout(() => {
-        this.lastPhotoOperationTime = Date.now();
         this.isMultiImageUploadInProgress = false;
         this.scheduleDetectChanges();
       }, 300);

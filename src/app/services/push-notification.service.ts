@@ -58,7 +58,7 @@ export class PushNotificationService {
     });
 
     // Listen for registration errors
-    PushNotifications.addListener('registrationError', (error) => {
+    PushNotifications.addListener('registrationError', (error: any) => {
       console.error('[PushNotification] Registration error:', error);
     });
 

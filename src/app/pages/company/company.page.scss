@@ -2437,10 +2437,27 @@ ion-segment.filter-segment {
 // Autopay status styling
 .autopay-status-row {
   background: var(--color-bg-elevated);
-  padding: 12px;
-  border-radius: 8px;
+  padding: 16px 20px;
+  border-radius: 10px;
   margin-bottom: 16px;
   grid-template-columns: repeat(4, 1fr);
+  gap: 16px 24px;
+  align-items: start;
+  border: 1px solid var(--color-border-default, #e0e0e0);
+
+  .detail-col {
+    label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #999;
+      margin-bottom: 6px;
+    }
+
+    p {
+      margin: 0;
+    }
+  }
 
   @media (max-width: 1024px) {
     grid-template-columns: repeat(2, 1fr);
@@ -2453,8 +2470,9 @@ ion-segment.filter-segment {
 
 .action-buttons {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .link-account-btn {
@@ -2541,6 +2559,7 @@ ion-segment.filter-segment {
 .no-payment-method {
   color: var(--color-text-muted);
   font-style: italic;
+  font-size: 0.85rem;
 }
 
 .autopay-day-select {
