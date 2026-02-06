@@ -1,17 +1,17 @@
 // Noble Property Inspections Brand Colors
 $orange: var(--noble-orange, #F15A27);
-$gray: rgba(var(--ion-text-color-rgb, 51, 51, 51), 0.75);
-$light-gray: var(--ion-surface-muted-background, #F5F5F5);
-$border: var(--ion-border-color, #E0E0E0);
-$dark: var(--ion-text-color, #333333);
-$white: var(--ion-card-background, #FFFFFF);
+$gray: var(--color-text-secondary);
+$light-gray: var(--color-bg-page);
+$border: var(--color-border-default);
+$dark: var(--color-text-primary);
+$white: var(--color-bg-card);
 
 // MOBILE-SPECIFIC FIXES for Add Document Modal
 @media (max-width: 768px) {
   // Enhance modal close button visibility on mobile
   ion-modal ion-header ion-buttons {
     ion-button {
-      --color: #333 !important;
+      --color: var(--color-text-primary) !important;
       font-size: 24px !important;
       padding: 8px !important;
 
@@ -135,7 +135,7 @@ ion-content{--padding-start:0;--padding-end:0;--padding-top:0;--padding-bottom:0
 
 .project-skeleton{display:grid;gap:16px;padding:16px;background:$light-gray;}
 .project-skeleton .skeleton-hero{height:200px;border-radius:16px;}
-.project-skeleton .skeleton-section{background:$white;border-radius:12px;padding:16px;display:grid;gap:12px;box-shadow:0 2px 6px rgba(0,0,0,0.04);}
+.project-skeleton .skeleton-section{background:$white;border-radius:12px;padding:16px;display:grid;gap:12px;box-shadow:0 2px 6px var(--color-shadow);}
 .project-skeleton .skeleton-title{width:40%;height:18px;}
 .project-skeleton .skeleton-row{display:grid;grid-template-columns:120px 1fr;gap:12px;}
 .project-skeleton .skeleton-label,.project-skeleton .skeleton-value{height:14px;}
@@ -171,8 +171,8 @@ ion-content{--padding-start:0;--padding-end:0;--padding-top:0;--padding-bottom:0
   left: 0;
   right: 0;
   z-index: 10;
-  background: rgba(245, 245, 245, 0.9);
-  color: #333333;
+  background: rgba(var(--ion-background-color-rgb), 0.9);
+  color: var(--color-text-primary);
   padding: 12px 20px;
   display: flex;
   align-items: center;
@@ -204,7 +204,7 @@ ion-content{--padding-start:0;--padding-end:0;--padding-top:0;--padding-bottom:0
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 2px 4px var(--color-shadow-heavy);
 
     ion-icon {
       font-size: 18px;
@@ -212,7 +212,7 @@ ion-content{--padding-start:0;--padding-end:0;--padding-top:0;--padding-bottom:0
 
     &:hover {
       transform: translateY(-1px);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 4px 8px var(--color-shadow-heavy);
     }
 
     &:active {
@@ -266,7 +266,7 @@ ion-button{--padding-start:12px;--padding-end:12px;font-size:14px}}
 
   ion-icon {
     font-size: 14px;
-    color: #999;
+    color: var(--color-text-muted);
   }
 
   &:hover {
@@ -299,7 +299,7 @@ ion-button{--padding-start:12px;--padding-end:12px;font-size:14px}}
     &:hover {
       background: var(--ion-color-primary-shade);
       transform: translateY(-1px);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 2px 8px var(--color-shadow-heavy);
     }
   }
 
@@ -470,7 +470,7 @@ h3 {
   transition: border-color 0.2s ease;
   
   &.has-selection {
-    border: 2px solid #000;
+    border: 2px solid var(--color-border-heavy);
   }
   
   .service-header-row {
@@ -563,10 +563,10 @@ h3 {
     .service-toggle {
       display: flex;
       align-items: center;
-      
+
       ion-icon {
         font-size: 24px;
-        color: #000;
+        color: $dark;
       }
     }
   }
@@ -696,7 +696,7 @@ h3 {
             &:not(.finalized):hover {
               opacity: 0.9;
               transform: translateY(-1px);
-              box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+              box-shadow: 0 2px 6px var(--color-shadow-heavy);
             }
           }
 
@@ -744,8 +744,8 @@ ion-modal {
   }
   
   ion-header ion-toolbar {
-    --background: var(--noble-light-gray, #F5F5F5);
-    --color: var(--noble-dark-gray, #333333);
+    --background: var(--color-bg-page);
+    --color: var(--color-text-primary);
     --padding-top: 16px;
     --padding-bottom: 16px;
     --min-height: 64px;
@@ -759,38 +759,38 @@ ion-modal {
     }
 
     ion-title {
-      color: var(--noble-dark-gray, #333333);
+      color: var(--color-text-primary);
       font-weight: 600;
       font-size: 18px;
     }
 
     ion-button {
-      --color: var(--noble-dark-gray, #333333);
+      --color: var(--color-text-primary);
     }
   }
   
   ion-content {
-    --background: #f8f9fa;
+    --background: var(--color-bg-elevated);
     
     ion-list {
       background: transparent;
       padding: 16px;
       
       ion-item {
-        --background: white;
+        --background: var(--color-bg-card);
         --border-radius: 12px;
         --padding-start: 20px;
         --padding-end: 20px;
         --min-height: 80px;
         margin-bottom: 12px;
         border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        box-shadow: 0 2px 8px var(--color-shadow);
         transition: all 0.2s ease;
         cursor: pointer;
 
         @media (hover: hover) and (pointer: fine) {
           &:hover {
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 12px var(--color-shadow-heavy);
             transform: translateY(-1px);
           }
         }
@@ -802,7 +802,7 @@ ion-modal {
           h2 {
             font-size: 16px !important;
             font-weight: 600 !important;
-            color: #1f2933 !important;
+            color: var(--color-text-primary) !important;
             margin: 0 0 8px 0 !important;
             line-height: 1.4 !important;
             white-space: normal !important; // Allow title wrapping
@@ -811,7 +811,7 @@ ion-modal {
           
           p {
             font-size: 13px !important;
-            color: #7c8894 !important;
+            color: var(--color-text-secondary) !important;
             margin: 0 !important;
             line-height: 1.4 !important;
             font-weight: 500 !important;
@@ -830,7 +830,7 @@ ion-modal {
         ion-label {
           font-size: 14px !important;
           font-weight: 700 !important;
-          color: #52606d !important;
+          color: var(--color-text-secondary) !important;
           text-transform: uppercase;
           letter-spacing: 0.5px;
         }
@@ -917,7 +917,7 @@ ion-modal {
 
       ion-icon {
         font-size: 18px;
-        color: #3d3d3d;
+        color: $dark;
       }
 
       &.orange-icon {
@@ -929,13 +929,13 @@ ion-modal {
 
     .no-docs-text {
       font-size: 13px;
-      color: #777;
+      color: var(--color-text-muted);
     }
   }
 
   .doc-title {
     font-weight: 500;
-    color: #333;
+    color: var(--color-text-primary);
     margin-bottom: 2px;
     word-wrap: break-word;
     word-break: break-word;
@@ -945,7 +945,7 @@ ion-modal {
 
   .doc-filename {
     font-size: 12px;
-    color: #666;
+    color: var(--color-text-secondary);
     word-wrap: break-word;
     word-break: break-word;
     white-space: normal;
@@ -953,7 +953,7 @@ ion-modal {
   }
   .doc-status {
     font-size: 12px;
-    color: #999;
+    color: var(--color-text-muted);
   }
 
   .support-doc-row.doc-row {
@@ -998,13 +998,13 @@ ion-modal {
   }
 
   .add-doc-link.disabled {
-    color: #bbb;
+    color: var(--color-text-muted);
     cursor: default;
     pointer-events: none;
   }
 
   .add-link-separator {
-    color: #999;
+    color: var(--color-text-muted);
     margin: 0 6px;
     font-weight: 400;
     display: inline-block;
@@ -1113,7 +1113,7 @@ ion-modal {
       justify-content: space-between;
       align-items: center;
       padding: 6px 0;
-      border-bottom: 1px solid #f0f0f0;
+      border-bottom: 1px solid var(--color-border-light);
       
       &:last-child {
         border-bottom: none;
@@ -1123,7 +1123,7 @@ ion-modal {
         display: flex;
         align-items: center;
         gap: 6px;
-        color: #333;
+        color: var(--color-text-primary);
         font-size: 13px;
         flex: 1;
         min-width: 0; // Allow flex item to shrink below content size
@@ -1131,10 +1131,10 @@ ion-modal {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        
+
         ion-icon {
           font-size: 16px;
-          color: #666;
+          color: var(--color-text-secondary);
           flex-shrink: 0; // Prevent icon from shrinking
         }
       }
@@ -1158,23 +1158,23 @@ ion-modal {
 >div{padding:12px}
 >div:nth-child(1){padding-left:12px}}
 .service-doc-group{position:relative;display:grid;grid-template-columns:30% 70%;grid-auto-rows:minmax(48px,auto);
-&:not(:last-child){border-bottom:2px solid #dee2e6}
+&:not(:last-child){border-bottom:2px solid $border}
 .doc-row{display:contents}
-.doc-service{grid-column:1;border-left:3px solid #007bff;padding-left:12px;background:#f8f9fa;font-weight:600;display:flex;align-items:center;justify-content:flex-start}
+.doc-service{grid-column:1;border-left:3px solid #007bff;padding-left:12px;background:var(--color-bg-elevated);font-weight:600;display:flex;align-items:center;justify-content:flex-start}
 .doc-service-placeholder{display:none}
-.doc-row>div:nth-child(2){border-bottom:1px solid #e9ecef}
+.doc-row>div:nth-child(2){border-bottom:1px solid var(--color-border-default)}
 .doc-row:last-child>div:nth-child(2){border-bottom:none}}
-.add-doc-row{background:#fafbfc;display:contents;
->div{padding:10px 12px;background:#fafbfc}
+.add-doc-row{background:var(--color-bg-elevated);display:contents;
+>div{padding:10px 12px;background:var(--color-bg-elevated)}
 >div:nth-child(2){text-align:left;padding-left:12px;grid-column:2}
 >div:first-child{display:none}}
 
 // Templates Progress Bars
 .templates-container{display:flex;flex-direction:column;gap:12px;margin-top:16px}
 
-.template-bar{position:relative;min-height:100px;background:$white;border:2px solid $border;border-radius:12px;overflow:hidden;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.05);user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;
+.template-bar{position:relative;min-height:100px;background:$white;border:2px solid $border;border-radius:12px;overflow:hidden;cursor:pointer;box-shadow:0 2px 4px var(--color-shadow);user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;
 @media (hover: hover) and (pointer: fine) {
-  &:hover{box-shadow:0 4px 8px rgba(0,0,0,0.1)}
+  &:hover{box-shadow:0 4px 8px var(--color-shadow-heavy)}
 }
 // Mobile-only: Increase height for better text wrapping
 @media (max-width: 768px) {
@@ -1249,11 +1249,11 @@ ion-modal {
   }
   &.low{
     background:linear-gradient(135deg, #ffd700 0%, #ffcc00 100%);
-    color:#333;
+    color:#1a1a1a;
   }
   &.empty{
-    background:linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%);
-    color:#666;
+    background:linear-gradient(135deg, var(--color-bg-inset) 0%, var(--color-border-default) 100%);
+    color:var(--color-text-secondary);
   }
 }
 .template-action{font-size:13px;color:$gray;padding:6px 12px;background:$light-gray;border-radius:20px;font-weight:500}}
@@ -1284,11 +1284,11 @@ ion-modal {
     align-items: center;
     gap: 4px;
     font-size: 12px;
-    color: #6c757d;
+    color: var(--color-text-secondary);
     font-style: italic;
     padding-left: 24px; // Indent to show it's under the document title
     flex: 1;
-    
+
     ion-icon {
       font-size: 16px;
       color: #3b82f6;
@@ -1359,7 +1359,7 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
     }
 
     &::placeholder {
-      color: #999;
+      color: var(--color-text-muted);
     }
   }
 
@@ -1424,7 +1424,7 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
 
         @media (hover: hover) and (pointer: fine) {
           &:hover {
-            background: rgba(0, 0, 0, 0.03);
+            background: var(--color-shadow);
           }
         }
       }
@@ -1471,7 +1471,7 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
       background: $white;
 
       td {
-        border-bottom: 1px solid #e8e8e8;
+        border-bottom: 1px solid var(--color-border-default);
       }
 
       &:last-child td {
@@ -1517,7 +1517,7 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
       }
 
       &::placeholder {
-        color: #999;
+        color: var(--color-text-muted);
       }
     }
 
@@ -1572,7 +1572,7 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
       }
 
       &::placeholder {
-        color: #999;
+        color: var(--color-text-muted);
       }
     }
 
@@ -1710,10 +1710,10 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
 // G2-NAV-002: Breadcrumb Navigation (web only)
 .breadcrumb-footer {
   ion-toolbar {
-    --background: white;
-    --color: #333;
+    --background: var(--color-bg-card);
+    --color: var(--color-text-primary);
     --border-width: 1px 0 0 0;
-    --border-color: #e0e0e0;
+    --border-color: var(--color-border-default);
     --padding-top: 8px;
     --padding-bottom: 8px;
     --min-height: 48px;
@@ -1740,7 +1740,7 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
   display: flex;
   align-items: center;
   cursor: pointer;
-  color: #666;
+  color: var(--color-text-secondary);
   font-size: 14px;
   font-weight: 500;
   padding: 4px 8px;
@@ -1750,13 +1750,13 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
   // Only apply hover effects on devices with hover capability (desktop)
   @media (hover: hover) and (pointer: fine) {
     &:hover {
-      background-color: rgba(0, 0, 0, 0.05);
-      color: #333;
+      background-color: var(--color-shadow);
+      color: var(--color-text-primary);
     }
   }
 
   &.active {
-    color: #333;
+    color: var(--color-text-primary);
     cursor: default;
     font-weight: 700;
 
@@ -1784,7 +1784,7 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
 }
 
 .breadcrumb-arrow {
-  color: #999;
+  color: var(--color-text-muted);
   font-size: 16px;
   flex-shrink: 0;
 }
@@ -1832,18 +1832,18 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
         text-align: left;
         font-size: 13px;
         font-weight: 600;
-        color: #333;
+        color: var(--color-text-primary);
         margin-bottom: 6px;
       }
 
       input, select {
         width: 100%;
         padding: 10px 12px;
-        border: 1px solid #ddd;
+        border: 1px solid var(--color-border-default);
         border-radius: 6px;
         font-size: 14px;
-        background: #fff;
-        color: #333;
+        background: var(--color-bg-card);
+        color: var(--color-text-primary);
         box-sizing: border-box;
 
         &:focus {
@@ -1852,7 +1852,7 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
         }
 
         &::placeholder {
-          color: #999;
+          color: var(--color-text-muted);
         }
       }
 
@@ -1874,8 +1874,8 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
 
     .alert-button {
       flex: 1 1 0;
-      background: #f5f5f5;
-      color: #333;
+      background: var(--color-bg-page);
+      color: var(--color-text-primary);
       border: 2px solid $orange;
       border-radius: 999px;
       font-weight: 600;
