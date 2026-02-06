@@ -126,6 +126,11 @@ ion-header.page-header {
 
 ion-content{--padding-start:0;--padding-end:0;--padding-top:0;--padding-bottom:0}
 
+// Web: add bottom padding for fixed tab bar
+@media (hover: hover) and (pointer: fine) {
+  ion-content { --padding-bottom: 80px !important; }
+}
+
 .error-container{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;padding:20px}
 
 .project-skeleton{display:grid;gap:16px;padding:16px;background:$light-gray;}
@@ -161,8 +166,13 @@ ion-content{--padding-start:0;--padding-end:0;--padding-top:0;--padding-bottom:0
 
 // Read-only banner
 .read-only-banner {
-  background: linear-gradient(135deg, #ffa726, #ff9800);
-  color: white;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background: rgba(245, 245, 245, 0.9);
+  color: #333333;
   padding: 12px 20px;
   display: flex;
   align-items: center;
@@ -170,7 +180,6 @@ ion-content{--padding-start:0;--padding-end:0;--padding-top:0;--padding-bottom:0
   gap: 10px;
   font-size: 14px;
   font-weight: 600;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 
   .read-only-content {
     display: flex;
@@ -186,8 +195,8 @@ ion-content{--padding-start:0;--padding-end:0;--padding-top:0;--padding-bottom:0
     display: flex;
     align-items: center;
     gap: 6px;
-    background: white;
-    color: #ff9800;
+    background: transparent;
+    color: var(--noble-orange, #F15A27);
     border: none;
     border-radius: 20px;
     padding: 8px 16px;

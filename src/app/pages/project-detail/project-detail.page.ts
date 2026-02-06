@@ -948,11 +948,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     if (typeof status === 'number') {
-      return status === 2;
+      return status === 2 || status === 5;
     }
 
     if (typeof status === 'string') {
-      return status.trim() === '2';
+      return status.trim() === '2' || status.trim() === '5';
     }
 
     return false;

@@ -140,3 +140,23 @@
     </div>
   </form>
 </ion-content>
+
+<!-- Tab bar for web -->
+<div class="page-tab-bar" *ngIf="isWeb">
+  <a routerLink="/tabs/active-projects" class="page-tab-button">
+    <ion-icon name="document-text-outline"></ion-icon>
+    <span>Active</span>
+  </a>
+  <a routerLink="/tabs/all-projects" class="page-tab-button">
+    <ion-icon name="folder-outline"></ion-icon>
+    <span>Complete</span>
+  </a>
+  <a routerLink="/tabs/help-guide" class="page-tab-button">
+    <ion-icon name="help-circle-outline"></ion-icon>
+    <span>Help</span>
+  </a>
+  <a routerLink="/tabs/company" class="page-tab-button">
+    <ion-icon name="people-outline"></ion-icon>
+    <span>Company</span>
+  </a>
+</div>

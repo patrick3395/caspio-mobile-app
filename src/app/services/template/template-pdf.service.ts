@@ -86,6 +86,23 @@ export class TemplatePdfService {
         this.retryNotification.suppressNotifications();
       }
 
+      // Resolve actual ServiceID from the service record.
+      // Route params provide PK_ID from LPS_Services, but child tables
+      // (LPS_Services_Visuals, LPS_Services_HUD, etc.) use a ServiceID
+      // foreign key that can differ from PK_ID.
+      let actualServiceId = serviceId;
+      try {
+        const serviceRecord = await firstValueFrom(this.caspioService.getServiceById(serviceId));
+        if (serviceRecord?.ServiceID) {
+          actualServiceId = String(serviceRecord.ServiceID);
+          if (actualServiceId !== serviceId) {
+            console.log(`[PDF] Resolved actualServiceId: ${actualServiceId} (route PK_ID: ${serviceId})`);
+          }
+        }
+      } catch (err) {
+        console.warn(`[PDF] Could not resolve actualServiceId, using route serviceId: ${serviceId}`);
+      }
+
       // Show loading alert with cancel button
       loading = await this.alertController.create({
         header: 'Loading Report',
@@ -144,6 +161,8 @@ export class TemplatePdfService {
 
         try {
           // Build parallel fetch array
+          // prepareProjectInfo uses PK_ID (serviceId) to fetch the service record itself
+          // prepareRecordsData/prepareElevationData use actualServiceId for child table queries
           const fetchPromises: Promise<any>[] = [
             this.prepareProjectInfo(projectId, serviceId).catch(err => {
               console.error(`${logTag} Error in prepareProjectInfo:`, err);
@@ -152,7 +171,7 @@ export class TemplatePdfService {
                 projectData: null, serviceData: null
               };
             }),
-            this.prepareRecordsData(config, serviceId).catch(err => {
+            this.prepareRecordsData(config, actualServiceId).catch(err => {
               console.error(`${logTag} Error in prepareRecordsData:`, err);
               return [];
             })
@@ -161,7 +180,7 @@ export class TemplatePdfService {
           // Only fetch elevation data for templates that support it (EFE)
           if (config.features.hasElevationPlot) {
             fetchPromises.push(
-              this.prepareElevationData(serviceId).catch(err => {
+              this.prepareElevationData(actualServiceId).catch(err => {
                 console.error(`${logTag} Error in prepareElevationData:`, err);
                 return [];
               })
@@ -411,9 +430,8 @@ export class TemplatePdfService {
 
       for (const kind of ['comments', 'limitations', 'deficiencies'] as const) {
         for (const record of categoryData[kind]) {
-          // HUD stores records in Visuals table (VisualID), not HUD table (HUDID)
-          const idField = config.id === 'hud' ? 'VisualID' : config.idFieldName;
-          const recordId = record[idField] || record.PK_ID;
+          const recordId = record[config.idFieldName] || record.PK_ID;
+          console.log(`[PDF] Record: ${config.idFieldName}=${record[config.idFieldName]}, PK_ID=${record.PK_ID}, using recordId=${recordId}`);
 
           const displayText = record.Text || record.VisualText || '';
           const answers = record.Answers || record.Answer || '';
@@ -632,8 +650,7 @@ export class TemplatePdfService {
   private async getRecords(config: TemplateConfig, serviceId: string): Promise<any[]> {
     switch (config.id) {
       case 'hud':
-        // HUD container stores records in LPS_Services_Visuals (not LPS_Services_HUD)
-        return this.hudData.getVisualsByService(serviceId);
+        return this.hudData.getHudByService(serviceId);
       case 'efe':
         return this.efeData.getVisualsByService(serviceId);
       case 'dte':
@@ -648,8 +665,7 @@ export class TemplatePdfService {
   private async getAttachments(config: TemplateConfig, recordId: string): Promise<any[]> {
     switch (config.id) {
       case 'hud':
-        // HUD uses Visuals_Attach table (same as EFE)
-        return this.hudData.getVisualAttachments(recordId);
+        return this.hudData.getHudAttachments(recordId);
       case 'efe':
         return this.efeData.getVisualAttachments(recordId);
       case 'dte':
@@ -666,6 +682,10 @@ export class TemplatePdfService {
   private async getPhotos(config: TemplateConfig, recordId: string, fabric: any): Promise<any[]> {
     try {
       const attachments = await this.getAttachments(config, recordId);
+      console.log(`[PDF] getPhotos: config=${config.id}, recordId=${recordId}, attachments=${attachments?.length ?? 'null'}`);
+      if (attachments?.[0]) {
+        console.log(`[PDF] First attachment keys:`, Object.keys(attachments[0]).join(', '));
+      }
       const photos = [];
 
       for (const attachment of (attachments || [])) {

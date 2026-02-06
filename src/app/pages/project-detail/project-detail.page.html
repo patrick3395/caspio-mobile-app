@@ -38,9 +38,9 @@
            alt="Property Photo"
            (error)="onPhotoError($event)">
       <!-- Replace Photo Button -->
-      <ion-button class="replace-photo-btn" 
-                  fill="solid" 
-                  color="primary" 
+      <ion-button class="replace-photo-btn"
+                  fill="solid"
+                  color="primary"
                   size="small"
                   *ngIf="!isReadOnly"
                   (click)="replacePhoto()"
@@ -48,18 +48,17 @@
         <ion-icon name="camera" slot="start"></ion-icon>
         Replace Photo
       </ion-button>
-    </div>
-
-    <!-- Read-only indicator for non-active projects -->
-    <div *ngIf="isReadOnly" class="read-only-banner">
-      <div class="read-only-content">
-        <ion-icon name="eye-outline"></ion-icon>
-        <span>Project is not active</span>
+      <!-- Read-only indicator overlaying the photo -->
+      <div *ngIf="isReadOnly" class="read-only-banner">
+        <div class="read-only-content">
+          <ion-icon name="eye-outline"></ion-icon>
+          <span>Project is not active</span>
+        </div>
+        <button class="reactivate-btn" (click)="addAdditionalService()">
+          <ion-icon name="add-circle-outline"></ion-icon>
+          Add Service
+        </button>
       </div>
-      <button class="reactivate-btn" (click)="addAdditionalService()">
-        <ion-icon name="add-circle-outline"></ion-icon>
-        Add Service
-      </button>
     </div>
 
     <!-- Project Information Section -->
@@ -612,6 +611,26 @@
     </ion-content>
   </ng-template>
 </ion-modal>
+
+<!-- Tab bar for web -->
+<div class="page-tab-bar" *ngIf="isWeb">
+  <a routerLink="/tabs/active-projects" class="page-tab-button">
+    <ion-icon name="document-text-outline"></ion-icon>
+    <span>Active</span>
+  </a>
+  <a routerLink="/tabs/all-projects" class="page-tab-button">
+    <ion-icon name="folder-outline"></ion-icon>
+    <span>Complete</span>
+  </a>
+  <a routerLink="/tabs/help-guide" class="page-tab-button">
+    <ion-icon name="help-circle-outline"></ion-icon>
+    <span>Help</span>
+  </a>
+  <a routerLink="/tabs/company" class="page-tab-button">
+    <ion-icon name="people-outline"></ion-icon>
+    <span>Company</span>
+  </a>
+</div>
 
 <!-- Hidden file input for photo replacement - no capture attribute for iOS native picker -->
 <input #photoInput type="file" accept="image/*" style="display: none" (change)="onPhotoSelected($event)">

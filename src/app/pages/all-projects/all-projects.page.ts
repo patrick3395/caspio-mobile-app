@@ -25,6 +25,7 @@ export class AllProjectsPage implements OnInit, OnDestroy {
   projects: Project[] = [];
   filteredProjects: Project[] = [];
   completedProjects: Project[] = [];
+  completedProjectsByMonth: { label: string; projects: Project[] }[] = [];
   onHoldProjects: Project[] = [];
   cancelledProjects: Project[] = [];
   archivedProjects: Project[] = [];
@@ -41,6 +42,13 @@ export class AllProjectsPage implements OnInit, OnDestroy {
   private servicesCache: { [projectId: string]: string } = {};
   private serviceTypes: any[] = [];
   private routerSubscription?: Subscription;
+
+  // Admin company name lookup (only used when CompanyID = 1)
+  isAdminView = false;
+  private companyNameLookup: Map<number, string> = new Map();
+
+  // Track collapsed month groups
+  collapsedMonths: Set<string> = new Set();
 
   // Get current user info
   getUserInfo(): string {
@@ -146,11 +154,12 @@ export class AllProjectsPage implements OnInit, OnDestroy {
       try {
         const user = JSON.parse(userStr);
         companyId = user.companyId || user.CompanyID;
+        this.isAdminView = companyId === 1;
       } catch (e) {
         console.error('Error parsing user data:', e);
       }
     }
-    
+
     // Load all projects and filter out StatusID: 7 (Active)
     this.projectsService.getAllProjects(companyId).subscribe({
       next: (allProjects) => {
@@ -166,6 +175,23 @@ export class AllProjectsPage implements OnInit, OnDestroy {
 
             // Load services for each project
             this.loadServicesSimple();
+
+            // Load companies for admin view to show company names
+            if (this.isAdminView) {
+              this.caspioService.get<any>('/tables/LPS_Companies/records?q.pageSize=1000').subscribe({
+                next: (companiesResult) => {
+                  this.companyNameLookup.clear();
+                  (companiesResult?.Result || []).forEach((company: any) => {
+                    const cId = company.CompanyID || company.PK_ID;
+                    const cName = company.CompanyName || company.Name || '';
+                    if (cId && cName) {
+                      this.companyNameLookup.set(Number(cId), cName);
+                    }
+                  });
+                  this.changeDetectorRef.markForCheck();
+                }
+              });
+            }
 
             this.rebuildBuckets();
             this.loading = false;
@@ -348,16 +374,61 @@ export class AllProjectsPage implements OnInit, OnDestroy {
       : [...this.projects];
 
     this.filteredProjects = filtered;
-    this.completedProjects = this.filterByStatus(filtered, 2);
-    this.onHoldProjects = this.filterByStatus(filtered, 4);
-    this.cancelledProjects = this.filterByStatus(filtered, 3);
-    this.archivedProjects = filtered.filter(project =>
-      ![2, 3, 4].includes(Number(project.StatusID))
-    );
+    this.completedProjectsByMonth = this.groupByMonth(filtered);
+    this.completedProjects = filtered;
+    this.onHoldProjects = [];
+    this.cancelledProjects = [];
+    this.archivedProjects = [];
+  }
+
+  private groupByMonth(projects: Project[]): { label: string; projects: Project[] }[] {
+    // Sort by DateOfRequest descending (most recent first)
+    const sorted = [...projects].sort((a, b) => {
+      const dateA = (a as any).DateOfRequest ? new Date((a as any).DateOfRequest).getTime() : 0;
+      const dateB = (b as any).DateOfRequest ? new Date((b as any).DateOfRequest).getTime() : 0;
+      return dateB - dateA;
+    });
+
+    const groups: Map<string, Project[]> = new Map();
+
+    sorted.forEach(project => {
+      const dateStr = (project as any).DateOfRequest;
+      let key: string;
+      if (dateStr) {
+        const date = new Date(dateStr);
+        if (!isNaN(date.getTime())) {
+          key = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        } else {
+          key = 'Unknown Date';
+        }
+      } else {
+        key = 'Unknown Date';
+      }
+
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key)!.push(project);
+    });
+
+    return Array.from(groups.entries()).map(([label, groupProjects]) => ({ label, projects: groupProjects }));
   }
 
   private filterByStatus(projects: Project[], statusId: number): Project[] {
     return projects.filter(project => Number(project.StatusID) === statusId);
+  }
+
+  toggleMonth(label: string) {
+    if (this.collapsedMonths.has(label)) {
+      this.collapsedMonths.delete(label);
+    } else {
+      this.collapsedMonths.add(label);
+    }
+    this.changeDetectorRef.markForCheck();
+  }
+
+  isMonthCollapsed(label: string): boolean {
+    return this.collapsedMonths.has(label);
   }
 
   trackByProject(_: number, project: Project) {
@@ -707,6 +778,13 @@ export class AllProjectsPage implements OnInit, OnDestroy {
   formatProjectId(project: Project): string {
     const projectId = project.ProjectID || project.PK_ID || '';
     return projectId ? `#${projectId}` : '';
+  }
+
+  getCompanyName(project: Project): string {
+    if (!this.isAdminView) return '';
+    const companyId = project.CompanyID || (project as any).Company_ID;
+    if (!companyId) return '';
+    return this.companyNameLookup.get(Number(companyId)) || '';
   }
 
   getStatusLabel(project: Project): string {

@@ -5287,3 +5287,57 @@ body.dark-theme {
     }
   }
 }
+
+// Global page-level tab bar for pages outside ion-tabs (project-detail, new-project)
+// Must be in global.scss because Ionic's .ion-page containment traps fixed elements
+app-project-detail,
+app-new-project {
+  contain: style !important;
+}
+
+.page-tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  display: flex;
+  justify-content: stretch;
+  align-items: center;
+  height: 72px;
+  background: var(--noble-white, #ffffff);
+  border-top: 1px solid var(--ion-color-tertiary-shade, #e0e0e0);
+  z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom);
+
+  .page-tab-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    height: 100%;
+    gap: 2px;
+    padding: 6px 0 4px;
+    color: var(--noble-gray, #999999);
+    text-decoration: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+
+    ion-icon {
+      font-size: 29px;
+      padding: 6px;
+      border-radius: 8px;
+    }
+
+    span {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.2px;
+    }
+
+    &:hover {
+      color: var(--noble-orange, #F15A27);
+    }
+  }
+}

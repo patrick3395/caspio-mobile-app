@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, LoadingController, AlertController } from '@ionic/angular';
-import { Router } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { ProjectsService, ProjectCreationData } from '../../services/projects.service';
 import { GoogleMapsLoaderService } from '../../services/google-maps-loader.service';
 import { FormValidationService, FieldValidationState, ValidationRules } from '../../services/form-validation.service';
@@ -16,7 +16,7 @@ import { environment } from '../../../environments/environment';
   templateUrl: './new-project.page.html',
   styleUrls: ['./new-project.page.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule]
+  imports: [CommonModule, FormsModule, IonicModule, RouterModule]
 })
 export class NewProjectPage implements OnInit, OnDestroy {
 

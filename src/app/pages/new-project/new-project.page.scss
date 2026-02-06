@@ -310,3 +310,10 @@ input[type="date"] {
     transform: translateY(0);
   }
 }
+
+// Add bottom padding to content so it's not hidden behind the tab bar
+@media (hover: hover) and (pointer: fine) {
+  ion-content {
+    --padding-bottom: 80px;
+  }
+}
