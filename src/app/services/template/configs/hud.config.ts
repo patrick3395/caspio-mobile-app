@@ -79,4 +79,10 @@ export const HUD_CONFIG: TemplateConfig = {
 
   // Route Parameters
   visualIdParamName: 'hudId',
+
+  // Validation
+  validation: {
+    categorySectionName: 'HUD / Mobile Manufactured',
+    hasElevationPlotValidation: false,
+  },
 };

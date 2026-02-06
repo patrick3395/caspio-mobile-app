@@ -85,4 +85,10 @@ export const DTE_CONFIG: TemplateConfig = {
 
   // Route Parameters
   visualIdParamName: 'dteId',
+
+  // Validation
+  validation: {
+    categorySectionName: 'Damaged Truss Evaluation',
+    hasElevationPlotValidation: false,
+  },
 };

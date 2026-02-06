@@ -170,8 +170,9 @@ export class WebappTemplateDataProvider extends ITemplateDataProvider {
     let templates = result.Result || [];
 
     // EFE uses shared visual templates table, filter by TypeID=1
+    // Handle both number and string TypeID (API may return either)
     if (config.id === 'efe') {
-      templates = templates.filter((t: any) => t.TypeID === 1);
+      templates = templates.filter((t: any) => t.TypeID === 1 || t.TypeID === '1' || Number(t.TypeID) === 1);
     }
 
     return templates;
@@ -207,6 +208,14 @@ export class WebappTemplateDataProvider extends ITemplateDataProvider {
     }
 
     return optionsMap;
+  }
+
+  // ==================== Raw Visual Operations ====================
+
+  async getRawVisuals(config: TemplateConfig, serviceId: string): Promise<any[]> {
+    const endpoint = `/tables/${config.tableName}/records?q.where=ServiceID=${serviceId}&q.limit=1000`;
+    const result = await this.fetchApi<any>(endpoint);
+    return result.Result || [];
   }
 
   // ==================== Service Operations ====================

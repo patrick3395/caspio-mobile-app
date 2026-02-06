@@ -168,6 +168,14 @@ export abstract class ITemplateDataProvider {
    */
   abstract updateService(serviceId: string, updates: any): Promise<void>;
 
+  // ==================== Raw Visual Operations ====================
+
+  /**
+   * Get raw (un-normalized) visual records for validation.
+   * Returns backend records with fields like Selected, SelectedOptions, FK_Template, Answer.
+   */
+  abstract getRawVisuals(config: TemplateConfig, serviceId: string): Promise<any[]>;
+
   // ==================== Sync Operations ====================
   // These are meaningful on mobile, no-op on webapp
 

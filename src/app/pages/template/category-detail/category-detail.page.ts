@@ -956,8 +956,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
         if (localImages.length === 0) continue;
 
-        // Sort by createdAt (oldest first) for consistent ordering
-        localImages.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+        // Sort by createdAt (newest first) for consistent ordering with push()
+        localImages.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
         // Initialize photos array if not exists
         if (!this.visualPhotos[key]) {
@@ -989,6 +989,15 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
               const freshDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
               if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.svg') {
                 const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10);
+
+                // Detect drawings change and invalidate stale annotation caches
+                const existingDrawings = this.visualPhotos[key][existingPhotoIndex].Drawings;
+                const drawingsChanged = localImage.drawings !== existingDrawings;
+                if (drawingsChanged) {
+                  const invalidateKey = localImage.attachId || localImage.imageId;
+                  this.bulkAnnotatedImagesMap.delete(invalidateKey);
+                  this.indexedDb.deleteCachedAnnotatedImage(invalidateKey).catch(() => {});
+                }
 
                 // ANNOTATION THUMBNAIL FIX: Use cached annotated image for thumbnail display
                 // Check BOTH attachId AND imageId for cached annotated image
@@ -1125,7 +1134,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           }
 
           // Add photo to array
-          this.visualPhotos[key].unshift({
+          this.visualPhotos[key].push({
             AttachID: localImage.attachId || localImage.imageId,
             attachId: localImage.attachId || localImage.imageId,
             id: localImage.attachId || localImage.imageId,
@@ -1251,8 +1260,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
         if (localImages.length === 0) continue;
 
-        // Sort by createdAt (oldest first) for consistent ordering
-        localImages.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+        // Sort by createdAt (newest first) for consistent ordering with push()
+        localImages.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
         // Initialize photos array if not exists
         if (!this.visualPhotos[key]) {
@@ -1284,6 +1293,15 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
               const freshDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
               if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.svg') {
                 const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10);
+
+                // Detect drawings change and invalidate stale annotation caches
+                const existingDrawings = this.visualPhotos[key][existingPhotoIndex].Drawings;
+                const drawingsChanged = localImage.drawings !== existingDrawings;
+                if (drawingsChanged) {
+                  const invalidateKey = localImage.attachId || localImage.imageId;
+                  this.bulkAnnotatedImagesMap.delete(invalidateKey);
+                  this.indexedDb.deleteCachedAnnotatedImage(invalidateKey).catch(() => {});
+                }
 
                 // Check for cached annotated image
                 let cachedAnnotatedUrl = localImage.attachId
@@ -1411,7 +1429,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           }
 
           // Add photo to array - Dexie-first means data is always local, no loading needed
-          this.visualPhotos[key].unshift({
+          this.visualPhotos[key].push({
             AttachID: localImage.attachId || localImage.imageId,
             attachId: localImage.attachId || localImage.imageId,
             id: localImage.attachId || localImage.imageId,
@@ -1787,8 +1805,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
         if (localImages.length === 0) continue;
 
-        // Sort by createdAt (oldest first) for consistent ordering
-        localImages.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+        // Sort by createdAt (newest first) for consistent ordering with push()
+        localImages.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
         // Initialize photos array if not exists
         if (!this.visualPhotos[key]) {
@@ -1820,6 +1838,15 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
               const freshDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
               if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.svg') {
                 const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10);
+
+                // Detect drawings change and invalidate stale annotation caches
+                const existingDrawings = this.visualPhotos[key][existingPhotoIndex].Drawings;
+                const drawingsChanged = localImage.drawings !== existingDrawings;
+                if (drawingsChanged) {
+                  const invalidateKey = localImage.attachId || localImage.imageId;
+                  this.bulkAnnotatedImagesMap.delete(invalidateKey);
+                  this.indexedDb.deleteCachedAnnotatedImage(invalidateKey).catch(() => {});
+                }
 
                 // ANNOTATION THUMBNAIL FIX: Use cached annotated image for thumbnail display
                 let cachedAnnotatedUrl = localImage.attachId
@@ -1945,7 +1972,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           }
 
           // Add photo to array
-          this.visualPhotos[key].unshift({
+          this.visualPhotos[key].push({
             AttachID: localImage.attachId || localImage.imageId,
             attachId: localImage.attachId || localImage.imageId,
             id: localImage.attachId || localImage.imageId,
@@ -3205,12 +3232,16 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       },
       onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
         this.logDebug('PHOTO', `Upload complete: ${photo.imageId}, was: ${tempId}`);
-        // Replace temp photo with uploaded photo
+        // Replace temp photo with uploaded photo, preserving localImageId for stable matching
         const photoIndex = this.visualPhotos[key].findIndex(p =>
           p.imageId === tempId || p.AttachID === tempId || p.id === tempId
         );
         if (photoIndex >= 0) {
-          this.visualPhotos[key][photoIndex] = photo;
+          const existing = this.visualPhotos[key][photoIndex];
+          this.visualPhotos[key][photoIndex] = {
+            ...photo,
+            localImageId: existing.localImageId || existing.imageId,
+          };
         }
         this.scheduleDetectChanges();
       },
@@ -3295,11 +3326,16 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       },
       onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
         this.logDebug('PHOTO', `Gallery upload complete: ${photo.imageId}`);
+        // Replace temp photo with uploaded photo, preserving localImageId for stable matching
         const photoIndex = this.visualPhotos[key].findIndex(p =>
           p.imageId === tempId || p.AttachID === tempId || p.id === tempId
         );
         if (photoIndex >= 0) {
-          this.visualPhotos[key][photoIndex] = photo;
+          const existing = this.visualPhotos[key][photoIndex];
+          this.visualPhotos[key][photoIndex] = {
+            ...photo,
+            localImageId: existing.localImageId || existing.imageId,
+          };
         }
         this.scheduleDetectChanges();
       },
@@ -4299,7 +4335,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   }
 
   trackByPhotoId(index: number, photo: any): string {
-    return photo.id || index.toString();
+    return photo.localImageId || photo.imageId || photo.id || index.toString();
   }
 
   trackByOption(index: number, option: string): string {

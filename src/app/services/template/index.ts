@@ -25,3 +25,4 @@ export * from './configs';
 // Services
 export { TemplateConfigService } from './template-config.service';
 export { TemplateDataAdapter } from './template-data-adapter.service';
+export { TemplateValidationService, ValidationResult, IncompleteField } from './template-validation.service';

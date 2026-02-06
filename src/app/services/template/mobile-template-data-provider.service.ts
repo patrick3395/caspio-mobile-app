@@ -494,8 +494,9 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
         break;
       case 'efe':
         // EFE uses shared visual templates table, filter by TypeID=1
+        // Handle both number and string TypeID (API may return either)
         templates = await this.offlineTemplate.ensureVisualTemplatesReady();
-        templates = templates.filter((t: any) => t.TypeID === 1);
+        templates = templates.filter((t: any) => t.TypeID === 1 || t.TypeID === '1' || Number(t.TypeID) === 1);
         break;
       case 'lbw':
         templates = await this.offlineTemplate.getLbwTemplates();
@@ -554,6 +555,25 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
 
   async updateService(serviceId: string, updates: any): Promise<void> {
     await this.offlineTemplate.updateService(serviceId, updates);
+  }
+
+  // ==================== Raw Visual Operations ====================
+
+  async getRawVisuals(config: TemplateConfig, serviceId: string): Promise<any[]> {
+    switch (config.id) {
+      case 'efe':
+        return this.offlineTemplate.getVisualsByService(serviceId);
+      case 'hud':
+        return this.offlineTemplate.getHudByService(serviceId);
+      case 'lbw':
+        return this.offlineTemplate.getLbwByService(serviceId);
+      case 'dte':
+        return this.offlineTemplate.getDteByService(serviceId);
+      case 'csa':
+        return this.offlineTemplate.getCsaByService(serviceId);
+      default:
+        return [];
+    }
   }
 
   // ==================== Sync Operations ====================

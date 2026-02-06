@@ -94,4 +94,12 @@ export const EFE_CONFIG: TemplateConfig = {
 
   // Route Parameters
   visualIdParamName: 'visualId',
+
+  // Validation
+  validation: {
+    categorySectionName: 'Structural Systems',
+    additionalServiceFields: { 'StructStat': 'Structural Systems Status' },
+    skipCategoryValidation: { serviceField: 'StructStat', skipValue: 'Provided in Property Inspection Report' },
+    hasElevationPlotValidation: true,
+  },
 };

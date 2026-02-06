@@ -85,4 +85,10 @@ export const CSA_CONFIG: TemplateConfig = {
 
   // Route Parameters
   visualIdParamName: 'csaId',
+
+  // Validation
+  validation: {
+    categorySectionName: 'Cost Segregation Analysis',
+    hasElevationPlotValidation: false,
+  },
 };

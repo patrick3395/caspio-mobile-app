@@ -142,6 +142,18 @@ export interface TemplateConfig {
   // ==================== Route Parameters ====================
   /** Visual ID query param name for navigation (e.g., 'hudId', 'visualId', 'lbwId', 'dteId') */
   visualIdParamName: string;
+
+  // ==================== Validation ====================
+  validation: {
+    /** Section name for category fields in incomplete-fields list */
+    categorySectionName: string;
+    /** Extra required service fields beyond the common set (e.g., HUD needs 'StructStat') */
+    additionalServiceFields?: Record<string, string>;
+    /** Skip category validation when a service field matches a value (EFE: StructStat = 'Provided in Property Inspection Report') */
+    skipCategoryValidation?: { serviceField: string; skipValue: string };
+    /** Validate elevation plot fields (EFE only) */
+    hasElevationPlotValidation: boolean;
+  };
 }
 
 /**

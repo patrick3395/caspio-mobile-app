@@ -9,6 +9,7 @@ import { TemplateConfig, NavigationCard } from '../../../services/template/templ
 import { TemplateRehydrationService } from '../../../services/template/template-rehydration.service';
 import { TEMPLATE_DATA_PROVIDER } from '../../../services/template/template-data-provider.factory';
 import { ITemplateDataProvider } from '../../../services/template/template-data-provider.interface';
+import { TemplateValidationService } from '../../../services/template/template-validation.service';
 import { environment } from '../../../../environments/environment';
 
 interface DisplayCard extends NavigationCard {
@@ -51,7 +52,8 @@ export class GenericMainPage implements OnInit, OnDestroy {
     private templateConfigService: TemplateConfigService,
     private templateRehydration: TemplateRehydrationService,
     private changeDetectorRef: ChangeDetectorRef,
-    @Inject(TEMPLATE_DATA_PROVIDER) private dataProvider: ITemplateDataProvider
+    @Inject(TEMPLATE_DATA_PROVIDER) private dataProvider: ITemplateDataProvider,
+    private validationService: TemplateValidationService
   ) {}
 
   async ngOnInit() {
@@ -200,20 +202,24 @@ export class GenericMainPage implements OnInit, OnDestroy {
   }
 
   private async checkCanFinalize() {
-    if (!this.projectId || !this.serviceId) {
+    if (!this.projectId || !this.serviceId || !this.config) {
       this.canFinalize = false;
       return;
     }
 
     try {
-      // For now, enable finalize if report is not finalized or has changes
-      // This can be extended with template-specific validation services
+      const validationResult = await this.validationService.validateAllRequiredFields(
+        this.config,
+        this.projectId,
+        this.serviceId
+      );
+
       if (this.isReportFinalized) {
-        this.canFinalize = this.hasChangesAfterFinalization;
+        this.canFinalize = this.hasChangesAfterFinalization && validationResult.isComplete;
       } else {
-        // Basic check - can be enhanced with validation services
-        this.canFinalize = true;
+        this.canFinalize = validationResult.isComplete;
       }
+      this.changeDetectorRef.detectChanges();
     } catch (error) {
       console.error('[GenericMain] Error checking finalize status:', error);
       this.canFinalize = false;
@@ -264,27 +270,71 @@ export class GenericMainPage implements OnInit, OnDestroy {
       return;
     }
 
-    // Show confirmation dialog
-    const isUpdate = this.isReportFinalized;
-    const buttonText = isUpdate ? 'Update' : 'Finalize';
-    const headerText = isUpdate ? 'Update Report?' : 'Finalize Report?';
-    const messageText = isUpdate
-      ? 'Are you sure you want to update this report?'
-      : 'Are you sure you want to finalize this report?';
+    if (!this.config) return;
 
-    const alert = await this.alertController.create({
-      header: headerText,
-      message: messageText,
-      cssClass: 'custom-document-alert',
-      buttons: [
-        { text: 'Cancel', role: 'cancel' },
-        {
-          text: buttonText,
-          handler: () => this.markReportAsFinalized()
-        }
-      ]
+    // Show loading while validating
+    const loading = await this.loadingController.create({
+      message: 'Validating report...'
     });
-    await alert.present();
+    await loading.present();
+
+    try {
+      const validationResult = await this.validationService.validateAllRequiredFields(
+        this.config,
+        this.projectId,
+        this.serviceId
+      );
+
+      await loading.dismiss();
+
+      if (validationResult.incompleteFields.length > 0) {
+        // Show popup with missing fields
+        const fieldsList = validationResult.incompleteFields
+          .map(field => field.label)
+          .join('\n\n');
+
+        const message = `Please complete the following required fields:\n\n${fieldsList}`;
+
+        const alert = await this.alertController.create({
+          header: 'Incomplete Required Fields',
+          message: message,
+          cssClass: 'custom-document-alert incomplete-fields-alert',
+          buttons: ['OK']
+        });
+        await alert.present();
+      } else {
+        // All fields complete - show confirmation dialog
+        const isUpdate = this.isReportFinalized;
+        const buttonText = isUpdate ? 'Update' : 'Finalize';
+        const headerText = isUpdate ? 'Report Ready to Update' : 'Report Complete';
+        const messageText = isUpdate
+          ? 'All required fields have been completed. Your report is ready to be updated.'
+          : 'All required fields have been completed. Ready to finalize?';
+
+        const alert = await this.alertController.create({
+          header: headerText,
+          message: messageText,
+          cssClass: 'custom-document-alert',
+          buttons: [
+            { text: 'Cancel', role: 'cancel' },
+            {
+              text: buttonText,
+              handler: () => this.markReportAsFinalized()
+            }
+          ]
+        });
+        await alert.present();
+      }
+    } catch (error) {
+      await loading.dismiss();
+      console.error('[GenericMain] Validation error:', error);
+      const alert = await this.alertController.create({
+        header: 'Validation Error',
+        message: 'An error occurred while validating the report. Please try again.',
+        buttons: ['OK']
+      });
+      await alert.present();
+    }
   }
 
   async markReportAsFinalized() {

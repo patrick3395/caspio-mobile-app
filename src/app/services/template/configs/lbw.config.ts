@@ -85,4 +85,10 @@ export const LBW_CONFIG: TemplateConfig = {
 
   // Route Parameters
   visualIdParamName: 'lbwId',
+
+  // Validation
+  validation: {
+    categorySectionName: 'Load Bearing Wall',
+    hasElevationPlotValidation: false,
+  },
 };
