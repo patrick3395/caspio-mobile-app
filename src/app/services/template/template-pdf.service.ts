@@ -350,7 +350,12 @@ export class TemplatePdfService {
   private async prepareRecordsData(config: TemplateConfig, serviceId: string): Promise<any[]> {
     const result: any[] = [];
 
+    console.log(`[PDF] prepareRecordsData: config.id=${config.id}, serviceId=${serviceId}`);
     const allRecords = await this.getRecords(config, serviceId);
+    console.log(`[PDF] getRecords returned ${allRecords?.length ?? 'null'} records`);
+    if (allRecords?.[0]) {
+      console.log(`[PDF] First record keys:`, Object.keys(allRecords[0]).join(', '));
+    }
 
     if (!allRecords || allRecords.length === 0) {
       return result;
