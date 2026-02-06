@@ -242,7 +242,6 @@ export class TemplatePdfService {
         },
         cssClass: 'fullscreen-modal',
         animated: this.pdfGenerationAttempts > 1,
-        mode: 'ios',
         backdropDismiss: false
       });
 

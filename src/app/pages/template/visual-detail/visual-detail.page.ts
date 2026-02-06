@@ -955,15 +955,18 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     }
 
 
-    // Single-pass search with all possible IDs
+    // Merge-based search: collect photos from ALL matching IDs
+    // During sync, photos may be split across entityIds as some get updated from tempId to realId
     let localImages: any[] = [];
-    let foundWithId = '';
+    const seenImageIds = new Set<string>();
 
     for (const searchId of idsToSearch) {
-      if (localImages.length > 0) break;
-      localImages = await db.localImages.where('entityId').equals(searchId).toArray();
-      if (localImages.length > 0) {
-        foundWithId = searchId;
+      const found = await db.localImages.where('entityId').equals(searchId).toArray();
+      for (const img of found) {
+        if (!seenImageIds.has(img.imageId)) {
+          seenImageIds.add(img.imageId);
+          localImages.push(img);
+        }
       }
     }
 

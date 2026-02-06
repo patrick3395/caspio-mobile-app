@@ -929,12 +929,16 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         const key = `${field.category}_${field.templateId}`;
         this.visualRecordIds[key] = visualId;
 
-        // 4-tier fallback lookup
+        // Merge-based lookup: collect photos from ALL matching IDs (realId + tempId)
+        // During sync, photos may be split across entityIds as some get updated from tempId to realId
         let localImages = realId ? (localImagesMap.get(realId) || []) : [];
 
-        // Try tempId lookup
-        if (localImages.length === 0 && tempId && tempId !== realId) {
-          localImages = localImagesMap.get(tempId) || [];
+        // Also include tempId photos (they may not have synced yet)
+        if (tempId && tempId !== realId) {
+          const tempImages = localImagesMap.get(tempId) || [];
+          if (tempImages.length > 0) {
+            localImages = [...localImages, ...tempImages];
+          }
         }
 
         // Check IndexedDB for temp-to-real mapping
@@ -1233,12 +1237,16 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         const key = `${field.category}_${field.templateId}`;
         this.visualRecordIds[key] = hudId;
 
-        // 4-tier fallback lookup
+        // Merge-based lookup: collect photos from ALL matching IDs (realId + tempId)
+        // During sync, photos may be split across entityIds as some get updated from tempId to realId
         let localImages = realId ? (localImagesMap.get(realId) || []) : [];
 
-        // Try tempId lookup
-        if (localImages.length === 0 && tempId && tempId !== realId) {
-          localImages = localImagesMap.get(tempId) || [];
+        // Also include tempId photos (they may not have synced yet)
+        if (tempId && tempId !== realId) {
+          const tempImages = localImagesMap.get(tempId) || [];
+          if (tempImages.length > 0) {
+            localImages = [...localImages, ...tempImages];
+          }
         }
 
         // Check IndexedDB for temp-to-real mapping
@@ -1779,12 +1787,16 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         const key = `${field.category}_${field.templateId}`;
         this.visualRecordIds[key] = recordId;
 
-        // 4-tier fallback lookup
+        // Merge-based lookup: collect photos from ALL matching IDs (realId + tempId)
+        // During sync, photos may be split across entityIds as some get updated from tempId to realId
         let localImages = realId ? (localImagesMap.get(realId) || []) : [];
 
-        // Try tempId lookup
-        if (localImages.length === 0 && tempId && tempId !== realId) {
-          localImages = localImagesMap.get(tempId) || [];
+        // Also include tempId photos (they may not have synced yet)
+        if (tempId && tempId !== realId) {
+          const tempImages = localImagesMap.get(tempId) || [];
+          if (tempImages.length > 0) {
+            localImages = [...localImages, ...tempImages];
+          }
         }
 
         // Check IndexedDB for temp-to-real mapping

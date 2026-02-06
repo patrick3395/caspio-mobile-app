@@ -95,6 +95,10 @@
   height: 40px;
   min-width: 40px;
   min-height: 40px;
+
+  &.menu-btn {
+    justify-content: flex-start;
+  }
   border-radius: 4px;
   border: none;
   background: #333333;

@@ -935,30 +935,11 @@ body.dark-theme .custom-document-alert .alert-input {
   border-color: var(--color-border-default);
 }
 
-body.dark-theme .custom-other-alert .alert-button,
-body.dark-theme .custom-document-alert .alert-button,
-body.dark-theme .template-loading-alert .alert-button {
-  color: var(--color-text-primary) !important;
-  background: var(--color-bg-elevated) !important;
-}
-
-/* Dark theme: Confirmation dialog button overrides (higher specificity) */
-body.dark-theme .custom-document-alert.confirmation-dialog .alert-button.alert-button-confirm,
-body.dark-theme .custom-document-alert.confirmation-dialog .alert-button.alert-button-destructive,
-body.dark-theme .custom-document-alert.confirmation-dialog .alert-button.alert-button-cancel {
+/* Dark theme: Universal alert button override (specificity 0,4,2 beats light-mode 0,4,0) */
+body.dark-theme ion-alert .alert-button-group .alert-button:not(.editor-save-btn) {
   color: var(--color-text-primary) !important;
   background: var(--color-bg-elevated) !important;
   border-color: var(--noble-orange) !important;
-}
-
-@media (hover: hover) {
-  body.dark-theme .custom-document-alert.confirmation-dialog .alert-button.alert-button-confirm:hover,
-  body.dark-theme .custom-document-alert.confirmation-dialog .alert-button.alert-button-destructive:hover,
-  body.dark-theme .custom-document-alert.confirmation-dialog .alert-button.alert-button-cancel:hover {
-    color: var(--color-text-primary) !important;
-    background: var(--color-bg-elevated) !important;
-    border-color: var(--noble-orange) !important;
-  }
 }
 
 /* Dark theme: Image container */
@@ -1479,7 +1460,6 @@ textarea.styled-input {
           border-radius: 6px;
           font-size: 16px; // Prevents iOS zoom on focus
           color: #333 !important;
-          background: #fff !important;
           background-color: #fff !important;
           -webkit-appearance: none;
           -moz-appearance: none;
@@ -1489,7 +1469,7 @@ textarea.styled-input {
           &:focus {
             outline: none;
             border-color: #F15A27 !important;
-            background: #fff !important;
+            background-color: #fff !important;
           }
 
           &::placeholder {
@@ -1630,14 +1610,8 @@ body.dark-theme ion-alert.payment-method-alert .alert-button {
     border-color: var(--noble-orange, #F15A27) !important;
   }
 
-  // Dark mode: alert button hovers
-  body.dark-theme ion-alert .alert-button:not([role="cancel"]):hover {
-    background: var(--color-bg-elevated) !important;
-    color: var(--color-text-primary) !important;
-    border-color: var(--noble-orange) !important;
-  }
-
-  body.dark-theme ion-alert .alert-button[role="cancel"]:hover {
+  // Dark mode: alert button hovers (specificity 0,4,2 to beat light-mode rules)
+  body.dark-theme ion-alert .alert-button-group .alert-button:not(.editor-save-btn):hover {
     background: var(--color-bg-elevated) !important;
     color: var(--color-text-primary) !important;
     border-color: var(--noble-orange) !important;
@@ -1852,7 +1826,6 @@ body.dark-theme .custom-loading-popup .loading-message {
         border-radius: 10px;
         font-size: 16px;
         color: #333 !important;
-        background: #fafafa !important;
         background-color: #fafafa !important;
         -webkit-appearance: none;
         -moz-appearance: none;
@@ -1863,7 +1836,6 @@ body.dark-theme .custom-loading-popup .loading-message {
         &:focus {
           outline: none;
           border-color: var(--noble-orange, #F15A27) !important;
-          background: #ffffff !important;
           background-color: #ffffff !important;
           box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.1);
         }
@@ -1954,13 +1926,11 @@ body.dark-theme .custom-loading-popup .loading-message {
           }
 
           input, select {
-            background: #333 !important;
             background-color: #333 !important;
             border-color: #555 !important;
             color: #fff !important;
 
             &:focus {
-              background: #3a3a3a !important;
               background-color: #3a3a3a !important;
             }
 
@@ -1971,6 +1941,8 @@ body.dark-theme .custom-loading-popup .loading-message {
 
           select {
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M6 9L1 4h10z'/%3E%3C/svg%3E") !important;
+            background-repeat: no-repeat !important;
+            background-position: right 14px center !important;
             background-color: #333 !important;
 
             &:focus {
