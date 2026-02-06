@@ -3,7 +3,7 @@ import { ModalController, AlertController } from '@ionic/angular';
 import { firstValueFrom } from 'rxjs';
 import { CaspioService } from '../caspio.service';
 import { TemplateConfigService } from './template-config.service';
-import { TemplateConfig } from './template-config.interface';
+import { TemplateConfig, TemplateType } from './template-config.interface';
 import { CacheService } from '../cache.service';
 import { FabricService } from '../fabric.service';
 import { RetryNotificationService } from '../retry-notification.service';
@@ -51,9 +51,9 @@ export class TemplatePdfService {
 
   /**
    * Main PDF generation entry point.
-   * Config is resolved automatically from the current URL via TemplateConfigService.
+   * Config is resolved from configId if provided, otherwise from the current URL.
    */
-  async generatePDF(projectId: string, serviceId: string): Promise<void> {
+  async generatePDF(projectId: string, serviceId: string, configId?: TemplateType): Promise<void> {
     if (this.isPDFGenerating) {
       return;
     }
@@ -61,7 +61,9 @@ export class TemplatePdfService {
     this.isPDFGenerating = true;
     this.pdfGenerationAttempts++;
 
-    const config = this.templateConfigService.requiredConfig;
+    const config = configId
+      ? this.templateConfigService.getConfig(configId)
+      : this.templateConfigService.requiredConfig;
     const logTag = `[${config.displayName} PDF]`;
 
     let loading: HTMLIonAlertElement | null = null;

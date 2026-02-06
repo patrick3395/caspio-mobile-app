@@ -165,10 +165,12 @@ export class TemplateValidationService {
         let isComplete = false;
 
         if (userAnswer) {
-          if (templateItem.AnswerType === 1) {
+          // Use Number() to handle both string and number AnswerType from API
+          const answerType = Number(templateItem.AnswerType) || 0;
+          if (answerType === 1) {
             // Yes/No question
             isComplete = userAnswer.Answer === 'Yes' || userAnswer.Answer === 'No';
-          } else if (templateItem.AnswerType === 2) {
+          } else if (answerType === 2) {
             // Multi-select question
             isComplete = userAnswer.SelectedOptions && userAnswer.SelectedOptions.length > 0;
           } else {

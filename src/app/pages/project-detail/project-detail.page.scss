@@ -338,6 +338,34 @@ ion-button{--padding-start:12px;--padding-end:12px;font-size:14px}}
   }
 }
 
+// PDF button
+.pdf-btn {
+  background: $white;
+  color: $orange;
+  border: 1px solid $orange;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+
+  ion-icon {
+    font-size: 16px;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      background: $orange;
+      color: $white;
+    }
+  }
+}
+
 // Sync/Save buttons
 .sync-save-buttons {
   display: flex;
