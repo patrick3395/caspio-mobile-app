@@ -557,14 +557,12 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
             this.lastConvertedGenericFields = fields;
           }
 
-          // Populate photos in background (non-blocking)
-          this.populateGenericPhotosFromDexie(fields).then(() => {
-            // Guard again after async operation — use RAF-debounced CD
-            // to avoid hammering the main thread when populate short-circuits
-            if (!this.isDestroyed) {
-              this.scheduleDetectChanges();
-            }
-          });
+          // Photos are NOT re-populated here. Photo state is maintained by:
+          // - onTempPhotoAdded / onUploadComplete callbacks (during upload)
+          // - subscribeToLocalImagesChanges (for background sync status)
+          // - refreshLocalState → populateGenericPhotosFromDexie (on page return)
+          // Running populate on every liveQuery emission was redundant heavy work
+          // (IndexedDB lookups + blob URLs for all 50+ fields) that blocked scrolling.
         },
         error: (err: any) => {
           this.logDebug('ERROR', `Error in fields subscription: ${err}`);
@@ -3221,7 +3219,12 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     this.lastPhotoOperationTime = Date.now();
     this.isCameraCaptureInProgress = true;
     try {
-      await this.photoHandler.captureFromCamera(captureConfig);
+      // Run outside Angular zone to prevent every await inside captureFromCamera
+      // from triggering full application change detection (ApplicationRef.tick).
+      // Callbacks use scheduleDetectChanges() for targeted local CD instead.
+      await this.ngZone.runOutsideAngular(() =>
+        this.photoHandler.captureFromCamera(captureConfig)
+      );
     } finally {
       // Grace period: let UI settle before liveQuery cascade
       setTimeout(() => {
@@ -3305,7 +3308,13 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     this.lastPhotoOperationTime = Date.now();
     this.isMultiImageUploadInProgress = true;
     try {
-      await this.photoHandler.captureFromGallery(captureConfig);
+      // Run outside Angular zone to prevent every await inside captureFromGallery
+      // (fetch, blob, compressImage, processPhoto — ~5 awaits per photo × N photos)
+      // from triggering full application change detection (ApplicationRef.tick).
+      // Callbacks use scheduleDetectChanges() for targeted local CD instead.
+      await this.ngZone.runOutsideAngular(() =>
+        this.photoHandler.captureFromGallery(captureConfig)
+      );
     } finally {
       // Grace period: let UI settle before liveQuery cascade
       setTimeout(() => {

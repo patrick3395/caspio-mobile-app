@@ -9,6 +9,7 @@ import {
   ImageEntityType 
 } from './indexed-db.service';
 import { CaspioService } from './caspio.service';
+import { environment } from '../../environments/environment';
 
 /**
  * Image display info for UI rendering
@@ -1243,14 +1244,35 @@ export class LocalImageService {
           caption
         );
       } else if (entityType === 'fdf') {
-        // FDF photos use EFE point attachment with photo type
-        result = await this.caspioService.uploadEFEPointsAttachWithS3(
-          parseInt(entityId),
-          drawings,
-          file,
-          photoType || undefined,
-          caption
-        );
+        // FDF photos: Upload to S3, then UPDATE the LPS_Services_EFE record by EFEID
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(2, 8);
+        const fileExt = file.name.split('.').pop() || 'jpg';
+        const uniqueFilename = `fdf_${entityId}_${timestamp}_${randomId}.${fileExt}`;
+
+        const formData = new FormData();
+        formData.append('file', file, uniqueFilename);
+        formData.append('tableName', 'LPS_Services_EFE');
+        formData.append('attachId', `fdf_${timestamp}`);
+
+        const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, {
+          method: 'POST', body: formData
+        });
+        if (!uploadResponse.ok) throw new Error('S3 upload failed for FDF photo');
+        const { s3Key } = await uploadResponse.json();
+
+        // Build update payload for the correct FDF column
+        const updateData: any = {};
+        const columnName = `FDFPhoto${photoType}Attachment`;
+        updateData[columnName] = s3Key;
+        if (caption) updateData[`FDF${photoType}Annotation`] = caption;
+        if (drawings) updateData[`FDF${photoType}Drawings`] = drawings;
+
+        // Update existing LPS_Services_EFE record by EFEID
+        await this.caspioService.updateServicesEFEByEFEID(entityId, updateData).toPromise();
+
+        // Return in expected format
+        result = { AttachID: entityId, Attachment: s3Key };
       } else if (entityType === 'hud') {
         // Upload HUD attachment to LPS_Services_HUD_Attach
         result = await this.caspioService.createServicesHUDAttachWithFile(

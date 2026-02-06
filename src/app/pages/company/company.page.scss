@@ -125,11 +125,17 @@ ion-content {
 .page-shell {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 12px;
   padding: 16px;
   padding-bottom: 0; // Remove padding, use spacer instead
   min-height: 100vh;
   height: auto;
+  max-width: 800px;
+  margin: 0 auto;
+
+  &.full-width {
+    max-width: 100%;
+  }
 }
 
 // Bottom spacer to ensure scrolling works on mobile
@@ -188,9 +194,10 @@ ion-content {
 }
 
 .sub-tab-bar {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  justify-content: center;
   gap: 8px;
-  flex-wrap: wrap;
   padding: 8px 0;
 }
 
@@ -227,7 +234,7 @@ ion-content {
 // Global Company Filter Styling
 .global-company-filter {
   background: linear-gradient(135deg, #f8f9fa, #ffffff);
-  border: 2px solid #f15a27;
+  border: 2px solid #ccc;
   border-radius: 16px;
   padding: 20px;
   box-shadow: 0 4px 12px rgba(241, 90, 39, 0.15);
@@ -529,7 +536,7 @@ ion-content {
 
 // Client tab content
 .client-tab-content {
-  margin-top: 16px;
+  margin-top: 0;
 }
 
 // Collapsible Section (matches Deliverables table on project-detail page)
@@ -579,6 +586,21 @@ ion-content {
       font-size: 13px;
       color: rgba(51, 51, 51, 0.75);
       font-weight: 400;
+    }
+  }
+
+  .fee-header-edit-btn {
+    font-size: 20px;
+    color: #999;
+    cursor: pointer;
+    transition: color 0.15s;
+
+    &:hover {
+      color: #F15A27;
+    }
+
+    &.saving {
+      color: #F15A27;
     }
   }
 
@@ -1073,7 +1095,7 @@ ion-content {
       font-size: 2.2rem;
       font-weight: 600;
       color: #ffffff;
-      background: linear-gradient(135deg, #f15a27, #ff7b4d);
+      background: #999999;
     }
   }
 
@@ -1120,7 +1142,7 @@ ion-content {
       }
 
       .org-user-email {
-        color: #f15a27;
+        color: #333333;
         font-weight: 500;
 
         &:hover {
@@ -2734,6 +2756,13 @@ ion-segment.filter-segment {
       box-sizing: border-box;
       background: var(--ion-surface-muted-background, #F5F5F5);
       margin-bottom: 0;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s ease;
+
+      &:hover {
+        background: rgba(0, 0, 0, 0.03);
+      }
 
       .section-title {
         display: flex;
@@ -2743,6 +2772,13 @@ ion-segment.filter-segment {
         ion-icon {
           font-size: 18px;
           color: var(--noble-orange, #F15A27);
+        }
+
+        ion-icon.collapse-chevron {
+          font-size: 16px;
+          color: var(--noble-orange, #F15A27);
+          flex-shrink: 0;
+          transition: transform 0.2s ease;
         }
 
         h3 {
@@ -2817,6 +2853,10 @@ ion-segment.filter-segment {
       letter-spacing: 0.5px;
       border-bottom: 2px solid #e0e0e0;
       padding-bottom: 8px;
+
+      .lt-col {
+        font-family: inherit;
+      }
     }
 
     .list-table-row {
@@ -2832,6 +2872,21 @@ ion-segment.filter-segment {
     .lt-col-amount {
       text-align: right;
       font-family: 'Courier New', monospace;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 2px;
+
+      .currency-sign {
+        color: #999;
+        font-weight: 400;
+      }
+
+      .currency-value {
+        min-width: 70px;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
     }
 
     .lt-col-action {
@@ -2839,11 +2894,11 @@ ion-segment.filter-segment {
     }
   }
 
-  // Outstanding Balance: 5 columns
+  // Outstanding Balance: 4 columns
   .unpaid-invoices-list .list-table {
     .list-table-header,
     .list-table-row {
-      grid-template-columns: 2fr 1fr 100px 100px 100px;
+      grid-template-columns: 2fr 1fr 100px 100px;
     }
   }
 
@@ -2851,7 +2906,7 @@ ion-segment.filter-segment {
   .payment-history-list .list-table {
     .list-table-header,
     .list-table-row {
-      grid-template-columns: 100px 2fr 1fr 100px 60px;
+      grid-template-columns: 100px 2fr 1.5fr 120px 80px;
     }
   }
 
@@ -2912,6 +2967,8 @@ ion-segment.filter-segment {
 
   .autopay-settings {
     .autopay-settings-content {
+      padding: 0 16px;
+
       .setting-row {
         display: flex;
         justify-content: space-between;
@@ -2929,9 +2986,9 @@ ion-segment.filter-segment {
           gap: 4px;
 
           .setting-label {
-            font-weight: 600;
-            color: #212529;
-            font-size: 0.95rem;
+            font-weight: 400;
+            color: #333;
+            font-size: 14px;
           }
 
           .setting-description {

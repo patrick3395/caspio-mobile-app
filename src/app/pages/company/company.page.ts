@@ -243,7 +243,11 @@ export class CompanyPage implements OnInit, OnDestroy {
   clientTab: 'company' | 'payments' | 'metrics' = 'company';
   usersExpanded = true;
   servicesExpanded = true;
+  editingAllFees = false;
   paymentSettingsExpanded = true;
+  outstandingBalanceExpanded = true;
+  paymentHistoryExpanded = true;
+  autopaySettingsExpanded = true;
   clientOffers: any[] = [];
   clientMetrics: { totalProjects: number; activeProjects: number; completedProjects: number } | null = null;
 
@@ -1069,6 +1073,29 @@ export class CompanyPage implements OnInit, OnDestroy {
       );
     } catch (error) {
       console.error(`Error saving ClientFee for offer ${offerId}:`, error);
+    }
+  }
+
+  async toggleEditAllFees(): Promise<void> {
+    if (this.editingAllFees) {
+      // Save all fees then exit edit mode
+      for (const offer of this.clientOffers) {
+        const offerId = offer.OffersID || offer.PK_ID;
+        if (offerId) {
+          try {
+            await firstValueFrom(
+              this.caspioService.put(`/tables/LPS_Offers/records?q.where=OffersID=${offerId}`, {
+                ClientFee: offer.ClientFee || 0
+              })
+            );
+          } catch (error) {
+            console.error(`Error saving ClientFee for offer ${offerId}:`, error);
+          }
+        }
+      }
+      this.editingAllFees = false;
+    } else {
+      this.editingAllFees = true;
     }
   }
 

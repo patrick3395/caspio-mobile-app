@@ -289,14 +289,6 @@
         <h2 class="section-title">Reports</h2>
         <!-- Sync/Save Buttons (mobile only) -->
         <div class="sync-save-buttons" *ngIf="!isWeb">
-          <button class="sync-btn"
-                  (click)="syncFromCloud(); $event.stopPropagation()"
-                  [disabled]="isSyncing"
-                  title="Pull fresh data from cloud">
-            <ion-icon [name]="isSyncing ? 'sync' : 'cloud-download-outline'"
-                      [class.spinning]="isSyncing"></ion-icon>
-            <span class="btn-text">Sync</span>
-          </button>
           <button class="save-btn"
                   (click)="saveToCloud(); $event.stopPropagation()"
                   [disabled]="isSaving"

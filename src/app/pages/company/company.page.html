@@ -31,7 +31,7 @@
   </ion-refresher>
 
   <!-- CRM View for Company ID 1 -->
-  <div *ngIf="isCompanyOne" class="page-shell">
+  <div *ngIf="isCompanyOne" class="page-shell" [class.full-width]="selectedTab === 'metrics'">
     <!-- Main Tab Bar -->
     <div class="admin-main-tabs">
       <button class="admin-main-tab" [class.active]="adminMainTab === 'company'" (click)="selectAdminMainTab('company')">
@@ -278,30 +278,6 @@
           <p class="wrap-text">{{ currentCompany.Notes }}</p>
         </div>
 
-        <div class="detail-section">
-          <h4>Services Offered</h4>
-          <div *ngIf="getCompanyOffers(currentCompany.CompanyID).length > 0; else noOffers">
-            <div class="responsive-table dark-outline">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Service</th>
-                    <th>Fee</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let offer of getCompanyOffers(currentCompany.CompanyID)">
-                    <td>{{ offer.typeName }}</td>
-                    <td>{{ formatCurrency(offer.ServiceFee) }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <ng-template #noOffers>
-            <p class="no-data-text">No services configured for this company</p>
-          </ng-template>
-        </div>
       </div>
     </div>
     <div *ngIf="selectedTab === 'companies'" class="tab-content companies-tab">
@@ -1282,7 +1258,7 @@
   </div>
 
   <!-- Client View for non-Company 1 users -->
-  <div *ngIf="!isCompanyOne" class="page-shell">
+  <div *ngIf="!isCompanyOne" class="page-shell" [class.full-width]="clientTab === 'metrics'">
     <!-- Main Tab Navigation for Clients -->
     <div class="main-tab-bar">
       <button class="main-tab" [class.active]="clientTab === 'company'" (click)="selectClientTab('company')">
@@ -1384,6 +1360,10 @@
             <h3>Services Offered</h3>
             <span class="collapsible-count" *ngIf="clientOffers.length > 0">({{ clientOffers.length }})</span>
           </div>
+          <ion-icon [name]="editingAllFees ? 'checkmark-circle' : 'create-outline'"
+                    class="fee-header-edit-btn"
+                    [class.saving]="editingAllFees"
+                    (click)="toggleEditAllFees(); $event.stopPropagation()"></ion-icon>
         </div>
 
         <div class="collapsible-content" [class.expanded]="servicesExpanded">
@@ -1398,18 +1378,13 @@
               <span class="sl-col-service">{{ offer.typeName }}</span>
               <span class="sl-col-fee">{{ offer.ServiceFee ? ('$' + offer.ServiceFee) : '—' }}</span>
               <span class="sl-col-myfee">
-                <div class="fee-display-wrapper" *ngIf="!offer._editingFee">
-                  <span class="fee-value">{{ offer.ClientFee ? ('$' + offer.ClientFee) : '—' }}</span>
-                  <ion-icon name="create-outline" class="fee-edit-btn" (click)="offer._editingFee = true"></ion-icon>
-                </div>
-                <div class="fee-input-wrapper" *ngIf="offer._editingFee">
+                <span class="fee-value" *ngIf="!editingAllFees">{{ offer.ClientFee ? ('$' + offer.ClientFee) : '—' }}</span>
+                <div class="fee-input-wrapper" *ngIf="editingAllFees">
                   <span class="fee-prefix">$</span>
                   <input type="number" class="fee-input"
                          [(ngModel)]="offer.ClientFee"
-                         (blur)="saveClientFee(offer)"
                          placeholder="0.00"
-                         step="0.01" min="0"
-                         #feeInput>
+                         step="0.01" min="0">
                 </div>
               </span>
             </div>
@@ -1431,9 +1406,9 @@
     <div *ngIf="clientTab === 'payments'" class="client-tab-content payments-tab">
       <!-- Outstanding Balance Section -->
       <div class="payments-section">
-        <div class="section-header-row">
+        <div class="section-header-row" (click)="outstandingBalanceExpanded = !outstandingBalanceExpanded">
           <div class="section-title">
-            <ion-icon name="wallet-outline"></ion-icon>
+            <ion-icon [name]="outstandingBalanceExpanded ? 'chevron-down' : 'chevron-forward'" class="collapse-chevron"></ion-icon>
             <h3>Outstanding Balance</h3>
           </div>
           <div class="balance-total" [class.has-balance]="getCompanyOutstandingData(currentUserCompanyId || 0).balance > 0">
@@ -1444,79 +1419,81 @@
           </div>
         </div>
 
-        <div class="unpaid-invoices-list" *ngIf="getCompanyOutstandingData(currentUserCompanyId || 0).invoices.length > 0">
-          <div class="list-table">
-            <div class="list-table-header">
-              <span class="lt-col lt-col-property">Property</span>
-              <span class="lt-col lt-col-service">Service</span>
-              <span class="lt-col lt-col-amount">Fee</span>
-              <span class="lt-col lt-col-amount">Paid</span>
-              <span class="lt-col lt-col-amount">Balance</span>
-            </div>
-            <div class="list-table-row" *ngFor="let inv of getCompanyOutstandingData(currentUserCompanyId || 0).invoices">
-              <span class="lt-col lt-col-property">{{ inv.projectAddress }}</span>
-              <span class="lt-col lt-col-service">{{ inv.serviceName }}</span>
-              <span class="lt-col lt-col-amount">{{ inv.fee | currency:'USD':'symbol':'1.2-2' }}</span>
-              <span class="lt-col lt-col-amount">{{ inv.paid | currency:'USD':'symbol':'1.2-2' }}</span>
-              <span class="lt-col lt-col-amount balance-due">{{ inv.remaining | currency:'USD':'symbol':'1.2-2' }}</span>
+        <div *ngIf="outstandingBalanceExpanded">
+          <div class="unpaid-invoices-list" *ngIf="getCompanyOutstandingData(currentUserCompanyId || 0).invoices.length > 0">
+            <div class="list-table">
+              <div class="list-table-header">
+                <span class="lt-col lt-col-property">Property</span>
+                <span class="lt-col lt-col-service">Service</span>
+                <span class="lt-col lt-col-amount">Fee</span>
+                <span class="lt-col lt-col-amount">Balance</span>
+              </div>
+              <div class="list-table-row" *ngFor="let inv of getCompanyOutstandingData(currentUserCompanyId || 0).invoices">
+                <span class="lt-col lt-col-property">{{ inv.projectAddress }}</span>
+                <span class="lt-col lt-col-service">{{ inv.serviceName }}</span>
+                <span class="lt-col lt-col-amount"><span class="currency-sign">$</span><span class="currency-value">{{ inv.fee | number:'1.2-2' }}</span></span>
+                <span class="lt-col lt-col-amount balance-due"><span class="currency-sign">$</span><span class="currency-value">{{ inv.remaining | number:'1.2-2' }}</span></span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="no-balance-message" *ngIf="!getCompanyOutstandingData(currentUserCompanyId || 0).loading && getCompanyOutstandingData(currentUserCompanyId || 0).balance === 0">
-          <ion-icon name="checkmark-circle-outline"></ion-icon>
-          <span>No outstanding balance - all invoices paid!</span>
+          <div class="no-balance-message" *ngIf="!getCompanyOutstandingData(currentUserCompanyId || 0).loading && getCompanyOutstandingData(currentUserCompanyId || 0).balance === 0">
+            <ion-icon name="checkmark-circle-outline"></ion-icon>
+            <span>No outstanding balance - all invoices paid!</span>
+          </div>
         </div>
       </div>
 
       <!-- Payment History Section -->
       <div class="payments-section">
-        <div class="section-header-row">
+        <div class="section-header-row" (click)="paymentHistoryExpanded = !paymentHistoryExpanded">
           <div class="section-title">
-            <ion-icon name="receipt-outline"></ion-icon>
+            <ion-icon [name]="paymentHistoryExpanded ? 'chevron-down' : 'chevron-forward'" class="collapse-chevron"></ion-icon>
             <h3>Payment History</h3>
           </div>
         </div>
 
-        <div class="payment-history-list" *ngIf="getCompanyOutstandingData(currentUserCompanyId || 0).paidInvoices.length > 0">
-          <div class="list-table">
-            <div class="list-table-header">
-              <span class="lt-col lt-col-date">Date</span>
-              <span class="lt-col lt-col-property">Property</span>
-              <span class="lt-col lt-col-service">Service</span>
-              <span class="lt-col lt-col-amount">Amount</span>
-              <span class="lt-col lt-col-action">Invoice</span>
-            </div>
-            <div class="list-table-row" *ngFor="let payment of getCompanyOutstandingData(currentUserCompanyId || 0).paidInvoices">
-              <span class="lt-col lt-col-date">{{ payment.paidDate ? (payment.paidDate | date:'shortDate') : 'N/A' }}</span>
-              <span class="lt-col lt-col-property truncate-cell">{{ payment.projectAddress }}</span>
-              <span class="lt-col lt-col-service">{{ payment.serviceName }}</span>
-              <span class="lt-col lt-col-amount">{{ payment.paidAmount | currency:'USD':'symbol':'1.2-2' }}</span>
-              <span class="lt-col lt-col-action">
-                <button class="download-invoice-btn" (click)="downloadInvoice(payment, clientCompany?.CompanyName || 'Company')" title="Download Invoice">
-                  <ion-icon name="download-outline"></ion-icon>
-                </button>
-              </span>
+        <div *ngIf="paymentHistoryExpanded">
+          <div class="payment-history-list" *ngIf="getCompanyOutstandingData(currentUserCompanyId || 0).paidInvoices.length > 0">
+            <div class="list-table">
+              <div class="list-table-header">
+                <span class="lt-col lt-col-date">Date</span>
+                <span class="lt-col lt-col-property">Property</span>
+                <span class="lt-col lt-col-service">Service</span>
+                <span class="lt-col lt-col-amount">Amount</span>
+                <span class="lt-col lt-col-action"></span>
+              </div>
+              <div class="list-table-row" *ngFor="let payment of getCompanyOutstandingData(currentUserCompanyId || 0).paidInvoices">
+                <span class="lt-col lt-col-date">{{ payment.paidDate ? (payment.paidDate | date:'shortDate') : 'N/A' }}</span>
+                <span class="lt-col lt-col-property truncate-cell">{{ payment.projectAddress }}</span>
+                <span class="lt-col lt-col-service">{{ payment.serviceName }}</span>
+                <span class="lt-col lt-col-amount"><span class="currency-sign">$</span><span class="currency-value">{{ payment.paidAmount | number:'1.2-2' }}</span></span>
+                <span class="lt-col lt-col-action">
+                  <button class="download-invoice-btn" (click)="downloadInvoice(payment, clientCompany?.CompanyName || 'Company')" title="Download Invoice">
+                    <ion-icon name="download-outline"></ion-icon>
+                  </button>
+                </span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="no-payments-message" *ngIf="!getCompanyOutstandingData(currentUserCompanyId || 0).loading && getCompanyOutstandingData(currentUserCompanyId || 0).paidInvoices.length === 0">
-          <ion-icon name="time-outline"></ion-icon>
-          <span>No payment history yet</span>
+          <div class="no-payments-message" *ngIf="!getCompanyOutstandingData(currentUserCompanyId || 0).loading && getCompanyOutstandingData(currentUserCompanyId || 0).paidInvoices.length === 0">
+            <ion-icon name="time-outline"></ion-icon>
+            <span>No payment history yet</span>
+          </div>
         </div>
       </div>
 
       <!-- Autopay Settings Section -->
       <div class="payments-section autopay-settings">
-        <div class="section-header-row">
+        <div class="section-header-row" (click)="autopaySettingsExpanded = !autopaySettingsExpanded">
           <div class="section-title">
-            <ion-icon name="sync-outline"></ion-icon>
+            <ion-icon [name]="autopaySettingsExpanded ? 'chevron-down' : 'chevron-forward'" class="collapse-chevron"></ion-icon>
             <h3>Autopay Settings</h3>
           </div>
         </div>
 
-        <div class="autopay-settings-content">
+        <div class="autopay-settings-content" *ngIf="autopaySettingsExpanded">
           <div class="setting-row">
             <div class="setting-info">
               <span class="setting-label">Enable Autopay</span>
