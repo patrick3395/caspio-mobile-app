@@ -76,20 +76,21 @@ export class LoginPage implements OnInit, OnDestroy {
       return;
     }
 
-    // Check for saved email (G2-SEC-002: Only store email, never passwords)
-    const savedEmail = localStorage.getItem('savedEmail');
-    if (savedEmail) {
+    // Restore saved credentials if remember me was checked
+    const savedCredentials = localStorage.getItem('savedCredentials');
+    if (savedCredentials) {
       try {
-        const saved = JSON.parse(savedEmail);
+        const saved = JSON.parse(savedCredentials);
         this.credentials.email = saved.email || '';
+        this.credentials.password = saved.password || '';
         this.credentials.companyId = saved.companyId || 1;
         this.rememberMe = true;
       } catch (e) {
-        // Silent fail - not logging errors that could expose what we're looking for
+        // Silent fail
       }
     }
-    // G2-SEC-002: Clean up any legacy savedCredentials that may contain passwords
-    localStorage.removeItem('savedCredentials');
+    // Clean up legacy key
+    localStorage.removeItem('savedEmail');
   }
 
   ngOnDestroy() {
@@ -205,14 +206,15 @@ export class LoginPage implements OnInit, OnDestroy {
       localStorage.setItem('authToken', 'authenticated');
     }
     
-    // G2-SEC-002: Save only email if remember me is checked (never store passwords)
+    // Save credentials if remember me is checked
     if (this.rememberMe) {
-      localStorage.setItem('savedEmail', JSON.stringify({
+      localStorage.setItem('savedCredentials', JSON.stringify({
         email: this.credentials.email,
+        password: this.credentials.password,
         companyId: this.credentials.companyId
       }));
     } else {
-      localStorage.removeItem('savedEmail');
+      localStorage.removeItem('savedCredentials');
     }
     
     // Only dismiss loading if it exists (it might already be dismissed)

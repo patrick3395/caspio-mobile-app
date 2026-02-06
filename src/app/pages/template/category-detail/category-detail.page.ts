@@ -559,9 +559,10 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
           // Populate photos in background (non-blocking)
           this.populateGenericPhotosFromDexie(fields).then(() => {
-            // Guard again after async operation
+            // Guard again after async operation — use RAF-debounced CD
+            // to avoid hammering the main thread when populate short-circuits
             if (!this.isDestroyed) {
-              this.safeDetectChanges();
+              this.scheduleDetectChanges();
             }
           });
         },
@@ -778,6 +779,13 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         // Suppress during camera capture to prevent duplicate photos
         if (this.isCameraCaptureInProgress || this.isMultiImageUploadInProgress) {
           this.logDebug('DEXIE', 'Suppressing - capture in progress');
+          return;
+        }
+
+        // Skip heavy re-population within photo operation window
+        const withinPhotoOpWindow = (Date.now() - this.lastPhotoOperationTime) < 3000;
+        if (withinPhotoOpWindow) {
+          this.logDebug('DEXIE', 'Suppressing LocalImages — within photo operation window');
           return;
         }
 
@@ -3217,6 +3225,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     } finally {
       // Grace period: let UI settle before liveQuery cascade
       setTimeout(() => {
+        this.lastPhotoOperationTime = Date.now();
         this.isCameraCaptureInProgress = false;
         this.scheduleDetectChanges();
       }, 300);
@@ -3300,6 +3309,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     } finally {
       // Grace period: let UI settle before liveQuery cascade
       setTimeout(() => {
+        this.lastPhotoOperationTime = Date.now();
         this.isMultiImageUploadInProgress = false;
         this.scheduleDetectChanges();
       }, 300);

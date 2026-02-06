@@ -1912,35 +1912,43 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const updateData: any = {};
       updateData[fieldName] = value;
 
-      // If StatusEng is being changed, also update StatusID from the matching LPS_Status record
-      if (fieldName === 'StatusEng' && value) {
-        const statusRecord = this.statusOptions.find(s => s.Status_Admin === value);
-        if (statusRecord && statusRecord.StatusID) {
-          updateData.StatusID = statusRecord.StatusID;
-        }
-        if (value === 'Complete') {
-          updateData.Status = 'Complete';
-        }
-      }
-
       await this.caspioService.updateService(service.serviceId, updateData).toPromise();
 
       // Update local service object
       service[fieldName] = value;
-      if (fieldName === 'StatusEng') {
-        const statusRecord = this.statusOptions.find(s => s.Status_Admin === value);
-        if (statusRecord && statusRecord.StatusID) {
-          service.StatusID = statusRecord.StatusID;
-        }
-        if (value === 'Complete') {
-          service.Status = 'Complete';
-        }
-      }
-      
+
       // Silent update - no toast notification
     } catch (error) {
       console.error(`Error updating ${fieldName}:`, error);
       await this.showToast(`Failed to update ${fieldName}`, 'danger');
+    }
+  }
+
+  async updateServiceStatus(service: ServiceSelection, statusId: number) {
+    if (!service.serviceId || this.isReadOnly) {
+      return;
+    }
+
+    try {
+      await this.caspioService.updateService(service.serviceId, { StatusID: statusId }).toPromise();
+
+      // Update local service object
+      service.StatusID = statusId;
+
+      // Check if all services are now complete (StatusID = 5) → auto-complete the project
+      if (this.selectedServices.length > 0 &&
+          this.selectedServices.every(s => Number(s.StatusID) === 5)) {
+        const projectPkId = this.project?.PK_ID;
+        if (projectPkId) {
+          await this.projectsService.updateProjectStatus(projectPkId, 5).toPromise();
+          this.project!.StatusID = 5;
+          this.isReadOnly = true;
+          this.changeDetectorRef.markForCheck();
+        }
+      }
+    } catch (error) {
+      console.error('Error updating service status:', error);
+      await this.showToast('Failed to update status', 'danger');
     }
   }
 

@@ -3704,25 +3704,46 @@ ion-segment.filter-segment {
   color: #495057;
 }
 
-// Modal Header Styling
+// Modal Styling - match project-detail Add Document modal
 ::ng-deep ion-modal {
+  &::part(content) {
+    border-radius: 16px 16px 0 0;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
   ion-header {
     ion-toolbar {
+      --background: var(--noble-light-gray, #F5F5F5);
+      --color: var(--noble-dark-gray, #333333);
+      --padding-top: 16px;
+      --padding-bottom: 16px;
+      --min-height: 64px;
+
       ion-title {
         position: absolute;
         left: 0;
         right: 0;
-        top: 0;
-        bottom: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
         text-align: center;
-        padding-left: 56px;
-        padding-right: 56px;
         pointer-events: none;
+        color: var(--noble-dark-gray, #333333);
+        font-weight: 600;
+        font-size: 18px;
+      }
+
+      ion-button {
+        --color: var(--noble-orange, #F15A27) !important;
+        color: var(--noble-orange, #F15A27) !important;
+
+        ion-icon {
+          color: var(--noble-orange, #F15A27) !important;
+        }
       }
     }
+  }
+
+  ion-content {
+    --background: #f8f9fa;
   }
 }
 
@@ -4360,16 +4381,16 @@ ion-alert.custom-alert {
   height: 100px;
   border-radius: 50%;
   overflow: hidden;
-  background: linear-gradient(135deg, #f15a27, #ff7b4d);
+  background: #999999;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(241, 90, 39, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   cursor: pointer;
   transition: all 0.2s ease;
 
   &:hover {
-    box-shadow: 0 4px 12px rgba(241, 90, 39, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     transform: scale(1.02);
   }
 

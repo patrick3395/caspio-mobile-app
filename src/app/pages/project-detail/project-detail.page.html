@@ -127,11 +127,11 @@
             <td class="field-value-cell">
               <select
                 class="deliverable-select"
-                [(ngModel)]="service.StatusEng"
-                (ngModelChange)="updateDeliverableField(service, 'StatusEng', service.StatusEng || '')"
+                [ngModel]="service.StatusID"
+                (ngModelChange)="updateServiceStatus(service, $event)"
                 [disabled]="isReadOnly">
-                <option value="">Select status...</option>
-                <option *ngFor="let status of statusOptions" [value]="status.Status_Admin">
+                <option [ngValue]="null">Select status...</option>
+                <option *ngFor="let status of statusOptions" [ngValue]="status.StatusID">
                   {{ status.Status_Admin }}
                 </option>
               </select>
