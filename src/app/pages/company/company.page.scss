@@ -127,9 +127,6 @@ ion-content {
   flex-direction: column;
   gap: 12px;
   padding: 16px;
-  padding-bottom: 0; // Remove padding, use spacer instead
-  min-height: 100vh;
-  height: auto;
   max-width: 800px;
   margin: 0 auto;
 
@@ -1054,6 +1051,7 @@ ion-content {
 }
 
 .org-user-card {
+  position: relative;
   background: #ffffff;
   border-radius: 20px;
   padding: 28px;
@@ -1067,6 +1065,29 @@ ion-content {
   &:hover {
     transform: translateY(-4px);
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  }
+
+  .org-user-actions {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    gap: 8px;
+
+    ion-icon {
+      font-size: 18px;
+      color: #999;
+      cursor: pointer;
+      transition: color 0.15s;
+
+      &.action-edit:hover {
+        color: #333;
+      }
+
+      &.action-delete:hover {
+        color: #dc3545;
+      }
+    }
   }
 
   .org-user-avatar {
@@ -2890,7 +2911,7 @@ ion-segment.filter-segment {
     }
 
     .lt-col-action {
-      text-align: center;
+      text-align: right;
     }
   }
 
@@ -2898,7 +2919,7 @@ ion-segment.filter-segment {
   .unpaid-invoices-list .list-table {
     .list-table-header,
     .list-table-row {
-      grid-template-columns: 2fr 1fr 100px 100px;
+      grid-template-columns: 1.2fr 1.2fr 120px 120px;
     }
   }
 
@@ -2947,8 +2968,8 @@ ion-segment.filter-segment {
     .download-invoice-btn {
       background: none;
       border: 1px solid #dee2e6;
-      border-radius: 6px;
-      padding: 6px 10px;
+      border-radius: 4px;
+      padding: 4px 6px;
       cursor: pointer;
       color: #495057;
       transition: all 0.2s ease;
@@ -2960,7 +2981,7 @@ ion-segment.filter-segment {
       }
 
       ion-icon {
-        font-size: 1rem;
+        font-size: 0.8rem;
       }
     }
   }
@@ -4293,6 +4314,7 @@ ion-alert.custom-alert {
 }
 
 .user-card {
+  position: relative;
   background: #ffffff;
   border-radius: 12px;
   border: 1px solid #e9ecef;
@@ -4303,6 +4325,30 @@ ion-alert.custom-alert {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     transform: translateY(-2px);
     border-color: #f15a27;
+  }
+
+  .org-user-actions {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    gap: 8px;
+    z-index: 1;
+
+    ion-icon {
+      font-size: 18px;
+      color: #999;
+      cursor: pointer;
+      transition: color 0.15s;
+
+      &.action-edit:hover {
+        color: #333;
+      }
+
+      &.action-delete:hover {
+        color: #dc3545;
+      }
+    }
   }
 }
 

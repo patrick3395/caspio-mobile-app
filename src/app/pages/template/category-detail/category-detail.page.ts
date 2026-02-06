@@ -496,83 +496,87 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         this.categoryName
       );
 
-      this.visualFieldsSubscription = fields$.subscribe({
-        next: async (fields: any[]) => {
-          // CRITICAL: Guard against processing after destruction
-          if (this.isDestroyed) {
-            return;
+      // Run outside Angular zone so liveQuery emissions don't trigger ApplicationRef.tick().
+      // All UI updates use explicit detectChanges() via safeDetectChanges()/scheduleDetectChanges().
+      this.ngZone.runOutsideAngular(() => {
+        this.visualFieldsSubscription = fields$.subscribe({
+          next: async (fields: any[]) => {
+            // CRITICAL: Guard against processing after destruction
+            if (this.isDestroyed) {
+              return;
+            }
+
+            this.logDebug('DEXIE', `Received ${fields.length} fields from liveQuery for ${this.config!.id}`);
+
+            // DEBUG: Log record IDs from liveQuery to verify real IDs are being received
+            const recordIdsDebug = fields.map(f => ({
+              templateId: f.templateId,
+              csaId: f.csaId,
+              dteId: f.dteId,
+              lbwId: f.lbwId,
+              tempCsaId: f.tempCsaId,
+              tempDteId: f.tempDteId,
+              tempLbwId: f.tempLbwId,
+              answer: f.answer?.substring(0, 30)
+            })).filter(f => f.csaId || f.dteId || f.lbwId || f.tempCsaId || f.tempDteId || f.tempLbwId);
+            if (recordIdsDebug.length > 0) {
+            }
+
+            // FIX: Only show UI after first liveQuery emission to prevent "No Items" flash
+            if (!this.isInitialDataLoaded) {
+              this.convertGenericFieldsToOrganizedData(fields);
+              this.lastFieldsFingerprint = this.computeFieldsFingerprint(fields);
+              this.isInitialDataLoaded = true;
+              this.loading = false;
+              this.logDebug('DEXIE', 'Initial data loaded - showing UI');
+              this.safeDetectChanges();
+
+              // Populate photos on initial load
+              this.populateGenericPhotosFromDexie(fields).then(() => {
+                if (!this.isDestroyed) {
+                  this.safeDetectChanges();
+                }
+              });
+              return;
+            }
+
+            // Suppress ALL liveQuery processing during capture/populate to eliminate scroll lag.
+            // isPopulatingPhotos is critical: populateGenericPhotosFromDexie writes photoCount
+            // to Dexie for every field, and each write triggers a liveQuery emission. Without
+            // this guard, N fields = N × (convert + detectChanges) hammering the main thread.
+            if (this.isCameraCaptureInProgress || this.isMultiImageUploadInProgress || this.isPopulatingPhotos) {
+              this.logDebug('DEXIE', 'Suppressing liveQuery processing - operation in progress');
+              return;
+            }
+
+            // Fingerprint check: skip redundant UI rebuild when fields haven't structurally changed
+            const newFingerprint = this.computeFieldsFingerprint(fields);
+            if (newFingerprint !== this.lastFieldsFingerprint) {
+              this.convertGenericFieldsToOrganizedData(fields);
+              this.lastFieldsFingerprint = newFingerprint;
+              this.safeDetectChanges();
+            } else {
+              // Fields unchanged structurally — just update reference for photo population
+              this.lastConvertedGenericFields = fields;
+            }
+
+            // Photos are NOT re-populated here. Photo state is maintained by:
+            // - onTempPhotoAdded / onUploadComplete callbacks (during upload)
+            // - subscribeToLocalImagesChanges (for background sync status)
+            // - refreshLocalState → populateGenericPhotosFromDexie (on page return)
+            // Running populate on every liveQuery emission was redundant heavy work
+            // (IndexedDB lookups + blob URLs for all 50+ fields) that blocked scrolling.
+          },
+          error: (err: any) => {
+            this.logDebug('ERROR', `Error in fields subscription: ${err}`);
+            // Ensure UI is shown even on error to prevent stuck loading state
+            if (!this.isInitialDataLoaded) {
+              this.isInitialDataLoaded = true;
+              this.loading = false;
+              this.safeDetectChanges();
+            }
           }
-
-          this.logDebug('DEXIE', `Received ${fields.length} fields from liveQuery for ${this.config!.id}`);
-
-          // DEBUG: Log record IDs from liveQuery to verify real IDs are being received
-          const recordIdsDebug = fields.map(f => ({
-            templateId: f.templateId,
-            csaId: f.csaId,
-            dteId: f.dteId,
-            lbwId: f.lbwId,
-            tempCsaId: f.tempCsaId,
-            tempDteId: f.tempDteId,
-            tempLbwId: f.tempLbwId,
-            answer: f.answer?.substring(0, 30)
-          })).filter(f => f.csaId || f.dteId || f.lbwId || f.tempCsaId || f.tempDteId || f.tempLbwId);
-          if (recordIdsDebug.length > 0) {
-          }
-
-          // FIX: Only show UI after first liveQuery emission to prevent "No Items" flash
-          if (!this.isInitialDataLoaded) {
-            this.convertGenericFieldsToOrganizedData(fields);
-            this.lastFieldsFingerprint = this.computeFieldsFingerprint(fields);
-            this.isInitialDataLoaded = true;
-            this.loading = false;
-            this.logDebug('DEXIE', 'Initial data loaded - showing UI');
-            this.safeDetectChanges();
-
-            // Populate photos on initial load
-            this.populateGenericPhotosFromDexie(fields).then(() => {
-              if (!this.isDestroyed) {
-                this.safeDetectChanges();
-              }
-            });
-            return;
-          }
-
-          // Suppress ALL liveQuery processing during capture/populate to eliminate scroll lag.
-          // isPopulatingPhotos is critical: populateGenericPhotosFromDexie writes photoCount
-          // to Dexie for every field, and each write triggers a liveQuery emission. Without
-          // this guard, N fields = N × (convert + detectChanges) hammering the main thread.
-          if (this.isCameraCaptureInProgress || this.isMultiImageUploadInProgress || this.isPopulatingPhotos) {
-            this.logDebug('DEXIE', 'Suppressing liveQuery processing - operation in progress');
-            return;
-          }
-
-          // Fingerprint check: skip redundant UI rebuild when fields haven't structurally changed
-          const newFingerprint = this.computeFieldsFingerprint(fields);
-          if (newFingerprint !== this.lastFieldsFingerprint) {
-            this.convertGenericFieldsToOrganizedData(fields);
-            this.lastFieldsFingerprint = newFingerprint;
-            this.safeDetectChanges();
-          } else {
-            // Fields unchanged structurally — just update reference for photo population
-            this.lastConvertedGenericFields = fields;
-          }
-
-          // Photos are NOT re-populated here. Photo state is maintained by:
-          // - onTempPhotoAdded / onUploadComplete callbacks (during upload)
-          // - subscribeToLocalImagesChanges (for background sync status)
-          // - refreshLocalState → populateGenericPhotosFromDexie (on page return)
-          // Running populate on every liveQuery emission was redundant heavy work
-          // (IndexedDB lookups + blob URLs for all 50+ fields) that blocked scrolling.
-        },
-        error: (err: any) => {
-          this.logDebug('ERROR', `Error in fields subscription: ${err}`);
-          // Ensure UI is shown even on error to prevent stuck loading state
-          if (!this.isInitialDataLoaded) {
-            this.isInitialDataLoaded = true;
-            this.loading = false;
-            this.safeDetectChanges();
-          }
-        }
+        });
       });
 
       // Set up LocalImages subscription for photo updates
@@ -765,59 +769,63 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
     // Subscribe to all LocalImages for this service with the appropriate entity type
     const entityType = this.config.entityType as any;
-    this.localImagesSubscription = db.liveLocalImages$(this.serviceId, entityType).subscribe(
-      async (localImages) => {
-        // CRITICAL: Guard against processing after destruction
-        if (this.isDestroyed) {
-          return;
-        }
-
-        this.logDebug('DEXIE', `LocalImages updated: ${localImages.length} images`);
-
-        // Suppress during camera capture to prevent duplicate photos
-        if (this.isCameraCaptureInProgress || this.isMultiImageUploadInProgress) {
-          this.logDebug('DEXIE', 'Suppressing - capture in progress');
-          return;
-        }
-
-        // Skip heavy re-population within photo operation window
-        const withinPhotoOpWindow = (Date.now() - this.lastPhotoOperationTime) < 3000;
-        if (withinPhotoOpWindow) {
-          this.logDebug('DEXIE', 'Suppressing LocalImages — within photo operation window');
-          return;
-        }
-
-        // Update bulkLocalImagesMap reactively
-        this.updateBulkLocalImagesMap(localImages);
-
-        // UNIFIED: Refresh photos from updated Dexie data using generic fields if available
-        if (this.lastConvertedGenericFields && this.lastConvertedGenericFields.length > 0) {
-          await this.populateGenericPhotosFromDexie(this.lastConvertedGenericFields);
-        } else if (this.lastConvertedFields && this.lastConvertedFields.length > 0) {
-          // Legacy fallback for EFE
-          await this.populatePhotosFromDexie(this.lastConvertedFields);
-        }
-
-        // Guard again after async operations
-        if (this.isDestroyed) {
-          return;
-        }
-
-        // Debounce change detection to avoid rapid-fire updates
-        if (this.liveQueryDebounceTimer) {
-          clearTimeout(this.liveQueryDebounceTimer);
-        }
-        this.liveQueryDebounceTimer = setTimeout(() => {
-          if (!this.isDestroyed) {
-            this.safeDetectChanges();
+    // Run outside Angular zone so liveQuery emissions don't trigger ApplicationRef.tick().
+    // All UI updates use explicit detectChanges() via safeDetectChanges().
+    this.ngZone.runOutsideAngular(() => {
+      this.localImagesSubscription = db.liveLocalImages$(this.serviceId, entityType).subscribe(
+        async (localImages) => {
+          // CRITICAL: Guard against processing after destruction
+          if (this.isDestroyed) {
+            return;
           }
-          this.liveQueryDebounceTimer = null;
-        }, 100);
-      },
-      (error) => {
-        this.logDebug('ERROR', `Error in LocalImages subscription: ${error}`);
-      }
-    );
+
+          this.logDebug('DEXIE', `LocalImages updated: ${localImages.length} images`);
+
+          // Suppress during camera capture to prevent duplicate photos
+          if (this.isCameraCaptureInProgress || this.isMultiImageUploadInProgress) {
+            this.logDebug('DEXIE', 'Suppressing - capture in progress');
+            return;
+          }
+
+          // Skip heavy re-population within photo operation window
+          const withinPhotoOpWindow = (Date.now() - this.lastPhotoOperationTime) < 3000;
+          if (withinPhotoOpWindow) {
+            this.logDebug('DEXIE', 'Suppressing LocalImages — within photo operation window');
+            return;
+          }
+
+          // Update bulkLocalImagesMap reactively
+          this.updateBulkLocalImagesMap(localImages);
+
+          // UNIFIED: Refresh photos from updated Dexie data using generic fields if available
+          if (this.lastConvertedGenericFields && this.lastConvertedGenericFields.length > 0) {
+            await this.populateGenericPhotosFromDexie(this.lastConvertedGenericFields);
+          } else if (this.lastConvertedFields && this.lastConvertedFields.length > 0) {
+            // Legacy fallback for EFE
+            await this.populatePhotosFromDexie(this.lastConvertedFields);
+          }
+
+          // Guard again after async operations
+          if (this.isDestroyed) {
+            return;
+          }
+
+          // Debounce change detection to avoid rapid-fire updates
+          if (this.liveQueryDebounceTimer) {
+            clearTimeout(this.liveQueryDebounceTimer);
+          }
+          this.liveQueryDebounceTimer = setTimeout(() => {
+            if (!this.isDestroyed) {
+              this.safeDetectChanges();
+            }
+            this.liveQueryDebounceTimer = null;
+          }, 100);
+        },
+        (error) => {
+          this.logDebug('ERROR', `Error in LocalImages subscription: ${error}`);
+        }
+      );
+    });
   }
 
   /**

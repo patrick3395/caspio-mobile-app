@@ -115,6 +115,25 @@
   --ion-tab-bar-background: #FFFFFF;
   --ion-tab-bar-color: #69635D;
   --ion-tab-bar-color-selected: #F15A27;
+
+  // Semantic design tokens
+  --color-bg-page: #F5F5F5;
+  --color-bg-card: #FFFFFF;
+  --color-bg-surface: #FFFFFF;
+  --color-bg-elevated: #F8F9FA;
+  --color-bg-inset: #F0F0F0;
+  --color-text-primary: #333333;
+  --color-text-secondary: #666666;
+  --color-text-muted: #999999;
+  --color-border-default: #E0E0E0;
+  --color-border-light: #F0F0F0;
+  --color-border-heavy: #CCCCCC;
+  --color-shadow: rgba(0, 0, 0, 0.08);
+  --color-shadow-heavy: rgba(0, 0, 0, 0.15);
+  --color-status-success: #28a745;
+  --color-status-danger: #dc3545;
+  --color-skeleton-base: #F0F0F0;
+  --color-skeleton-shine: #E0E0E0;
 }
 
 body.dark-theme {
@@ -225,4 +244,23 @@ body.dark-theme {
   --ion-color-step-850: #6E6E6E;
   --ion-color-step-900: #737373;
   --ion-color-step-950: #787878;
+
+  // Semantic design tokens (dark)
+  --color-bg-page: #121212;
+  --color-bg-card: #1E1E1E;
+  --color-bg-surface: #1E1E1E;
+  --color-bg-elevated: #252525;
+  --color-bg-inset: #1A1A1A;
+  --color-text-primary: #F5F5F5;
+  --color-text-secondary: #BBBBBB;
+  --color-text-muted: #888888;
+  --color-border-default: #333333;
+  --color-border-light: #2A2A2A;
+  --color-border-heavy: #444444;
+  --color-shadow: rgba(0, 0, 0, 0.3);
+  --color-shadow-heavy: rgba(0, 0, 0, 0.5);
+  --color-status-success: #34C759;
+  --color-status-danger: #FF5E73;
+  --color-skeleton-base: #2A2A2A;
+  --color-skeleton-shine: #353535;
 }

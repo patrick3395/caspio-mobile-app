@@ -5273,13 +5273,21 @@ export class CompanyPage implements OnInit, OnDestroy {
         this.caspioService.delete(`/tables/LPS_Users/records?q.where=UserID=${userId}`)
       );
 
-      // Remove from local array
-      const userIndex = this.allUsers.findIndex(u => 
+      // Remove from local arrays
+      const userIndex = this.allUsers.findIndex(u =>
         (u.UserID || u.PK_ID) === userId
       );
-      
+
       if (userIndex !== -1) {
         this.allUsers.splice(userIndex, 1);
+      }
+
+      // Also remove from organizationUsers (client portal)
+      const orgIndex = this.organizationUsers.findIndex(u =>
+        (u.UserID || u.PK_ID) === userId
+      );
+      if (orgIndex !== -1) {
+        this.organizationUsers.splice(orgIndex, 1);
       }
 
       // Close the edit modal
@@ -5287,6 +5295,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Reapply filters
       this.applyUserFilters();
+      this.changeDetectorRef.markForCheck();
 
       await this.showToast('User deleted successfully', 'success');
     } catch (error: any) {

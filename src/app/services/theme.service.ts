@@ -20,29 +20,58 @@ export class ThemeService implements OnDestroy {
       return;
     }
 
-    // Force light mode always - ignore system preferences and stored preferences
-    this.applyTheme(false);
-    this.manualOverride = true;
-
-    // Clear any stored dark mode preference
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(this.storageKey);
+    // Read stored preference, fall back to light mode
+    const stored = window.localStorage.getItem(this.storageKey);
+    if (stored === 'dark') {
+      this.manualOverride = true;
+      this.applyTheme(true);
+    } else if (stored === 'light') {
+      this.manualOverride = true;
+      this.applyTheme(false);
+    } else {
+      // No stored preference — default to light mode
+      this.applyTheme(false);
     }
   }
 
   toggleTheme(): void {
-    // Force light mode - do nothing
-    this.applyTheme(false);
+    const newValue = !this.darkModeSubject.value;
+    this.manualOverride = true;
+    this.applyTheme(newValue);
+    this.persistPreference(newValue);
   }
 
   setDarkMode(enabled: boolean): void {
-    // Force light mode - ignore dark mode requests
-    this.applyTheme(false);
+    this.manualOverride = true;
+    this.applyTheme(enabled);
+    this.persistPreference(enabled);
   }
 
   useSystemPreference(): void {
-    // Force light mode - ignore system preferences
-    this.applyTheme(false);
+    this.manualOverride = false;
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(this.storageKey);
+    }
+    this.mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    this.applyTheme(this.mediaQuery.matches);
+
+    this.mediaListener = (event: MediaQueryListEvent) => {
+      if (!this.manualOverride) {
+        this.applyTheme(event.matches);
+      }
+    };
+
+    if (typeof this.mediaQuery.addEventListener === 'function') {
+      this.mediaQuery.addEventListener('change', this.mediaListener);
+    } else if (typeof this.mediaQuery.addListener === 'function') {
+      this.mediaQuery.addListener(this.mediaListener);
+    }
+  }
+
+  private persistPreference(isDark: boolean): void {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(this.storageKey, isDark ? 'dark' : 'light');
+    }
   }
 
   private applyTheme(isDark: boolean): void {

@@ -1,6 +1,6 @@
 <ion-header class="custom-header">
   <ion-toolbar class="action-toolbar" [class.web-centered]="platform.isWeb()">
-    <ion-buttons slot="start" *ngIf="!platform.isWeb()">
+    <ion-buttons slot="start">
       <button
         type="button"
         class="toolbar-btn menu-btn"
@@ -39,6 +39,26 @@
   <div class="settings-pane-header"></div>
   <div class="settings-pane-body">
     <div class="settings-group">
+      <div class="settings-group-title">
+        <ion-icon name="color-palette-outline"></ion-icon>
+        <span>Appearance</span>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row-info">
+          <ion-icon name="moon-outline"></ion-icon>
+          <div>
+            <span class="settings-row-label">Dark Mode</span>
+            <span class="settings-row-desc">Reduce eye strain in low light</span>
+          </div>
+        </div>
+        <ion-toggle
+          [checked]="isDarkMode"
+          (ionChange)="toggleDarkMode()"
+          mode="ios">
+        </ion-toggle>
+      </div>
+    </div>
+    <div class="settings-group" *ngIf="!platform.isWeb()">
       <div class="settings-group-title">
         <ion-icon name="phone-portrait-outline"></ion-icon>
         <span>Phone</span>

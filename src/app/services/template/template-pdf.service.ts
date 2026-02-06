@@ -86,21 +86,23 @@ export class TemplatePdfService {
         this.retryNotification.suppressNotifications();
       }
 
-      // Resolve actual ServiceID from the service record.
-      // Route params provide PK_ID from LPS_Services, but child tables
-      // (LPS_Services_Visuals, LPS_Services_HUD, etc.) use a ServiceID
-      // foreign key that can differ from PK_ID.
-      let actualServiceId = serviceId;
-      try {
-        const serviceRecord = await firstValueFrom(this.caspioService.getServiceById(serviceId));
-        if (serviceRecord?.ServiceID) {
-          actualServiceId = String(serviceRecord.ServiceID);
-          if (actualServiceId !== serviceId) {
-            console.log(`[PDF] Resolved actualServiceId: ${actualServiceId} (route PK_ID: ${serviceId})`);
+      // Resolve the correct ServiceID for child table queries.
+      // Only HUD has hasActualServiceId=true, meaning its child records use the
+      // resolved ServiceID (from the service record). All other templates create
+      // child records using the route PK_ID directly.
+      let queryServiceId = serviceId;
+      if (config.categoryDetailFeatures?.hasActualServiceId) {
+        try {
+          const serviceRecord = await firstValueFrom(this.caspioService.getServiceById(serviceId));
+          if (serviceRecord?.ServiceID) {
+            queryServiceId = String(serviceRecord.ServiceID);
+            if (queryServiceId !== serviceId) {
+              console.log(`[PDF] Resolved queryServiceId: ${queryServiceId} (route PK_ID: ${serviceId})`);
+            }
           }
+        } catch (err) {
+          console.warn(`[PDF] Could not resolve queryServiceId, using route serviceId: ${serviceId}`);
         }
-      } catch (err) {
-        console.warn(`[PDF] Could not resolve actualServiceId, using route serviceId: ${serviceId}`);
       }
 
       // Show loading alert with cancel button
@@ -171,7 +173,7 @@ export class TemplatePdfService {
                 projectData: null, serviceData: null
               };
             }),
-            this.prepareRecordsData(config, actualServiceId).catch(err => {
+            this.prepareRecordsData(config, queryServiceId).catch(err => {
               console.error(`${logTag} Error in prepareRecordsData:`, err);
               return [];
             })
@@ -180,7 +182,7 @@ export class TemplatePdfService {
           // Only fetch elevation data for templates that support it (EFE)
           if (config.features.hasElevationPlot) {
             fetchPromises.push(
-              this.prepareElevationData(actualServiceId).catch(err => {
+              this.prepareElevationData(queryServiceId).catch(err => {
                 console.error(`${logTag} Error in prepareElevationData:`, err);
                 return [];
               })

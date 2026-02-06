@@ -8,6 +8,7 @@ import { environment } from '../../../environments/environment';
 import { PlatformDetectionService } from '../../services/platform-detection.service';
 import { MutationTrackingService, EntityType, Mutation } from '../../services/mutation-tracking.service';
 import { PageTitleService } from '../../services/page-title.service';
+import { ThemeService } from '../../services/theme.service';
 import { forkJoin, Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
 
@@ -55,6 +56,8 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
   // Settings side pane
   settingsPaneOpen = false;
   saveToGalleryEnabled = true;
+  isDarkMode = false;
+  private themeSubscription?: Subscription;
 
   // Force update timestamp
   getCurrentTimestamp(): string {
@@ -80,7 +83,8 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     public platform: PlatformDetectionService,
     private cdr: ChangeDetectorRef,
     private mutationTracker: MutationTrackingService,
-    private pageTitleService: PageTitleService
+    private pageTitleService: PageTitleService,
+    private themeService: ThemeService
   ) {}
 
   ngOnInit() {
@@ -89,6 +93,12 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
 
     // Load phone settings
     this.saveToGalleryEnabled = localStorage.getItem('save-to-camera-roll') !== 'false';
+
+    // Subscribe to dark mode state
+    this.themeSubscription = this.themeService.darkMode$.subscribe(isDark => {
+      this.isDarkMode = isDark;
+      this.cdr.markForCheck();
+    });
 
     // Load current user info
     const userStr = localStorage.getItem('currentUser');
@@ -140,10 +150,17 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     if (this.routerSubscription) {
       this.routerSubscription.unsubscribe();
     }
+    if (this.themeSubscription) {
+      this.themeSubscription.unsubscribe();
+    }
   }
 
   toggleSettingsPane() {
     this.settingsPaneOpen = !this.settingsPaneOpen;
+  }
+
+  toggleDarkMode() {
+    this.themeService.toggleTheme();
   }
 
   toggleSaveToGallery() {

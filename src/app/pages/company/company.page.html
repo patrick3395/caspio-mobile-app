@@ -1315,27 +1315,35 @@
             </div>
           </div>
 
-          <!-- Users Cards -->
-          <div *ngIf="!isLoading && organizationUsers.length > 0" class="org-users-grid">
-            <div class="org-user-card" *ngFor="let user of organizationUsers">
-              <div class="org-user-avatar">
-                <img *ngIf="getUserHeadshot(user)" [src]="getUserHeadshot(user)" [alt]="user.Name">
-                <div *ngIf="!getUserHeadshot(user)" class="org-user-initials">
-                  {{ user.Name ? user.Name.charAt(0).toUpperCase() : '?' }}
-                </div>
+          <!-- Users Cards (matches admin portal layout) -->
+          <div *ngIf="!isLoading && organizationUsers.length > 0" class="users-grid">
+            <div class="user-card" *ngFor="let user of organizationUsers">
+              <div class="org-user-actions">
+                <ion-icon name="create-outline" class="action-edit" (click)="openEditUserModal(user)" title="Edit user"></ion-icon>
+                <ion-icon name="trash-outline" class="action-delete" (click)="deleteUser(user, $event)" title="Delete user"></ion-icon>
               </div>
-              <div class="org-user-info">
-                <h4 class="org-user-name">{{ user.Name }}</h4>
-                <p *ngIf="user.Title" class="org-user-title">{{ user.Title }}</p>
-                <div class="org-user-contact">
-                  <a *ngIf="user.Email" [href]="'mailto:' + user.Email" class="org-user-email">
+              <div class="user-card-content">
+                <div class="user-header">
+                  <div class="user-avatar">
+                    <img *ngIf="getUserHeadshot(user)" [src]="getUserHeadshot(user)" [alt]="user.Name" class="headshot-image">
+                    <div *ngIf="!getUserHeadshot(user)" class="headshot-placeholder">
+                      <ion-icon name="person"></ion-icon>
+                    </div>
+                  </div>
+                  <div class="user-info">
+                    <h4>{{ user.Name || 'Unnamed User' }}</h4>
+                    <p class="user-role">{{ user.Title || 'No title assigned' }}</p>
+                  </div>
+                </div>
+                <div class="user-details">
+                  <div class="user-detail-item" *ngIf="user.Email">
                     <ion-icon name="mail-outline"></ion-icon>
-                    {{ user.Email }}
-                  </a>
-                  <span *ngIf="user.Phone" class="org-user-phone">
+                    <a [href]="'mailto:' + user.Email" (click)="$event.stopPropagation()">{{ user.Email }}</a>
+                  </div>
+                  <div class="user-detail-item" *ngIf="user.Phone">
                     <ion-icon name="call-outline"></ion-icon>
-                    {{ user.Phone }}
-                  </span>
+                    <span>{{ user.Phone }}</span>
+                  </div>
                 </div>
               </div>
             </div>
