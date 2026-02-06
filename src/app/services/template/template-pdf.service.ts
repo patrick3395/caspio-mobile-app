@@ -64,8 +64,6 @@ export class TemplatePdfService {
     const config = this.templateConfigService.requiredConfig;
     const logTag = `[${config.displayName} PDF]`;
 
-    console.log(`[PDF DEBUG] generatePDF called - projectId=${projectId}, serviceId=${serviceId}, config.id=${config.id}, config.idFieldName=${config.idFieldName}, currentUrl=${window.location.href}`);
-
     let loading: HTMLIonAlertElement | null = null;
     let cancelRequested = false;
 
@@ -127,7 +125,6 @@ export class TemplatePdfService {
         }
       }
 
-      // DEBUG: Temporarily bypass cache to isolate data fetching issues
       const cacheKey = this.cache.getApiCacheKey('pdf_data', {
         serviceId: serviceId,
         templateId: config.id,
@@ -135,10 +132,12 @@ export class TemplatePdfService {
       });
 
       let recordsData: any[], elevationData: any[], projectInfo: any;
+      const cachedData = this.cache.get(cacheKey);
 
-      // DEBUG: Always fetch fresh data (skip cache)
-      console.log(`[PDF DEBUG] Bypassing cache, fetching fresh data for ${config.id} / serviceId=${serviceId}`);
-      {
+      if (cachedData) {
+        updateProgress(50, 'Loading from cache...');
+        ({ recordsData, elevationData, projectInfo } = cachedData);
+      } else {
         updateProgress(5, 'Loading project data...');
 
         if (cancelRequested) return;
@@ -177,8 +176,6 @@ export class TemplatePdfService {
           recordsData = results[1];
           elevationData = config.features.hasElevationPlot ? results[2] : [];
 
-          console.log(`[PDF DEBUG] After Promise.all - projectInfo exists: ${!!projectInfo}, recordsData length: ${recordsData?.length ?? 'null'}, elevationData length: ${elevationData?.length ?? 'null'}`);
-
           // Cache for faster subsequent loads
           this.cache.set(cacheKey, {
             recordsData, elevationData, projectInfo
@@ -211,11 +208,6 @@ export class TemplatePdfService {
       updateProgress(85, 'Preparing PDF document...');
 
       const serviceName = this.serviceDisplayNames[config.id] || config.displayName;
-
-      console.log(`[PDF DEBUG] Creating modal with: structuralData=${recordsData?.length ?? 'null'} items, elevationData=${elevationData?.length ?? 'null'} items, serviceName="${serviceName}"`);
-      if (recordsData && recordsData.length > 0) {
-        console.log(`[PDF DEBUG] First category: name="${recordsData[0].name}", comments=${recordsData[0].comments?.length}, limitations=${recordsData[0].limitations?.length}, deficiencies=${recordsData[0].deficiencies?.length}`);
-      }
 
       const modal = await this.modalController.create({
         component: PdfPreviewComponent,
@@ -358,19 +350,9 @@ export class TemplatePdfService {
   private async prepareRecordsData(config: TemplateConfig, serviceId: string): Promise<any[]> {
     const result: any[] = [];
 
-    console.log(`[PDF DEBUG] prepareRecordsData called - config.id: ${config.id}, serviceId: ${serviceId}, idFieldName: ${config.idFieldName}`);
-
-    // Get all records for this service, bypassing cache for fresh data
     const allRecords = await this.getRecords(config, serviceId);
 
-    console.log(`[PDF DEBUG] getRecords returned ${allRecords?.length ?? 'null/undefined'} records`);
-    if (allRecords && allRecords.length > 0) {
-      console.log(`[PDF DEBUG] First record keys:`, Object.keys(allRecords[0]));
-      console.log(`[PDF DEBUG] First record Category: "${allRecords[0].Category}", Kind: "${allRecords[0].Kind}", Name: "${allRecords[0].Name}"`);
-    }
-
     if (!allRecords || allRecords.length === 0) {
-      console.warn(`[PDF DEBUG] No records found! Returning empty array.`);
       return result;
     }
 
@@ -424,7 +406,9 @@ export class TemplatePdfService {
 
       for (const kind of ['comments', 'limitations', 'deficiencies'] as const) {
         for (const record of categoryData[kind]) {
-          const recordId = record[config.idFieldName] || record.PK_ID;
+          // HUD stores records in Visuals table (VisualID), not HUD table (HUDID)
+          const idField = config.id === 'hud' ? 'VisualID' : config.idFieldName;
+          const recordId = record[idField] || record.PK_ID;
 
           const displayText = record.Text || record.VisualText || '';
           const answers = record.Answers || record.Answer || '';
@@ -641,68 +625,26 @@ export class TemplatePdfService {
   // ─── Data Dispatchers ──────────────────────────────────────────────
 
   private async getRecords(config: TemplateConfig, serviceId: string): Promise<any[]> {
-    console.log(`[PDF DEBUG] getRecords dispatching for config.id="${config.id}", serviceId="${serviceId}"`);
-
-    // DEBUG: Direct API test - bypass all data service layers
-    try {
-      const tableMap: Record<string, string> = {
-        hud: 'LPS_Services_HUD',
-        efe: 'LPS_Services_Visuals',
-        dte: 'LPS_Services_DTE',
-        lbw: 'LPS_Services_LBW'
-      };
-      const table = tableMap[config.id];
-      if (table) {
-        const directResult = await firstValueFrom(
-          this.caspioService.get<any>(`/tables/${table}/records?q.where=ServiceID=${serviceId}&q.limit=5`)
-        );
-        console.log(`[PDF DEBUG] DIRECT API test: ${table} returned`, directResult?.Result?.length ?? 'no Result', 'records. Raw keys:', directResult ? Object.keys(directResult) : 'null');
-        if (directResult?.Result?.[0]) {
-          console.log(`[PDF DEBUG] DIRECT API first record keys:`, Object.keys(directResult.Result[0]));
-        }
-      }
-    } catch (directErr) {
-      console.error(`[PDF DEBUG] DIRECT API test FAILED:`, directErr);
-    }
-
-    try {
-      let records: any[];
-      switch (config.id) {
-        case 'hud':
-          console.log(`[PDF DEBUG] Calling hudData.getHudByService(${serviceId})`);
-          records = await this.hudData.getHudByService(serviceId);
-          break;
-        case 'efe':
-          console.log(`[PDF DEBUG] Calling efeData.getVisualsByService(${serviceId})`);
-          records = await this.efeData.getVisualsByService(serviceId);
-          break;
-        case 'dte':
-          console.log(`[PDF DEBUG] Calling dteData.getVisualsByService(${serviceId}, true)`);
-          records = await this.dteData.getVisualsByService(serviceId, true);
-          break;
-        case 'lbw':
-          console.log(`[PDF DEBUG] Calling lbwData.getVisualsByService(${serviceId}, true)`);
-          records = await this.lbwData.getVisualsByService(serviceId, true);
-          break;
-        default:
-          console.warn(`[PDF] Unknown template: ${config.id}`);
-          return [];
-      }
-      console.log(`[PDF DEBUG] Data service returned ${records?.length ?? 'null/undefined'} records`);
-      if (records && records.length > 0) {
-        console.log(`[PDF DEBUG] First record sample:`, JSON.stringify(records[0]).substring(0, 300));
-      }
-      return records;
-    } catch (error) {
-      console.error(`[PDF DEBUG] getRecords ERROR for ${config.id}:`, error);
-      throw error;
+    switch (config.id) {
+      case 'hud':
+        // HUD container stores records in LPS_Services_Visuals (not LPS_Services_HUD)
+        return this.hudData.getVisualsByService(serviceId);
+      case 'efe':
+        return this.efeData.getVisualsByService(serviceId);
+      case 'dte':
+        return this.dteData.getVisualsByService(serviceId, true);
+      case 'lbw':
+        return this.lbwData.getVisualsByService(serviceId, true);
+      default:
+        return [];
     }
   }
 
   private async getAttachments(config: TemplateConfig, recordId: string): Promise<any[]> {
     switch (config.id) {
       case 'hud':
-        return this.hudData.getHudAttachments(recordId);
+        // HUD uses Visuals_Attach table (same as EFE)
+        return this.hudData.getVisualAttachments(recordId);
       case 'efe':
         return this.efeData.getVisualAttachments(recordId);
       case 'dte':
