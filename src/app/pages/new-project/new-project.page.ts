@@ -65,7 +65,7 @@ export class NewProjectPage implements OnInit, OnDestroy {
   };
 
   constructor(
-    private router: Router,
+    public router: Router,
     private projectsService: ProjectsService,
     private loadingController: LoadingController,
     private alertController: AlertController,

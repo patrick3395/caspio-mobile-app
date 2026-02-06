@@ -142,21 +142,21 @@
 </ion-content>
 
 <!-- Bottom tab bar -->
-<div class="page-tab-bar">
-  <a routerLink="/tabs/active-projects" class="page-tab-button">
-    <ion-icon name="document-text-outline"></ion-icon>
-    <span>Active</span>
-  </a>
-  <a routerLink="/tabs/all-projects" class="page-tab-button">
-    <ion-icon name="folder-outline"></ion-icon>
-    <span>Complete</span>
-  </a>
-  <a routerLink="/tabs/help-guide" class="page-tab-button">
-    <ion-icon name="help-circle-outline"></ion-icon>
-    <span>Help</span>
-  </a>
-  <a routerLink="/tabs/company" class="page-tab-button">
-    <ion-icon name="people-outline"></ion-icon>
-    <span>Company</span>
-  </a>
-</div>
+<ion-tab-bar slot="bottom" class="page-tab-bar custom-tab-bar">
+  <ion-tab-button class="tab-button" (click)="router.navigateByUrl('/tabs/active-projects')">
+    <ion-icon name="document-text-outline" class="tab-icon"></ion-icon>
+    <ion-label class="tab-label">Active</ion-label>
+  </ion-tab-button>
+  <ion-tab-button class="tab-button" (click)="router.navigateByUrl('/tabs/all-projects')">
+    <ion-icon name="folder-outline" class="tab-icon"></ion-icon>
+    <ion-label class="tab-label">Complete</ion-label>
+  </ion-tab-button>
+  <ion-tab-button class="tab-button" (click)="router.navigateByUrl('/tabs/help-guide')">
+    <ion-icon name="help-circle-outline" class="tab-icon"></ion-icon>
+    <ion-label class="tab-label">Help</ion-label>
+  </ion-tab-button>
+  <ion-tab-button class="tab-button" (click)="router.navigateByUrl('/tabs/company')">
+    <ion-icon name="people-outline" class="tab-icon"></ion-icon>
+    <ion-label class="tab-label">Company</ion-label>
+  </ion-tab-button>
+</ion-tab-bar>

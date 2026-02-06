@@ -319,6 +319,18 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
 
+      // Hide modal backdrop/overlay during capture to prevent hue bleeding
+      const ionModal = document.querySelector('ion-modal') as HTMLElement;
+      if (ionModal) ionModal.style.setProperty('--backdrop-opacity', '0');
+
+      // Create an isolated capture container positioned at (0,0) above all overlays
+      // Container is visibility:hidden but clone inside is visibility:visible
+      // This ensures html2canvas gets clean coordinates without visual flash
+      const captureContainer = document.createElement('div');
+      captureContainer.id = 'pdf-capture-container';
+      captureContainer.style.cssText = 'position:fixed; left:0; top:0; visibility:hidden; z-index:2147483647; pointer-events:none; background:white;';
+      document.body.appendChild(captureContainer);
+
       // Process each page individually
       for (let i = 0; i < pages.length; i++) {
         const pageElement = pages[i] as HTMLElement;
@@ -347,17 +359,18 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
           // Check if this is the cover page (has special flex layout)
           const isCoverPage = pageElement.classList.contains('cover-page');
 
-          // Style the clone to be visible but far off-screen so no overlay covers it
-          clone.style.position = 'fixed';
-          clone.style.left = '-99999px';
+          // Position clone normally inside the capture container
+          // Using relative positioning ensures html2canvas gets clean coordinates
+          clone.style.position = 'relative';
+          clone.style.left = '0';
           clone.style.top = '0';
           clone.style.width = originalWidth + 'px';
           clone.style.minWidth = originalWidth + 'px';
           clone.style.maxWidth = originalWidth + 'px';
-          clone.style.zIndex = '999999';
           clone.style.opacity = '1';
           clone.style.visibility = 'visible';
           clone.style.overflow = 'visible';
+          clone.style.background = 'white';
 
           // For cover page, preserve flex layout; otherwise use block
           // Use minHeight (not fixed height) so content is never clipped
@@ -371,8 +384,8 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
             clone.style.height = 'auto';
           }
 
-          // Append to body (outside modal)
-          document.body.appendChild(clone);
+          // Append to capture container (isolated from modal)
+          captureContainer.appendChild(clone);
 
           // For cover page, ensure the photo container and image maintain their exact size
           if (isCoverPage) {
@@ -510,8 +523,8 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
           });
 
 
-          // Remove the clone
-          document.body.removeChild(clone);
+          // Remove the clone from capture container
+          captureContainer.removeChild(clone);
 
           if (canvas.width === 0 || canvas.height === 0) {
             console.warn(`[PDF] Page ${i + 1} has zero dimensions, skipping`);
@@ -519,7 +532,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
           }
 
           // Convert canvas to image
-          const imgData = canvas.toDataURL('image/jpeg', 0.95);
+          const imgData = canvas.toDataURL('image/jpeg', 0.98);
 
           // Calculate dimensions to fit page
           const imgWidth = pageWidth;
@@ -528,19 +541,32 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
           // Check if content exceeds page height and needs to be split
           if (imgHeight > pageHeight) {
 
-            // Calculate how many PDF pages we need
-            const numPages = Math.ceil(imgHeight / pageHeight);
+            // Calculate canvas pixels per PDF page
+            const canvasPxPerPage = (pageHeight * canvas.width) / imgWidth;
 
-            // Split the canvas into multiple pages
-            for (let pageIdx = 0; pageIdx < numPages; pageIdx++) {
+            // Find smart break points by scanning for whitespace rows
+            const breakPoints: number[] = [0];
+            let currentY = 0;
+            while (currentY + canvasPxPerPage < canvas.height) {
+              const targetBreak = currentY + canvasPxPerPage;
+              // Search within ±20% of page height for a safe break (whitespace row)
+              const safeBreak = this.findSafeBreakY(canvas, targetBreak, Math.floor(canvasPxPerPage * 0.2));
+              breakPoints.push(safeBreak);
+              currentY = safeBreak;
+            }
+            breakPoints.push(canvas.height);
+
+            const numSlices = breakPoints.length - 1;
+
+            // Split the canvas at smart break points
+            for (let sliceIdx = 0; sliceIdx < numSlices; sliceIdx++) {
               // Add new page for all except first
-              if (i > 0 || pageIdx > 0) {
+              if (i > 0 || sliceIdx > 0) {
                 pdf.addPage();
               }
 
-              // Calculate the source Y position in the canvas (in pixels)
-              const sourceY = (pageIdx * pageHeight * canvas.width) / imgWidth;
-              const sourceHeight = Math.min((pageHeight * canvas.width) / imgWidth, canvas.height - sourceY);
+              const sourceY = breakPoints[sliceIdx];
+              const sourceHeight = breakPoints[sliceIdx + 1] - sourceY;
 
               // Create a temporary canvas for this slice
               const sliceCanvas = document.createElement('canvas');
@@ -553,7 +579,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
                 sliceCtx.drawImage(canvas, 0, sourceY, canvas.width, sourceHeight, 0, 0, canvas.width, sourceHeight);
 
                 // Convert slice to image
-                const sliceImgData = sliceCanvas.toDataURL('image/jpeg', 0.95);
+                const sliceImgData = sliceCanvas.toDataURL('image/jpeg', 0.98);
 
                 // Calculate the height for this slice in PDF units
                 const sliceImgHeight = (sourceHeight * pageWidth) / canvas.width;
@@ -561,9 +587,9 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
                 // Add the slice to PDF
                 pdf.addImage(sliceImgData, 'JPEG', 0, 0, imgWidth, sliceImgHeight);
 
-                // Add text layer for this slice (proportional to the slice)
-                const sliceRatio = pageIdx / numPages;
-                const sliceTextContent = this.filterTextForSlice(textContent, sliceRatio, 1 / numPages, imgHeight);
+                // Add text layer for this slice
+                const sliceRatio = sliceIdx / numSlices;
+                const sliceTextContent = this.filterTextForSlice(textContent, sliceRatio, 1 / numSlices, imgHeight);
                 this.addTextLayer(pdf, sliceTextContent, pageWidth, sliceImgHeight);
 
               }
@@ -589,12 +615,15 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
         }
       }
 
+      // Clean up capture container and restore modal
+      document.body.removeChild(captureContainer);
+      if (ionModal) ionModal.style.removeProperty('--backdrop-opacity');
+
       // Generate filename
       const projectId = this.projectData?.projectId || 'draft';
       const clientName = (this.projectData?.clientName || 'Client').replace(/[^a-z0-9]/gi, '_');
       const date = new Date().toISOString().split('T')[0];
       const fileName = `EFE_Report_${clientName}_${projectId}_${date}.pdf`;
-
 
       // Save the PDF
       pdf.save(fileName);
@@ -604,6 +633,11 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
 
     } catch (error) {
       console.error('[PDF] Error generating PDF:', error);
+      // Clean up capture container if it exists
+      const container = document.getElementById('pdf-capture-container');
+      if (container) document.body.removeChild(container);
+      const modal = document.querySelector('ion-modal') as HTMLElement;
+      if (modal) modal.style.removeProperty('--backdrop-opacity');
       await loading.dismiss();
       await this.showToast('Failed to download PDF: ' + (error as Error).message, 'danger');
     }
@@ -1795,6 +1829,52 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
   private checkAndDismissLoading() {
     // Placeholder method to check and dismiss loading if needed
     // Can be implemented later if loading state management is required
+  }
+
+  /**
+   * Scans a canvas for the best row to split at near a target Y position.
+   * Finds rows that are mostly white (gaps between content items) to avoid
+   * cutting through images, text, or other content.
+   */
+  private findSafeBreakY(canvas: HTMLCanvasElement, targetY: number, searchRange: number): number {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return targetY;
+
+    const width = canvas.width;
+    // Prefer breaking before the target (avoid overfilling pages)
+    const startY = Math.max(0, Math.floor(targetY - searchRange));
+    const endY = Math.min(canvas.height - 1, Math.ceil(targetY + searchRange / 2));
+
+    let bestY = Math.round(targetY);
+    let bestScore = -1;
+
+    // Sample every 2 rows for performance
+    for (let y = startY; y <= endY; y += 2) {
+      const row = ctx.getImageData(0, y, width, 1).data;
+
+      let whiteCount = 0;
+      const step = 4; // Sample every 4th pixel for speed
+      const totalSamples = Math.ceil(width / step);
+      for (let x = 0; x < width; x += step) {
+        const idx = x * 4;
+        // Check if pixel is white or near-white (> 248 in all channels)
+        if (row[idx] > 248 && row[idx + 1] > 248 && row[idx + 2] > 248) {
+          whiteCount++;
+        }
+      }
+
+      const score = whiteCount / totalSamples;
+
+      // Perfect break (>98% white row) - use immediately
+      if (score > 0.98) return y;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestY = y;
+      }
+    }
+
+    return bestY;
   }
 
   /**

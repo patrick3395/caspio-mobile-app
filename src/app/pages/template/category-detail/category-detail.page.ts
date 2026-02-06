@@ -3093,12 +3093,38 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         return idA - idB;
       });
 
-      this.visualPhotos[key] = photos;
-      this.photoCountsByKey[key] = photos.length;
-      this.logDebug('PHOTO', `Processed ${photos.length} photos for ${key}`);
+      // MERGE into existing array: update existing photos, append new ones, never remove
+      const existing = this.visualPhotos[key] || [];
+      if (existing.length === 0) {
+        // No existing photos — just assign
+        this.visualPhotos[key] = photos;
+      } else {
+        // Build lookup of existing photos by attachId
+        const existingById = new Map<string, number>();
+        for (let i = 0; i < existing.length; i++) {
+          const p = existing[i];
+          if (p.attachId) existingById.set(p.attachId, i);
+          else if (p.id) existingById.set(String(p.id), i);
+        }
+        for (const newPhoto of photos) {
+          const photoId = newPhoto.attachId || String(newPhoto.id);
+          const idx = existingById.get(photoId);
+          if (idx !== undefined) {
+            // Update existing photo in-place
+            Object.assign(existing[idx], newPhoto);
+          } else {
+            // Append new photo
+            existing.push(newPhoto);
+            existingById.set(photoId, existing.length - 1);
+          }
+        }
+        this.visualPhotos[key] = existing;
+      }
+      this.photoCountsByKey[key] = this.visualPhotos[key].length;
+      this.logDebug('PHOTO', `Processed ${photos.length} photos for ${key} (total: ${this.visualPhotos[key].length})`);
     } catch (error) {
       this.logDebug('ERROR', `Failed to load photos for ${key}: ${error}`);
-      this.visualPhotos[key] = [];
+      // Do NOT clear existing photos on error — keep what's already visible
     } finally {
       this.loadingPhotosByKey[key] = false;
       this.changeDetectorRef.detectChanges();

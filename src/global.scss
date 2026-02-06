@@ -989,8 +989,8 @@ body.dark-theme .upload-progress-bar {
 }
 
 /* Dark theme: Page tab bar (project-detail, new-project) */
-body.dark-theme .page-tab-bar {
-  background: var(--ion-tab-bar-background);
+body.dark-theme ion-tab-bar.page-tab-bar {
+  --background: var(--ion-tab-bar-background);
   border-top-color: var(--color-border-default);
 }
 
@@ -5694,55 +5694,52 @@ body.dark-theme {
 }
 
 // Global page-level tab bar for pages outside ion-tabs (project-detail, new-project)
+// Uses real ion-tab-bar + ion-tab-button components to match the tabs page exactly
 // Must be in global.scss because Ionic's .ion-page containment traps fixed elements
 app-project-detail,
 app-new-project {
   contain: style !important;
 }
 
-.page-tab-bar {
+ion-tab-bar.page-tab-bar {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  width: 100%;
-  display: flex;
-  justify-content: stretch;
-  align-items: center;
-  height: 72px;
-  background: var(--noble-white, #ffffff);
-  border-top: 1px solid var(--ion-color-tertiary-shade, #e0e0e0);
   z-index: 100;
+  --background: var(--noble-white);
+  border-top: 1px solid var(--ion-color-tertiary-shade);
+  height: 72px;
   padding-bottom: env(safe-area-inset-bottom);
 
-  .page-tab-button {
-    display: flex;
+  .tab-button {
+    --color: var(--noble-gray);
+    --color-selected: var(--noble-orange);
+    --padding-end: 0;
+    --padding-start: 0;
+    --padding-bottom: 4px;
+    --padding-top: 6px;
+    --ripple-color: transparent;
+    min-height: 60px;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    flex: 1;
-    height: 100%;
     gap: 2px;
-    padding: 6px 0 4px;
-    color: var(--noble-gray, #999999);
-    text-decoration: none;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
 
-    ion-icon {
+    .tab-icon {
       font-size: 29px;
       padding: 6px;
       border-radius: 8px;
+      transition: all 0.3s ease;
     }
 
-    span {
+    .tab-label {
       font-size: 11px;
       font-weight: 500;
+      text-transform: none;
       letter-spacing: 0.2px;
     }
+  }
 
-    &:hover {
-      color: var(--noble-orange, #F15A27);
-    }
+  ion-tab-button::part(native) {
+    padding: 0;
   }
 }

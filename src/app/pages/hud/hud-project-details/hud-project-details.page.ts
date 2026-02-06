@@ -400,6 +400,16 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
             const thirtyBelowOption = this.outdoorTemperatureOptions.splice(thirtyBelowIndex, 1)[0];
             this.outdoorTemperatureOptions.unshift(thirtyBelowOption);
           }
+
+          // Ensure "100+" comes after "90-100" (not before it)
+          const hundredPlusIndex = this.outdoorTemperatureOptions.findIndex(opt => opt.includes('100+') || opt.includes('100 +'));
+          const ninetyToHundredIndex = this.outdoorTemperatureOptions.findIndex(opt => opt.includes('90') && opt.includes('100') && !opt.includes('+'));
+          if (hundredPlusIndex >= 0 && ninetyToHundredIndex >= 0 && hundredPlusIndex < ninetyToHundredIndex) {
+            const hundredPlusOption = this.outdoorTemperatureOptions.splice(hundredPlusIndex, 1)[0];
+            // Find the new index of 90-100 after splice
+            const newNinetyIndex = this.outdoorTemperatureOptions.findIndex(opt => opt.includes('90') && opt.includes('100') && !opt.includes('+'));
+            this.outdoorTemperatureOptions.splice(newNinetyIndex + 1, 0, hundredPlusOption);
+          }
         }
 
         // Set Occupancy Furnishings options

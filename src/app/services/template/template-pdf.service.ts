@@ -146,14 +146,17 @@ export class TemplatePdfService {
         }
       }
 
-      const cacheKey = this.cache.getApiCacheKey('pdf_data', {
+      let recordsData: any[], elevationData: any[], projectInfo: any;
+
+      // On web, always fetch fresh data (no cache) so edits are immediately reflected.
+      // On mobile, use a short-lived cache to speed up repeated PDF opens.
+      const useCache = !environment.isWeb;
+      const cacheKey = useCache ? this.cache.getApiCacheKey('pdf_data', {
         serviceId: serviceId,
         templateId: config.id,
         timestamp: Math.floor(Date.now() / 300000)
-      });
-
-      let recordsData: any[], elevationData: any[], projectInfo: any;
-      const cachedData = this.cache.get(cacheKey);
+      }) : '';
+      const cachedData = useCache ? this.cache.get(cacheKey) : null;
 
       if (cachedData) {
         updateProgress(50, 'Loading from cache...');
@@ -199,10 +202,12 @@ export class TemplatePdfService {
           recordsData = results[1];
           elevationData = config.features.hasElevationPlot ? results[2] : [];
 
-          // Cache for faster subsequent loads
-          this.cache.set(cacheKey, {
-            recordsData, elevationData, projectInfo
-          }, this.cache.CACHE_TIMES.MEDIUM);
+          // Cache for faster subsequent loads (mobile only)
+          if (useCache) {
+            this.cache.set(cacheKey, {
+              recordsData, elevationData, projectInfo
+            }, this.cache.CACHE_TIMES.MEDIUM);
+          }
         } catch (dataError) {
           console.error(`${logTag} Fatal error loading PDF data:`, dataError);
           projectInfo = {

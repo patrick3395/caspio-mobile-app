@@ -809,13 +809,21 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
    */
   private async loadPhotosWebapp() {
     if (!this.config || !this.visualId) {
-      this.photos = [];
+      // Don't clear existing photos — they should persist
       return;
     }
 
     const attachments = await this.dataAdapter.getAttachmentsWithConfig(this.config, this.visualId);
 
-    this.photos = [];
+    // Build index of existing photos by ID for merge
+    const existingById = new Map<string, number>();
+    for (let i = 0; i < this.photos.length; i++) {
+      const p = this.photos[i];
+      if (p.id) existingById.set(p.id, i);
+      if (p.imageId && p.imageId !== p.id) existingById.set(p.imageId, i);
+      if (p.attachId && p.attachId !== p.id) existingById.set(p.attachId, i);
+    }
+
     for (const att of attachments || []) {
       // Check Attachment first (S3 key), then Photo (legacy Caspio Files API)
       let displayUrl = att.Attachment || att.Photo || att.url || att.displayUrl || 'assets/img/photo-placeholder.svg';
@@ -860,23 +868,40 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         console.warn(`[GenericVisualDetail] WEBAPP: Failed to process annotations for ${attachId}:`, annotErr);
       }
 
-      this.photos.push({
-        id: attachId,
-        displayUrl: thumbnailUrl,
-        originalUrl: displayUrl,
-        caption: att.Caption || att.Annotation || '',
-        uploading: false,
-        loading: true,  // Image is loading until (load) event fires
-        isLocal: false,
-        hasAnnotations,
-        // Store drawings in MULTIPLE fields (matches EFE pattern)
-        drawings: att.Drawings || '',
-        rawDrawingsString: att.Drawings || '',
-        Drawings: att.Drawings || '',
-        // Include all ID fields for cache lookup (matches EFE pattern)
-        imageId: attachId,
-        attachId: attachId
-      });
+      // Merge: update existing or append new
+      const existingIndex = existingById.get(attachId);
+      if (existingIndex !== undefined) {
+        // UPDATE existing photo in-place
+        const existing = this.photos[existingIndex];
+        existing.displayUrl = thumbnailUrl;
+        existing.originalUrl = displayUrl;
+        existing.caption = att.Caption || att.Annotation || existing.caption;
+        existing.hasAnnotations = hasAnnotations;
+        existing.drawings = att.Drawings || existing.drawings;
+        existing.rawDrawingsString = att.Drawings || existing.rawDrawingsString;
+        existing.Drawings = att.Drawings || existing.Drawings;
+        existing.loading = true;
+        existing.uploading = false;
+        existing.isLocal = false;
+      } else {
+        // NEW photo — append
+        this.photos.push({
+          id: attachId,
+          displayUrl: thumbnailUrl,
+          originalUrl: displayUrl,
+          caption: att.Caption || att.Annotation || '',
+          uploading: false,
+          loading: true,  // Image is loading until (load) event fires
+          isLocal: false,
+          hasAnnotations,
+          drawings: att.Drawings || '',
+          rawDrawingsString: att.Drawings || '',
+          Drawings: att.Drawings || '',
+          imageId: attachId,
+          attachId: attachId
+        });
+        existingById.set(attachId, this.photos.length - 1);
+      }
     }
 
     // Sort by AttachID (oldest/lowest first) for consistent order with category-detail
@@ -982,17 +1007,29 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     if (this.isDestroyed) return;
 
     // ========================================
-    // OPTIMIZED PHOTO DISPLAY: Show photos immediately, load blobs in parallel
-    // This matches EFE pattern for instant photo display
+    // MERGE-BASED PHOTO DISPLAY: Never replace, only merge
+    // Once a photo is in the UI array, it stays. New data adds or updates — never removes.
     // ========================================
 
-    // STEP 1: Create PhotoItems immediately with placeholder/cached URLs
-    this.photos = localImages.map(img => {
+    // STEP 1: Build index of existing photos by ID for fast lookup
+    const existingById = new Map<string, number>();
+    for (let i = 0; i < this.photos.length; i++) {
+      const p = this.photos[i];
+      if (p.id) existingById.set(p.id, i);
+      if (p.imageId && p.imageId !== p.id) existingById.set(p.imageId, i);
+      if (p.attachId && p.attachId !== p.id) existingById.set(p.attachId, i);
+    }
+
+    // STEP 2: Merge localImages into this.photos (update existing, append new)
+    // Track which photos need blob loading (new or updated)
+    const photosNeedingBlobLoad: { photo: PhotoItem & { _localBlobId?: number }, localImage: any }[] = [];
+
+    for (const img of localImages) {
       const hasAnnotations = !!(img.drawings && img.drawings.length > 10);
 
       // Check memory cache first for DISPLAY (thumbnail with annotations)
       let displayUrl = 'assets/img/photo-placeholder.svg';
-      const possibleIds = [img.imageId, img.attachId].filter(id => id);
+      const possibleIds = [img.imageId, img.attachId].filter((id: string) => id);
       for (const checkId of possibleIds) {
         const memCached = this.bulkAnnotatedImagesMap.get(String(checkId));
         if (memCached) {
@@ -1007,37 +1044,65 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       }
 
       // CRITICAL: originalUrl must ALWAYS be the non-annotated original
-      // Never use cached annotated URL for originalUrl - it must be for re-editing
       const originalUrl = img.remoteUrl || 'assets/img/photo-placeholder.svg';
 
-      return {
-        id: img.imageId,
-        displayUrl,
-        originalUrl,  // CRITICAL: Always the original, never annotated
-        caption: img.caption || '',
-        uploading: img.status === 'queued' || img.status === 'uploading',
-        loading: !!img.localBlobId, // Mark as loading if has blob to fetch
-        isLocal: !img.isSynced,
-        hasAnnotations,
-        drawings: img.drawings || '',
-        rawDrawingsString: img.drawings || '',
-        Drawings: img.drawings || '',
-        imageId: img.imageId,
-        attachId: img.attachId || undefined,
-        _localBlobId: img.localBlobId // Store for async loading
-      } as PhotoItem & { _localBlobId?: number };
-    });
+      // Check if this photo already exists in the array
+      const existingIndex = existingById.get(img.imageId) ??
+        (img.attachId ? existingById.get(img.attachId) : undefined);
 
+      if (existingIndex !== undefined && existingIndex !== null) {
+        // UPDATE existing photo in-place — preserve displayUrl/originalUrl if they're already loaded
+        const existing = this.photos[existingIndex];
+        existing.caption = img.caption || existing.caption;
+        existing.uploading = img.status === 'queued' || img.status === 'uploading';
+        existing.isLocal = !img.isSynced;
+        existing.hasAnnotations = hasAnnotations;
+        existing.drawings = img.drawings || existing.drawings;
+        existing.rawDrawingsString = img.drawings || existing.rawDrawingsString;
+        existing.Drawings = img.drawings || existing.Drawings;
+        existing.imageId = img.imageId;
+        if (img.attachId) existing.attachId = img.attachId;
+        // Only update URLs if the existing ones are placeholders
+        if (existing.displayUrl === 'assets/img/photo-placeholder.svg' && displayUrl !== 'assets/img/photo-placeholder.svg') {
+          existing.displayUrl = displayUrl;
+        }
+        if (existing.originalUrl === 'assets/img/photo-placeholder.svg' && originalUrl !== 'assets/img/photo-placeholder.svg') {
+          existing.originalUrl = originalUrl;
+        }
+        (existing as any)._localBlobId = img.localBlobId;
+        photosNeedingBlobLoad.push({ photo: existing as PhotoItem & { _localBlobId?: number }, localImage: img });
+      } else {
+        // NEW photo — append to array
+        const newPhoto = {
+          id: img.imageId,
+          displayUrl,
+          originalUrl,
+          caption: img.caption || '',
+          uploading: img.status === 'queued' || img.status === 'uploading',
+          loading: !!img.localBlobId,
+          isLocal: !img.isSynced,
+          hasAnnotations,
+          drawings: img.drawings || '',
+          rawDrawingsString: img.drawings || '',
+          Drawings: img.drawings || '',
+          imageId: img.imageId,
+          attachId: img.attachId || undefined,
+          _localBlobId: img.localBlobId
+        } as PhotoItem & { _localBlobId?: number };
+        this.photos.push(newPhoto);
+        // Update lookup map for future iterations
+        existingById.set(img.imageId, this.photos.length - 1);
+        if (img.attachId) existingById.set(img.attachId, this.photos.length - 1);
+        photosNeedingBlobLoad.push({ photo: newPhoto, localImage: img });
+      }
+    }
 
-    // STEP 2: Trigger UI update immediately so photos show
+    // STEP 3: Trigger UI update immediately so photos show
     this.safeDetectChanges();
 
-    // STEP 3: Load blob URLs in parallel (background)
-    const loadPromises = this.photos.map(async (photo, index) => {
+    // STEP 4: Load blob URLs in parallel (background) — uses photo-localImage pairs, not index correlation
+    const loadPromises = photosNeedingBlobLoad.map(async ({ photo, localImage: img }) => {
       if (this.isDestroyed) return;
-
-      const img = localImages[index];
-      if (!img) return;
 
       const hasAnnotations = photo.hasAnnotations;
       let displayUrl = photo.displayUrl;
@@ -1045,14 +1110,12 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       let needsUpdate = false;
 
       // CRITICAL: ALWAYS load original blob for originalUrl (for re-editing annotations)
-      // This ensures originalUrl is never the flattened/annotated version
       if (img.localBlobId) {
         try {
           const blob = await db.localBlobs.get(img.localBlobId);
           if (blob && !this.isDestroyed) {
             const blobObj = new Blob([blob.data], { type: blob.contentType });
             originalUrl = URL.createObjectURL(blobObj);
-            // Only update displayUrl if it's still placeholder (no cached annotated version)
             if (displayUrl === 'assets/img/photo-placeholder.svg') {
               displayUrl = originalUrl;
             }
@@ -1065,7 +1128,7 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
       // Check IndexedDB for cached annotated image
       if (hasAnnotations && !this.bulkAnnotatedImagesMap.has(String(img.imageId))) {
-        const possibleIds = [img.imageId, img.attachId].filter(id => id);
+        const possibleIds = [img.imageId, img.attachId].filter((id: string) => id);
         for (const checkId of possibleIds) {
           try {
             const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(String(checkId));
@@ -1099,14 +1162,11 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         }
       }
 
-      // Update photo in array if changed
+      // Update photo properties if changed
       if (needsUpdate && !this.isDestroyed) {
-        this.photos[index] = {
-          ...this.photos[index],
-          displayUrl,
-          originalUrl,
-          loading: false
-        };
+        photo.displayUrl = displayUrl;
+        photo.originalUrl = originalUrl;
+        photo.loading = false;
       }
     });
 

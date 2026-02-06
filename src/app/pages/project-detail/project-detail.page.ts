@@ -394,7 +394,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   constructor(
     private route: ActivatedRoute,
-    private router: Router,
+    public router: Router,
     private location: Location,
     private projectsService: ProjectsService,
     private caspioService: CaspioService,
@@ -5294,7 +5294,7 @@ Time: ${debugInfo.timestamp}
       message: 'Choose a template to open its PDF report.',
       inputs: savedServices.map((service, index) => ({
         type: 'radio',
-        label: `${service.typeName} - ${this.formatDate(service.dateOfInspection)}`,
+        label: service.typeName,
         value: index,
         checked: index === 0
       })),

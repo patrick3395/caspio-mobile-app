@@ -403,9 +403,7 @@
           
           <!-- Expanded details (only when selected) -->
           <div *ngIf="isServiceSelected(offer.OffersID)" class="service-details">
-            <!-- List of instances -->
-            <div *ngFor="let service of getServiceInstances(offer.OffersID); let i = index" 
-                 class="service-instance">
+            <ng-container *ngFor="let service of getServiceInstances(offer.OffersID); let i = index">
               <div class="service-number-header" *ngIf="getServiceInstances(offer.OffersID).length > 1">#{{ i + 1 }}</div>
               <div class="instance-fields">
                 <div class="field-group">
@@ -432,20 +430,7 @@
                   </div>
                 </div>
               </div>
-
-              <!-- Submit button for all services -->
-              <div class="submit-button-container">
-                <button
-                  class="submit-report-btn"
-                  [class.finalized]="isSubmitButtonEnabled(service)"
-                  (click)="handleSubmitClick(service)">
-                  {{ hasBeenSubmitted(service) ? 'Re-Submit' : 'Submit' }}
-                </button>
-                <div *ngIf="service.Status === 'Under Review' && service.StatusDateTime" class="submitted-note">
-                  Submitted {{ service.StatusDateTime | date:'short' }}
-                </div>
-              </div>
-            </div>
+            </ng-container>
           </div>
         </div>
       </div>
@@ -609,24 +594,24 @@
 </ion-modal>
 
 <!-- Bottom tab bar -->
-<div class="page-tab-bar">
-  <a routerLink="/tabs/active-projects" class="page-tab-button">
-    <ion-icon name="document-text-outline"></ion-icon>
-    <span>Active</span>
-  </a>
-  <a routerLink="/tabs/all-projects" class="page-tab-button">
-    <ion-icon name="folder-outline"></ion-icon>
-    <span>Complete</span>
-  </a>
-  <a routerLink="/tabs/help-guide" class="page-tab-button">
-    <ion-icon name="help-circle-outline"></ion-icon>
-    <span>Help</span>
-  </a>
-  <a routerLink="/tabs/company" class="page-tab-button">
-    <ion-icon name="people-outline"></ion-icon>
-    <span>Company</span>
-  </a>
-</div>
+<ion-tab-bar slot="bottom" class="page-tab-bar custom-tab-bar">
+  <ion-tab-button class="tab-button" (click)="router.navigateByUrl('/tabs/active-projects')">
+    <ion-icon name="document-text-outline" class="tab-icon"></ion-icon>
+    <ion-label class="tab-label">Active</ion-label>
+  </ion-tab-button>
+  <ion-tab-button class="tab-button" (click)="router.navigateByUrl('/tabs/all-projects')">
+    <ion-icon name="folder-outline" class="tab-icon"></ion-icon>
+    <ion-label class="tab-label">Complete</ion-label>
+  </ion-tab-button>
+  <ion-tab-button class="tab-button" (click)="router.navigateByUrl('/tabs/help-guide')">
+    <ion-icon name="help-circle-outline" class="tab-icon"></ion-icon>
+    <ion-label class="tab-label">Help</ion-label>
+  </ion-tab-button>
+  <ion-tab-button class="tab-button" (click)="router.navigateByUrl('/tabs/company')">
+    <ion-icon name="people-outline" class="tab-icon"></ion-icon>
+    <ion-label class="tab-label">Company</ion-label>
+  </ion-tab-button>
+</ion-tab-bar>
 
 <!-- Hidden file input for photo replacement - no capture attribute for iOS native picker -->
 <input #photoInput type="file" accept="image/*" style="display: none" (change)="onPhotoSelected($event)">

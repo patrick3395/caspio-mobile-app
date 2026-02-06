@@ -150,16 +150,22 @@ export class TemplateValidationService {
       }
 
       // Get required template items
+      // Required field varies by template table: 'Yes' (LBW/DTE/CSA/EFE), 1/true/'1' (HUD)
       const allTemplates = await this.dataProvider.getTemplates(config);
-      const requiredItems = (allTemplates || []).filter((item: any) => item.Required === 'Yes');
+      const requiredItems = (allTemplates || []).filter((item: any) =>
+        item.Required === 'Yes' || item.Required === 1 || item.Required === true || item.Required === '1'
+      );
 
       // Get raw user answers for this service
       const userAnswers = await this.dataProvider.getRawVisuals(config, serviceId);
 
       // Check each required item
       for (const templateItem of requiredItems) {
+        const templatePkId = String(templateItem.PK_ID);
         const userAnswer = userAnswers?.find((answer: any) =>
-          answer.TemplateID === templateItem.PK_ID || answer.FK_Template === templateItem.PK_ID
+          String(answer.TemplateID) === templatePkId ||
+          String(answer.FK_Template) === templatePkId ||
+          String(answer[config.templateIdFieldName]) === templatePkId
         );
 
         let isComplete = false;
@@ -168,11 +174,18 @@ export class TemplateValidationService {
           // Use Number() to handle both string and number AnswerType from API
           const answerType = Number(templateItem.AnswerType) || 0;
           if (answerType === 1) {
-            // Yes/No question
-            isComplete = userAnswer.Answer === 'Yes' || userAnswer.Answer === 'No';
+            // Yes/No question — check Answer or Answers field
+            const answerVal = userAnswer.Answer || userAnswer.Answers || '';
+            isComplete = answerVal === 'Yes' || answerVal === 'No';
           } else if (answerType === 2) {
-            // Multi-select question
-            isComplete = userAnswer.SelectedOptions && userAnswer.SelectedOptions.length > 0;
+            // Multi-select — stored as comma-separated string in Answers field (web)
+            // or as array in SelectedOptions (Dexie/mobile)
+            const answersStr = userAnswer.Answers || userAnswer.Answer || '';
+            const hasAnswers = typeof answersStr === 'string'
+              ? answersStr.trim().length > 0
+              : false;
+            const hasSelectedOptions = userAnswer.SelectedOptions && userAnswer.SelectedOptions.length > 0;
+            isComplete = hasAnswers || hasSelectedOptions;
           } else {
             // Selection-based (AnswerType 0 or undefined)
             isComplete = userAnswer.Selected === true || userAnswer.Selected === 'Yes';
