@@ -380,13 +380,15 @@
 
                   <div class="field-group">
                     <label>Price</label>
-                    <input
-                      *ngIf="isCompanyOne && !isReadOnly"
-                      type="number"
-                      class="date-input"
-                      step="0.01"
-                      [value]="getServicePrice(service)"
-                      (blur)="updateServicePrice(service, $event)">
+                    <div *ngIf="isCompanyOne && !isReadOnly" class="price-input-wrapper">
+                      <span class="price-prefix">$</span>
+                      <input
+                        type="number"
+                        class="date-input"
+                        step="0.01"
+                        [value]="getServicePrice(service)"
+                        (blur)="updateServicePrice(service, $event)">
+                    </div>
                     <div *ngIf="!isCompanyOne || isReadOnly" class="price-display">
                       ${{ getServicePrice(service) | number:'1.2-2' }}
                     </div>

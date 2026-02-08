@@ -2390,9 +2390,21 @@ body.dark-theme .caption-popup-alert .alert-button {
 }
 
 
-// Print styles for PDF generation
+// Print styles — focused on letting ngx-extended-pdf-viewer handle printing.
+// The viewer renders all pages into #printContainer, then calls window.print().
+// Our job: ensure parent containers don't clip, hide UI chrome, stay out of the way.
 @media print {
-  // Hide all modal backdrops, overlays, and UI elements
+  // ── Base reset ──────────────────────────────────────────────────
+  body, html {
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+
+  // ── Hide UI chrome ──────────────────────────────────────────────
   ion-backdrop,
   .modal-shadow,
   ion-loading,
@@ -2400,23 +2412,15 @@ body.dark-theme .caption-popup-alert .alert-button {
   ion-header,
   ion-toolbar,
   ion-footer,
-  .modal-shadow {
+  .pdf-close-btn,
+  #sidebarContainer,
+  #toolbarContainer,
+  #toolbarViewer,
+  .toolbar {
     display: none !important;
-    visibility: hidden !important;
   }
 
-  // Ensure body and html take full page
-  body,
-  html {
-    width: 100% !important;
-    height: auto !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: visible !important;
-    background: white !important;
-  }
-
-  // Force all ion-modal and modal wrappers to be visible and take full space
+  // ── Unclip modal / page containers ──────────────────────────────
   ion-modal,
   .modal-wrapper,
   .ion-page {
@@ -2424,94 +2428,64 @@ body.dark-theme .caption-popup-alert .alert-button {
     position: static !important;
     width: 100% !important;
     height: auto !important;
-    max-width: 100% !important;
     max-height: none !important;
+    overflow: visible !important;
+    contain: none !important;
+    transform: none !important;
     box-shadow: none !important;
     border-radius: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    transform: none !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    overflow: visible !important;
     background: white !important;
-    left: 0 !important;
-    top: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
   }
 
-  // Force ion-content to be visible and static
-  ion-content,
-  ion-content.pdf-preview-content,
-  .pdf-preview-content {
+  // ── Unclip ion-content (including shadow DOM scroll container) ──
+  ion-content {
     display: block !important;
     position: static !important;
     width: 100% !important;
     height: auto !important;
-    opacity: 1 !important;
-    visibility: visible !important;
     overflow: visible !important;
-    background: white !important;
-    --background: white !important;
     contain: none !important;
-
-    // Force inner scroll to be visible
-    .inner-scroll,
-    .scroll-content {
-      display: block !important;
-      position: static !important;
-      overflow: visible !important;
-      height: auto !important;
-      opacity: 1 !important;
-      visibility: visible !important;
-    }
+    --overflow: visible !important;
+    --background: white !important;
+    background: white !important;
   }
 
-  // Ensure fullscreen modal takes full page
-  .fullscreen-modal {
-    --width: 100% !important;
-    --height: 100% !important;
-    --max-width: 100% !important;
-    --max-height: 100% !important;
-
-    .modal-wrapper {
-      position: static !important;
-      width: 100% !important;
-      height: auto !important;
-      box-shadow: none !important;
-      border-radius: 0 !important;
-      transform: none !important;
-      left: 0 !important;
-      top: 0 !important;
-    }
-
-    ion-content {
-      --background: white !important;
-      position: static !important;
-    }
-  }
-
-  // Force pdf-container and pages to be visible
+  // ── PDF viewer container ────────────────────────────────────────
   .pdf-container,
-  div[class*="pdf-container"] {
+  ngx-extended-pdf-viewer {
     display: block !important;
-    opacity: 1 !important;
-    visibility: visible !important;
+    position: static !important;
+    overflow: visible !important;
+    height: auto !important;
     width: 100% !important;
   }
 
-  .pdf-page,
-  div[class*="pdf-page"] {
-    display: block !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    page-break-after: always;
+  // ── Hide the interactive viewer (canvases, sidebar) ─────────────
+  #viewerContainer,
+  #mainContainer {
+    display: none !important;
   }
 
-  // Remove any transforms or positioning that might hide content
-  * {
-    transform: none !important;
+  // ── Show #printContainer with all rendered pages ────────────────
+  // ngx-extended-pdf-viewer creates this div and fills it with
+  // .printedPage elements (each containing a canvas/img for one page).
+  // Do NOT apply blanket transform:none — the library uses transforms
+  // to scale pages to fit the print area.
+  #printContainer {
+    display: block !important;
+    position: static !important;
+    overflow: visible !important;
+    height: auto !important;
+    width: 100% !important;
+    background: white !important;
+
+    .printedPage {
+      display: block !important;
+      page-break-after: always !important;
+      page-break-inside: avoid !important;
+      overflow: visible !important;
+      position: relative !important;
+    }
   }
 }
 

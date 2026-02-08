@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
-import { BehaviorSubject, Subject } from 'rxjs';
+import { BehaviorSubject, Subject, filter, first, timeout } from 'rxjs';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications, PushNotificationSchema, ActionPerformed, Token } from '@capacitor/push-notifications';
 import { PlatformDetectionService } from './platform-detection.service';
@@ -81,11 +81,24 @@ export class PushNotificationService {
    */
   registerTokenWithBackend(userId: string, email: string, companyId?: string): void {
     const token = this.deviceTokenSubject.getValue();
-    if (!token) {
-      console.warn('[PushNotification] No device token available to register');
+    if (token) {
+      this.sendTokenToBackend(token, userId, email, companyId);
       return;
     }
 
+    // Token not yet available — wait up to 10s for the registration callback
+    console.log('[PushNotification] Waiting for device token...');
+    this.deviceToken$.pipe(
+      filter((t): t is string => t !== null),
+      first(),
+      timeout(10000)
+    ).subscribe({
+      next: (t) => this.sendTokenToBackend(t, userId, email, companyId),
+      error: () => console.warn('[PushNotification] Timed out waiting for device token')
+    });
+  }
+
+  private sendTokenToBackend(token: string, userId: string, email: string, companyId?: string): void {
     const platform = Capacitor.getPlatform(); // 'ios' or 'android'
 
     this.apiGateway.post('/api/device-tokens', {

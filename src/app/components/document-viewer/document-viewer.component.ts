@@ -9,8 +9,8 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
   standalone: true,
   imports: [CommonModule, IonicModule, NgxExtendedPdfViewerModule],
   template: `
-    <ion-header>
-      <ion-toolbar style="--background: #F15A27;">
+    <ion-header *ngIf="!isPDF">
+      <ion-toolbar style="--background: #2d3436;">
         <ion-title style="color: white;">{{ fileName || 'Document Viewer' }}</ion-title>
         <ion-buttons slot="end">
           <ion-button (click)="dismiss()" style="color: white;">
@@ -26,26 +26,29 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
                 [attr.data-file-type]="fileType"></iframe>
       </div>
       <div class="pdf-container" *ngIf="isPDF">
+        <div class="pdf-close-btn" (click)="dismiss()">
+          <ion-icon name="close"></ion-icon>
+        </div>
         <ngx-extended-pdf-viewer
           [src]="pdfSource"
-          [height]="'calc(100vh - 56px)'"
-          [mobileFriendlyZoom]="'page-width'"
+          [height]="'100vh'"
+          [mobileFriendlyZoom]="'100%'"
           [showToolbar]="true"
           [showSidebarButton]="true"
-          [sidebarVisible]="false"
+          [sidebarVisible]="true"
           [showFindButton]="false"
-          [showPagingButtons]="true"
+          [showPagingButtons]="false"
           [showZoomButtons]="true"
           [showPresentationModeButton]="false"
           [showOpenFileButton]="false"
-          [showPrintButton]="false"
-          [showDownloadButton]="true"
+          [showPrintButton]="true"
+          [showDownloadButton]="false"
           [showSecondaryToolbarButton]="false"
           [showRotateButton]="false"
-          [showHandToolButton]="true"
+          [showHandToolButton]="false"
           [showSpreadButton]="false"
           [showPropertiesButton]="false"
-          [zoom]="'page-width'"
+          [zoom]="100"
           [spread]="'off'"
           [theme]="'dark'"
           [pageViewMode]="'multiple'"
@@ -54,8 +57,8 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
         </ngx-extended-pdf-viewer>
       </div>
       <div class="image-container" *ngIf="isImage">
-        <img [src]="displayUrl || fileUrl" 
-             [alt]="fileName" 
+        <img [src]="displayUrl || fileUrl"
+             [alt]="fileName"
              (error)="handleImageError($event)" />
       </div>
     </ion-content>
@@ -72,9 +75,31 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
       justify-content: center;
       overflow: hidden;
     }
+    .pdf-close-btn {
+      position: fixed;
+      top: 12px;
+      right: 16px;
+      z-index: 10000;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(45, 52, 54, 0.85);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 20px;
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(255,255,255,0.15);
+      transition: background 0.2s;
+    }
+    .pdf-close-btn:hover {
+      background: rgba(241, 90, 39, 0.9);
+    }
     .pdf-container {
       width: 100%;
-      height: calc(100vh - 56px);
+      height: 100vh;
       background: #2d2d2d;
       overflow: auto !important;
       -webkit-overflow-scrolling: touch;
@@ -98,22 +123,22 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
     
     /* Modern PDF Viewer Styling */
     ::ng-deep .pdf-container {
-      /* Swap the position of sidebar and search buttons */
+      /* Only show sidebar toggle, zoom, and print — hide everything else in left/middle */
       #toolbarViewerLeft {
         display: flex !important;
         flex-direction: row !important;
       }
-      
-      /* Move search button to the left (first position) */
+
+      /* Hide search button */
       #viewFind {
-        order: -1 !important;
+        display: none !important;
       }
-      
-      /* Ensure sidebar button comes after search */
-      #sidebarToggle {
-        order: 0 !important;
+
+      /* Hide page number / navigation from center */
+      #toolbarViewerMiddle {
+        display: none !important;
       }
-      
+
       /* Toolbar styling */
       .toolbar {
         background: #1a1a1a !important;
@@ -286,7 +311,7 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
       .pdf-container {
         -webkit-overflow-scrolling: touch;
         overflow: auto !important;
-        height: calc(100vh - 56px) !important;
+        height: 100vh !important;
       }
 
       .pdf-container ::ng-deep #viewerContainer {
@@ -299,10 +324,31 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
     ion-content.document-viewer-content {
       --overflow: hidden;
     }
-    
+
     ion-content.document-viewer-content ::ng-deep .inner-scroll {
       overflow: hidden !important;
     }
+
+    /* Print: unclip everything so all pages print */
+    @media print {
+      ion-content.document-viewer-content {
+        --overflow: visible !important;
+        overflow: visible !important;
+        height: auto !important;
+        contain: none !important;
+      }
+
+      ion-content.document-viewer-content ::ng-deep .inner-scroll {
+        overflow: visible !important;
+        height: auto !important;
+      }
+
+      .pdf-container {
+        height: auto !important;
+        overflow: visible !important;
+      }
+    }
+
   `]
 })
 export class DocumentViewerComponent implements OnInit {
@@ -332,7 +378,7 @@ export class DocumentViewerComponent implements OnInit {
     
     // Check both filename and filepath for extension
     this.isImage = imageExtensions.some(ext => lowerName.endsWith(ext) || lowerPath.endsWith(ext));
-    this.isPDF = lowerPath.includes('.pdf') || this.fileUrl.toLowerCase().includes('.pdf');
+    this.isPDF = lowerPath.includes('.pdf') || this.fileUrl.toLowerCase().includes('.pdf') || (this.fileType || '').toLowerCase() === 'pdf';
     
     if (this.isImage) {
       // For images, use the URL directly (should be base64 data URL)

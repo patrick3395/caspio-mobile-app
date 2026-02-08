@@ -684,6 +684,12 @@ ion-content {
         background: #b0b0b0;
       }
     }
+
+    &:disabled {
+      opacity: 0.35;
+      cursor: default;
+      pointer-events: none;
+    }
   }
 }
 

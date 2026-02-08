@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import type { TDocumentDefinitions, Content, ContentColumns, ContentStack, ContentTable } from 'pdfmake/interfaces';
-import { COLORS, PDF_STYLES } from './pdf-styles';
-import { getLogoBase64 } from './pdf-logo';
+import { COLORS, PDF_STYLES, LAYOUT_INFO_TABLE, LAYOUT_NO_BORDERS, LAYOUT_SUMMARY_TABLE } from './pdf-styles';
 
 @Injectable({ providedIn: 'root' })
 export class PdfDocumentBuilderService {
@@ -12,12 +11,10 @@ export class PdfDocumentBuilderService {
     elevationData: any[],
     serviceData: any
   ): Promise<TDocumentDefinitions> {
-    const logo = await getLogoBase64();
-
     const content: Content[] = [];
 
     // Cover page
-    content.push(this.buildCoverPage(projectData, serviceData, logo));
+    content.push(this.buildCoverPage(projectData, serviceData));
 
     // Deficiency summary
     content.push({ text: '', pageBreak: 'before' });
@@ -75,7 +72,7 @@ export class PdfDocumentBuilderService {
 
   // ─── Cover Page ──────────────────────────────────────────────────
 
-  private buildCoverPage(projectData: any, serviceData: any, logo: string | null): Content {
+  private buildCoverPage(projectData: any, serviceData: any): Content {
     const serviceName = serviceData?.serviceName || 'EFE - Engineer\'s Foundation Evaluation';
     const companyName = projectData?.companyName || 'Noble Property Inspections';
     const address = projectData?.address || 'Property Address';
@@ -86,46 +83,57 @@ export class PdfDocumentBuilderService {
 
     const stack: Content[] = [];
 
-    // Logo
-    if (logo) {
-      stack.push({ image: logo, width: 150, alignment: 'center', margin: [0, 0, 0, 10] });
-    }
+    // Orange accent line at top
+    stack.push({
+      canvas: [{ type: 'line', x1: 0, y1: 0, x2: 452, y2: 0, lineWidth: 3, lineColor: COLORS.primary }],
+      margin: [0, 0, 0, 20]
+    });
 
     // Title
     stack.push({ text: serviceName, style: 'title', margin: [0, 10, 0, 6] });
-    stack.push({ text: `Prepared by ${companyName}`, style: 'subtitle', margin: [0, 0, 0, 20] });
+    stack.push({ text: `Prepared by ${companyName}`, style: 'subtitle', margin: [0, 0, 0, 24] });
 
     // Primary photo
     const primaryPhoto = projectData?.primaryPhotoBase64 || projectData?.primaryPhoto;
-    if (primaryPhoto && typeof primaryPhoto === 'string' && primaryPhoto.startsWith('data:')) {
+    if (primaryPhoto && this.isPdfSafeImage(primaryPhoto)) {
       stack.push({
         image: primaryPhoto,
         width: 420,
         alignment: 'center',
-        margin: [0, 0, 0, 20]
+        margin: [0, 0, 0, 24]
       });
     }
 
-    // Address box
+    // Address card
     stack.push({
       table: {
         widths: ['*'],
         body: [[{
           stack: [
-            { text: address, fontSize: 14, bold: true, alignment: 'center', margin: [0, 10, 0, 4] },
-            { text: cityStateZip, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 8] },
-            { text: `Client: ${clientName}`, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 3] },
-            { text: `Agent: ${agentName}`, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 3] },
-            { text: `Date: ${reportDate}`, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 10] },
-          ]
+            { text: address, fontSize: 14, bold: true, alignment: 'center', color: COLORS.charcoal, margin: [0, 16, 0, 4] },
+            { text: cityStateZip, fontSize: 10, alignment: 'center', color: COLORS.darkGray, margin: [0, 0, 0, 12] },
+            { canvas: [{ type: 'line', x1: 80, y1: 0, x2: 320, y2: 0, lineWidth: 0.5, lineColor: COLORS.borderGray }], margin: [0, 0, 0, 12] },
+            {
+              columns: [
+                { text: 'Client', fontSize: 8, color: COLORS.mediumGray, alignment: 'center', width: '*' },
+                { text: 'Agent', fontSize: 8, color: COLORS.mediumGray, alignment: 'center', width: '*' },
+                { text: 'Date', fontSize: 8, color: COLORS.mediumGray, alignment: 'center', width: '*' },
+              ],
+              margin: [0, 0, 0, 2]
+            } as ContentColumns,
+            {
+              columns: [
+                { text: clientName, fontSize: 10, bold: true, alignment: 'center', color: COLORS.charcoal, width: '*' },
+                { text: agentName, fontSize: 10, bold: true, alignment: 'center', color: COLORS.charcoal, width: '*' },
+                { text: reportDate, fontSize: 10, bold: true, alignment: 'center', color: COLORS.charcoal, width: '*' },
+              ],
+              margin: [0, 0, 0, 16]
+            } as ContentColumns,
+          ],
+          fillColor: COLORS.backgroundGray
         }]]
       },
-      layout: {
-        hLineWidth: () => 0.6,
-        vLineWidth: () => 0.6,
-        hLineColor: () => '#dcdcdc',
-        vLineColor: () => '#dcdcdc',
-      },
+      layout: LAYOUT_NO_BORDERS,
       margin: [30, 0, 30, 0]
     } as ContentTable);
 
@@ -146,8 +154,8 @@ export class PdfDocumentBuilderService {
 
     const tableBody: any[][] = [
       [
-        { text: 'Category', bold: true, fontSize: 11 },
-        { text: 'Deficiencies Found', bold: true, fontSize: 11, alignment: 'center' }
+        { text: 'Category', bold: true, fontSize: 10, color: COLORS.white },
+        { text: 'Deficiencies Found', bold: true, fontSize: 10, alignment: 'center', color: COLORS.white }
       ]
     ];
 
@@ -156,19 +164,33 @@ export class PdfDocumentBuilderService {
       const count = category.deficiencies?.length || 0;
       total += count;
       tableBody.push([
-        { text: category.name, fontSize: 10 },
-        { text: `${count} ${count !== 1 ? 'Defects' : 'Defect'}`, fontSize: 10, alignment: 'center' }
+        { text: category.name, fontSize: 9.5, color: COLORS.darkGray },
+        {
+          text: count > 0 ? `${count} ${count !== 1 ? 'Defects' : 'Defect'}` : 'None',
+          fontSize: 9.5,
+          alignment: 'center',
+          bold: count > 0,
+          color: count > 0 ? COLORS.deficiencyHeader : COLORS.mediumGray
+        }
       ]);
     }
 
+    // Total row
     tableBody.push([
-      { text: 'TOTAL', bold: true, fontSize: 12 },
-      { text: `${total} Total ${total !== 1 ? 'Defects' : 'Defect'}`, bold: true, fontSize: 12, alignment: 'center' }
+      { text: 'TOTAL', bold: true, fontSize: 10, color: COLORS.charcoal, fillColor: COLORS.labelBg },
+      {
+        text: `${total} Total ${total !== 1 ? 'Defects' : 'Defect'}`,
+        bold: true,
+        fontSize: 10,
+        alignment: 'center',
+        color: total > 0 ? COLORS.deficiencyHeader : COLORS.charcoal,
+        fillColor: COLORS.labelBg
+      }
     ]);
 
     stack.push({
       table: { headerRows: 1, widths: ['*', 150], body: tableBody },
-      layout: 'infoTable',
+      layout: LAYOUT_SUMMARY_TABLE,
       margin: [0, 10, 0, 0]
     } as ContentTable);
 
@@ -232,8 +254,21 @@ export class PdfDocumentBuilderService {
     // Service notes
     const notes = serviceData?.Notes || projectData?.serviceData?.Notes;
     if (notes) {
-      stack.push({ text: 'Service Notes:', bold: true, fontSize: 12, margin: [0, 15, 0, 4] });
-      stack.push({ text: notes, style: 'bodyText' });
+      stack.push({
+        table: {
+          widths: ['*'],
+          body: [[{
+            stack: [
+              { text: 'Service Notes', bold: true, fontSize: 11, color: COLORS.charcoal, margin: [0, 0, 0, 6] },
+              { text: notes, style: 'bodyText' }
+            ],
+            margin: [12, 10, 12, 10],
+            fillColor: COLORS.backgroundGray
+          }]]
+        },
+        layout: LAYOUT_NO_BORDERS,
+        margin: [0, 16, 0, 0]
+      } as ContentTable);
     }
 
     return { stack } as ContentStack;
@@ -278,24 +313,27 @@ export class PdfDocumentBuilderService {
   private buildVisualItem(item: any): Content {
     const itemStack: Content[] = [];
 
-    // Item name with background
+    // Item name with orange left accent bar
     itemStack.push({
       table: {
-        widths: ['*'],
-        body: [[{ text: item.name || '', style: 'itemName', fillColor: COLORS.backgroundGray, margin: [4, 3, 4, 3] }]]
+        widths: [3, '*'],
+        body: [[
+          { text: '', fillColor: COLORS.primary },
+          { text: item.name || '', style: 'itemName', fillColor: COLORS.labelBg, margin: [8, 5, 6, 5] }
+        ]]
       },
-      layout: 'noBorders',
-      margin: [0, 6, 0, 2]
+      layout: LAYOUT_NO_BORDERS,
+      margin: [0, 8, 0, 4]
     } as ContentTable);
 
     // Text
     if (item.text) {
-      itemStack.push({ text: item.text, style: 'bodyText', margin: [8, 0, 0, 4] });
+      itemStack.push({ text: item.text, style: 'bodyText', margin: [12, 0, 0, 4] });
     }
 
     // Answers
     if (item.answers) {
-      itemStack.push({ text: item.answers, style: 'answers', margin: [8, 0, 0, 4] });
+      itemStack.push({ text: item.answers, style: 'answers', margin: [12, 0, 0, 4] });
     }
 
     // Photos
@@ -306,10 +344,10 @@ export class PdfDocumentBuilderService {
       }
     }
 
-    // Separator line
+    // Subtle separator
     itemStack.push({
       canvas: [{ type: 'line', x1: 0, y1: 0, x2: 452, y2: 0, lineWidth: 0.3, lineColor: COLORS.lightGray }],
-      margin: [0, 4, 0, 4]
+      margin: [0, 8, 0, 4]
     });
 
     return {
@@ -323,25 +361,24 @@ export class PdfDocumentBuilderService {
   private buildPhotoGrid(photos: any[]): Content | null {
     const validPhotos = photos.filter(p => {
       const url = p?.displayUrl || p?.url || '';
-      return typeof url === 'string' && url.startsWith('data:');
+      return this.isPdfSafeImage(url);
     });
 
     if (validPhotos.length === 0) {
-      // Show placeholder text for photos that couldn't load
       if (photos.length > 0) {
         return {
           text: `[${photos.length} photo(s) - images not available in PDF]`,
           italics: true,
           fontSize: 9,
           color: COLORS.mediumGray,
-          margin: [8, 4, 0, 4]
+          margin: [12, 4, 0, 4]
         };
       }
       return null;
     }
 
     const photosPerRow = validPhotos.length <= 2 ? 2 : 3;
-    const photoWidth = photosPerRow === 2 ? 220 : 145;
+    const photoWidth = photosPerRow === 2 ? 218 : 143;
     const rows: Content[][] = [];
     let currentRow: Content[] = [];
 
@@ -360,7 +397,6 @@ export class PdfDocumentBuilderService {
       currentRow.push(photoBlock);
 
       if (currentRow.length === photosPerRow || i === validPhotos.length - 1) {
-        // Pad with empty cells if row is incomplete
         while (currentRow.length < photosPerRow) {
           currentRow.push({ text: '', width: photoWidth } as any);
         }
@@ -374,7 +410,7 @@ export class PdfDocumentBuilderService {
       gridStack.push({
         columns: row,
         columnGap: 8,
-        margin: [8, 4, 0, 4]
+        margin: [12, 4, 0, 4]
       } as ContentColumns);
     }
 
@@ -408,7 +444,7 @@ export class PdfDocumentBuilderService {
     return {
       stack: [
         { text: title, style: 'sectionHeader' },
-        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 452, y2: 0, lineWidth: 2, lineColor: COLORS.primary }], margin: [0, 0, 0, 10] }
+        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 452, y2: 0, lineWidth: 2, lineColor: COLORS.primary }], margin: [0, 0, 0, 14] }
       ]
     } as ContentStack;
   }
@@ -420,27 +456,27 @@ export class PdfDocumentBuilderService {
         body: [[{
           text,
           bold: true,
-          fontSize: 13,
+          fontSize: 11,
           color: whiteText ? COLORS.white : COLORS.charcoal,
           fillColor: bgColor,
-          margin: [6, 4, 6, 4]
+          margin: [10, 6, 10, 6]
         }]]
       },
-      layout: 'noBorders',
-      margin: [0, 10, 0, 6]
+      layout: LAYOUT_NO_BORDERS,
+      margin: [0, 12, 0, 6]
     } as ContentTable;
   }
 
   private buildKeyValueTable(rows: [string, string][]): Content {
     const body = rows.map(([label, value]) => [
-      { text: label, style: 'label' },
+      { text: label, style: 'label', fillColor: COLORS.labelBg },
       { text: value, style: 'value' }
     ]);
 
     return {
-      table: { widths: [140, '*'], body },
-      layout: 'infoTable',
-      margin: [0, 10, 0, 0]
+      table: { widths: [150, '*'], body },
+      layout: LAYOUT_INFO_TABLE,
+      margin: [0, 8, 0, 0]
     } as ContentTable;
   }
 
@@ -499,7 +535,7 @@ export class PdfDocumentBuilderService {
     if (room.fdfPhotos) {
       for (const key of ['top', 'bottom', 'threshold']) {
         const url = room.fdfPhotos[`${key}Url`];
-        if (url && typeof url === 'string' && url.startsWith('data:')) {
+        if (url && this.isPdfSafeImage(url)) {
           allPhotos.push({
             url,
             caption: room.fdfPhotos[`${key}Caption`] || `FDF ${key}`
@@ -514,11 +550,29 @@ export class PdfDocumentBuilderService {
   private isSmallEnoughToBeUnbreakable(item: any): boolean {
     const photoCount = item.photos?.filter((p: any) => {
       const url = p?.displayUrl || p?.url || '';
-      return typeof url === 'string' && url.startsWith('data:');
+      return this.isPdfSafeImage(url);
     })?.length || 0;
-    // Only mark unbreakable if text is short and has <= 2 photos
     const textLength = (item.text?.length || 0) + (item.answers?.length || 0);
     return photoCount <= 2 && textLength < 500;
+  }
+
+  /** pdfmake only supports JPEG and PNG — verify actual binary magic bytes */
+  private isPdfSafeImage(url: unknown): boolean {
+    if (typeof url !== 'string') return false;
+    const commaIdx = url.indexOf(',');
+    if (commaIdx === -1 || !url.startsWith('data:')) return false;
+    try {
+      const raw = atob(url.substring(commaIdx + 1, commaIdx + 9));
+      if (raw.length < 2) return false;
+      const b0 = raw.charCodeAt(0);
+      const b1 = raw.charCodeAt(1);
+      // JPEG: FF D8
+      if (b0 === 0xFF && b1 === 0xD8) return true;
+      // PNG: 89 50 4E 47
+      if (b0 === 0x89 && b1 === 0x50 && raw.length >= 4 &&
+          raw.charCodeAt(2) === 0x4E && raw.charCodeAt(3) === 0x47) return true;
+    } catch { /* invalid base64 */ }
+    return false;
   }
 
   private formatDate(dateString?: string): string {

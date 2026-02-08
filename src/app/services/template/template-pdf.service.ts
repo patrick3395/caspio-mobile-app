@@ -11,8 +11,12 @@ import { HudDataService } from '../../pages/hud/hud-data.service';
 import { EngineersFoundationDataService } from '../../pages/engineers-foundation/engineers-foundation-data.service';
 import { DteDataService } from '../../pages/dte/dte-data.service';
 import { LbwDataService } from '../../pages/lbw/lbw-data.service';
+import { PdfDocumentBuilderService } from '../pdf/pdf-document-builder.service';
+import { TABLE_LAYOUTS } from '../pdf/pdf-styles';
 import { renderAnnotationsOnPhoto } from '../../utils/annotation-utils';
 import { environment } from '../../../environments/environment';
+
+type DocumentViewerCtor = typeof import('../../components/document-viewer/document-viewer.component')['DocumentViewerComponent'];
 
 /**
  * Unified PDF Generation Service for all templates (HUD, EFE, DTE, LBW)
@@ -26,6 +30,7 @@ import { environment } from '../../../environments/environment';
 export class TemplatePdfService {
   private isPDFGenerating = false;
   private pdfGenerationAttempts = 0;
+  private documentViewerComponent: DocumentViewerCtor | null = null;
 
   /** Map config.id → display name shown in PDF modal */
   private readonly serviceDisplayNames: Record<string, string> = {
@@ -46,7 +51,8 @@ export class TemplatePdfService {
     private hudData: HudDataService,
     private efeData: EngineersFoundationDataService,
     private dteData: DteDataService,
-    private lbwData: LbwDataService
+    private lbwData: LbwDataService,
+    private pdfBuilder: PdfDocumentBuilderService
   ) {}
 
   /**
@@ -221,29 +227,53 @@ export class TemplatePdfService {
 
       if (cancelRequested) return;
 
-      updateProgress(55, 'Loading PDF preview...');
-      const PdfPreviewComponent = await this.loadPdfPreview();
-
-      updateProgress(70, 'Processing cover photo...');
+      updateProgress(55, 'Processing cover photo...');
       await this.loadPrimaryPhoto(projectInfo);
 
       if (cancelRequested) return;
 
-      if (!PdfPreviewComponent) {
-        throw new Error('PdfPreviewComponent not available');
-      }
+      updateProgress(65, 'Loading PDF library...');
+      const pdfMakeModule = await import('pdfmake/build/pdfmake');
+      const pdfMake = pdfMakeModule.default || pdfMakeModule;
+      const pdfFontsModule: any = await import('pdfmake/build/vfs_fonts');
+      const pdfFonts = pdfFontsModule.default || pdfFontsModule;
+      (pdfMake as any).vfs = pdfFonts.pdfMake?.vfs || pdfFonts.vfs || pdfFonts;
 
-      updateProgress(85, 'Preparing PDF document...');
+      if (cancelRequested) return;
 
+      updateProgress(75, 'Building document...');
       const serviceName = this.serviceDisplayNames[config.id] || config.displayName;
+      const docDefinition = await this.pdfBuilder.buildDocument(
+        projectInfo,
+        recordsData,
+        elevationData,
+        { serviceName }
+      );
 
+      if (cancelRequested) return;
+
+      updateProgress(85, 'Generating PDF...');
+      const pdfDoc = (pdfMake as any).createPdf(docDefinition, TABLE_LAYOUTS);
+      const pdfBlob: Blob = await pdfDoc.getBlob();
+      const pdfDataUrl = await this.blobToBase64(pdfBlob);
+
+      if (cancelRequested) return;
+
+      updateProgress(90, 'Loading viewer...');
+      const DocumentViewerComponent = await this.loadDocumentViewer();
+
+      const pdfProjectId = projectInfo?.projectId || 'draft';
+      const clientName = (projectInfo?.clientName || 'Client').replace(/[^a-z0-9]/gi, '_');
+      const date = new Date().toISOString().split('T')[0];
+      const fileName = `EFE_Report_${clientName}_${pdfProjectId}_${date}.pdf`;
+
+      updateProgress(95, 'Opening PDF...');
       const modal = await this.modalController.create({
-        component: PdfPreviewComponent,
+        component: DocumentViewerComponent,
         componentProps: {
-          projectData: projectInfo,
-          structuralData: recordsData,
-          elevationData: elevationData,
-          serviceData: { serviceName }
+          fileUrl: pdfDataUrl,
+          fileName: fileName,
+          fileType: 'pdf'
         },
         cssClass: 'fullscreen-modal',
         animated: this.pdfGenerationAttempts > 1,
@@ -252,7 +282,6 @@ export class TemplatePdfService {
 
       if (cancelRequested) return;
 
-      updateProgress(95, 'Opening PDF...');
       await modal.present();
 
       setTimeout(async () => {
@@ -519,19 +548,23 @@ export class TemplatePdfService {
             try {
               let base64Data: string | null = null;
 
-              if (photoPath.startsWith('data:') || photoPath.startsWith('blob:')) {
+              if (photoPath.startsWith('data:')) {
                 base64Data = photoPath;
               } else if (this.caspioService.isS3Key(photoPath)) {
-                const s3Url = await this.caspioService.getS3FileUrl(photoPath);
-                if (s3Url) {
-                  const response = await fetch(s3Url);
-                  if (response.ok) {
-                    const blob = await response.blob();
-                    base64Data = await this.blobToBase64(blob);
+                base64Data = await this.fetchS3ToBase64(photoPath);
+              } else if (photoPath.includes('.amazonaws.com/uploads/')) {
+                try {
+                  const urlObj = new URL(photoPath);
+                  const s3Key = urlObj.pathname.substring(1);
+                  if (s3Key && this.caspioService.isS3Key(s3Key)) {
+                    base64Data = await this.fetchS3ToBase64(s3Key);
                   }
-                }
+                } catch { /* not a valid URL */ }
               } else if (photoPath.startsWith('/')) {
-                base64Data = await firstValueFrom(this.caspioService.getImageFromFilesAPI(photoPath));
+                const rawData = await firstValueFrom(this.caspioService.getImageFromFilesAPI(photoPath));
+                if (rawData && rawData.startsWith('data:')) {
+                  base64Data = await this.ensurePdfCompatibleImage(rawData);
+                }
               }
 
               if (base64Data && base64Data.startsWith('data:')) {
@@ -585,35 +618,38 @@ export class TemplatePdfService {
               const attachments = await this.efeData.getEFEAttachments(pointId);
 
               for (const attachment of (attachments || [])) {
-                const photoPath = attachment.Photo || attachment.PhotoPath || attachment.Attachment || '';
+                // Check Attachment first — it has the modern S3 key; Photo may be deprecated
+                const photoPath = attachment.Attachment || attachment.Photo || attachment.PhotoPath || '';
                 const drawingsData = attachment.Drawings || attachment.drawings || null;
                 const caption = attachment.Caption || attachment.caption || '';
                 let finalUrl: string | null = null;
 
-                const existingUrl = attachment.displayUrl || attachment.url || attachment.Attachment || photoPath;
-                if (existingUrl && (existingUrl.startsWith('data:') || existingUrl.startsWith('blob:'))) {
+                // Check for existing data URL (skip blob: URLs — pdfmake can't use them)
+                const existingUrl = attachment.displayUrl || attachment.url || '';
+                if (existingUrl && existingUrl.startsWith('data:')) {
                   finalUrl = existingUrl;
                 }
 
                 if (!finalUrl && photoPath) {
                   if (this.caspioService.isS3Key(photoPath)) {
                     try {
-                      const s3Url = await this.caspioService.getS3FileUrl(photoPath);
-                      if (s3Url) {
-                        const response = await fetch(s3Url);
-                        if (response.ok) {
-                          const blob = await response.blob();
-                          finalUrl = await this.blobToBase64(blob);
-                        }
-                      }
+                      finalUrl = await this.fetchS3ToBase64(photoPath);
                     } catch (s3Error) {
                       console.error('[PDF] Failed to load point photo from S3:', s3Error);
                     }
+                  } else if (photoPath.includes('.amazonaws.com/uploads/')) {
+                    try {
+                      const urlObj = new URL(photoPath);
+                      const s3Key = urlObj.pathname.substring(1);
+                      if (s3Key && this.caspioService.isS3Key(s3Key)) {
+                        finalUrl = await this.fetchS3ToBase64(s3Key);
+                      }
+                    } catch { /* not a valid URL */ }
                   } else if (photoPath.startsWith('/')) {
                     try {
                       const base64 = await firstValueFrom(this.caspioService.getImageFromFilesAPI(photoPath));
                       if (base64 && base64.startsWith('data:')) {
-                        finalUrl = base64;
+                        finalUrl = await this.ensurePdfCompatibleImage(base64);
                       }
                     } catch (apiError) {
                       console.error('[PDF] Failed to load point photo from API:', apiError);
@@ -696,43 +732,53 @@ export class TemplatePdfService {
       }
       const photos = [];
 
-      for (const attachment of (attachments || [])) {
+      for (let idx = 0; idx < (attachments || []).length; idx++) {
+        const attachment = attachments[idx];
         const caption = attachment.Annotation || attachment.Caption || attachment.caption || '';
         const drawingsData = attachment.Drawings || attachment.drawings || null;
         let finalUrl: string | null = null;
 
-        // Check for existing local/cached URL first
+        // Log all relevant fields for debugging
+        const serverPath = attachment.Attachment || attachment.Photo || attachment.PhotoPath || '';
+        console.log(`[PDF] Photo ${idx + 1}/${attachments.length}: Attachment="${(attachment.Attachment || '').substring(0, 80)}", Photo="${(attachment.Photo || '').substring(0, 80)}", serverPath="${serverPath.substring(0, 80)}"`);
+
+        // Check for existing data URL first (skip blob: URLs — pdfmake can't use them)
         const existingUrl = attachment.displayUrl || attachment.url || '';
-        if (existingUrl && (existingUrl.startsWith('data:') || existingUrl.startsWith('blob:'))) {
+        if (existingUrl && existingUrl.startsWith('data:')) {
           finalUrl = existingUrl;
+          console.log(`[PDF] Photo ${idx + 1}: Using existing data URL (${existingUrl.substring(0, 30)}...)`);
         }
 
-        // Try server paths if no local URL
-        if (!finalUrl) {
-          const serverPath = attachment.Photo || attachment.PhotoPath || attachment.Attachment || '';
-
-          if (serverPath) {
-            try {
-              if (serverPath.startsWith('data:')) {
-                finalUrl = serverPath;
-              } else if (this.caspioService.isS3Key(serverPath)) {
-                const s3Url = await this.caspioService.getS3FileUrl(serverPath);
-                if (s3Url) {
-                  const response = await fetch(s3Url);
-                  if (response.ok) {
-                    const blob = await response.blob();
-                    finalUrl = await this.blobToBase64(blob);
-                  }
+        // Try server paths if no local data URL
+        if (!finalUrl && serverPath) {
+          try {
+            if (serverPath.startsWith('data:')) {
+              finalUrl = serverPath;
+              console.log(`[PDF] Photo ${idx + 1}: serverPath is data URL`);
+            } else if (this.caspioService.isS3Key(serverPath)) {
+              console.log(`[PDF] Photo ${idx + 1}: Fetching S3 key "${serverPath.substring(0, 60)}"`);
+              finalUrl = await this.fetchS3ToBase64(serverPath);
+              console.log(`[PDF] Photo ${idx + 1}: S3 fetch result=${finalUrl ? `data URL (${finalUrl.substring(0, 30)}...)` : 'null'}`);
+            } else if (serverPath.includes('.amazonaws.com/uploads/')) {
+              try {
+                const urlObj = new URL(serverPath);
+                const s3Key = urlObj.pathname.substring(1);
+                console.log(`[PDF] Photo ${idx + 1}: Full S3 URL, extracted key="${s3Key.substring(0, 60)}"`);
+                if (s3Key && this.caspioService.isS3Key(s3Key)) {
+                  finalUrl = await this.fetchS3ToBase64(s3Key);
                 }
-              } else if (serverPath.startsWith('/')) {
-                const base64Data = await firstValueFrom(this.caspioService.getImageFromFilesAPI(serverPath));
-                if (base64Data && base64Data.startsWith('data:')) {
-                  finalUrl = base64Data;
-                }
+              } catch { /* not a valid URL */ }
+            } else if (serverPath.startsWith('/')) {
+              console.log(`[PDF] Photo ${idx + 1}: Using files API for "${serverPath.substring(0, 60)}"`);
+              const base64Data = await firstValueFrom(this.caspioService.getImageFromFilesAPI(serverPath));
+              if (base64Data && base64Data.startsWith('data:')) {
+                finalUrl = await this.ensurePdfCompatibleImage(base64Data);
               }
-            } catch (error) {
-              console.error('[PDF] Failed to convert photo:', error);
+            } else {
+              console.warn(`[PDF] Photo ${idx + 1}: Unrecognized path format: "${serverPath.substring(0, 80)}"`);
             }
+          } catch (error) {
+            console.error(`[PDF] Photo ${idx + 1}: Failed to convert:`, error);
           }
         }
 
@@ -748,6 +794,7 @@ export class TemplatePdfService {
           }
         }
 
+        console.log(`[PDF] Photo ${idx + 1}: Final result=${finalUrl ? 'SUCCESS' : 'FAILED'}`);
         if (finalUrl) {
           photos.push({ url: finalUrl, caption, conversionSuccess: true });
         } else if (attachment.Photo || attachment.PhotoPath || attachment.Attachment) {
@@ -806,6 +853,7 @@ export class TemplatePdfService {
     }
 
     if (convertedPhotoData) {
+      convertedPhotoData = await this.ensurePdfCompatibleImage(convertedPhotoData);
       projectInfo.primaryPhotoBase64 = convertedPhotoData;
       projectInfo.primaryPhoto = convertedPhotoData;
     }
@@ -813,9 +861,12 @@ export class TemplatePdfService {
 
   // ─── Utilities ─────────────────────────────────────────────────────
 
-  private async loadPdfPreview(): Promise<any> {
-    const module = await import('../../components/pdf-preview/pdf-preview.component');
-    return module.PdfPreviewComponent;
+  private async loadDocumentViewer(): Promise<DocumentViewerCtor> {
+    if (!this.documentViewerComponent) {
+      const module = await import('../../components/document-viewer/document-viewer.component');
+      this.documentViewerComponent = module.DocumentViewerComponent;
+    }
+    return this.documentViewerComponent;
   }
 
   private formatDate(dateString: string): string {
@@ -833,6 +884,58 @@ export class TemplatePdfService {
       reader.onloadend = () => resolve(reader.result as string);
       reader.onerror = reject;
       reader.readAsDataURL(blob);
+    });
+  }
+
+  /** Fetch an S3 key, download the image, and return a base64 data URL */
+  private async fetchS3ToBase64(s3Key: string): Promise<string | null> {
+    const s3Url = await this.caspioService.getS3FileUrl(s3Key);
+    if (!s3Url) return null;
+    const response = await fetch(s3Url);
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    const dataUrl = await this.blobToBase64(blob);
+    // pdfmake only supports JPEG/PNG — convert WebP or other formats via canvas
+    return this.ensurePdfCompatibleImage(dataUrl);
+  }
+
+  /**
+   * pdfmake only supports JPEG and PNG. If the image is WebP (RIFF header)
+   * or any other unsupported format, convert it to JPEG via canvas.
+   */
+  private async ensurePdfCompatibleImage(dataUrl: string): Promise<string> {
+    const commaIdx = dataUrl.indexOf(',');
+    if (commaIdx === -1) return dataUrl;
+    try {
+      const raw = atob(dataUrl.substring(commaIdx + 1, commaIdx + 9));
+      if (raw.length < 2) return dataUrl;
+      const b0 = raw.charCodeAt(0);
+      const b1 = raw.charCodeAt(1);
+      // Already JPEG (FF D8) — pass through
+      if (b0 === 0xFF && b1 === 0xD8) return dataUrl;
+      // Already PNG (89 50 4E 47) — pass through
+      if (b0 === 0x89 && b1 === 0x50 && raw.length >= 4 &&
+          raw.charCodeAt(2) === 0x4E && raw.charCodeAt(3) === 0x47) return dataUrl;
+    } catch { /* decode error — try to convert anyway */ }
+
+    // Not JPEG/PNG — convert via canvas (handles WebP, BMP, GIF, etc.)
+    console.log('[PDF] Converting non-JPEG/PNG image to JPEG via canvas');
+    return new Promise<string>((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0);
+        const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+        resolve(jpegDataUrl);
+      };
+      img.onerror = () => {
+        console.warn('[PDF] Canvas conversion failed, returning original');
+        resolve(dataUrl);
+      };
+      img.src = dataUrl;
     });
   }
 }
