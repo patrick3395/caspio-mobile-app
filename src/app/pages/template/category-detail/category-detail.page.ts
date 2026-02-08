@@ -1823,6 +1823,22 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           }
         }
 
+        // Reverse lookup: field has realId but photos may still have old tempId entityId
+        // (happens when field synced and tempId was cleared but photos weren't bulk-migrated)
+        if (localImages.length === 0 && realId) {
+          const originalTempId = await this.indexedDb.getTempId(realId);
+          if (originalTempId) {
+            localImages = localImagesMap.get(originalTempId) || [];
+            if (localImages.length > 0) {
+              this.logDebug('DEXIE', `Reverse lookup: found ${localImages.length} photos under old tempId ${originalTempId} for realId ${realId}`);
+              // Self-heal: migrate these orphaned photos to the correct entityId
+              this.indexedDb.updateEntityIdForImages(originalTempId, realId).catch((err: any) => {
+                this.logDebug('WARN', `Failed to self-heal entityId migration: ${err}`);
+              });
+            }
+          }
+        }
+
         if (localImages.length === 0) continue;
 
         // Sort by createdAt (newest first) for consistent ordering with push()

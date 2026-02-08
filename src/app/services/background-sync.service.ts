@@ -1017,6 +1017,12 @@ export class BackgroundSyncService {
             // This allows loadElevationPoints to find pending photos that were stored with temp point IDs
             await this.indexedDb.mapTempId(request.tempId!, String(realId), 'point');
 
+            // Bulk-migrate LocalImage entityId from tempId to realId so photos remain
+            // findable after the point's temp ID is replaced with the real ID
+            if (request.tempId) {
+              await this.indexedDb.updateEntityIdForImages(request.tempId, String(realId));
+            }
+
             this.ngZone.run(() => {
               this.efePointSyncComplete$.next({
                 tempId: request.tempId!,
@@ -1137,6 +1143,12 @@ export class BackgroundSyncService {
               await this.indexedDb.cacheServiceData(serviceId, 'hud', updatedHud);
             }
 
+            // Bulk-migrate LocalImage entityId from tempId to realId so photos remain
+            // findable after the HUD record's temp ID is replaced with the real ID
+            if (request.tempId) {
+              await this.indexedDb.updateEntityIdForImages(request.tempId, String(realId));
+            }
+
             // Emit sync complete event for HUD
             this.ngZone.run(() => {
               this.hudSyncComplete$.next({
@@ -1211,6 +1223,12 @@ export class BackgroundSyncService {
                 }
               } catch (err) {
                 console.warn('[BackgroundSync] Failed to update lbwFields after sync:', err);
+              }
+
+              // Bulk-migrate LocalImage entityId from tempId to realId so photos remain
+              // findable after the field's tempLbwId is cleared above
+              if (request.tempId) {
+                await this.indexedDb.updateEntityIdForImages(request.tempId, String(realId));
               }
             }
 
@@ -1287,6 +1305,12 @@ export class BackgroundSyncService {
                 }
               } catch (err) {
                 console.warn('[BackgroundSync] Failed to update dteFields after sync:', err);
+              }
+
+              // Bulk-migrate LocalImage entityId from tempId to realId so photos remain
+              // findable after the field's tempDteId is cleared above
+              if (request.tempId) {
+                await this.indexedDb.updateEntityIdForImages(request.tempId, String(realId));
               }
             }
 
@@ -1368,6 +1392,12 @@ export class BackgroundSyncService {
                 }
               } catch (err) {
                 console.warn('[BackgroundSync] Failed to update csaFields after sync:', err);
+              }
+
+              // Bulk-migrate LocalImage entityId from tempId to realId so photos remain
+              // findable after the field's tempCsaId is cleared above
+              if (request.tempId) {
+                await this.indexedDb.updateEntityIdForImages(request.tempId, String(realId));
               }
             }
 

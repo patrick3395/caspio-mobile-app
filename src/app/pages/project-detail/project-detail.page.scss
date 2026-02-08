@@ -487,20 +487,34 @@ h3 {
   }
 }
 
-// Services tab segment toggle
+// Services tab segment toggle (matches Company/Partners tab style)
 .services-segment {
   margin-bottom: 16px;
-  --background: var(--color-bg-page);
-  border-radius: 8px;
+  --background: var(--color-bg-page) !important;
+  border-radius: 12px;
+  padding: 4px;
 
   ion-segment-button {
-    --color: var(--color-text-secondary);
-    --color-checked: var(--noble-orange, #F15A27);
-    --indicator-color: var(--noble-orange, #F15A27);
+    --color: var(--color-text-secondary) !important;
+    --color-checked: #f15a27 !important;
+    --background-checked: transparent !important;
+    --indicator-color: var(--color-bg-card) !important;
+    --indicator-height: 100%;
+    --indicator-box-shadow: 0 2px 8px var(--color-shadow);
     text-transform: none;
     font-weight: 600;
-    font-size: 14px;
-    min-height: 40px;
+    font-size: 15px;
+    min-height: 44px;
+    border-radius: 10px;
+    --border-radius: 10px;
+
+    &::part(indicator) {
+      border-radius: 10px;
+    }
+
+    &.segment-button-checked {
+      font-weight: 600;
+    }
   }
 }
 

@@ -87,6 +87,8 @@ export class PushNotificationService {
    */
   registerTokenWithBackend(userId: string, email: string, companyId?: string): void {
     const token = this.deviceTokenSubject.getValue();
+    // TODO: Remove debug alert after confirming push works
+    alert('[Push Debug] registerTokenWithBackend called. Token exists: ' + !!token);
     if (token) {
       this.sendTokenToBackend(token, userId, email, companyId);
       return;
@@ -100,12 +102,18 @@ export class PushNotificationService {
       timeout(10000)
     ).subscribe({
       next: (t) => this.sendTokenToBackend(t, userId, email, companyId),
-      error: () => console.warn('[PushNotification] Timed out waiting for device token')
+      error: () => {
+        console.warn('[PushNotification] Timed out waiting for device token');
+        // TODO: Remove debug alert after confirming push works
+        alert('[Push Debug] Timed out waiting for token');
+      }
     });
   }
 
   private sendTokenToBackend(token: string, userId: string, email: string, companyId?: string): void {
     const platform = Capacitor.getPlatform(); // 'ios' or 'android'
+    // TODO: Remove debug alert after confirming push works
+    alert('[Push Debug] Sending token to backend. Platform: ' + platform);
 
     this.apiGateway.post('/api/device-tokens', {
       deviceToken: token,
@@ -114,8 +122,16 @@ export class PushNotificationService {
       email,
       companyId: companyId || null
     }).subscribe({
-      next: () => console.log('[PushNotification] Token registered with backend'),
-      error: (err) => console.error('[PushNotification] Failed to register token:', err)
+      next: () => {
+        console.log('[PushNotification] Token registered with backend');
+        // TODO: Remove debug alert after confirming push works
+        alert('[Push Debug] Token registered with backend SUCCESS');
+      },
+      error: (err) => {
+        console.error('[PushNotification] Failed to register token:', err);
+        // TODO: Remove debug alert after confirming push works
+        alert('[Push Debug] Backend registration FAILED: ' + JSON.stringify(err));
+      }
     });
   }
 

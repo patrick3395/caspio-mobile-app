@@ -129,7 +129,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   updatingServices = false;
 
   // Services tab toggle: 'active' shows selected services, 'add' shows available-to-add
-  servicesTab: 'active' | 'add' = 'active';
+  servicesTab: 'active' | 'add' = 'add';
 
   // WEBAPP: Cache sorted offers to prevent DOM re-creation
   private sortedOffersCache: any[] = [];
