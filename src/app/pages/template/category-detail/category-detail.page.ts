@@ -137,6 +137,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   private liveQueryDebounceTimer: any = null;
   private lastSelectionInteractionTime = 0;
   private lastPhotoOperationTime: number = 0;
+  private deferredPopulateTimer: any = null;
   private lastFieldsFingerprint: string = '';
   private initialLoadComplete: boolean = false;
   private lastLoadedServiceId: string = '';
@@ -270,6 +271,10 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     if (this.liveQueryDebounceTimer) {
       clearTimeout(this.liveQueryDebounceTimer);
       this.liveQueryDebounceTimer = null;
+    }
+    if (this.deferredPopulateTimer) {
+      clearTimeout(this.deferredPopulateTimer);
+      this.deferredPopulateTimer = null;
     }
   }
 
@@ -783,14 +788,16 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
           // Suppress during camera capture to prevent duplicate photos
           if (this.isCameraCaptureInProgress || this.isMultiImageUploadInProgress) {
-            this.logDebug('DEXIE', 'Suppressing - capture in progress');
+            this.logDebug('DEXIE', 'Deferring - capture in progress');
+            this.scheduleDeferredPopulate();
             return;
           }
 
           // Skip heavy re-population within photo operation window
           const withinPhotoOpWindow = (Date.now() - this.lastPhotoOperationTime) < 3000;
           if (withinPhotoOpWindow) {
-            this.logDebug('DEXIE', 'Suppressing LocalImages — within photo operation window');
+            this.logDebug('DEXIE', 'Deferring LocalImages — within photo operation window');
+            this.scheduleDeferredPopulate();
             return;
           }
 
@@ -1743,7 +1750,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       // The full populate still runs on page entry, navigation, deletion, annotation saves, etc.
       const withinPhotoOpWindow = (Date.now() - this.lastPhotoOperationTime) < 3000;
       if (withinPhotoOpWindow) {
-        this.logDebug('DEXIE', 'Skipping populate — within photo operation window');
+        this.logDebug('DEXIE', 'Deferring populate — within photo operation window');
+        this.scheduleDeferredPopulate();
         return;
       }
 
@@ -2034,6 +2042,33 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     } finally {
       this.isPopulatingPhotos = false;
     }
+  }
+
+  /**
+   * Schedule a deferred populateGenericPhotosFromDexie call after the photo operation
+   * guard window expires. Called when a liveQuery emission is suppressed, ensuring
+   * photos are eventually repopulated.
+   */
+  private scheduleDeferredPopulate(): void {
+    if (this.deferredPopulateTimer) return; // Already scheduled
+
+    const remainingTime = 3000 - (Date.now() - this.lastPhotoOperationTime);
+    const delay = Math.max(remainingTime + 500, 500); // Wait until guard expires + 500ms buffer
+
+    this.deferredPopulateTimer = setTimeout(async () => {
+      this.deferredPopulateTimer = null;
+      if (this.isDestroyed) return;
+      if (this.isCameraCaptureInProgress || this.isMultiImageUploadInProgress) return;
+
+      const fields = this.lastConvertedGenericFields;
+      if (fields && fields.length > 0) {
+        this.logDebug('DEXIE', 'Running deferred populate after guard window expired');
+        await this.populateGenericPhotosFromDexie(fields);
+        if (!this.isDestroyed) {
+          this.safeDetectChanges();
+        }
+      }
+    }, delay);
   }
 
   /**

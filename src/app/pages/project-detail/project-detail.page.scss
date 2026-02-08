@@ -238,8 +238,12 @@ ion-button{--padding-start:12px;--padding-end:12px;font-size:14px}}
 .section-header-with-total{display:flex;justify-content:space-between;align-items:center;margin-bottom:0;
 .section-title{margin:0;padding-bottom:0;border-bottom:none;flex:1}
 .header-total{font-size:18px;font-weight:600;color:$dark;white-space:nowrap;margin-left:20px}
-.header-total-with-button{display:flex;align-items:center;gap:12px;
-.header-total{margin-left:0}}}
+.header-total-with-button{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+.header-total{margin-left:0}}
+@media (max-width: 768px) {
+  flex-wrap:wrap;gap:8px;
+  .header-total-with-button{gap:8px}
+}}
 .section-divider{width:100%;height:2px;background:$orange;margin-bottom:15px;margin-top:10px}}
 
 .address-row {
@@ -483,6 +487,51 @@ h3 {
   }
 }
 
+// Services tab segment toggle
+.services-segment {
+  margin-bottom: 16px;
+  --background: var(--color-bg-page);
+  border-radius: 8px;
+
+  ion-segment-button {
+    --color: var(--color-text-secondary);
+    --color-checked: var(--noble-orange, #F15A27);
+    --indicator-color: var(--noble-orange, #F15A27);
+    text-transform: none;
+    font-weight: 600;
+    font-size: 14px;
+    min-height: 40px;
+  }
+}
+
+// Empty state for services tabs
+.services-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: var(--color-text-muted);
+  text-align: center;
+
+  ion-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+  }
+
+  p {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 4px;
+    color: var(--color-text-secondary);
+  }
+
+  span {
+    font-size: 14px;
+  }
+}
+
 // Unified expandable services list
 .services-list {
   display: flex;
@@ -510,6 +559,10 @@ h3 {
     background: $white;
     transition: background 0.2s ease;
 
+    @media (max-width: 768px) {
+      padding: 12px;
+    }
+
     @media (hover: hover) and (pointer: fine) {
       &:hover {
         background: $light-gray;
@@ -534,6 +587,11 @@ h3 {
       font-size: 18px;
       font-weight: 600;
       color: $dark;
+      min-width: 0;
+
+      @media (max-width: 768px) {
+        font-size: 15px;
+      }
     }
     
     .service-controls-inline {
@@ -605,6 +663,10 @@ h3 {
     background: $light-gray;
     border-top: 1px solid $border;
 
+    @media (max-width: 768px) {
+      padding: 12px 10px;
+    }
+
     .service-number-header {
       font-size: 13px;
       font-weight: 600;
@@ -637,6 +699,10 @@ h3 {
           color: $gray;
           text-transform: uppercase;
           letter-spacing: 0.5px;
+
+          @media (max-width: 768px) {
+            font-size: 12px;
+          }
         }
 
         .date-input {
@@ -647,6 +713,12 @@ h3 {
           background: $white;
           height: 44px;
           box-sizing: border-box;
+
+          @media (max-width: 768px) {
+            font-size: 14px;
+            height: 40px;
+            padding: 8px 10px;
+          }
           text-align: center;
 
           &:focus {
@@ -669,6 +741,12 @@ h3 {
           color: $dark;
           height: 44px;
           box-sizing: border-box;
+
+          @media (max-width: 768px) {
+            font-size: 14px;
+            height: 40px;
+            padding: 8px 10px;
+          }
           display: flex;
           align-items: center;
           justify-content: center;
@@ -725,6 +803,11 @@ h3 {
         margin: 0 0 12px 0;
         padding-bottom: 8px;
         border-bottom: 2px solid $orange;
+
+        @media (max-width: 768px) {
+          font-size: 15px;
+          margin: 0 0 8px 0;
+        }
       }
     }
 
@@ -907,6 +990,7 @@ ion-modal {
   overflow: hidden;
   margin-top: 10px;
   background: $white;
+  max-width: 100%;
 
   tbody {
     &:not(:last-child) {
@@ -923,6 +1007,11 @@ ion-modal {
 
     &:last-child {
       border-right: none;
+    }
+
+    @media (max-width: 768px) {
+      padding: 10px 8px;
+      font-size: 14px;
     }
   }
 
@@ -988,6 +1077,18 @@ ion-modal {
       font-size: 13px;
       color: var(--color-text-muted);
     }
+
+    @media (max-width: 768px) {
+      ion-button {
+        --padding-start: 1px;
+        --padding-end: 1px;
+        margin: 0 1px;
+
+        ion-icon {
+          font-size: 18px;
+        }
+      }
+    }
   }
 
   .doc-title {
@@ -999,6 +1100,10 @@ ion-modal {
     word-break: break-word;
     white-space: normal;
     display: block;
+
+    @media (max-width: 768px) {
+      font-size: 14px;
+    }
   }
 
   .doc-filename {
@@ -1054,6 +1159,10 @@ ion-modal {
     text-decoration: none;
     cursor: pointer;
     display: inline-block;
+
+    @media (max-width: 768px) {
+      font-size: 13px;
+    }
   }
 
   .add-doc-link.disabled {
@@ -1235,9 +1344,8 @@ ion-modal {
 @media (hover: hover) and (pointer: fine) {
   &:hover{box-shadow:0 4px 8px var(--color-shadow-heavy)}
 }
-// Mobile-only: Increase height for better text wrapping
 @media (max-width: 768px) {
-  min-height:80px;
+  min-height:auto;
 }}
 
 .template-progress{position:absolute;top:0;left:0;height:100%;background:linear-gradient(90deg,#4ade80,#22c55e);opacity:0.15}
@@ -1245,14 +1353,19 @@ ion-modal {
 .template-content{position:relative;z-index:1;min-height:72px;display:flex;align-items:center;justify-content:space-between;padding:14px 20px;
 // Mobile-only: Better vertical padding for wrapped text
 @media (max-width: 768px) {
-  padding:14px 16px;
-  min-height:80px;
+  padding:12px;padding-right:14px;
+  min-height:auto;flex-wrap:wrap;gap:8px;
 }}
 
-.template-name{font-size:18px;font-weight:600;color:$dark;display:flex;align-items:center;gap:14px;flex:1;
+.template-name{font-size:18px;font-weight:600;color:$dark;display:flex;align-items:center;gap:14px;flex:1;min-width:0;
 .report-icon{width:32px;height:32px;object-fit:contain;flex-shrink:0;}
 .report-icon-fallback{width:32px;height:32px;flex-shrink:0;color:$gray;font-size:28px;}
 .service-title{flex:1;min-width:0;word-wrap:break-word;overflow-wrap:break-word;line-height:1.3;}
+@media (max-width: 768px) {
+  font-size:15px;gap:10px;
+  .report-icon{width:26px;height:26px;}
+  .report-icon-fallback{width:26px;height:26px;font-size:22px;}
+}
 .finalized-check{color:$orange;font-size:20px;flex-shrink:0;margin-left:6px;}
 .template-instance{font-weight:400;color:$gray;font-size:14px;white-space:nowrap;flex-shrink:0;margin-left:4px}}
 
@@ -1261,9 +1374,8 @@ ion-modal {
 .report-status{font-weight:600;color:$orange;font-size:15px;white-space:nowrap;}
 .status-datetime{font-weight:500;color:$gray;font-size:12px;white-space:nowrap;text-align:right;}
 @media (max-width: 768px) {
-  top:10px;
-  right:16px;
-  .report-status{font-size:13px;}
+  position:static;display:flex;flex-direction:row;align-items:center;gap:6px;margin-left:auto;flex-shrink:0;
+  .report-status{font-size:12px;}
   .status-datetime{font-size:10px;}
 }}
 

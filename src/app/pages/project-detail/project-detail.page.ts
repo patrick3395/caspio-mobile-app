@@ -128,6 +128,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   loadingServices = false;
   updatingServices = false;
 
+  // Services tab toggle: 'active' shows selected services, 'add' shows available-to-add
+  servicesTab: 'active' | 'add' = 'active';
+
   // WEBAPP: Cache sorted offers to prevent DOM re-creation
   private sortedOffersCache: any[] = [];
   private sortedOffersCacheKey: string = '';
@@ -201,6 +204,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.isReadOnly = cached.isReadOnly;
       this.availableOffers = ProjectDetailPage.deepClone(cached.availableOffers);
       this.selectedServices = ProjectDetailPage.deepClone(cached.selectedServices);
+      this.servicesTab = this.selectedServices.length > 0 ? 'active' : 'add';
       this.attachTemplates = ProjectDetailPage.deepClone(cached.attachTemplates);
       this.existingAttachments = ProjectDetailPage.deepClone(cached.existingAttachments);
       this.serviceDocuments = ProjectDetailPage.deepClone(cached.serviceDocuments);
@@ -784,6 +788,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.pendingFinalizedServiceId = null;
       }
 
+      // Set default services tab based on whether services exist
+      this.servicesTab = this.selectedServices.length > 0 ? 'active' : 'add';
+
       // Determine if we should show the Deliverables table
       if (this.isCompanyOne) {
         // Admins: Always show the table if there are services
@@ -1081,6 +1088,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
         this.pendingFinalizedServiceId = null;
       }
+
+      // Set default services tab based on whether services exist
+      this.servicesTab = this.selectedServices.length > 0 ? 'active' : 'add';
 
       // Trigger progress calculation for Engineers Foundation services
       let foundEngineersFoundation = false;
@@ -1699,6 +1709,18 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     this.sortedOffersCacheKey = cacheKey;
     return this.sortedOffersCache;
+  }
+
+  onServicesTabChange(event: any) {
+    this.servicesTab = event.detail.value;
+  }
+
+  getFilteredOffers(): any[] {
+    const sorted = this.getSortedOffers();
+    if (this.servicesTab === 'active') {
+      return sorted.filter(offer => this.isServiceSelected(offer.OffersID));
+    }
+    return sorted.filter(offer => !this.isServiceSelected(offer.OffersID));
   }
 
   getServicesForTemplates(): ServiceSelection[] {

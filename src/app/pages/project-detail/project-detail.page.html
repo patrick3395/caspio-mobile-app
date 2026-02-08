@@ -317,16 +317,40 @@
         </div>
       </div>
       <div class="section-divider"></div>
-      
+
+      <!-- Services tab toggle -->
+      <ion-segment [value]="servicesTab" (ionChange)="onServicesTabChange($event)"
+                   class="services-segment" *ngIf="!loadingServices">
+        <ion-segment-button value="active">
+          <ion-label>Active</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="add">
+          <ion-label>Add Services</ion-label>
+        </ion-segment-button>
+      </ion-segment>
+
       <!-- Loading services -->
       <div *ngIf="loadingServices" class="services-loading">
         <ion-spinner name="crescent"></ion-spinner>
         <span>Loading services...</span>
       </div>
-      
+
       <!-- Unified expandable services list -->
       <div *ngIf="!loadingServices" class="services-list">
-        <div *ngFor="let offer of getSortedOffers(); trackBy: trackByOfferId"
+        <!-- Empty state for Active tab -->
+        <div *ngIf="servicesTab === 'active' && getFilteredOffers().length === 0" class="services-empty-state">
+          <ion-icon name="clipboard-outline"></ion-icon>
+          <p>No active services</p>
+          <span>Switch to <strong>Add Services</strong> to get started</span>
+        </div>
+
+        <!-- Empty state for Add Services tab -->
+        <div *ngIf="servicesTab === 'add' && getFilteredOffers().length === 0" class="services-empty-state">
+          <ion-icon name="checkmark-circle-outline"></ion-icon>
+          <p>All available services have been added</p>
+        </div>
+
+        <div *ngFor="let offer of getFilteredOffers(); trackBy: trackByOfferId"
              class="service-list-item"
              [class.has-selection]="isServiceSelected(offer.OffersID)">
           <!-- Service header row (always visible) -->
