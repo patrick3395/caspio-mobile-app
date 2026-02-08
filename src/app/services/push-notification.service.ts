@@ -1,8 +1,14 @@
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { BehaviorSubject, Subject, filter, first, timeout } from 'rxjs';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { PushNotifications, PushNotificationSchema, ActionPerformed, Token } from '@capacitor/push-notifications';
+
+// Native FCM token plugin (iOS only)
+interface FCMTokenPlugin {
+  getToken(): Promise<{ token: string }>;
+}
+const FCMToken = registerPlugin<FCMTokenPlugin>('FCMToken');
 import { PlatformDetectionService } from './platform-detection.service';
 import { ApiGatewayService } from './api-gateway.service';
 
@@ -42,17 +48,27 @@ export class PushNotificationService {
     this.initialized = true;
 
     // Set up listeners BEFORE registering to avoid missing events
-    PushNotifications.addListener('registration', (token: Token) => {
-      console.log('[PushNotification] Registered with token:', token.value);
-      // TODO: Remove debug alert after confirming push works
-      alert('[Push Debug] Token received: ' + token.value.substring(0, 20) + '...');
-      this.deviceTokenSubject.next(token.value);
+    PushNotifications.addListener('registration', async (token: Token) => {
+      console.log('[PushNotification] APNs token received:', token.value.substring(0, 20) + '...');
+
+      // On iOS, get the FCM token (required by Firebase Admin SDK on the backend)
+      if (Capacitor.getPlatform() === 'ios') {
+        try {
+          const result = await FCMToken.getToken();
+          console.log('[PushNotification] FCM token received:', result.token.substring(0, 20) + '...');
+          this.deviceTokenSubject.next(result.token);
+        } catch (err) {
+          console.error('[PushNotification] Failed to get FCM token, falling back to APNs token', err);
+          this.deviceTokenSubject.next(token.value);
+        }
+      } else {
+        // Android already returns FCM token from Capacitor
+        this.deviceTokenSubject.next(token.value);
+      }
     });
 
     PushNotifications.addListener('registrationError', (error: any) => {
       console.error('[PushNotification] Registration error:', error);
-      // TODO: Remove debug alert after confirming push works
-      alert('[Push Debug] Registration ERROR: ' + JSON.stringify(error));
     });
 
     PushNotifications.addListener('pushNotificationReceived', (notification: PushNotificationSchema) => {
@@ -69,13 +85,8 @@ export class PushNotificationService {
     const permResult = await PushNotifications.requestPermissions();
     if (permResult.receive !== 'granted') {
       console.warn('[PushNotification] Permission not granted');
-      // TODO: Remove debug alert after confirming push works
-      alert('[Push Debug] Permission NOT granted');
       return;
     }
-
-    // TODO: Remove debug alert after confirming push works
-    alert('[Push Debug] Permission granted, registering...');
 
     // Register for push notifications (listeners already set up above)
     await PushNotifications.register();
@@ -87,8 +98,6 @@ export class PushNotificationService {
    */
   registerTokenWithBackend(userId: string, email: string, companyId?: string): void {
     const token = this.deviceTokenSubject.getValue();
-    // TODO: Remove debug alert after confirming push works
-    alert('[Push Debug] registerTokenWithBackend called. Token exists: ' + !!token);
     if (token) {
       this.sendTokenToBackend(token, userId, email, companyId);
       return;
@@ -102,18 +111,12 @@ export class PushNotificationService {
       timeout(10000)
     ).subscribe({
       next: (t) => this.sendTokenToBackend(t, userId, email, companyId),
-      error: () => {
-        console.warn('[PushNotification] Timed out waiting for device token');
-        // TODO: Remove debug alert after confirming push works
-        alert('[Push Debug] Timed out waiting for token');
-      }
+      error: () => console.warn('[PushNotification] Timed out waiting for device token')
     });
   }
 
   private sendTokenToBackend(token: string, userId: string, email: string, companyId?: string): void {
-    const platform = Capacitor.getPlatform(); // 'ios' or 'android'
-    // TODO: Remove debug alert after confirming push works
-    alert('[Push Debug] Sending token to backend. Platform: ' + platform);
+    const platform = Capacitor.getPlatform();
 
     this.apiGateway.post('/api/device-tokens', {
       deviceToken: token,
@@ -122,16 +125,8 @@ export class PushNotificationService {
       email,
       companyId: companyId || null
     }).subscribe({
-      next: () => {
-        console.log('[PushNotification] Token registered with backend');
-        // TODO: Remove debug alert after confirming push works
-        alert('[Push Debug] Token registered with backend SUCCESS');
-      },
-      error: (err) => {
-        console.error('[PushNotification] Failed to register token:', err);
-        // TODO: Remove debug alert after confirming push works
-        alert('[Push Debug] Backend registration FAILED: ' + JSON.stringify(err));
-      }
+      next: () => console.log('[PushNotification] Token registered with backend'),
+      error: (err) => console.error('[PushNotification] Failed to register token:', err)
     });
   }
 
