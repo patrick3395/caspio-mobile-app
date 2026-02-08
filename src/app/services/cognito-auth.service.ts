@@ -200,6 +200,12 @@ export class CognitoAuthService {
                   attributes,
                 };
                 this.currentUserSubject.next(user);
+
+                // Register push notification token with backend on session restore
+                try {
+                  const companyId = attributes.find((attr: any) => attr.getName() === 'custom:companyId')?.getValue();
+                  this.pushService.registerTokenWithBackend(user.username, user.email, companyId);
+                } catch { /* push registration is non-critical */ }
               }
             });
           } else {
