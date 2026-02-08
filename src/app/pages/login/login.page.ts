@@ -5,6 +5,7 @@ import { IonicModule } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { AlertController, LoadingController } from '@ionic/angular';
 import { CaspioService } from '../../services/caspio.service';
+import { PushNotificationService } from '../../services/push-notification.service';
 import { PlatformDetectionService } from '../../services/platform-detection.service';
 import { FormValidationService, FieldValidationState, ValidationRules } from '../../services/form-validation.service';
 import { FormKeyboardService } from '../../services/form-keyboard.service';
@@ -47,7 +48,8 @@ export class LoginPage implements OnInit, OnDestroy {
     public platform: PlatformDetectionService,
     private formValidation: FormValidationService,
     private formKeyboard: FormKeyboardService,
-    private pageTitleService: PageTitleService
+    private pageTitleService: PageTitleService,
+    private pushService: PushNotificationService
   ) { }
 
   ngOnInit() {
@@ -222,6 +224,12 @@ export class LoginPage implements OnInit, OnDestroy {
       await loading.dismiss();
     }
     
+    // Register push notification token with backend
+    try {
+      const userId = user.PK_ID || user.UserID;
+      this.pushService.registerTokenWithBackend(String(userId), user.Email, String(user.CompanyID));
+    } catch { /* push registration is non-critical */ }
+
     // Navigate to main app
     this.router.navigate(['/tabs/active-projects']);
   }
