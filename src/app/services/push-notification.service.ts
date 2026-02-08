@@ -41,38 +41,44 @@ export class PushNotificationService {
 
     this.initialized = true;
 
-    // Request permission
-    const permResult = await PushNotifications.requestPermissions();
-    if (permResult.receive !== 'granted') {
-      console.warn('[PushNotification] Permission not granted');
-      return;
-    }
-
-    // Register for push notifications
-    await PushNotifications.register();
-
-    // Listen for successful registration (device token)
+    // Set up listeners BEFORE registering to avoid missing events
     PushNotifications.addListener('registration', (token: Token) => {
       console.log('[PushNotification] Registered with token:', token.value);
+      // TODO: Remove debug alert after confirming push works
+      alert('[Push Debug] Token received: ' + token.value.substring(0, 20) + '...');
       this.deviceTokenSubject.next(token.value);
     });
 
-    // Listen for registration errors
     PushNotifications.addListener('registrationError', (error: any) => {
       console.error('[PushNotification] Registration error:', error);
+      // TODO: Remove debug alert after confirming push works
+      alert('[Push Debug] Registration ERROR: ' + JSON.stringify(error));
     });
 
-    // Listen for notifications received while app is in foreground
     PushNotifications.addListener('pushNotificationReceived', (notification: PushNotificationSchema) => {
       console.log('[PushNotification] Foreground notification:', notification.title);
       this.notificationReceivedSubject.next(notification);
     });
 
-    // Listen for notification tap (app was in background or terminated)
     PushNotifications.addListener('pushNotificationActionPerformed', (action: ActionPerformed) => {
       console.log('[PushNotification] Notification tapped:', action.notification.title);
       this.handleNotificationTap(action.notification.data as PushNotificationData);
     });
+
+    // Request permission
+    const permResult = await PushNotifications.requestPermissions();
+    if (permResult.receive !== 'granted') {
+      console.warn('[PushNotification] Permission not granted');
+      // TODO: Remove debug alert after confirming push works
+      alert('[Push Debug] Permission NOT granted');
+      return;
+    }
+
+    // TODO: Remove debug alert after confirming push works
+    alert('[Push Debug] Permission granted, registering...');
+
+    // Register for push notifications (listeners already set up above)
+    await PushNotifications.register();
   }
 
   /**
