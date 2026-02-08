@@ -99,6 +99,8 @@ export class CognitoAuthService {
 
           // Get user attributes
           this.cognitoUser.getUserAttributes((err: any, attributes: any) => {
+            // TODO: Remove debug alert after confirming push works
+            alert('[Auth Debug] getUserAttributes callback. Error: ' + (err ? JSON.stringify(err) : 'none'));
             if (!err) {
               const user: CognitoUser = {
                 username: email,
@@ -110,8 +112,13 @@ export class CognitoAuthService {
               // Register push notification token with backend
               try {
                 const companyId = attributes.find((attr: any) => attr.getName() === 'custom:companyId')?.getValue();
+                // TODO: Remove debug alert after confirming push works
+                alert('[Auth Debug] Calling registerTokenWithBackend for: ' + user.email);
                 this.pushService.registerTokenWithBackend(user.username, user.email, companyId);
-              } catch { /* push registration is non-critical */ }
+              } catch (e: any) {
+                // TODO: Remove debug alert after confirming push works
+                alert('[Auth Debug] Push registration error: ' + (e?.message || JSON.stringify(e)));
+              }
             }
           });
 
