@@ -1,14 +1,8 @@
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { BehaviorSubject, Subject, filter, first, timeout } from 'rxjs';
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import { Capacitor } from '@capacitor/core';
 import { PushNotifications, PushNotificationSchema, ActionPerformed, Token } from '@capacitor/push-notifications';
-
-// Native FCM token plugin (iOS only)
-interface FCMTokenPlugin {
-  getToken(): Promise<{ token: string }>;
-}
-const FCMToken = registerPlugin<FCMTokenPlugin>('FCMToken');
 import { PlatformDetectionService } from './platform-detection.service';
 import { ApiGatewayService } from './api-gateway.service';
 
@@ -48,23 +42,10 @@ export class PushNotificationService {
     this.initialized = true;
 
     // Set up listeners BEFORE registering to avoid missing events
-    PushNotifications.addListener('registration', async (token: Token) => {
-      console.log('[PushNotification] APNs token received:', token.value.substring(0, 20) + '...');
-
-      // On iOS, get the FCM token (required by Firebase Admin SDK on the backend)
-      if (Capacitor.getPlatform() === 'ios') {
-        try {
-          const result = await FCMToken.getToken();
-          console.log('[PushNotification] FCM token received:', result.token.substring(0, 20) + '...');
-          this.deviceTokenSubject.next(result.token);
-        } catch (err) {
-          console.error('[PushNotification] Failed to get FCM token, falling back to APNs token', err);
-          this.deviceTokenSubject.next(token.value);
-        }
-      } else {
-        // Android already returns FCM token from Capacitor
-        this.deviceTokenSubject.next(token.value);
-      }
+    // On iOS, AppDelegate sends the FCM token (not APNs token) via MessagingDelegate
+    PushNotifications.addListener('registration', (token: Token) => {
+      console.log('[PushNotification] Token received:', token.value.substring(0, 20) + '...');
+      this.deviceTokenSubject.next(token.value);
     });
 
     PushNotifications.addListener('registrationError', (error: any) => {
