@@ -42,10 +42,12 @@ export class PushNotificationService {
     this.initialized = true;
 
     // Set up listeners BEFORE registering to avoid missing events
-    // On iOS, AppDelegate sends the FCM token (not APNs token) via MessagingDelegate
+    // On iOS, AppDelegate sends FCM token as UTF-8 Data through Capacitor's notification center.
+    // Capacitor's plugin converts Data to hex, so we decode it back to the FCM token string.
     PushNotifications.addListener('registration', (token: Token) => {
-      console.log('[PushNotification] Token received:', token.value.substring(0, 20) + '...');
-      this.deviceTokenSubject.next(token.value);
+      const decoded = Capacitor.getPlatform() === 'ios' ? this.hexToString(token.value) : token.value;
+      console.log('[PushNotification] Token received:', decoded.substring(0, 20) + '...');
+      this.deviceTokenSubject.next(decoded);
     });
 
     PushNotifications.addListener('registrationError', (error: any) => {
@@ -130,6 +132,14 @@ export class PushNotificationService {
   /**
    * Handle navigation when a notification is tapped.
    */
+  private hexToString(hex: string): string {
+    let str = '';
+    for (let i = 0; i < hex.length; i += 2) {
+      str += String.fromCharCode(parseInt(hex.substring(i, i + 2), 16));
+    }
+    return str;
+  }
+
   private handleNotificationTap(data: PushNotificationData): void {
     if (!data) return;
 
