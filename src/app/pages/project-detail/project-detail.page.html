@@ -437,9 +437,6 @@
                           <span class="report-status">
                             {{ getStatusClientById(service.StatusID) || service.Status }}
                           </span>
-                          <span *ngIf="service.StatusDateTime" class="status-datetime">
-                            {{ service.StatusDateTime | date:'short' }}
-                          </span>
                         </div>
                         <div class="template-icons">
                           <ion-icon name="chevron-forward" class="status-arrow"></ion-icon>

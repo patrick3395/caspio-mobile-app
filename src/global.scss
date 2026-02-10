@@ -3279,6 +3279,42 @@ body.dark-theme ion-alert.text-editor-modal .alert-button:not(.editor-save-btn) 
   color: #666;
 }
 
+.progress-loading-alert .alert-button-group {
+  padding: 12px 24px 20px;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.progress-loading-alert .alert-button {
+  flex: 1 1 0;
+  min-width: 140px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  border-radius: 999px;
+  padding: 13px 0;
+  font-size: 14px;
+  text-transform: none;
+  color: #333;
+  background: #f5f5f5;
+  border: 2px solid var(--noble-orange, #F15A27);
+}
+
+.progress-loading-alert .alert-button .alert-button-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: none;
+}
+
+.progress-loading-alert .alert-button:hover,
+.progress-loading-alert .alert-button:active,
+.progress-loading-alert .alert-button:focus {
+  background: #f5f5f5;
+  color: #333;
+  border-color: var(--noble-orange, #F15A27);
+}
+
 /* Upload progress toast/indicator styles */
 .upload-progress-container {
   position: fixed;

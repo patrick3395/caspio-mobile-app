@@ -127,6 +127,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   // ==================== DEXIE-FIRST: Bulk Caching Maps (MOBILE ONLY) ====================
   private bulkLocalImagesMap: Map<string, LocalImage[]> = new Map();
   private tempIdToRealIdCache: Map<string, string> = new Map();
+  private lastIdFingerprint: string = '';
   private lastConvertedFields: VisualField[] = [];
   private lastConvertedHudFields: HudField[] = [];
   private lastConvertedGenericFields: any[] = [];  // Unified cache for all templates
@@ -534,6 +535,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
             if (!this.isInitialDataLoaded) {
               this.convertGenericFieldsToOrganizedData(fields);
               this.lastFieldsFingerprint = this.computeFieldsFingerprint(fields);
+              this.lastIdFingerprint = this.computeIdFingerprint(fields);
               this.isInitialDataLoaded = true;
               this.loading = false;
               this.logDebug('DEXIE', 'Initial data loaded - showing UI');
@@ -571,12 +573,18 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
               this.lastConvertedGenericFields = fields;
             }
 
-            // Photos are NOT re-populated here. Photo state is maintained by:
-            // - onTempPhotoAdded / onUploadComplete callbacks (during upload)
-            // - subscribeToLocalImagesChanges (for background sync status)
-            // - refreshLocalState → populateGenericPhotosFromDexie (on page return)
-            // Running populate on every liveQuery emission was redundant heavy work
-            // (IndexedDB lookups + blob URLs for all 50+ fields) that blocked scrolling.
+            // SYNC FIX: When background sync updates field IDs (tempId → realId), the
+            // structural fingerprint doesn't change (it excludes record IDs). Detect ID
+            // changes separately and re-populate photos so images found under new entityIds.
+            // This matches visual-detail's subscribeToVisualFieldChanges approach.
+            const newIdFingerprint = this.computeIdFingerprint(fields);
+            if (newIdFingerprint !== this.lastIdFingerprint) {
+              this.lastIdFingerprint = newIdFingerprint;
+              this.lastConvertedGenericFields = fields;
+              this.populateGenericPhotosFromDexie(fields).then(() => {
+                if (!this.isDestroyed) this.safeDetectChanges();
+              });
+            }
           },
           error: (err: any) => {
             this.logDebug('ERROR', `Error in fields subscription: ${err}`);
@@ -960,31 +968,27 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         const key = `${field.category}_${field.templateId}`;
         this.visualRecordIds[key] = visualId;
 
-        // Merge-based lookup: collect photos from ALL matching IDs (realId + tempId)
-        // During sync, photos may be split across entityIds as some get updated from tempId to realId
-        let localImages = realId ? (localImagesMap.get(realId) || []) : [];
-
-        // Also include tempId photos (they may not have synced yet)
-        if (tempId && tempId !== realId) {
-          const tempImages = localImagesMap.get(tempId) || [];
-          if (tempImages.length > 0) {
-            localImages = [...localImages, ...tempImages];
-          }
+        // VISUAL-DETAIL APPROACH: Collect ALL possible entity IDs, search ALL at once
+        const idsToSearch = new Set<string>();
+        if (realId) idsToSearch.add(String(realId));
+        if (tempId) idsToSearch.add(String(tempId));
+        if (tempId) {
+          const mappedRealId = await this.indexedDb.getRealId(String(tempId));
+          if (mappedRealId) idsToSearch.add(String(mappedRealId));
+        }
+        if (realId) {
+          const originalTempId = await this.indexedDb.getTempId(String(realId));
+          if (originalTempId) idsToSearch.add(String(originalTempId));
         }
 
-        // Check IndexedDB for temp-to-real mapping
-        if (localImages.length === 0 && tempId) {
-          const mappedRealId = await this.indexedDb.getRealId(tempId);
-          if (mappedRealId) {
-            localImages = localImagesMap.get(mappedRealId) || [];
-            // Update field with the real ID using GENERIC field repo
-            if (localImages.length > 0 && field.templateId && this.config) {
-              this.genericFieldRepo.setField(this.config, this.serviceId, this.categoryName, field.templateId, {
-                recordId: mappedRealId,
-                tempRecordId: null
-              }).catch(err => {
-                this.logDebug('ERROR', `Failed to update field with mapped realId: ${err}`);
-              });
+        let localImages: any[] = [];
+        const seenImageIds = new Set<string>();
+        for (const searchId of idsToSearch) {
+          const found = localImagesMap.get(searchId) || [];
+          for (const img of found) {
+            if (!seenImageIds.has(img.imageId)) {
+              seenImageIds.add(img.imageId);
+              localImages.push(img);
             }
           }
         }
@@ -1272,31 +1276,27 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         const key = `${field.category}_${field.templateId}`;
         this.visualRecordIds[key] = hudId;
 
-        // Merge-based lookup: collect photos from ALL matching IDs (realId + tempId)
-        // During sync, photos may be split across entityIds as some get updated from tempId to realId
-        let localImages = realId ? (localImagesMap.get(realId) || []) : [];
-
-        // Also include tempId photos (they may not have synced yet)
-        if (tempId && tempId !== realId) {
-          const tempImages = localImagesMap.get(tempId) || [];
-          if (tempImages.length > 0) {
-            localImages = [...localImages, ...tempImages];
-          }
+        // VISUAL-DETAIL APPROACH: Collect ALL possible entity IDs, search ALL at once
+        const idsToSearch = new Set<string>();
+        if (realId) idsToSearch.add(String(realId));
+        if (tempId) idsToSearch.add(String(tempId));
+        if (tempId) {
+          const mappedRealId = await this.indexedDb.getRealId(String(tempId));
+          if (mappedRealId) idsToSearch.add(String(mappedRealId));
+        }
+        if (realId) {
+          const originalTempId = await this.indexedDb.getTempId(String(realId));
+          if (originalTempId) idsToSearch.add(String(originalTempId));
         }
 
-        // Check IndexedDB for temp-to-real mapping
-        if (localImages.length === 0 && tempId) {
-          const mappedRealId = await this.indexedDb.getRealId(tempId);
-          if (mappedRealId) {
-            localImages = localImagesMap.get(mappedRealId) || [];
-            // Update field with the real ID using GENERIC field repo
-            if (localImages.length > 0 && field.templateId && this.config) {
-              this.genericFieldRepo.setField(this.config, this.serviceId, this.categoryName, field.templateId, {
-                recordId: mappedRealId,
-                tempRecordId: null
-              }).catch(err => {
-                this.logDebug('ERROR', `Failed to update field with mapped realId: ${err}`);
-              });
+        let localImages: any[] = [];
+        const seenImageIds = new Set<string>();
+        for (const searchId of idsToSearch) {
+          const found = localImagesMap.get(searchId) || [];
+          for (const img of found) {
+            if (!seenImageIds.has(img.imageId)) {
+              seenImageIds.add(img.imageId);
+              localImages.push(img);
             }
           }
         }
@@ -1686,6 +1686,22 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   }
 
   /**
+   * Compute fingerprint of record IDs across all fields.
+   * Detects when sync updates tempId → realId so photos can be re-populated.
+   * Separate from computeFieldsFingerprint which tracks structural/content changes.
+   */
+  private computeIdFingerprint(fields: any[]): string {
+    if (!this.config) return '';
+    let hash = '';
+    for (const f of fields) {
+      const realId = this.genericFieldRepo.getRecordId(this.config, f);
+      const tempId = this.genericFieldRepo.getTempRecordId(this.config, f);
+      hash += `${f.templateId}:${realId || ''}:${tempId || ''}~`;
+    }
+    return hash;
+  }
+
+  /**
    * UNIFIED: Convert generic fields to organized data structure (MOBILE ONLY - ALL TEMPLATES)
    * Uses GenericFieldRepoService to get IDs in a template-agnostic way
    */
@@ -1871,71 +1887,49 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         const key = `${field.category}_${field.templateId}`;
         this.visualRecordIds[key] = recordId;
 
-        // Merge-based lookup: collect photos from ALL matching IDs (realId + tempId)
-        // During sync, photos may be split across entityIds as some get updated from tempId to realId
-        let localImages = realId ? (localImagesMap.get(realId) || []) : [];
+        // VISUAL-DETAIL APPROACH: Collect ALL possible entity IDs into a Set, search ALL at once.
+        // This eliminates tier ordering bugs, type mismatch issues (number vs string entityId),
+        // and timing-dependent failures during sync transitions. String() conversion on every ID
+        // ensures consistent Map lookups regardless of whether IDs are stored as numbers or strings.
+        const idsToSearch = new Set<string>();
+        if (realId) idsToSearch.add(String(realId));
+        if (tempId) idsToSearch.add(String(tempId));
 
-        // Also include tempId photos (they may not have synced yet)
-        if (tempId && tempId !== realId) {
-          const tempImages = localImagesMap.get(tempId) || [];
-          if (tempImages.length > 0) {
-            localImages = [...localImages, ...tempImages];
-          }
+        // Get mapped IDs from tempIdMappings UPFRONT (like visual-detail)
+        if (tempId) {
+          const mappedRealId = await this.indexedDb.getRealId(String(tempId));
+          if (mappedRealId) idsToSearch.add(String(mappedRealId));
+        }
+        if (realId) {
+          const originalTempId = await this.indexedDb.getTempId(String(realId));
+          if (originalTempId) idsToSearch.add(String(originalTempId));
         }
 
-        // Check IndexedDB for temp-to-real mapping
-        if (localImages.length === 0 && tempId) {
-          const mappedRealId = await this.indexedDb.getRealId(tempId);
-          if (mappedRealId) {
-            localImages = localImagesMap.get(mappedRealId) || [];
-            // Update field with the real ID using GenericFieldRepoService
-            if (localImages.length > 0 && field.templateId) {
-              this.genericFieldRepo.setField(this.config, this.serviceId, this.categoryName, field.templateId, {
-                // The setField method handles template-specific ID field names
-              }).catch((err: any) => {
-                this.logDebug('WARN', `Failed to update field with mapped realId: ${err}`);
-              });
+        // Merge-based search: collect photos from ALL matching IDs with deduplication
+        let localImages: any[] = [];
+        const seenImageIds = new Set<string>();
+        for (const searchId of idsToSearch) {
+          const found = localImagesMap.get(searchId) || [];
+          for (const img of found) {
+            if (!seenImageIds.has(img.imageId)) {
+              seenImageIds.add(img.imageId);
+              localImages.push(img);
             }
           }
         }
 
-        // Reverse lookup: field has realId but photos may still have old tempId entityId
-        // (happens when field synced and tempId was cleared but photos weren't bulk-migrated)
-        if (localImages.length === 0 && realId) {
-          const originalTempId = await this.indexedDb.getTempId(realId);
-          if (originalTempId) {
-            localImages = localImagesMap.get(originalTempId) || [];
-            if (localImages.length > 0) {
-              this.logDebug('DEXIE', `Reverse lookup: found ${localImages.length} photos under old tempId ${originalTempId} for realId ${realId}`);
-              // Self-heal: migrate these orphaned photos to the correct entityId
-              this.indexedDb.updateEntityIdForImages(originalTempId, realId).catch((err: any) => {
-                this.logDebug('WARN', `Failed to self-heal entityId migration: ${err}`);
-              });
-            }
-          }
-        }
-
-        // TIER 5 FALLBACK: Photos already in UI array - find their LocalImages directly by imageId
-        // This catches the case where photos exist in the UI but their entityId doesn't match any lookup
-        // (e.g., during sync transition when entityId was migrated but field data is stale)
+        // FALLBACK: Photos already in UI array - find their LocalImages directly by imageId
         if (localImages.length === 0 && this.visualPhotos[key]?.length > 0) {
           for (const existingPhoto of this.visualPhotos[key]) {
             const photoImageId = existingPhoto.imageId || existingPhoto.localImageId;
             if (photoImageId) {
               const found = allLocalImages.find((img: any) => img.imageId === photoImageId);
-              if (found && !localImages.some((li: any) => li.imageId === found.imageId)) {
+              if (found && !seenImageIds.has(found.imageId)) {
+                seenImageIds.add(found.imageId);
                 localImages.push(found);
               }
             }
           }
-          if (localImages.length > 0) {
-            this.logDebug('DEXIE', `Tier 5 fallback: found ${localImages.length} photos by imageId for key=${key}`);
-          }
-        }
-
-        // DEBUG: Alert if all 5 tiers found nothing but UI has photos for this key
-        if (localImages.length === 0 && this.visualPhotos[key]?.length > 0) {
-          this.logDebug('WARN', `All tiers failed for key=${key} but UI has ${this.visualPhotos[key].length} photos`);
         }
 
         if (localImages.length === 0) continue;
@@ -2192,15 +2186,26 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     } finally {
       this.isPopulatingPhotos = false;
 
-      // SYNC FIX: Fields liveQuery handler skips convertGenericFieldsToOrganizedData when
-      // isPopulatingPhotos is true (line 552 guard). After populate completes, check if the
-      // fields fingerprint changed while we were populating and run the conversion now.
-      // This ensures organizedData stays current after sync updates field IDs.
+      // SYNC FIX: Fields liveQuery handler skips processing when isPopulatingPhotos is true.
+      // After populate completes, check if fields changed while we were populating.
       if (this.lastConvertedGenericFields && this.lastConvertedGenericFields.length > 0) {
         const currentFingerprint = this.computeFieldsFingerprint(this.lastConvertedGenericFields);
         if (currentFingerprint !== this.lastFieldsFingerprint) {
           this.convertGenericFieldsToOrganizedData(this.lastConvertedGenericFields);
           this.lastFieldsFingerprint = currentFingerprint;
+        }
+
+        // Check if record IDs changed while populating (sync updated tempId → realId).
+        // If so, schedule a re-populate to find photos under the new entityIds.
+        const currentIdFingerprint = this.computeIdFingerprint(this.lastConvertedGenericFields);
+        if (currentIdFingerprint !== this.lastIdFingerprint) {
+          this.lastIdFingerprint = currentIdFingerprint;
+          const fieldsForRepopulate = this.lastConvertedGenericFields;
+          setTimeout(async () => {
+            if (this.isDestroyed) return;
+            await this.populateGenericPhotosFromDexie(fieldsForRepopulate);
+            if (!this.isDestroyed) this.safeDetectChanges();
+          }, 0);
         }
       }
     }

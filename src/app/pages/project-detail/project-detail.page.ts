@@ -2682,18 +2682,19 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         
         // ServiceID is NOT needed for Attach table - only ProjectID, TypeID, Title, Notes, Link, Attachment
         
-        // WEBAPP: Show cancellable upload popup (tap backdrop to cancel)
-        let uploadCancelled = false;
+        // Show upload popup with Cancel button (dismisses popup only — upload continues)
         if (environment.isWeb) {
-          loading = await this.loadingController.create({
-            message: `Uploading ${file.name}... (tap outside to cancel)`,
-            backdropDismiss: true,
-            cssClass: 'custom-loading-popup'
-          });
-          loading.onDidDismiss().then((result: any) => {
-            if (result.role === 'backdrop') {
-              uploadCancelled = true;
-            }
+          loading = await this.alertController.create({
+            header: 'Uploading',
+            message: `Uploading ${file.name}...`,
+            buttons: [
+              {
+                text: 'Upload in Background',
+                role: 'cancel'
+              }
+            ],
+            backdropDismiss: false,
+            cssClass: 'custom-document-alert'
           });
           await loading.present();
         } else {
@@ -2715,38 +2716,30 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           serviceId // Pass serviceId to differentiate between multiple instances
         ).toPromise();
 
-        // Check if user cancelled during upload
-        if (uploadCancelled) {
-          throw new Error('Upload cancelled by user');
-        }
-
-        // Attachment created - update UI immediately without waiting
+        // Upload completed — update UI regardless of cancel flag
+        // (file is already on server, so reflect it in the UI)
         if (response) {
-          // Reload attachments from database to ensure UI matches server state
-          // Cache was automatically cleared by CaspioService, so this gets fresh data
           await this.loadExistingAttachments();
-
-          // WEBAPP: Trigger change detection to update UI with OnPush strategy
           this.changeDetectorRef.markForCheck();
 
-          // Mark that changes have been made (for Re-Submit button)
           if (serviceId) {
             this.changesAfterSubmission[serviceId] = true;
           }
         }
       } else if (action === 'replace' && doc.attachId) {
-        // WEBAPP: Show cancellable upload popup for replace (tap backdrop to cancel)
-        let replaceCancelled = false;
+        // Show replace popup with Cancel button (dismisses popup only — upload continues)
         if (environment.isWeb) {
-          loading = await this.loadingController.create({
-            message: `Replacing with ${file.name}... (tap outside to cancel)`,
-            backdropDismiss: true,
-            cssClass: 'custom-loading-popup'
-          });
-          loading.onDidDismiss().then((result: any) => {
-            if (result.role === 'backdrop') {
-              replaceCancelled = true;
-            }
+          loading = await this.alertController.create({
+            header: 'Replacing',
+            message: `Replacing with ${file.name}...`,
+            buttons: [
+              {
+                text: 'Upload in Background',
+                role: 'cancel'
+              }
+            ],
+            backdropDismiss: false,
+            cssClass: 'custom-document-alert'
           });
           await loading.present();
         } else {
@@ -2760,19 +2753,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // uploadFileToCaspio calls replaceAttachmentFile which updates both Attachment and Link fields
         await this.uploadFileToCaspio(doc.attachId, file);
 
-        // Check if user cancelled during upload
-        if (replaceCancelled) {
-          throw new Error('Upload cancelled by user');
-        }
-
-        // Reload attachments from database to ensure UI matches server state
-        // Cache was automatically cleared by CaspioService, so this gets fresh data
+        // Replace completed — update UI regardless of cancel flag
+        // (file is already on server, so reflect it in the UI)
         await this.loadExistingAttachments();
-
-        // WEBAPP: Trigger change detection to update UI with OnPush strategy
         this.changeDetectorRef.markForCheck();
 
-        // Mark that changes have been made (for Re-Submit button)
         if (serviceId) {
           this.changesAfterSubmission[serviceId] = true;
         }
@@ -2879,10 +2864,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
 
         await loading.dismiss();
+        await this.showToast('Document deleted', 'success');
 
-        // Reload attachments from database to ensure UI matches server state
-        // Cache was automatically cleared by CaspioService, so this gets fresh data
-        await this.loadExistingAttachments();
+        // Update UI immediately from local state (don't re-fetch — API may have propagation delay)
+        this.changeDetectorRef.detectChanges();
 
       } catch (error) {
         console.error('Error deleting document:', error);
@@ -2927,6 +2912,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         await this.caspioService.deleteAttachment(additionalFile.attachId).toPromise();
 
         // Remove from local data
+        const attachIndex = this.existingAttachments.findIndex(a => a.AttachID === additionalFile.attachId);
+        if (attachIndex > -1) {
+          this.existingAttachments.splice(attachIndex, 1);
+        }
+
         for (const serviceDoc of this.serviceDocuments) {
           for (const doc of serviceDoc.documents) {
             if (doc.additionalFiles) {
@@ -2940,10 +2930,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
 
         await loading.dismiss();
+        await this.showToast('Document deleted', 'success');
 
-        // Reload attachments from database to ensure UI matches server state
-        // Cache was automatically cleared by CaspioService, so this gets fresh data
-        await this.loadExistingAttachments();
+        // Update UI immediately from local state (don't re-fetch — API may have propagation delay)
+        this.changeDetectorRef.detectChanges();
 
       } catch (error) {
         console.error('Error deleting document:', error);

@@ -10,9 +10,6 @@
     <ion-buttons slot="end">
       <!-- MOBILE ONLY: Sync status widget (not needed on web since data saves directly) -->
       <app-sync-status-widget *ngIf="!isWeb"></app-sync-status-widget>
-      <ion-button *ngIf="!isSubPage" (click)="generatePDF()" [disabled]="isGeneratingPDF">
-        <ion-icon slot="icon-only" name="document-text"></ion-icon>
-      </ion-button>
     </ion-buttons>
   </ion-toolbar>
 
