@@ -416,6 +416,7 @@ export class CompanyPage implements OnInit, OnDestroy {
   uniqueCompanySizes: string[] = [];
   uniqueLeadSources: string[] = [];
   softwareOptions: string[] = [];
+  softwareNameToIdMap: Map<string, number> = new Map();
 
   // Global company filter
   globalCompanyFilterId: number | null = null;
@@ -1253,8 +1254,16 @@ export class CompanyPage implements OnInit, OnDestroy {
       this.populateOffersLookup(offersRecords);
 
       // Populate software options from Software table
+      this.softwareNameToIdMap.clear();
       this.softwareOptions = softwareRecords
-        .map(record => record.Software ?? record.Name ?? '')
+        .map(record => {
+          const name = record.Software ?? record.Name ?? '';
+          const id = Number(record.SoftwareID ?? record.PK_ID ?? 0);
+          if (name.trim() !== '' && id > 0) {
+            this.softwareNameToIdMap.set(name, id);
+          }
+          return name;
+        })
         .filter(name => name.trim() !== '')
         .sort();
 
@@ -1872,11 +1881,19 @@ export class CompanyPage implements OnInit, OnDestroy {
       }
 
       if (this.newCompany['Onboarding Stage'] && this.newCompany['Onboarding Stage'].trim() !== '') {
-        payload['Onboarding Stage'] = this.newCompany['Onboarding Stage'].trim();
+        const stageName = this.newCompany['Onboarding Stage'].trim();
+        const stage = this.stages.find(s => s.name === stageName);
+        if (stage) {
+          payload.StageID = stage.id;
+        }
       }
 
       if (this.newCompany.SoftwareID && this.newCompany.SoftwareID.trim() !== '') {
-        payload.SoftwareID = this.newCompany.SoftwareID.trim();
+        const softwareName = this.newCompany.SoftwareID.trim();
+        const softwareId = this.softwareNameToIdMap.get(softwareName);
+        if (softwareId) {
+          payload.SoftwareID = softwareId;
+        }
       }
 
       if (this.newCompany.Size && this.newCompany.Size.trim() !== '') {
@@ -5580,14 +5597,19 @@ export class CompanyPage implements OnInit, OnDestroy {
       }
 
       if (this.editingCompany.SoftwareID !== undefined && this.editingCompany.SoftwareID !== null) {
-        payload.SoftwareID = this.editingCompany.SoftwareID;
+        const softwareName = String(this.editingCompany.SoftwareID).trim();
+        const softwareId = this.softwareNameToIdMap.get(softwareName);
+        if (softwareId) {
+          payload.SoftwareID = softwareId;
+        }
       }
 
-      // CRITICAL FIX: Try field name without space - Caspio typically doesn't allow spaces in field names
-      // The actual field name is likely "OnboardingStage" not "Onboarding Stage"
       if (this.editingCompany['Onboarding Stage'] !== undefined && this.editingCompany['Onboarding Stage'] !== null) {
-        // Try without space first (more likely to be correct)
-        payload.OnboardingStage = this.editingCompany['Onboarding Stage'];
+        const stageName = String(this.editingCompany['Onboarding Stage']).trim();
+        const stage = this.stages.find(s => s.name === stageName);
+        if (stage) {
+          payload.StageID = stage.id;
+        }
       }
 
       // Autopay fields
