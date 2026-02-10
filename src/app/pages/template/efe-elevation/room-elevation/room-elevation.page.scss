@@ -95,6 +95,56 @@ select.styled-input {
 }
 
 // ========================================
+// ACTION BUTTON GRID (matches category-detail)
+// ========================================
+.photo-action-grid {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+  justify-content: center;
+
+  .action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 70px;
+    height: 56px;
+    padding: 8px 16px;
+    background: #bdbdbd;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    gap: 4px;
+    flex: 1;
+
+    ion-icon {
+      font-size: 22px;
+    }
+
+    span {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    &:active {
+      transform: scale(0.95);
+      background: #b0b0b0;
+    }
+
+    &:disabled {
+      opacity: 0.35;
+      cursor: default;
+      pointer-events: none;
+    }
+  }
+}
+
+// ========================================
 // FDF PHOTO BUTTONS
 // ========================================
 .fdf-photo-button {
@@ -480,9 +530,9 @@ select.styled-input {
 // ========================================
 // Light gray container for notes section
 .room-notes-container {
-  background: var(--color-bg-elevated);
-  padding: 16px;
-  border-radius: 8px;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
   margin-top: 8px;
 
   .notes-textarea {

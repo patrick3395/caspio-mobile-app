@@ -487,26 +487,21 @@ h3 {
   }
 }
 
-// Services tab segment toggle (matches Company/Partners tab style)
+// Services tab segment toggle (matches Company tab style)
 .services-segment {
   margin-bottom: 16px;
-  --background: var(--color-bg-page) !important;
+  --background: var(--color-bg-card) !important;
   border-radius: 12px;
   padding: 4px;
-
-  // Web: remove extra gray background space around buttons
-  @media (hover: hover) and (pointer: fine) {
-    --background: transparent !important;
-    padding: 0;
-  }
+  box-shadow: 0 2px 8px var(--color-shadow);
 
   ion-segment-button {
-    --color: var(--color-text-secondary) !important;
-    --color-checked: #f15a27 !important;
+    --color: var(--color-text-muted) !important;
+    --color-checked: var(--color-text-primary) !important;
     --background-checked: transparent !important;
-    --indicator-color: var(--color-bg-card) !important;
+    --indicator-color: var(--color-bg-inset) !important;
     --indicator-height: 100%;
-    --indicator-box-shadow: 0 2px 8px var(--color-shadow);
+    --indicator-box-shadow: none;
     text-transform: none;
     font-weight: 600;
     font-size: 15px;

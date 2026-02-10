@@ -61,7 +61,8 @@
           <div class="fdf-photo-column" style="flex: 1; min-width: 0; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
             <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; text-align: center;">Top</div>
             <div style="display: flex; gap: 4px; margin-bottom: 2px;">
-              <button (click)="takeFDFPhotoCamera('Top')"
+              <button *ngIf="!isWeb"
+                      (click)="takeFDFPhotoCamera('Top')"
                       [disabled]="!isRoomReady()"
                       class="fdf-photo-button"
                       [style.opacity]="isRoomReady() ? '1' : '0.4'"
@@ -115,7 +116,8 @@
           <div class="fdf-photo-column" style="flex: 1; min-width: 0; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
             <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; text-align: center;">Bottom</div>
             <div style="display: flex; gap: 4px; margin-bottom: 2px;">
-              <button (click)="takeFDFPhotoCamera('Bottom')"
+              <button *ngIf="!isWeb"
+                      (click)="takeFDFPhotoCamera('Bottom')"
                       [disabled]="!isRoomReady()"
                       class="fdf-photo-button"
                       [style.opacity]="isRoomReady() ? '1' : '0.4'"
@@ -169,7 +171,8 @@
           <div class="fdf-photo-column" style="flex: 1; min-width: 0; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
             <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; text-align: center;">Location</div>
             <div style="display: flex; gap: 4px; margin-bottom: 2px;">
-              <button (click)="takeFDFPhotoCamera('Threshold')"
+              <button *ngIf="!isWeb"
+                      (click)="takeFDFPhotoCamera('Threshold')"
                       [disabled]="!isRoomReady()"
                       class="fdf-photo-button"
                       [style.opacity]="isRoomReady() ? '1' : '0.4'"
@@ -223,8 +226,8 @@
 
       <!-- Location Field for Base Station (above Measurements) -->
       <div class="location-field-container" *ngIf="isBaseStation()" style="margin-top: 15px;">
-        <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">
-          Location:
+        <label style="font-size: 14px; font-weight: 600; display: block; margin-bottom: 8px;">
+          Location
         </label>
         <input type="text"
                [(ngModel)]="roomData.location"
@@ -311,22 +314,18 @@
                   Measurement
                   <ion-spinner *ngIf="isPointPending(point)" name="dots" style="width: 16px; height: 16px; margin-left: 4px; vertical-align: middle;"></ion-spinner>
                 </div>
-                <div style="display: flex; gap: 6px; margin-bottom: 2px;">
-                  <button (click)="capturePointPhotoCamera(point, 'Measurement', $event)"
-                          [disabled]="!isPointReady(point)"
-                          class="fdf-photo-button measurement-photo-btn"
-                          [style.opacity]="isPointReady(point) ? '1' : '0.4'"
-                          [style.cursor]="isPointReady(point) ? 'pointer' : 'not-allowed'"
-                          style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
-                    <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
+                <div class="photo-action-grid">
+                  <button class="action-btn" *ngIf="!isWeb"
+                          (click)="capturePointPhotoCamera(point, 'Measurement', $event)"
+                          [disabled]="!isPointReady(point)">
+                    <ion-icon name="camera"></ion-icon>
+                    <span>Camera</span>
                   </button>
-                  <button (click)="capturePointPhotoGallery(point, 'Measurement', $event)"
-                          [disabled]="!isPointReady(point)"
-                          class="fdf-photo-button measurement-photo-btn"
-                          [style.opacity]="isPointReady(point) ? '1' : '0.4'"
-                          [style.cursor]="isPointReady(point) ? 'pointer' : 'not-allowed'"
-                          style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
-                    <ion-icon name="images" style="font-size: 28px;"></ion-icon>
+                  <button class="action-btn"
+                          (click)="capturePointPhotoGallery(point, 'Measurement', $event)"
+                          [disabled]="!isPointReady(point)">
+                    <ion-icon name="images"></ion-icon>
+                    <span>Gallery</span>
                   </button>
                 </div>
                 <!-- Measurement Photo Skeleton (upload in progress or loading from server) -->
@@ -374,22 +373,18 @@
                   Location
                   <ion-spinner *ngIf="isPointPending(point)" name="dots" style="width: 16px; height: 16px; margin-left: 4px; vertical-align: middle;"></ion-spinner>
                 </div>
-                <div style="display: flex; gap: 6px; margin-bottom: 2px;">
-                  <button (click)="capturePointPhotoCamera(point, 'Location', $event)"
-                          [disabled]="!isPointReady(point)"
-                          class="fdf-photo-button measurement-photo-btn"
-                          [style.opacity]="isPointReady(point) ? '1' : '0.4'"
-                          [style.cursor]="isPointReady(point) ? 'pointer' : 'not-allowed'"
-                          style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
-                    <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
+                <div class="photo-action-grid">
+                  <button class="action-btn" *ngIf="!isWeb"
+                          (click)="capturePointPhotoCamera(point, 'Location', $event)"
+                          [disabled]="!isPointReady(point)">
+                    <ion-icon name="camera"></ion-icon>
+                    <span>Camera</span>
                   </button>
-                  <button (click)="capturePointPhotoGallery(point, 'Location', $event)"
-                          [disabled]="!isPointReady(point)"
-                          class="fdf-photo-button measurement-photo-btn"
-                          [style.opacity]="isPointReady(point) ? '1' : '0.4'"
-                          [style.cursor]="isPointReady(point) ? 'pointer' : 'not-allowed'"
-                          style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
-                    <ion-icon name="images" style="font-size: 28px;"></ion-icon>
+                  <button class="action-btn"
+                          (click)="capturePointPhotoGallery(point, 'Location', $event)"
+                          [disabled]="!isPointReady(point)">
+                    <ion-icon name="images"></ion-icon>
+                    <span>Gallery</span>
                   </button>
                 </div>
                 <!-- Location Photo Skeleton (upload in progress or loading from server) -->

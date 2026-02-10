@@ -1858,6 +1858,25 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
   /**
    * Show dialog to select a room template to add
    */
+  async addBaseStation() {
+    try {
+      const baseStationTemplate = this.allRoomTemplates.find(room =>
+        room.RoomName === 'Base Station'
+      );
+      if (!baseStationTemplate) {
+        return;
+      }
+      // Set lastNavigatedRoom to the last base station so the new one inserts after it
+      const baseStations = this.roomTemplates.filter(r => this.isBaseStation(r.RoomName));
+      if (baseStations.length > 0) {
+        this.lastNavigatedRoom = baseStations[baseStations.length - 1].RoomName;
+      }
+      await this.addRoomTemplate(baseStationTemplate);
+    } catch (error) {
+      console.error('[Add Base Station] Error adding base station:', error);
+    }
+  }
+
   async showAddRoomDialog() {
     try {
       // Show ALL room templates except Base Station variants, allowing duplicates
