@@ -109,23 +109,23 @@ form {
     --padding-start: 0;
     --inner-padding-end: 0;
     margin-bottom: 8px;
-    
+
     ion-label {
       font-size: 14px;
       color: var(--color-text-primary);
       margin-bottom: 4px;
     }
-    
-    ion-input, ion-textarea {
-      font-size: 16px;
-      --padding-start: 12px;
-      --padding-end: 12px;
-      --padding-top: 10px;
-      --padding-bottom: 10px;
-      border: 1px solid var(--color-border-default);
-      border-radius: 4px;
-      margin-top: 4px;
-    }
+  }
+
+  .input-container {
+    margin-bottom: 8px;
+  }
+
+  .field-label {
+    display: block;
+    font-size: 14px;
+    color: var(--color-text-primary);
+    margin-bottom: 4px;
   }
 }
 

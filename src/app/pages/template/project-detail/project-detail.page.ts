@@ -361,6 +361,21 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
             const thirtyBelowOption = this.outdoorTemperatureOptions.splice(thirtyBelowIndex, 1)[0];
             this.outdoorTemperatureOptions.unshift(thirtyBelowOption);
           }
+
+          // Reorder to put "100°F+" after "90°F to 100°F"
+          const hundredPlusIndex = this.outdoorTemperatureOptions.findIndex(opt =>
+            opt.includes('100') && (opt.includes('+') || opt.endsWith('100')) && !opt.includes('to')
+          );
+          const ninetyToHundredIndex = this.outdoorTemperatureOptions.findIndex(opt =>
+            opt.includes('90') && opt.includes('100') && opt.includes('to')
+          );
+          if (hundredPlusIndex >= 0 && ninetyToHundredIndex >= 0 && hundredPlusIndex < ninetyToHundredIndex) {
+            const hundredPlusOption = this.outdoorTemperatureOptions.splice(hundredPlusIndex, 1)[0];
+            const newNinetyIndex = this.outdoorTemperatureOptions.findIndex(opt =>
+              opt.includes('90') && opt.includes('100') && opt.includes('to')
+            );
+            this.outdoorTemperatureOptions.splice(newNinetyIndex + 1, 0, hundredPlusOption);
+          }
         }
 
         // Set Occupancy Furnishings options

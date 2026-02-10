@@ -111,7 +111,7 @@
 <!-- Section Template (DRY - used for all three sections) -->
 <ng-template #sectionTemplate let-items let-sectionName="sectionName" let-sectionTitle="sectionTitle" let-badgeClass="badgeClass" let-itemType="itemType">
   <div class="simple-accordion" *ngIf="items">
-    <div class="simple-accordion-header" (click)="toggleSection(sectionName)">
+    <div class="simple-accordion-header">
       <div class="accordion-header-content">
         <div class="icon-container">
           <span class="count-badge" [ngClass]="badgeClass">
@@ -122,13 +122,12 @@
         <span class="type-header">{{ sectionTitle }}</span>
       </div>
       <div class="accordion-header-actions">
-        <button class="add-visual-btn" (click)="addCustomVisual(categoryName, itemType); $event.stopPropagation()" [title]="'Add custom ' + itemType.toLowerCase()">
+        <button class="add-visual-btn" (click)="addCustomVisual(categoryName, itemType)" [title]="'Add custom ' + itemType.toLowerCase()">
           <ion-icon name="add-circle-outline"></ion-icon>
         </button>
-        <ion-icon [name]="isSectionExpanded(sectionName) ? 'chevron-up' : 'chevron-down'" class="expand-icon"></ion-icon>
       </div>
     </div>
-    <div class="simple-accordion-content" *ngIf="isSectionExpanded(sectionName)">
+    <div class="simple-accordion-content">
       <div class="type-section">
         <ng-container *ngIf="{ list: filterItems(items) } as filtered">
           <div *ngIf="filtered.list.length === 0 && !searchTerm" class="no-items-message">
@@ -284,7 +283,6 @@
       <span>Gallery</span>
     </button>
     <button class="action-btn secondary"
-            [disabled]="getTotalPhotoCount(categoryName, item.lookupId) === 0"
             (click)="togglePhotoExpansion(categoryName, item.lookupId); $event.stopPropagation()">
       <ion-icon [name]="isPhotosExpanded(categoryName, item.lookupId) ? 'chevron-up' : 'eye'"></ion-icon>
       <span>View ({{ getTotalPhotoCount(categoryName, item.lookupId) }})</span>

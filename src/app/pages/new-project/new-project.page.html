@@ -22,7 +22,7 @@
       <h3 class="section-title" id="property-address-heading">PROPERTY ADDRESS</h3>
 
       <div class="field-wrapper">
-        <ion-item lines="full" [class.item-error]="isWeb && shouldShowError('address')">
+        <ion-item lines="none" [class.item-error]="isWeb && shouldShowError('address')">
           <ion-label position="stacked" id="address-label">Street Address</ion-label>
           <input
             id="address-input"
@@ -49,23 +49,24 @@
       </div>
 
       <div class="field-wrapper">
-        <ion-item lines="full" [class.item-error]="isWeb && shouldShowError('city')">
-          <ion-label position="stacked" id="city-label">City</ion-label>
-          <ion-input
+        <div class="input-container">
+          <label class="field-label" id="city-label">City</label>
+          <input
             type="text"
             [(ngModel)]="formData.city"
             name="city"
             placeholder="City"
-            [tabindex]="isWeb ? 2 : undefined"
-            (ionBlur)="onFieldBlur('city')"
-            (ionInput)="onFieldInput('city')"
+            class="native-input"
+            [class.input-error]="isWeb && shouldShowError('city')"
+            [attr.tabindex]="isWeb ? 2 : null"
+            (blur)="onFieldBlur('city')"
+            (input)="onFieldInput('city')"
             required
             aria-required="true"
             aria-labelledby="city-label"
             [attr.aria-invalid]="isWeb && shouldShowError('city')"
             [attr.aria-describedby]="isWeb && shouldShowError('city') ? 'city-error' : null">
-          </ion-input>
-        </ion-item>
+        </div>
         <div class="validation-error" *ngIf="isWeb && shouldShowError('city')" id="city-error" role="alert">
           <ion-icon name="alert-circle-outline" aria-hidden="true"></ion-icon>
           {{ getFieldError('city') }}
@@ -73,7 +74,7 @@
       </div>
 
       <div class="field-wrapper">
-        <ion-item lines="full" [class.item-error]="isWeb && shouldShowError('state')">
+        <ion-item lines="none" [class.item-error]="isWeb && shouldShowError('state')">
           <ion-label position="stacked" id="state-label">State</ion-label>
           <select
             [(ngModel)]="formData.state"
@@ -101,24 +102,25 @@
       </div>
 
       <div class="field-wrapper">
-        <ion-item lines="full" [class.item-error]="isWeb && shouldShowError('zip')">
-          <ion-label position="stacked" id="zip-label">Zip Code</ion-label>
-          <ion-input
+        <div class="input-container">
+          <label class="field-label" id="zip-label">Zip Code</label>
+          <input
             type="text"
             [(ngModel)]="formData.zip"
             name="zip"
             placeholder="Zip Code"
             pattern="[0-9]{5}"
-            [tabindex]="isWeb ? 4 : undefined"
-            (ionBlur)="onFieldBlur('zip')"
-            (ionInput)="onFieldInput('zip')"
+            class="native-input"
+            [class.input-error]="isWeb && shouldShowError('zip')"
+            [attr.tabindex]="isWeb ? 4 : null"
+            (blur)="onFieldBlur('zip')"
+            (input)="onFieldInput('zip')"
             required
             aria-required="true"
             aria-labelledby="zip-label"
             [attr.aria-invalid]="isWeb && shouldShowError('zip')"
             [attr.aria-describedby]="isWeb && shouldShowError('zip') ? 'zip-error' : null">
-          </ion-input>
-        </ion-item>
+        </div>
         <div class="validation-error" *ngIf="isWeb && shouldShowError('zip')" id="zip-error" role="alert">
           <ion-icon name="alert-circle-outline" aria-hidden="true"></ion-icon>
           {{ getFieldError('zip') }}

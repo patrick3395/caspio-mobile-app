@@ -357,6 +357,8 @@
           <div class="service-header-row" 
                (click)="toggleServiceExpanded(offer)"
                [class.selected]="isServiceSelected(offer.OffersID)">
+            <img *ngIf="offer.TypeIconUrl" [src]="offer.TypeIconUrl" class="service-header-icon" alt="">
+            <ion-icon *ngIf="!offer.TypeIconUrl" name="document-text" class="service-header-icon-fallback"></ion-icon>
             <div class="service-name">
               {{ offer.TypeShort ? offer.TypeShort + ' - ' + offer.TypeName : (offer.TypeName || offer.Service_Name || offer.Description) }}
             </div>
@@ -430,10 +432,9 @@
                       </div>
                       <div class="template-content">
                         <div class="template-name">
-                          <img *ngIf="service.typeIconUrl" [src]="service.typeIconUrl" class="report-icon" alt="">
-                          <ion-icon *ngIf="!service.typeIconUrl" name="document-text" class="report-icon-fallback"></ion-icon>
                           <span class="service-title">
-                            <span *ngIf="service.typeShort">{{ service.typeShort }} - </span>{{ service.typeName }}
+                            <span *ngIf="service.typeShort" class="type-short">{{ service.typeShort }}</span>
+                            <span *ngIf="service.typeShort"> - </span>{{ service.typeName }}
                           </span>
                         </div>
                         <div *ngIf="service.StatusID || service.Status" class="report-status-container">

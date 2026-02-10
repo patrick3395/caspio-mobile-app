@@ -319,7 +319,7 @@ export class GenericCategoryHubPage implements OnInit, OnDestroy, ViewWillEnter 
   // Static icon map - allocated once, not per change detection cycle
   private static readonly CATEGORY_ICON_MAP: { [key: string]: string } = {
     // EFE categories
-    'Foundations': 'reorder-four-outline',
+    'Foundations': 'tablet-landscape-outline',
     'Grading and Drainage': 'water-outline',
     'General Conditions': 'document-text-outline',
     'Roof Structure': 'home-outline',
@@ -351,4 +351,5 @@ export class GenericCategoryHubPage implements OnInit, OnDestroy, ViewWillEnter 
   getCategoryIcon(categoryName: string): string {
     return GenericCategoryHubPage.CATEGORY_ICON_MAP[categoryName] || 'construct-outline';
   }
+
 }

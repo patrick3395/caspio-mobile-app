@@ -1064,6 +1064,7 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         const existing = this.photos[existingIndex];
         existing.caption = img.caption || existing.caption;
         existing.uploading = img.status === 'queued' || img.status === 'uploading';
+        existing.loading = false; // Clear loading flag — photo exists in Dexie, no shimmer needed
         existing.isLocal = !img.isSynced;
         existing.hasAnnotations = hasAnnotations;
         existing.drawings = img.drawings || existing.drawings;
@@ -1178,10 +1179,14 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         }
       }
 
-      // Update photo properties if changed
-      if (needsUpdate && !this.isDestroyed) {
-        photo.displayUrl = displayUrl;
-        photo.originalUrl = originalUrl;
+      // ALWAYS clear loading flag after blob load attempt, even if blob wasn't found.
+      // Without this, photos whose blobs were purged (localBlobId set but blob deleted)
+      // get stuck with loading=true forever, causing permanent shimmer overlay.
+      if (!this.isDestroyed) {
+        if (needsUpdate) {
+          photo.displayUrl = displayUrl;
+          photo.originalUrl = originalUrl;
+        }
         photo.loading = false;
       }
     });

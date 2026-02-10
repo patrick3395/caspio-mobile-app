@@ -12,11 +12,6 @@
       {{ platform.isWeb() ? typeFull : typeShort }}
       <ion-icon *ngIf="serviceData?.ReportFinalized" name="checkmark-circle" class="finalized-check-icon"></ion-icon>
     </ion-title>
-    <div slot="end" class="template-toolbar-actions">
-      <button id="eng-pdf-btn" (click)="generatePDF()">
-        <ion-icon name="document-text-outline"></ion-icon>
-      </button>
-    </div>
   </ion-toolbar>
 
   <!-- Auto-Sync OFF Warning Banner - Inside header (Mobile only) -->
@@ -526,7 +521,7 @@
           <div class="form-grid">
             <div class="form-group full-width" [class.filled]="serviceData.StructuralSystemsStatus">
               <label>
-                Where will you provide the Visuals<span class="required">*</span>
+                Where will you provide the visual condition assessment?<span class="required">*</span>
               </label>
               <p class="field-description">
                 If you are providing the visuals in the inspection report select "Provided in Property Inspection Report"

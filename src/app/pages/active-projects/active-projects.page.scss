@@ -452,9 +452,8 @@ ion-item-option {
   font-size: 12px;
   color: var(--noble-orange);
   font-weight: 500;
-  font-style: italic;
   margin-top: 2px;
-  
+
   // Handle long service names gracefully
   overflow: hidden;
   text-overflow: ellipsis;

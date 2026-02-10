@@ -120,6 +120,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   photoCountsByKey: { [key: string]: number } = {};
   expandedPhotos: { [key: string]: boolean } = {};
   bulkAnnotatedImagesMap: Map<string, string> = new Map();
+  // Last-known-good photo cache: tracks keys that have had photos deleted explicitly.
+  // Used by getPhotosForVisual to prevent photos from silently disappearing.
+  private _photosExplicitlyDeleted: { [key: string]: boolean } = {};
 
   // ==================== DEXIE-FIRST: Bulk Caching Maps (MOBILE ONLY) ====================
   private bulkLocalImagesMap: Map<string, LocalImage[]> = new Map();
@@ -814,6 +817,14 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           // Update bulkLocalImagesMap reactively
           this.updateBulkLocalImagesMap(localImages);
 
+          // DIAGNOSTIC: Log photo state before populate to detect any vanishing
+          const prePopulateKeys = Object.entries(this.visualPhotos)
+            .filter(([, photos]) => photos?.length > 0)
+            .map(([k, photos]) => `${k}:${photos.length}`);
+          if (prePopulateKeys.length > 0) {
+            this.logDebug('DEXIE', `Pre-populate photo state: ${prePopulateKeys.join(', ')}`);
+          }
+
           // UNIFIED: Refresh photos from updated Dexie data using generic fields if available
           if (this.lastConvertedGenericFields && this.lastConvertedGenericFields.length > 0) {
             await this.populateGenericPhotosFromDexie(this.lastConvertedGenericFields);
@@ -822,21 +833,23 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
             await this.populatePhotosFromDexie(this.lastConvertedFields);
           }
 
+          // DIAGNOSTIC: Log photo state after populate to detect any loss
+          const postPopulateKeys = Object.entries(this.visualPhotos)
+            .filter(([, photos]) => photos?.length > 0)
+            .map(([k, photos]) => `${k}:${photos.length}`);
+          if (postPopulateKeys.length > 0) {
+            this.logDebug('DEXIE', `Post-populate photo state: ${postPopulateKeys.join(', ')}`);
+          }
+
           // Guard again after async operations
           if (this.isDestroyed) {
             return;
           }
 
-          // Debounce change detection to avoid rapid-fire updates
-          if (this.liveQueryDebounceTimer) {
-            clearTimeout(this.liveQueryDebounceTimer);
-          }
-          this.liveQueryDebounceTimer = setTimeout(() => {
-            if (!this.isDestroyed) {
-              this.safeDetectChanges();
-            }
-            this.liveQueryDebounceTimer = null;
-          }, 100);
+          // Trigger change detection immediately after populate.
+          // Previously debounced by 100ms, but that gap allowed other CD calls
+          // (e.g., from field liveQuery) to render the template with stale photo state.
+          this.safeDetectChanges();
         },
         (error) => {
           this.logDebug('ERROR', `Error in LocalImages subscription: ${error}`);
@@ -1824,10 +1837,21 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
       this.logDebug('DEXIE', `Found ${allLocalImages.length} LocalImages (entityType: ${entityType}) for ${localImagesMap.size} entities`);
 
+      // PHOTO PERSISTENCE: Snapshot photo counts before populate.
+      // After populate, verify no photos were lost. If a key had photos but now doesn't,
+      // restore from snapshot. This guards against any race condition causing photo loss.
+      const prePopulateSnapshot: { [key: string]: any[] } = {};
+      for (const [snapKey, snapPhotos] of Object.entries(this.visualPhotos)) {
+        if (snapPhotos && snapPhotos.length > 0) {
+          prePopulateSnapshot[snapKey] = snapPhotos;
+        }
+      }
+
       let photosAddedCount = 0;
       let fieldsProcessed = 0;
 
       for (const field of fields) {
+       try {
         // Use GenericFieldRepoService to get IDs in a template-agnostic way
         const realId = this.genericFieldRepo.getRecordId(this.config, field);
         const tempId = this.genericFieldRepo.getTempRecordId(this.config, field);
@@ -2125,6 +2149,27 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
             this.logDebug('DEXIE', 'Aborting populate — new photo operation started');
             return;
           }
+        }
+       } catch (fieldErr) {
+        // Per-field error handling: log and continue to next field.
+        // Without this, one failed field aborts the entire populate, potentially
+        // leaving photos for other fields unprocessed.
+        this.logDebug('WARN', `Error populating photos for field templateId=${field.templateId}: ${fieldErr}`);
+       }
+      }
+
+      // PHOTO PERSISTENCE VERIFICATION: Check if any photos were lost during populate.
+      // If a key had photos before populate but now has fewer, restore from snapshot.
+      // This guards against race conditions that could cause photos to vanish.
+      // Skip keys where photos were explicitly deleted by the user.
+      for (const [snapKey, snapPhotos] of Object.entries(prePopulateSnapshot)) {
+        if (this._photosExplicitlyDeleted[snapKey]) continue;
+        const currentPhotos = this.visualPhotos[snapKey];
+        if (!currentPhotos || currentPhotos.length < snapPhotos.length) {
+          const lost = snapPhotos.length - (currentPhotos?.length || 0);
+          this.logDebug('WARN', `PHOTO PERSISTENCE: key=${snapKey} lost ${lost} photos (${snapPhotos.length} → ${currentPhotos?.length || 0}). Restoring from snapshot.`);
+          this.visualPhotos[snapKey] = snapPhotos;
+          this.photoCountsByKey[snapKey] = snapPhotos.length;
         }
       }
 
@@ -3389,6 +3434,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     if (!this.visualPhotos[key]) {
       this.visualPhotos[key] = [];
     }
+    // Clear explicit deletion flag — user is adding new photos
+    delete this._photosExplicitlyDeleted[key];
 
     // Configure and call PhotoHandlerService
     const captureConfig: PhotoCaptureConfig = {
@@ -3416,6 +3463,10 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           this.visualPhotos[key][photoIndex] = {
             ...photo,
             localImageId: existing.localImageId || existing.imageId,
+            // Explicit flags — StandardPhotoEntry lacks 'loading'/'displayState'
+            loading: false,
+            isSkeleton: false,
+            displayState: 'local',
           };
         }
         this.scheduleDetectChanges();
@@ -3482,6 +3533,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     if (!this.visualPhotos[key]) {
       this.visualPhotos[key] = [];
     }
+    // Clear explicit deletion flag — user is adding new photos
+    delete this._photosExplicitlyDeleted[key];
 
     // Configure and call PhotoHandlerService
     const captureConfig: PhotoCaptureConfig = {
@@ -3510,6 +3563,10 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           this.visualPhotos[key][photoIndex] = {
             ...photo,
             localImageId: existing.localImageId || existing.imageId,
+            // Explicit flags — StandardPhotoEntry lacks 'loading'/'displayState'
+            loading: false,
+            isSkeleton: false,
+            displayState: 'local',
           };
         }
         this.scheduleDetectChanges();
@@ -3740,6 +3797,10 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           (p.AttachID || p.id || p.imageId) !== photoId
         );
         this.photoCountsByKey[key] = this.visualPhotos[key].length;
+        // Mark explicit deletion so photo persistence guard doesn't restore it
+        if (this.visualPhotos[key].length === 0) {
+          this._photosExplicitlyDeleted[key] = true;
+        }
         this.changeDetectorRef.detectChanges();
 
         // CRITICAL: Save updated photoCount to Dexie so it persists on reload
