@@ -5883,7 +5883,7 @@ ion-alert.custom-alert {
   }
 }
 
-// --- Notification Sender Styles ---
+// --- Notification Tab Styles ---
 
 .notif-card {
   background: var(--color-bg-card);
@@ -5894,12 +5894,57 @@ ion-alert.custom-alert {
 }
 
 .notif-card-title {
-  margin: 0 0 20px;
+  margin: 0 0 16px;
   font-size: 1.1rem;
   font-weight: 600;
   color: var(--color-text-primary);
 }
 
+.notif-card-desc {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin: -8px 0 16px;
+}
+
+// Auto-notification setting rows
+.notif-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid var(--color-border-default);
+  }
+}
+
+.notif-setting-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  > ion-icon {
+    font-size: 22px;
+    color: #f15a27;
+    flex-shrink: 0;
+  }
+}
+
+.notif-setting-label {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.notif-setting-desc {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+
+// Target type toggle
 .notif-target-toggle {
   display: flex;
   gap: 0;
@@ -5915,11 +5960,11 @@ ion-alert.custom-alert {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 10px 16px;
+  padding: 10px 12px;
   background: transparent;
   border: none;
   border-radius: 6px;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -5932,46 +5977,7 @@ ion-alert.custom-alert {
   }
 }
 
-.notif-field {
-  margin-bottom: 14px;
-}
-
-.notif-label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  margin-bottom: 6px;
-}
-
-.notif-input,
-.notif-select,
-.notif-textarea {
-  width: 100%;
-  padding: 10px 12px;
-  background: var(--color-bg-page);
-  border: 1px solid var(--color-border-default);
-  border-radius: 8px;
-  font-size: 0.95rem;
-  color: var(--color-text-primary);
-  outline: none;
-  transition: border-color 0.2s;
-  box-sizing: border-box;
-
-  &:focus {
-    border-color: #f15a27;
-  }
-}
-
-.notif-select {
-  appearance: auto;
-}
-
-.notif-textarea {
-  resize: vertical;
-  min-height: 70px;
-}
-
+// Target search
 .notif-search-wrapper {
   position: relative;
 }
@@ -6038,6 +6044,42 @@ ion-alert.custom-alert {
   color: var(--color-text-secondary);
   font-size: 18px;
   display: flex;
+}
+
+// Form fields
+.notif-field {
+  margin-bottom: 14px;
+}
+
+.notif-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+}
+
+.notif-input,
+.notif-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--color-bg-page);
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: var(--color-text-primary);
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+
+  &:focus {
+    border-color: #f15a27;
+  }
+}
+
+.notif-textarea {
+  resize: vertical;
+  min-height: 70px;
 }
 
 .notif-send-btn {

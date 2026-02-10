@@ -1842,6 +1842,24 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           }
         }
 
+        // TIER 5 FALLBACK: Photos already in UI array - find their LocalImages directly by imageId
+        // This catches the case where photos exist in the UI but their entityId doesn't match any lookup
+        // (e.g., during sync transition when entityId was migrated but field data is stale)
+        if (localImages.length === 0 && this.visualPhotos[key]?.length > 0) {
+          for (const existingPhoto of this.visualPhotos[key]) {
+            const photoImageId = existingPhoto.imageId || existingPhoto.localImageId;
+            if (photoImageId) {
+              const found = allLocalImages.find((img: any) => img.imageId === photoImageId);
+              if (found && !localImages.some((li: any) => li.imageId === found.imageId)) {
+                localImages.push(found);
+              }
+            }
+          }
+          if (localImages.length > 0) {
+            this.logDebug('DEXIE', `Tier 5 fallback: found ${localImages.length} photos by imageId for key=${key}`);
+          }
+        }
+
         if (localImages.length === 0) continue;
 
         // Sort by createdAt (newest first) for consistent ordering with push()

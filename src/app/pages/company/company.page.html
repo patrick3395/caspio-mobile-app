@@ -42,10 +42,6 @@
         <ion-icon name="people"></ion-icon>
         <span>Partners</span>
       </button>
-      <button class="admin-main-tab" [class.active]="adminMainTab === 'notifications'" (click)="selectAdminMainTab('notifications')">
-        <ion-icon name="notifications"></ion-icon>
-        <span>Notifications</span>
-      </button>
     </div>
 
     <!-- Company Main Tab Content -->
@@ -132,6 +128,10 @@
         <button class="sub-tab" [class.active]="selectedTab === 'metrics'" (click)="selectTab('metrics')">
           <ion-icon name="analytics-outline"></ion-icon>
           <span>Metrics</span>
+        </button>
+        <button class="sub-tab" [class.active]="selectedTab === 'notifications'" (click)="selectTab('notifications')">
+          <ion-icon name="notifications-outline"></ion-icon>
+          <span>Notifications</span>
         </button>
       </div>
     </div>
@@ -1255,23 +1255,55 @@
       </ng-template>
     </div>
 
-    <!-- Notifications Main Tab Content -->
-    <div *ngIf="adminMainTab === 'notifications'" class="admin-tab-content">
+    <!-- Notifications Sub-Tab Content -->
+    <div *ngIf="selectedTab === 'notifications'" class="tab-content notifications-tab">
+      <!-- Auto-Notification Settings -->
+      <div class="notif-card">
+        <h3 class="notif-card-title">Automatic Notifications</h3>
+        <p class="notif-card-desc">When enabled, all companies with registered devices will receive push notifications automatically.</p>
+
+        <div class="notif-setting-row">
+          <div class="notif-setting-info">
+            <ion-icon name="checkmark-done-outline"></ion-icon>
+            <div>
+              <span class="notif-setting-label">Service Complete</span>
+              <span class="notif-setting-desc">Notify when a service is marked complete</span>
+            </div>
+          </div>
+          <ion-toggle [checked]="globalNotifServiceComplete" (ionChange)="toggleGlobalNotif('service_complete')" mode="ios"></ion-toggle>
+        </div>
+
+        <div class="notif-setting-row">
+          <div class="notif-setting-info">
+            <ion-icon name="card-outline"></ion-icon>
+            <div>
+              <span class="notif-setting-label">Payment Received</span>
+              <span class="notif-setting-desc">Notify when an autopay payment is processed</span>
+            </div>
+          </div>
+          <ion-toggle [checked]="globalNotifPaymentReceived" (ionChange)="toggleGlobalNotif('payment_received')" mode="ios"></ion-toggle>
+        </div>
+      </div>
+
+      <!-- Send Notification -->
       <div class="notif-card">
         <h3 class="notif-card-title">Send Notification</h3>
 
         <!-- Target Type -->
         <div class="notif-target-toggle">
-          <button class="notif-target-btn" [class.active]="notifTargetType === 'company'" (click)="notifTargetType = 'company'; notifTargetSearch = ''; notifTargetId = null">
-            <ion-icon name="business"></ion-icon> Company
+          <button class="notif-target-btn" [class.active]="notifTargetType === 'all'" (click)="setNotifTarget('all')">
+            <ion-icon name="megaphone-outline"></ion-icon> All
           </button>
-          <button class="notif-target-btn" [class.active]="notifTargetType === 'user'" (click)="notifTargetType = 'user'; notifTargetSearch = ''; notifTargetId = null">
-            <ion-icon name="person"></ion-icon> User
+          <button class="notif-target-btn" [class.active]="notifTargetType === 'company'" (click)="setNotifTarget('company')">
+            <ion-icon name="business-outline"></ion-icon> Company
+          </button>
+          <button class="notif-target-btn" [class.active]="notifTargetType === 'user'" (click)="setNotifTarget('user')">
+            <ion-icon name="person-outline"></ion-icon> User
           </button>
         </div>
 
-        <!-- Target Search -->
-        <div class="notif-field">
+        <!-- Target Search (company or user) -->
+        <div class="notif-field" *ngIf="notifTargetType !== 'all'">
           <label class="notif-label">{{ notifTargetType === 'company' ? 'Company' : 'User' }}</label>
           <div class="notif-search-wrapper">
             <input type="text" class="notif-input" [(ngModel)]="notifTargetSearch"
@@ -1292,16 +1324,6 @@
           </div>
         </div>
 
-        <!-- Notification Type -->
-        <div class="notif-field">
-          <label class="notif-label">Notification Type</label>
-          <select class="notif-select" [(ngModel)]="notifType">
-            <option value="admin_message">Admin Message</option>
-            <option value="service_completed">Service Complete</option>
-            <option value="payment_received">Payment Received</option>
-          </select>
-        </div>
-
         <!-- Title -->
         <div class="notif-field">
           <label class="notif-label">Title</label>
@@ -1318,7 +1340,7 @@
         <button class="notif-send-btn" [disabled]="!canSendNotification() || notifSending" (click)="sendNotification()">
           <ion-spinner *ngIf="notifSending" name="crescent"></ion-spinner>
           <span *ngIf="!notifSending">
-            <ion-icon name="send"></ion-icon> Send Notification
+            <ion-icon name="send"></ion-icon> {{ notifTargetType === 'all' ? 'Send to All' : 'Send Notification' }}
           </span>
         </button>
       </div>

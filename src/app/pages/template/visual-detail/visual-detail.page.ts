@@ -951,7 +951,11 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
 
     if (!this.visualId && !tempId && !realId) {
-      this.photos = [];
+      // Don't clear photos that are already displayed - they have valid blob URLs
+      // This prevents photos from vanishing during brief ID transition windows
+      if (this.photos.length > 0) {
+        console.warn('[GenericVisualDetail] No IDs found but photos exist - preserving existing photos');
+      }
       return;
     }
 

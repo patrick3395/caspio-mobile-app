@@ -236,9 +236,9 @@ export class CompanyPage implements OnInit, OnDestroy {
   currentUserCompanyName: string = '';
   organizationUsers: any[] = [];
 
-  // Admin CRM main tab (Company vs Partners vs Notifications)
-  adminMainTab: 'company' | 'partners' | 'notifications' = 'company';
-  selectedTab: 'company' | 'companies' | 'contacts' | 'tasks' | 'meetings' | 'communications' | 'invoices' | 'metrics' | 'users' = 'users';
+  // Admin CRM main tab (Company vs Partners)
+  adminMainTab: 'company' | 'partners' = 'company';
+  selectedTab: 'company' | 'companies' | 'contacts' | 'tasks' | 'meetings' | 'communications' | 'invoices' | 'metrics' | 'users' | 'notifications' = 'users';
 
   // Client-only tabs (for non-CompanyID 1 users)
   clientTab: 'company' | 'payments' | 'metrics' = 'company';
@@ -573,12 +573,14 @@ export class CompanyPage implements OnInit, OnDestroy {
   communicationTypes: Array<{id: number, name: string}> = [];
   taskUsers: Array<{name: string}> = [];
 
-  // Notification sender
-  notifTargetType: 'company' | 'user' = 'company';
+  // Notification settings & sender
+  allCompaniesForNotif: Array<{CompanyID: number, CompanyName: string}> = [];
+  globalNotifServiceComplete = true;
+  globalNotifPaymentReceived = true;
+  notifTargetType: 'all' | 'company' | 'user' = 'all';
   notifTargetSearch = '';
   notifTargetId: string | null = null;
   notifTargetSuggestions: Array<{id: string, label: string}> = [];
-  notifType = 'admin_message';
   notifTitle = '';
   notifBody = '';
   notifSending = false;
@@ -616,6 +618,9 @@ export class CompanyPage implements OnInit, OnDestroy {
         this.isCompanyOne = false;
       }
     }
+
+    // Load global notification settings from backend
+    this.loadNotificationSettings();
 
     // Load appropriate data based on company
     if (this.isCompanyOne) {
@@ -1252,6 +1257,12 @@ export class CompanyPage implements OnInit, OnDestroy {
         .map(record => record.Software ?? record.Name ?? '')
         .filter(name => name.trim() !== '')
         .sort();
+
+      // Store all companies (unfiltered) for notification targeting
+      this.allCompaniesForNotif = companyRecords.map(r => ({
+        CompanyID: Number(r.CompanyID ?? r.PK_ID ?? 0),
+        CompanyName: r.CompanyName || r.Name || ''
+      }));
 
       const filteredCompanyRecords = companyRecords.filter(record => {
         const id = Number(record.CompanyID ?? record.PK_ID ?? 0);
@@ -1938,6 +1949,10 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Reload companies data to include the new company
       const companyRecords = await this.fetchTableRecords('Companies', { 'q.orderBy': 'CompanyName', 'q.limit': '2000' });
+      this.allCompaniesForNotif = companyRecords.map(r => ({
+        CompanyID: Number(r.CompanyID ?? r.PK_ID ?? 0),
+        CompanyName: r.CompanyName || r.Name || ''
+      }));
       const filteredCompanyRecords = companyRecords.filter(record => {
         const id = Number(record.CompanyID ?? record.PK_ID ?? 0);
         return id !== this.excludedCompanyId;
@@ -3925,15 +3940,14 @@ export class CompanyPage implements OnInit, OnDestroy {
     }
   }
 
-  selectAdminMainTab(tab: 'company' | 'partners' | 'notifications') {
+  selectAdminMainTab(tab: 'company' | 'partners') {
     this.adminMainTab = tab;
     // Auto-select first sub-tab when switching main tabs
     if (tab === 'company') {
       this.selectTab('users');
-    } else if (tab === 'partners') {
+    } else {
       this.selectTab('companies');
     }
-    // Notifications tab has no sub-tabs
   }
 
   private tabDataLoaded: {[key: string]: boolean} = {
@@ -6990,7 +7004,38 @@ export class CompanyPage implements OnInit, OnDestroy {
     }
   }
 
-  // --- Notification Sender Methods ---
+  // --- Notification Methods ---
+
+  private loadNotificationSettings() {
+    this.apiGateway.get('/api/notifications/settings').subscribe({
+      next: (res: any) => {
+        this.globalNotifServiceComplete = res.serviceComplete !== false;
+        this.globalNotifPaymentReceived = res.paymentReceived !== false;
+      },
+      error: () => {} // Defaults already set to true
+    });
+  }
+
+  toggleGlobalNotif(type: string) {
+    if (type === 'service_complete') {
+      this.globalNotifServiceComplete = !this.globalNotifServiceComplete;
+    } else if (type === 'payment_received') {
+      this.globalNotifPaymentReceived = !this.globalNotifPaymentReceived;
+    }
+    this.apiGateway.post('/api/notifications/settings', {
+      serviceComplete: this.globalNotifServiceComplete,
+      paymentReceived: this.globalNotifPaymentReceived,
+    }).subscribe({
+      error: (err: any) => console.error('Failed to save notification settings', err)
+    });
+  }
+
+  setNotifTarget(type: 'all' | 'company' | 'user') {
+    this.notifTargetType = type;
+    this.notifTargetSearch = '';
+    this.notifTargetId = null;
+    this.notifTargetSuggestions = [];
+  }
 
   filterNotifTargets() {
     const query = this.notifTargetSearch.toLowerCase().trim();
@@ -7000,7 +7045,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     }
 
     if (this.notifTargetType === 'company') {
-      this.notifTargetSuggestions = this.companies
+      this.notifTargetSuggestions = this.allCompaniesForNotif
         .filter(c => c.CompanyName?.toLowerCase().includes(query))
         .slice(0, 8)
         .map(c => ({ id: String(c.CompanyID), label: c.CompanyName }));
@@ -7026,7 +7071,9 @@ export class CompanyPage implements OnInit, OnDestroy {
   }
 
   canSendNotification(): boolean {
-    return !!this.notifTargetId && !!this.notifTitle.trim() && !!this.notifBody.trim();
+    if (!this.notifTitle.trim() || !this.notifBody.trim()) return false;
+    if (this.notifTargetType !== 'all' && !this.notifTargetId) return false;
+    return true;
   }
 
   async sendNotification() {
@@ -7036,21 +7083,27 @@ export class CompanyPage implements OnInit, OnDestroy {
     const payload: any = {
       title: this.notifTitle.trim(),
       body: this.notifBody.trim(),
-      data: { type: this.notifType }
+      data: { type: 'admin_message' }
     };
 
-    if (this.notifTargetType === 'company') {
+    let targetLabel = 'All devices';
+    if (this.notifTargetType === 'all') {
+      payload.broadcast = true;
+    } else if (this.notifTargetType === 'company') {
       payload.companyId = this.notifTargetId;
+      targetLabel = `Company: ${this.notifTargetSearch}`;
     } else {
-      payload.userId = this.notifTargetId;
+      payload.targetUserId = this.notifTargetId;
+      targetLabel = `User: ${this.notifTargetSearch}`;
     }
 
     try {
       const result: any = await firstValueFrom(this.apiGateway.post('/api/notifications/send', payload));
+
       this.notifHistory.unshift({
         title: this.notifTitle,
         body: this.notifBody,
-        targetLabel: `${this.notifTargetType === 'company' ? 'Company' : 'User'}: ${this.notifTargetSearch}`,
+        targetLabel,
         time: new Date(),
         success: true,
         sent: result?.sent || 0
@@ -7064,21 +7117,20 @@ export class CompanyPage implements OnInit, OnDestroy {
       });
       await toast.present();
 
-      // Reset form
       this.notifTitle = '';
       this.notifBody = '';
     } catch (err: any) {
       this.notifHistory.unshift({
         title: this.notifTitle,
         body: this.notifBody,
-        targetLabel: `${this.notifTargetType === 'company' ? 'Company' : 'User'}: ${this.notifTargetSearch}`,
+        targetLabel,
         time: new Date(),
         success: false,
         sent: 0
       });
 
       const toast = await this.toastController.create({
-        message: `Failed to send notification: ${err.message || 'Unknown error'}`,
+        message: `Failed to send: ${err.message || 'Unknown error'}`,
         duration: 3000,
         color: 'danger',
         position: 'top'

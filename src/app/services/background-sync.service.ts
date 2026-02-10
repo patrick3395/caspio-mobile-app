@@ -1143,6 +1143,12 @@ export class BackgroundSyncService {
               await this.indexedDb.cacheServiceData(serviceId, 'hud', updatedHud);
             }
 
+            // CRITICAL: Save tempId→realId mapping FIRST so that any liveQuery handlers
+            // triggered by updateEntityIdForImages can use getRealId() fallback
+            if (request.tempId) {
+              await this.indexedDb.mapTempId(request.tempId, realId.toString(), this.getTempIdType(request.tempId));
+            }
+
             // Bulk-migrate LocalImage entityId from tempId to realId so photos remain
             // findable after the HUD record's temp ID is replaced with the real ID
             if (request.tempId) {
@@ -1206,6 +1212,12 @@ export class BackgroundSyncService {
               }
 
               await this.indexedDb.cacheServiceData(serviceId, 'lbw_records', updatedLbw);
+
+              // CRITICAL: Save tempId→realId mapping FIRST so that any liveQuery handlers
+              // triggered by updateEntityIdForImages can use getRealId() fallback
+              if (request.tempId) {
+                await this.indexedDb.mapTempId(request.tempId, realId.toString(), this.getTempIdType(request.tempId));
+              }
 
               // Bulk-migrate LocalImage entityId from tempId to realId BEFORE updating lbwFields.
               // The lbwFields update triggers a liveQuery that reads photos by the new realId,
@@ -1290,6 +1302,12 @@ export class BackgroundSyncService {
 
               await this.indexedDb.cacheServiceData(serviceId, 'dte', updatedDte);
 
+              // CRITICAL: Save tempId→realId mapping FIRST so that any liveQuery handlers
+              // triggered by updateEntityIdForImages can use getRealId() fallback
+              if (request.tempId) {
+                await this.indexedDb.mapTempId(request.tempId, realId.toString(), this.getTempIdType(request.tempId));
+              }
+
               // Bulk-migrate LocalImage entityId from tempId to realId BEFORE updating dteFields.
               // The dteFields update triggers a liveQuery that reads photos by the new realId,
               // so photos must already have the correct entityId when that liveQuery fires.
@@ -1373,6 +1391,12 @@ export class BackgroundSyncService {
               }
 
               await this.indexedDb.cacheServiceData(serviceId, 'csa_records', updatedCsa);
+
+              // CRITICAL: Save tempId→realId mapping FIRST so that any liveQuery handlers
+              // triggered by updateEntityIdForImages can use getRealId() fallback
+              if (request.tempId) {
+                await this.indexedDb.mapTempId(request.tempId, realId.toString(), this.getTempIdType(request.tempId));
+              }
 
               // Bulk-migrate LocalImage entityId from tempId to realId BEFORE updating csaFields.
               // The csaFields update triggers a liveQuery that reads photos by the new realId,
