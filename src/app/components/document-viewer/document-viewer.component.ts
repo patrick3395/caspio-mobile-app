@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnInit, AfterViewInit, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController, AlertController } from '@ionic/angular';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -26,9 +26,6 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
                 [attr.data-file-type]="fileType"></iframe>
       </div>
       <div class="pdf-container" *ngIf="isPDF">
-        <div class="pdf-close-btn" (click)="dismiss()">
-          <ion-icon name="close"></ion-icon>
-        </div>
         <ngx-extended-pdf-viewer
           [src]="pdfSource"
           [height]="'100vh'"
@@ -52,6 +49,8 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
           [showDrawEditor]="false"
           [showHighlightEditor]="false"
           [showTextEditor]="false"
+          [showCommentEditor]="false"
+          [showSignatureEditor]="false"
           [zoom]="100"
           [spread]="'off'"
           [theme]="'dark'"
@@ -79,27 +78,30 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
       justify-content: center;
       overflow: hidden;
     }
-    .pdf-close-btn {
-      position: fixed;
-      top: 12px;
-      right: 16px;
-      z-index: 10000;
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: rgba(45, 52, 54, 0.85);
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 20px;
-      backdrop-filter: blur(4px);
-      border: 1px solid rgba(255,255,255,0.15);
-      transition: background 0.2s;
+    /* Close button injected into toolbar */
+    ::ng-deep #pdfCloseBtn {
+      color: #fff !important;
+      cursor: pointer !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      vertical-align: middle !important;
+      width: 28px !important;
+      height: 28px !important;
+      min-width: 28px !important;
+      margin: 2px 4px !important;
+      padding: 0 !important;
+      border: none !important;
+      background: transparent !important;
+      border-radius: 6px !important;
+      transition: all 0.2s ease !important;
     }
-    .pdf-close-btn:hover {
-      background: rgba(241, 90, 39, 0.9);
+    ::ng-deep #pdfCloseBtn:hover {
+      background-color: rgba(241, 90, 39, 0.8) !important;
+    }
+    ::ng-deep #toolbarViewerRight {
+      display: flex !important;
+      align-items: center !important;
     }
     .pdf-container {
       width: 100%;
@@ -246,9 +248,15 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
         background: #5a5a5a !important;
       }
       
+      /* Hide sidebar view toggle buttons (thumbnail/outline/attachments) */
+      #toolbarSidebar {
+        display: none !important;
+      }
+
       /* Ensure sidebar shows thumbnails by default */
       #sidebarContent {
         background: #1a1a1a !important;
+        top: 0 !important;
       }
       
       #thumbnailView {
@@ -355,7 +363,7 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
 
   `]
 })
-export class DocumentViewerComponent implements OnInit {
+export class DocumentViewerComponent implements OnInit, AfterViewInit {
   @Input() fileUrl!: string;
   @Input() fileName!: string;
   @Input() fileType!: string;
@@ -370,8 +378,36 @@ export class DocumentViewerComponent implements OnInit {
   constructor(
     private modalController: ModalController,
     private sanitizer: DomSanitizer,
-    private alertController: AlertController
+    private alertController: AlertController,
+    private ngZone: NgZone
   ) {}
+
+  ngAfterViewInit() {
+    if (this.isPDF) {
+      this.injectCloseButton();
+    }
+  }
+
+  private injectCloseButton() {
+    // Wait for the PDF viewer toolbar to render
+    const tryInject = (attempts = 0) => {
+      const toolbarRight = document.querySelector('#toolbarViewerRight');
+      if (toolbarRight) {
+        const btn = document.createElement('button');
+        btn.id = 'pdfCloseBtn';
+        btn.className = 'toolbarButton';
+        btn.title = 'Close';
+        btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+        btn.addEventListener('click', () => {
+          this.ngZone.run(() => this.dismiss());
+        });
+        toolbarRight.appendChild(btn);
+      } else if (attempts < 20) {
+        setTimeout(() => tryInject(attempts + 1), 150);
+      }
+    };
+    tryInject();
+  }
 
   ngOnInit() {
     

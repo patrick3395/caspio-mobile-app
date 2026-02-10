@@ -787,8 +787,13 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
   private async loadPhotos() {
     if (!this.config || this.isDestroyed) return;
 
-    this.loadingPhotos = true;
-    this.safeDetectChanges();
+    // SYNC FIX: Don't set loadingPhotos=true on subsequent calls (only first load).
+    // Setting it + detectChanges during sync causes an unnecessary intermediate re-render
+    // that can flash the loading state while photos are being merged.
+    if (this.photos.length === 0) {
+      this.loadingPhotos = true;
+      this.safeDetectChanges();
+    }
 
     try {
       if (environment.isWeb) {

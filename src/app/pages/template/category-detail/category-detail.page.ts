@@ -780,7 +780,14 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     // Run outside Angular zone so liveQuery emissions don't trigger ApplicationRef.tick().
     // All UI updates use explicit detectChanges() via safeDetectChanges().
     this.ngZone.runOutsideAngular(() => {
-      this.localImagesSubscription = db.liveLocalImages$(this.serviceId, entityType).subscribe(
+      // SYNC FIX: Debounce rapid-fire liveQuery emissions during sync transitions.
+      // When background sync runs, updateEntityIdForImages + markUploaded + field updates
+      // all trigger emissions in quick succession. Without debounce, each triggers a full
+      // populate cycle with potentially stale field data. The 300ms debounce collapses these
+      // into a single populate after things settle, preventing photo flicker.
+      this.localImagesSubscription = db.liveLocalImages$(this.serviceId, entityType)
+        .pipe(debounceTime(300))
+        .subscribe(
         async (localImages) => {
           // CRITICAL: Guard against processing after destruction
           if (this.isDestroyed) {
@@ -2078,6 +2085,18 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       this.logDebug('DEXIE', `Photos populated: ${photosAddedCount} new photos added`);
     } finally {
       this.isPopulatingPhotos = false;
+
+      // SYNC FIX: Fields liveQuery handler skips convertGenericFieldsToOrganizedData when
+      // isPopulatingPhotos is true (line 552 guard). After populate completes, check if the
+      // fields fingerprint changed while we were populating and run the conversion now.
+      // This ensures organizedData stays current after sync updates field IDs.
+      if (this.lastConvertedGenericFields && this.lastConvertedGenericFields.length > 0) {
+        const currentFingerprint = this.computeFieldsFingerprint(this.lastConvertedGenericFields);
+        if (currentFingerprint !== this.lastFieldsFingerprint) {
+          this.convertGenericFieldsToOrganizedData(this.lastConvertedGenericFields);
+          this.lastFieldsFingerprint = currentFingerprint;
+        }
+      }
     }
   }
 
