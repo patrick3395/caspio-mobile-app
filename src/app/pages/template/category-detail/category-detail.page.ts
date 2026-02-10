@@ -120,12 +120,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   photoCountsByKey: { [key: string]: number } = {};
   expandedPhotos: { [key: string]: boolean } = {};
   bulkAnnotatedImagesMap: Map<string, string> = new Map();
-  // Last-known-good photo cache: tracks keys that have had photos deleted explicitly.
-  // Used by getPhotosForVisual to prevent photos from silently disappearing.
+  // Tracks keys where photos were explicitly deleted by the user.
+  // Used by persistence guard in populateGenericPhotosFromDexie to avoid restoring deleted photos.
   private _photosExplicitlyDeleted: { [key: string]: boolean } = {};
-  // DEBUG: Track last known photo counts per key to detect exact vanishing moment
-  private _debugLastPhotoCount: { [key: string]: number } = {};
-  private _debugAlertShown: { [key: string]: boolean } = {};
 
   // ==================== DEXIE-FIRST: Bulk Caching Maps (MOBILE ONLY) ====================
   private bulkLocalImagesMap: Map<string, LocalImage[]> = new Map();
@@ -566,37 +563,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
             // Fingerprint check: skip redundant UI rebuild when fields haven't structurally changed
             const newFingerprint = this.computeFieldsFingerprint(fields);
             if (newFingerprint !== this.lastFieldsFingerprint) {
-              // DEBUG: Snapshot selectedItems + photoCountsByKey BEFORE conversion
-              const _dbgSelBefore: { [k: string]: boolean } = {};
-              const _dbgCountBefore: { [k: string]: number } = {};
-              const _dbgPhotosInMemory: { [k: string]: number } = {};
-              for (const [k, v] of Object.entries(this.selectedItems)) {
-                if (v) _dbgSelBefore[k] = v;
-              }
-              for (const [k, v] of Object.entries(this.photoCountsByKey)) {
-                if (v > 0) _dbgCountBefore[k] = v;
-              }
-              for (const [k, v] of Object.entries(this.visualPhotos)) {
-                if (v && v.length > 0) _dbgPhotosInMemory[k] = v.length;
-              }
-
               this.convertGenericFieldsToOrganizedData(fields);
               this.lastFieldsFingerprint = newFingerprint;
-
-              // DEBUG: Check if conversion DESELECTED any item that had photos
-              for (const [k, wasSel] of Object.entries(_dbgSelBefore)) {
-                if (wasSel && !this.selectedItems[k] && _dbgPhotosInMemory[k] > 0) {
-                  alert(`[DEBUG] FIELD LIVEQUERY DESELECTED ITEM WITH PHOTOS!\nKey: ${k}\nPhotos in memory: ${_dbgPhotosInMemory[k]}\nWas selected: true → Now: ${this.selectedItems[k]}\nOld fingerprint: ${this.lastFieldsFingerprint?.substring(0, 50)}\nNew fingerprint: ${newFingerprint.substring(0, 50)}`);
-                }
-              }
-              // DEBUG: Check if conversion zeroed out photo counts
-              for (const [k, oldCount] of Object.entries(_dbgCountBefore)) {
-                const newCount = this.photoCountsByKey[k] || 0;
-                if (oldCount > 0 && newCount === 0) {
-                  alert(`[DEBUG] FIELD LIVEQUERY ZEROED PHOTO COUNT!\nKey: ${k}\nCount was: ${oldCount} → Now: ${newCount}\nPhotos in memory: ${_dbgPhotosInMemory[k] || 0}`);
-                }
-              }
-
               this.safeDetectChanges();
             } else {
               // Fields unchanged structurally — just update reference for photo population
@@ -823,7 +791,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       this.localImagesSubscription = db.liveLocalImages$(this.serviceId, entityType)
         .pipe(debounceTime(300))
         .subscribe(
-        async (localImages) => {
+        (localImages) => {
           // CRITICAL: Guard against processing after destruction
           if (this.isDestroyed) {
             return;
@@ -831,61 +799,16 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
           this.logDebug('DEXIE', `LocalImages updated: ${localImages.length} images`);
 
-          // Suppress during camera capture to prevent duplicate photos
-          if (this.isCameraCaptureInProgress || this.isMultiImageUploadInProgress) {
-            this.logDebug('DEXIE', 'Deferring - capture in progress');
-            this.scheduleDeferredPopulate();
-            return;
-          }
-
-          // Skip heavy re-population within photo operation window
-          const withinPhotoOpWindow = (Date.now() - this.lastPhotoOperationTime) < 3000;
-          if (withinPhotoOpWindow) {
-            this.logDebug('DEXIE', 'Deferring LocalImages — within photo operation window');
-            this.scheduleDeferredPopulate();
-            return;
-          }
-
           // Update bulkLocalImagesMap reactively
           this.updateBulkLocalImagesMap(localImages);
 
-          // DEBUG: Snapshot before populate
-          const _dbgBefore: { [k: string]: number } = {};
-          for (const [k, p] of Object.entries(this.visualPhotos)) {
-            if (p && p.length > 0) _dbgBefore[k] = p.length;
-          }
-          console.warn('[DEBUG] liveLocalImages$ → populate starting. Photos before:', JSON.stringify(_dbgBefore));
+          // ARCHITECTURE FIX: Do NOT call populateGenericPhotosFromDexie here.
+          // Visual-detail (which never loses photos) does NOT subscribe to LocalImages at all.
+          // The heavyweight repopulation during sync was the root cause of photos disappearing —
+          // it ran with potentially stale field data and caused timing windows where photos flickered.
+          // Instead, do lightweight in-place metadata updates for existing photos.
+          this.updatePhotosMetadataInPlace(localImages);
 
-          // UNIFIED: Refresh photos from updated Dexie data using generic fields if available
-          if (this.lastConvertedGenericFields && this.lastConvertedGenericFields.length > 0) {
-            await this.populateGenericPhotosFromDexie(this.lastConvertedGenericFields);
-          } else if (this.lastConvertedFields && this.lastConvertedFields.length > 0) {
-            // Legacy fallback for EFE
-            await this.populatePhotosFromDexie(this.lastConvertedFields);
-          }
-
-          // DEBUG: Compare after populate
-          const _dbgAfter: { [k: string]: number } = {};
-          for (const [k, p] of Object.entries(this.visualPhotos)) {
-            if (p && p.length > 0) _dbgAfter[k] = p.length;
-          }
-          console.warn('[DEBUG] liveLocalImages$ → populate done. Photos after:', JSON.stringify(_dbgAfter));
-          // Check for lost photos
-          for (const [k, beforeCount] of Object.entries(_dbgBefore)) {
-            const afterCount = _dbgAfter[k] || 0;
-            if (afterCount < beforeCount) {
-              alert(`[DEBUG] POPULATE LOST PHOTOS!\nKey: ${k}\nBefore: ${beforeCount}\nAfter: ${afterCount}`);
-            }
-          }
-
-          // Guard again after async operations
-          if (this.isDestroyed) {
-            return;
-          }
-
-          // Trigger change detection immediately after populate.
-          // Previously debounced by 100ms, but that gap allowed other CD calls
-          // (e.g., from field liveQuery) to render the template with stale photo state.
           this.safeDetectChanges();
         },
         (error) => {
@@ -943,6 +866,48 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     }
 
     this.logDebug('DEXIE', `Updated bulkLocalImagesMap with ${this.bulkLocalImagesMap.size} entity groups`);
+  }
+
+  /**
+   * Lightweight in-place metadata update for existing photos (MOBILE ONLY)
+   * Called from liveLocalImages$ instead of heavyweight populateGenericPhotosFromDexie.
+   * Mirrors visual-detail's approach: photos loaded once, only metadata updated reactively.
+   * Updates upload/loading status, captions, and attachIds without replacing photo objects.
+   */
+  private updatePhotosMetadataInPlace(localImages: any[]): void {
+    // Build lookup of current LocalImages by imageId
+    const localImageMap = new Map<string, any>();
+    for (const li of localImages) {
+      if (li.imageId) localImageMap.set(li.imageId, li);
+    }
+
+    let updatedCount = 0;
+    for (const [key, photos] of Object.entries(this.visualPhotos)) {
+      if (!photos || photos.length === 0) continue;
+      for (const photo of photos) {
+        const imageId = photo.imageId || photo.localImageId;
+        if (!imageId) continue;
+        const li = localImageMap.get(imageId);
+        if (li) {
+          // Update metadata in-place — never remove or replace the photo object
+          photo.uploading = false;
+          photo.loading = false;
+          photo.isSkeleton = false;
+          if (li.attachId && !photo.attachId) {
+            photo.attachId = li.attachId;
+            photo.AttachID = li.attachId;
+          }
+          if (li.caption) {
+            photo.caption = li.caption;
+            photo.Annotation = li.caption;
+          }
+          updatedCount++;
+        }
+      }
+    }
+    if (updatedCount > 0) {
+      this.logDebug('DEXIE', `Updated metadata in-place for ${updatedCount} photos`);
+    }
   }
 
   /**
@@ -1783,9 +1748,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           } else {
             this.selectedItems[selectionKey] = field.isSelected;
           }
-          // DEBUG: Alert if an item with photos just got deselected
           if (prevSelected && !this.selectedItems[selectionKey] && hasPhotos) {
-            alert(`[DEBUG] convertGeneric DESELECTED item with photos!\nKey: ${selectionKey}\nhasPhotos: ${hasPhotos}\nisExpanded: ${isExpanded}\nfield.isSelected: ${field.isSelected}\nrecordId: ${recordId}`);
+            console.warn(`[PHOTO] convertGeneric deselected item with photos: key=${selectionKey}`);
           }
         }
         const withinPhotoGuard = (Date.now() - this.lastPhotoOperationTime) < 5000;
@@ -1794,9 +1758,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           // Generic templates don't write photoCount back to Dexie (avoids liveQuery feedback loops).
           const inMemoryCount = this.visualPhotos[selectionKey]?.length || 0;
           this.photoCountsByKey[selectionKey] = inMemoryCount > 0 ? inMemoryCount : field.photoCount;
-          // DEBUG: Alert if photo count drops to 0 from a non-zero value
           if (prevCount > 0 && this.photoCountsByKey[selectionKey] === 0) {
-            alert(`[DEBUG] convertGeneric ZEROED photoCount!\nKey: ${selectionKey}\nPrev count: ${prevCount}\ninMemoryCount: ${inMemoryCount}\nfield.photoCount: ${field.photoCount}\nrecordId: ${recordId}`);
+            console.warn(`[PHOTO] convertGeneric zeroed photoCount: key=${selectionKey}, prev=${prevCount}`);
           }
         }
       }
@@ -1857,21 +1820,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       }
 
       this.logDebug('DEXIE', `Populating photos from Dexie for ${fields.length} fields (${this.config.id})...`);
-
-      // DEBUG: Log field IDs and current photo state for keys that have photos
-      const _dbgKeysWithPhotos = Object.entries(this.visualPhotos)
-        .filter(([, p]) => p && p.length > 0)
-        .map(([k, p]) => k);
-      if (_dbgKeysWithPhotos.length > 0) {
-        const fieldDetails = fields
-          .filter(f => _dbgKeysWithPhotos.includes(`${f.category}_${f.templateId}`))
-          .map(f => {
-            const rid = this.genericFieldRepo.getRecordId(this.config!, f);
-            const tid = this.genericFieldRepo.getTempRecordId(this.config!, f);
-            return `tid=${f.templateId}:real=${rid}:temp=${tid}:sel=${f.isSelected}`;
-          });
-        console.warn(`[DEBUG] POPULATE START - Keys with photos: ${JSON.stringify(_dbgKeysWithPhotos)}\nField details: ${fieldDetails.join(' | ')}`);
-      }
 
       // Load annotated images in background if not loaded
       // NOTE: Don't call scheduleDetectChanges here — it fires mid-populate and can cause
@@ -1987,9 +1935,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
         // DEBUG: Alert if all 5 tiers found nothing but UI has photos for this key
         if (localImages.length === 0 && this.visualPhotos[key]?.length > 0) {
-          const uiPhotos = this.visualPhotos[key];
-          const uiImageIds = uiPhotos.map((p: any) => p.imageId || p.localImageId || 'unknown').join(', ');
-          alert(`[DEBUG] POPULATE ALL TIERS FAILED!\nKey: ${key}\nUI has ${uiPhotos.length} photos\nImageIds: ${uiImageIds}\nrealId: ${realId}\ntempId: ${tempId}\nTotal LocalImages: ${allLocalImages.length}\nMap keys: ${Array.from(localImagesMap.keys()).slice(0, 10).join(', ')}`);
+          this.logDebug('WARN', `All tiers failed for key=${key} but UI has ${this.visualPhotos[key].length} photos`);
         }
 
         if (localImages.length === 0) continue;
@@ -2237,7 +2183,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         if (!currentPhotos || currentPhotos.length < snapPhotos.length) {
           const lost = snapPhotos.length - (currentPhotos?.length || 0);
           this.logDebug('WARN', `PHOTO PERSISTENCE: key=${snapKey} lost ${lost} photos (${snapPhotos.length} → ${currentPhotos?.length || 0}). Restoring from snapshot.`);
-          alert(`[DEBUG] PERSISTENCE GUARD TRIGGERED!\nKey: ${snapKey}\nBefore: ${snapPhotos.length}\nAfter: ${currentPhotos?.length || 0}\nLost: ${lost}\nRestoring from snapshot...`);
           this.visualPhotos[snapKey] = snapPhotos;
           this.photoCountsByKey[snapKey] = snapPhotos.length;
         }
@@ -2254,25 +2199,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       if (this.lastConvertedGenericFields && this.lastConvertedGenericFields.length > 0) {
         const currentFingerprint = this.computeFieldsFingerprint(this.lastConvertedGenericFields);
         if (currentFingerprint !== this.lastFieldsFingerprint) {
-          // DEBUG: Snapshot before post-populate conversion
-          const _dbgPhotosBefore: { [k: string]: number } = {};
-          const _dbgSelBefore: { [k: string]: boolean } = {};
-          for (const [k, v] of Object.entries(this.visualPhotos)) {
-            if (v && v.length > 0) _dbgPhotosBefore[k] = v.length;
-          }
-          for (const [k, v] of Object.entries(this.selectedItems)) {
-            if (v) _dbgSelBefore[k] = v;
-          }
-
           this.convertGenericFieldsToOrganizedData(this.lastConvertedGenericFields);
           this.lastFieldsFingerprint = currentFingerprint;
-
-          // DEBUG: Check if post-populate conversion deselected items with photos
-          for (const [k, wasSel] of Object.entries(_dbgSelBefore)) {
-            if (wasSel && !this.selectedItems[k] && _dbgPhotosBefore[k] > 0) {
-              alert(`[DEBUG] POST-POPULATE CONVERSION DESELECTED!\nKey: ${k}\nPhotos: ${_dbgPhotosBefore[k]}\nfield.isSelected set to false during sync?\nThis runs in populate finally block.`);
-            }
-          }
         }
       }
     }
@@ -2296,29 +2224,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
       const fields = this.lastConvertedGenericFields;
       if (fields && fields.length > 0) {
-        // DEBUG: Snapshot before deferred populate
-        const _dbgBefore: { [k: string]: number } = {};
-        for (const [k, p] of Object.entries(this.visualPhotos)) {
-          if (p && p.length > 0) _dbgBefore[k] = p.length;
-        }
-        console.warn('[DEBUG] DEFERRED POPULATE starting. Photos before:', JSON.stringify(_dbgBefore));
-
         this.logDebug('DEXIE', 'Running deferred populate after guard window expired');
         await this.populateGenericPhotosFromDexie(fields);
-
-        // DEBUG: Compare after deferred populate
-        const _dbgAfter: { [k: string]: number } = {};
-        for (const [k, p] of Object.entries(this.visualPhotos)) {
-          if (p && p.length > 0) _dbgAfter[k] = p.length;
-        }
-        console.warn('[DEBUG] DEFERRED POPULATE done. Photos after:', JSON.stringify(_dbgAfter));
-        for (const [k, beforeCount] of Object.entries(_dbgBefore)) {
-          const afterCount = _dbgAfter[k] || 0;
-          if (afterCount < beforeCount) {
-            alert(`[DEBUG] DEFERRED POPULATE LOST PHOTOS!\nKey: ${k}\nBefore: ${beforeCount}\nAfter: ${afterCount}`);
-          }
-        }
-
         if (!this.isDestroyed) {
           this.safeDetectChanges();
         }
@@ -2889,15 +2796,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
   isItemSelected(category: string, itemId: string | number): boolean {
     const key = `${category}_${itemId}`;
-    const selected = this.selectedItems[key] || false;
-    // DEBUG: Detect when item with photos returns not-selected
-    const photosCount = this.visualPhotos[key]?.length || 0;
-    if (!selected && photosCount > 0 && !this._debugAlertShown[`sel_${key}`]) {
-      this._debugAlertShown[`sel_${key}`] = true;
-      alert(`[DEBUG] isItemSelected=FALSE but has ${photosCount} photos!\nKey: ${key}\nThis means photo section is HIDDEN by template.\nselectedItems[key]: ${this.selectedItems[key]}\nexpandedPhotos[key]: ${this.expandedPhotos[key]}`);
-      setTimeout(() => { delete this._debugAlertShown[`sel_${key}`]; }, 10000);
-    }
-    return selected;
+    return this.selectedItems[key] || false;
   }
 
   async toggleItemSelection(category: string, itemId: string | number): Promise<void> {
@@ -3239,24 +3138,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
   getPhotosForVisual(category: string, itemId: string | number): any[] {
     const key = `${category}_${itemId}`;
-    const photos = this.visualPhotos[key] || [];
-    const lastCount = this._debugLastPhotoCount[key] || 0;
-
-    // DEBUG TRAP: Detect the EXACT moment photos vanish
-    if (lastCount > 0 && photos.length === 0 && !this._debugAlertShown[key] && !this._photosExplicitlyDeleted[key]) {
-      this._debugAlertShown[key] = true;
-      const allKeys = Object.entries(this.visualPhotos)
-        .filter(([, p]) => p && p.length > 0)
-        .map(([k, p]) => `${k}:${p.length}`).join(', ');
-      const msg = `PHOTOS VANISHED!\nKey: ${key}\nHad: ${lastCount}, Now: 0\nSelected: ${this.selectedItems[key]}\nExpanded: ${this.expandedPhotos[key]}\nAll keys with photos: ${allKeys || 'NONE'}`;
-      console.error('[DEBUG PHOTO VANISH]', msg);
-      alert(msg);
-      // Reset after 5s so it can fire again if needed
-      setTimeout(() => { this._debugAlertShown[key] = false; }, 5000);
-    }
-    this._debugLastPhotoCount[key] = photos.length;
-
-    return photos;
+    return this.visualPhotos[key] || [];
   }
 
   getTotalPhotoCount(category: string, itemId: string | number): number {

@@ -487,35 +487,41 @@ h3 {
   }
 }
 
-// Services tab segment toggle (matches Company tab style)
+// Services tab toggle (matches Company main-tab-bar style)
 .services-segment {
-  margin-bottom: 16px;
-  --background: var(--color-bg-card) !important;
+  display: flex;
+  gap: 0;
+  background: var(--color-bg-card);
   border-radius: 12px;
   padding: 4px;
+  margin-bottom: 16px;
   box-shadow: 0 2px 8px var(--color-shadow);
+}
 
-  ion-segment-button {
-    --color: var(--color-text-muted) !important;
-    --color-checked: var(--color-text-primary) !important;
-    --background-checked: transparent !important;
-    --indicator-color: var(--color-bg-inset) !important;
-    --indicator-height: 100%;
-    --indicator-box-shadow: none;
-    text-transform: none;
-    font-weight: 600;
-    font-size: 15px;
-    min-height: 44px;
-    border-radius: 10px;
-    --border-radius: 10px;
+.services-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 20px;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
 
-    &::part(indicator) {
-      border-radius: 10px;
-    }
+  &:hover {
+    background: var(--color-bg-elevated);
+    color: #f15a27;
+  }
 
-    &.segment-button-checked {
-      font-weight: 600;
-    }
+  &.active {
+    background: var(--color-bg-inset);
+    color: var(--color-text-primary);
+    box-shadow: none;
   }
 }
 
@@ -826,6 +832,58 @@ h3 {
     .service-reports-section,
     .service-documents-section {
       margin-top: 16px;
+
+      .reports-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid $orange;
+
+        @media (max-width: 768px) {
+          margin-bottom: 8px;
+        }
+
+        .sub-section-title {
+          font-size: 17px;
+          font-weight: 600;
+          color: $dark;
+          margin: 0;
+          padding-bottom: 0;
+          border-bottom: none;
+
+          @media (max-width: 768px) {
+            font-size: 15px;
+          }
+        }
+
+        .reports-sync-btn {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          padding: 4px 10px;
+          background: $orange;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+
+          ion-icon {
+            font-size: 14px;
+
+            &.spinning {
+              animation: spin 1s linear infinite;
+            }
+          }
+
+          &:disabled {
+            opacity: 0.6;
+          }
+        }
+      }
 
       .sub-section-title {
         font-size: 17px;
@@ -1783,6 +1841,11 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
       color: $dark;
       background: $light-gray;
       border-radius: 4px;
+      text-align: center;
+    }
+
+    &:has(.status-display) {
+      text-align: center;
     }
 
     &.deliverable-file-cell {
@@ -1803,6 +1866,36 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
           align-items: center;
           justify-content: center;
           gap: 4px;
+        }
+
+        .deliverable-filename-row {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .deliverable-filename {
+          color: $orange;
+          text-decoration: none;
+          font-weight: 500;
+          font-size: 13px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 8px;
+          border-radius: 4px;
+          cursor: pointer;
+          transition: background 0.2s ease;
+
+          ion-icon {
+            font-size: 16px;
+          }
+
+          @media (hover: hover) and (pointer: fine) {
+            &:hover {
+              background: rgba(241, 90, 39, 0.1);
+            }
+          }
         }
 
         > div {

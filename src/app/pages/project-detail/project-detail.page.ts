@@ -2072,6 +2072,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     return !!service.Deliverable;
   }
 
+  getDeliverableFilename(service: ServiceSelection): string {
+    if (!service.Deliverable) return '';
+    return service.Deliverable.split('/').pop() || `${service.typeName} Deliverable`;
+  }
+
   getDeliverablesServices(): ServiceSelection[] {
     if (this.isCompanyOne) {
       // CompanyID = 1 (Admins): Show all services at all stages

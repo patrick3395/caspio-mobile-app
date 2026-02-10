@@ -585,22 +585,14 @@
                 <div class="detail-row">
                   <div class="detail-col" style="grid-column: 1 / -1;">
                     <label>Services Offered</label>
-                    <div *ngIf="getCompanyOffers(company.CompanyID).length > 0; else noCompanyOffers">
-                      <div class="responsive-table dark-outline" style="margin-top: 8px;">
-                        <table>
-                          <thead>
-                            <tr>
-                              <th>Service</th>
-                              <th>Fee</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr *ngFor="let offer of getCompanyOffers(company.CompanyID)">
-                              <td>{{ offer.typeName }}</td>
-                              <td>{{ formatCurrency(offer.ServiceFee) }}</td>
-                            </tr>
-                          </tbody>
-                        </table>
+                    <div *ngIf="getCompanyOffers(company.CompanyID).length > 0; else noCompanyOffers" class="services-list" style="margin-top: 8px;">
+                      <div class="services-list-header">
+                        <span class="sl-col-service">Service</span>
+                        <span class="sl-col-fee">Fee</span>
+                      </div>
+                      <div class="services-list-row" *ngFor="let offer of getCompanyOffers(company.CompanyID)">
+                        <span class="sl-col-service">{{ offer.typeName }}</span>
+                        <span class="sl-col-fee">{{ offer.ServiceFee ? ('$' + offer.ServiceFee) : '—' }}</span>
                       </div>
                     </div>
                     <ng-template #noCompanyOffers>

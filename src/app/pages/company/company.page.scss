@@ -686,47 +686,6 @@ ion-content {
     }
   }
 
-  .services-list {
-    .services-list-header,
-    .services-list-row {
-      display: grid;
-      grid-template-columns: 1fr 100px 100px;
-      align-items: center;
-      padding: 10px 0;
-    }
-
-    .services-list-header {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--color-text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      border-bottom: 2px solid var(--color-border-default);
-      padding-bottom: 8px;
-    }
-
-    .services-list-row {
-      border-bottom: 1px solid var(--color-border-light);
-      font-size: 14px;
-      color: var(--color-text-primary);
-
-      &:last-child {
-        border-bottom: none;
-      }
-    }
-
-    .sl-col-fee,
-    .sl-col-myfee {
-      text-align: right;
-    }
-
-    .sl-col-fee {
-    }
-
-    .sl-col-myfee {
-    }
-  }
-
   .empty-state-modern.compact {
     padding: 32px 20px;
 
@@ -748,6 +707,42 @@ ion-content {
     p {
       font-size: 0.85rem;
     }
+  }
+}
+
+// Services list (used in both admin and partner views)
+.services-list {
+  .services-list-header,
+  .services-list-row {
+    display: grid;
+    grid-template-columns: 1fr 100px 100px;
+    align-items: center;
+    padding: 10px 0;
+  }
+
+  .services-list-header {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid var(--color-border-default);
+    padding-bottom: 8px;
+  }
+
+  .services-list-row {
+    border-bottom: 1px solid var(--color-border-light);
+    font-size: 14px;
+    color: var(--color-text-primary);
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  .sl-col-fee,
+  .sl-col-myfee {
+    text-align: right;
   }
 }
 
@@ -2925,8 +2920,7 @@ ion-segment.filter-segment {
 
     .lt-col-amount {
       text-align: right;
-      font-family: 'Courier New', monospace;
-      display: flex;
+            display: flex;
       align-items: center;
       justify-content: flex-end;
       gap: 2px;
@@ -4907,8 +4901,7 @@ ion-alert.custom-alert {
   .amount-value {
     font-weight: 600;
     color: #f15a27;
-    font-family: 'Courier New', monospace;
-    margin-bottom: 8px;
+        margin-bottom: 8px;
     
     @media (max-width: 768px) {
       margin-bottom: 12px;

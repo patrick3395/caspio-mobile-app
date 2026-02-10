@@ -314,13 +314,17 @@ ion-content {
           border: none;
           border-bottom: 1px solid var(--color-border-default);
           box-shadow: none;
-          background: white;
+          background: var(--color-selected-bg, #fff8f5);
           border-radius: 0;
 
           .checkbox-item {
             border-color: transparent;
-            --background: white;
+            --background: var(--color-selected-bg, #fff8f5);
             background: var(--color-selected-bg, #fff8f5) !important;
+          }
+
+          .action-button-grid {
+            background: var(--color-selected-bg, #fff8f5);
           }
         }
       }

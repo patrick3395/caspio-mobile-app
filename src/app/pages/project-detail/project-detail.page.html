@@ -235,16 +235,14 @@
             <td class="field-label-cell">Deliverable</td>
             <td class="field-value-cell deliverable-file-cell">
               <div class="file-upload-container">
-                <!-- Action buttons when file exists -->
-                <div *ngIf="hasDeliverable(service)" class="deliverable-actions">
-                  <ion-button size="small" fill="clear" class="orange-icon" (click)="viewDeliverableFile(service)" title="View">
-                    <ion-icon name="eye-outline"></ion-icon>
-                  </ion-button>
+                <!-- Clickable filename for download -->
+                <div *ngIf="hasDeliverable(service)" class="deliverable-filename-row">
+                  <a class="deliverable-filename" (click)="downloadDeliverableFile(service)" title="Download">
+                    <ion-icon name="document-outline"></ion-icon>
+                    {{ getDeliverableFilename(service) }}
+                  </a>
                   <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly" (click)="deleteDeliverableFile(service)" title="Delete">
                     <ion-icon name="trash-outline"></ion-icon>
-                  </ion-button>
-                  <ion-button size="small" fill="clear" class="orange-icon" (click)="downloadDeliverableFile(service)" title="Download">
-                    <ion-icon name="download-outline"></ion-icon>
                   </ion-button>
                 </div>
 
@@ -303,31 +301,19 @@
             <span class="btn-text">PDF</span>
           </button>
 
-          <!-- Sync/Save Buttons (mobile only) -->
-          <div class="sync-save-buttons" *ngIf="!isWeb">
-            <button class="save-btn"
-                    (click)="saveToCloud(); $event.stopPropagation()"
-                    [disabled]="isSaving"
-                    title="Push pending changes to cloud">
-              <ion-icon [name]="isSaving ? 'sync' : 'cloud-upload-outline'"
-                        [class.spinning]="isSaving"></ion-icon>
-              <span class="btn-text">Save</span>
-            </button>
-          </div>
         </div>
       </div>
       <div class="section-divider"></div>
 
       <!-- Services tab toggle -->
-      <ion-segment [value]="servicesTab" (ionChange)="onServicesTabChange($event)"
-                   class="services-segment" *ngIf="!loadingServices">
-        <ion-segment-button value="active">
-          <ion-label>Active</ion-label>
-        </ion-segment-button>
-        <ion-segment-button value="add">
-          <ion-label>Add Services</ion-label>
-        </ion-segment-button>
-      </ion-segment>
+      <div class="services-segment" *ngIf="!loadingServices">
+        <button class="services-tab" [class.active]="servicesTab === 'active'" (click)="servicesTab = 'active'">
+          Active
+        </button>
+        <button class="services-tab" [class.active]="servicesTab === 'add'" (click)="servicesTab = 'add'">
+          Add Services
+        </button>
+      </div>
 
       <!-- Loading services -->
       <div *ngIf="loadingServices" class="services-loading">
@@ -423,7 +409,17 @@
 
                 <!-- Reports sub-section (only for services with templates, i.e. NOT DCR/EIR) -->
                 <div class="service-reports-section" *ngIf="hasTemplate(service)">
-                  <h3 class="sub-section-title">Reports</h3>
+                  <div class="reports-header">
+                    <h3 class="sub-section-title">Reports</h3>
+                    <button *ngIf="!isWeb" class="reports-sync-btn"
+                            (click)="saveToCloud(); $event.stopPropagation()"
+                            [disabled]="isSaving"
+                            title="Sync report to cloud">
+                      <ion-icon [name]="isSaving ? 'sync' : 'cloud-upload-outline'"
+                                [class.spinning]="isSaving"></ion-icon>
+                      <span>Sync</span>
+                    </button>
+                  </div>
                   <div class="templates-container">
                     <div class="template-bar"
                          (click)="handleTemplateClick(service, $event)">
