@@ -1207,6 +1207,13 @@ export class BackgroundSyncService {
 
               await this.indexedDb.cacheServiceData(serviceId, 'lbw_records', updatedLbw);
 
+              // Bulk-migrate LocalImage entityId from tempId to realId BEFORE updating lbwFields.
+              // The lbwFields update triggers a liveQuery that reads photos by the new realId,
+              // so photos must already have the correct entityId when that liveQuery fires.
+              if (request.tempId) {
+                await this.indexedDb.updateEntityIdForImages(request.tempId, String(realId));
+              }
+
               // CRITICAL FIX: Update lbwFields table to replace tempLbwId with real lbwId
               // Without this, subsequent changes still use temp ID and fail to create UPDATE requests
               try {
@@ -1223,12 +1230,6 @@ export class BackgroundSyncService {
                 }
               } catch (err) {
                 console.warn('[BackgroundSync] Failed to update lbwFields after sync:', err);
-              }
-
-              // Bulk-migrate LocalImage entityId from tempId to realId so photos remain
-              // findable after the field's tempLbwId is cleared above
-              if (request.tempId) {
-                await this.indexedDb.updateEntityIdForImages(request.tempId, String(realId));
               }
             }
 
@@ -1289,6 +1290,13 @@ export class BackgroundSyncService {
 
               await this.indexedDb.cacheServiceData(serviceId, 'dte', updatedDte);
 
+              // Bulk-migrate LocalImage entityId from tempId to realId BEFORE updating dteFields.
+              // The dteFields update triggers a liveQuery that reads photos by the new realId,
+              // so photos must already have the correct entityId when that liveQuery fires.
+              if (request.tempId) {
+                await this.indexedDb.updateEntityIdForImages(request.tempId, String(realId));
+              }
+
               // CRITICAL FIX: Update dteFields table to replace tempDteId with real dteId
               // Without this, subsequent changes still use temp ID and fail to create UPDATE requests
               try {
@@ -1305,12 +1313,6 @@ export class BackgroundSyncService {
                 }
               } catch (err) {
                 console.warn('[BackgroundSync] Failed to update dteFields after sync:', err);
-              }
-
-              // Bulk-migrate LocalImage entityId from tempId to realId so photos remain
-              // findable after the field's tempDteId is cleared above
-              if (request.tempId) {
-                await this.indexedDb.updateEntityIdForImages(request.tempId, String(realId));
               }
             }
 
@@ -1372,6 +1374,13 @@ export class BackgroundSyncService {
 
               await this.indexedDb.cacheServiceData(serviceId, 'csa_records', updatedCsa);
 
+              // Bulk-migrate LocalImage entityId from tempId to realId BEFORE updating csaFields.
+              // The csaFields update triggers a liveQuery that reads photos by the new realId,
+              // so photos must already have the correct entityId when that liveQuery fires.
+              if (request.tempId) {
+                await this.indexedDb.updateEntityIdForImages(request.tempId, String(realId));
+              }
+
               // CRITICAL FIX: Update csaFields table to replace tempCsaId with real csaId
               // Without this, subsequent changes still use temp ID and fail to create UPDATE requests
               try {
@@ -1392,12 +1401,6 @@ export class BackgroundSyncService {
                 }
               } catch (err) {
                 console.warn('[BackgroundSync] Failed to update csaFields after sync:', err);
-              }
-
-              // Bulk-migrate LocalImage entityId from tempId to realId so photos remain
-              // findable after the field's tempCsaId is cleared above
-              if (request.tempId) {
-                await this.indexedDb.updateEntityIdForImages(request.tempId, String(realId));
               }
             }
 

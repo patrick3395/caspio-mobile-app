@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ModalController, LoadingController } from '@ionic/angular';
+import { IonicModule, ModalController } from '@ionic/angular';
 import { CaspioService } from '../../services/caspio.service';
 import { PlatformDetectionService } from '../../services/platform-detection.service';
 import { environment } from '../../../environments/environment';
@@ -38,9 +38,6 @@ export class HelpGuidePage implements OnInit {
   fileUrls: Map<string, string> = new Map(); // Cache for converted file URLs
   selectedTab = 'help'; // Default to help tab
 
-  // WEBAPP: Expose isWeb for template skeleton loader conditionals
-  isWeb = environment.isWeb;
-
   private documentViewerComponent?: DocumentViewerCtor;
   private filesCache: any[] | null = null;
   private typesCache: any[] | null = null;
@@ -59,7 +56,6 @@ export class HelpGuidePage implements OnInit {
   constructor(
     private caspioService: CaspioService,
     private modalController: ModalController,
-    private loadingController: LoadingController,
     public platform: PlatformDetectionService
   ) {}
 
@@ -68,17 +64,6 @@ export class HelpGuidePage implements OnInit {
   }
 
   async loadFiles() {
-    // WEBAPP: Use skeleton loaders instead of loading overlay for better UX
-    // Mobile: Keep the loading overlay for native feel
-    let loadingOverlay: HTMLIonLoadingElement | null = null;
-    if (!environment.isWeb) {
-      loadingOverlay = await this.loadingController.create({
-        message: 'Loading support files...',
-        spinner: 'crescent'
-      });
-      await loadingOverlay.present();
-    }
-
     this.loading = true;
     this.error = '';
 
@@ -145,9 +130,6 @@ export class HelpGuidePage implements OnInit {
       this.error = 'Failed to load help guide files';
     } finally {
       this.loading = false;
-      if (loadingOverlay) {
-        await loadingOverlay.dismiss();
-      }
     }
   }
 

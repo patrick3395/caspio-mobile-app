@@ -5,13 +5,6 @@
   height: 100%;
 }
 
-// Center the header title
-::ng-deep .custom-header ion-toolbar ion-title {
-  text-align: center;
-  padding-left: 56px;
-  padding-right: 56px;
-}
-
 ion-content {
   --overflow: auto;
   --offset-bottom: 0;
@@ -38,6 +31,7 @@ ion-content {
 .custom-header {
   ion-toolbar.action-toolbar {
     --background: #333333;
+    --color: white;
     --border-width: 0;
     --padding-start: 16px;
     --padding-end: 16px;
@@ -45,34 +39,58 @@ ion-content {
     --padding-bottom: 14px;
 
     ion-title {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: #ffffff;
+    }
+
+    ion-buttons {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-left: 12px;
+      margin-right: 12px;
+    }
+
+    // Center title on web version within the constrained 800px container
+    &.web-centered ion-title {
       position: absolute;
       left: 0;
       right: 0;
-      top: 0;
-      bottom: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       text-align: center;
-      font-size: 17px;
-      font-weight: 600;
-      padding-inline-start: 56px;
-      padding-inline-end: 56px;
-      letter-spacing: 0.3px;
-      color: #ffffff;
-      text-align: center;
-      white-space: normal;
-      overflow: visible;
       pointer-events: none;
-      text-overflow: clip;
-
-      // Override Ionic's default title styles to prevent truncation
-      .toolbar-title {
-        white-space: normal !important;
-        overflow: visible !important;
-        text-overflow: clip !important;
-      }
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
     }
+  }
+}
+
+.custom-header ion-toolbar.action-toolbar.web-centered {
+  --padding-start: 0;
+  --padding-end: 0;
+}
+
+.custom-header ion-toolbar.action-toolbar.web-centered::part(container) {
+  max-width: 800px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@media (hover: hover) and (pointer: fine) and (min-width: 1024px) {
+  .custom-header ion-toolbar.action-toolbar.web-centered::part(container) {
+    padding: 0 24px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (min-width: 1200px) {
+  .custom-header ion-toolbar.action-toolbar.web-centered::part(container) {
+    padding: 0 32px;
   }
 }
 
@@ -644,7 +662,7 @@ ion-content {
 
   &.expanded {
     max-height: 2000px;
-    padding: 0 24px 24px;
+    padding: 24px 24px 24px;
     transition: max-height 0.4s ease-in;
   }
 
@@ -5862,5 +5880,255 @@ ion-alert.custom-alert {
   // Suggestion item active state
   .company-suggestions .suggestion-item:active {
     background: rgba(241, 90, 39, 0.1);
+  }
+}
+
+// --- Notification Sender Styles ---
+
+.notif-card {
+  background: var(--color-bg-card);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px var(--color-shadow);
+  margin-bottom: 16px;
+}
+
+.notif-card-title {
+  margin: 0 0 20px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.notif-target-toggle {
+  display: flex;
+  gap: 0;
+  background: var(--color-bg-page);
+  border-radius: 8px;
+  padding: 3px;
+  margin-bottom: 16px;
+}
+
+.notif-target-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &.active {
+    background: var(--color-bg-card);
+    color: #f15a27;
+    box-shadow: 0 1px 4px var(--color-shadow);
+  }
+}
+
+.notif-field {
+  margin-bottom: 14px;
+}
+
+.notif-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+}
+
+.notif-input,
+.notif-select,
+.notif-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--color-bg-page);
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: var(--color-text-primary);
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+
+  &:focus {
+    border-color: #f15a27;
+  }
+}
+
+.notif-select {
+  appearance: auto;
+}
+
+.notif-textarea {
+  resize: vertical;
+  min-height: 70px;
+}
+
+.notif-search-wrapper {
+  position: relative;
+}
+
+.notif-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px var(--color-shadow);
+  z-index: 10;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.notif-suggestion-item {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 0.9rem;
+  color: var(--color-text-primary);
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(241, 90, 39, 0.08);
+  }
+
+  &:not(:last-child) {
+    border-bottom: 1px solid var(--color-border-default);
+  }
+}
+
+.notif-selected-target {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: rgba(241, 90, 39, 0.08);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #f15a27;
+  font-weight: 500;
+
+  span {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.notif-clear-target {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: 18px;
+  display: flex;
+}
+
+.notif-send-btn {
+  width: 100%;
+  padding: 14px;
+  background: #f15a27;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: opacity 0.2s;
+  margin-top: 8px;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &:not(:disabled):hover {
+    opacity: 0.9;
+  }
+
+  ion-spinner {
+    width: 20px;
+    height: 20px;
+    color: #fff;
+  }
+}
+
+// Notification History
+.notif-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.notif-history-item {
+  padding: 12px;
+  background: var(--color-bg-page);
+  border-radius: 8px;
+}
+
+.notif-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.notif-history-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--color-text-primary);
+}
+
+.notif-history-time {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.notif-history-body {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+}
+
+.notif-history-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.notif-history-target {
+  color: var(--color-text-secondary);
+}
+
+.notif-history-result {
+  font-weight: 600;
+
+  &.success {
+    color: #22c55e;
+  }
+
+  &.failed {
+    color: #ef4444;
   }
 }

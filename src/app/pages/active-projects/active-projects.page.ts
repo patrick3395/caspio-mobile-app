@@ -57,6 +57,9 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
   settingsPaneOpen = false;
   saveToGalleryEnabled = true;
   isDarkMode = false;
+  notifServiceComplete = true;
+  notifPaymentReceived = true;
+  notifAdminMessages = true;
   private themeSubscription?: Subscription;
 
   // Force update timestamp
@@ -93,6 +96,11 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
 
     // Load phone settings
     this.saveToGalleryEnabled = localStorage.getItem('save-to-camera-roll') !== 'false';
+
+    // Load notification preferences (default to enabled)
+    this.notifServiceComplete = localStorage.getItem('notif-service-complete') !== 'false';
+    this.notifPaymentReceived = localStorage.getItem('notif-payment-received') !== 'false';
+    this.notifAdminMessages = localStorage.getItem('notif-admin-messages') !== 'false';
 
     // Subscribe to dark mode state
     this.themeSubscription = this.themeService.darkMode$.subscribe(isDark => {
@@ -166,6 +174,21 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
   toggleSaveToGallery() {
     this.saveToGalleryEnabled = !this.saveToGalleryEnabled;
     localStorage.setItem('save-to-camera-roll', String(this.saveToGalleryEnabled));
+  }
+
+  toggleNotifServiceComplete() {
+    this.notifServiceComplete = !this.notifServiceComplete;
+    localStorage.setItem('notif-service-complete', String(this.notifServiceComplete));
+  }
+
+  toggleNotifPaymentReceived() {
+    this.notifPaymentReceived = !this.notifPaymentReceived;
+    localStorage.setItem('notif-payment-received', String(this.notifPaymentReceived));
+  }
+
+  toggleNotifAdminMessages() {
+    this.notifAdminMessages = !this.notifAdminMessages;
+    localStorage.setItem('notif-admin-messages', String(this.notifAdminMessages));
   }
 
   // Track last load time for smart caching

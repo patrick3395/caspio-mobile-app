@@ -10,6 +10,7 @@ import { PaypalPaymentModalComponent } from '../../modals/paypal-payment-modal/p
 import { ConfirmationDialogService } from '../../services/confirmation-dialog.service';
 import { PageTitleService } from '../../services/page-title.service';
 import { environment } from '../../../environments/environment';
+import { ApiGatewayService } from '../../services/api-gateway.service';
 import { firstValueFrom } from 'rxjs';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 import { db } from '../../services/caspio-db';
@@ -235,8 +236,8 @@ export class CompanyPage implements OnInit, OnDestroy {
   currentUserCompanyName: string = '';
   organizationUsers: any[] = [];
 
-  // Admin CRM main tab (Company vs Partners)
-  adminMainTab: 'company' | 'partners' = 'company';
+  // Admin CRM main tab (Company vs Partners vs Notifications)
+  adminMainTab: 'company' | 'partners' | 'notifications' = 'company';
   selectedTab: 'company' | 'companies' | 'contacts' | 'tasks' | 'meetings' | 'communications' | 'invoices' | 'metrics' | 'users' = 'users';
 
   // Client-only tabs (for non-CompanyID 1 users)
@@ -572,6 +573,17 @@ export class CompanyPage implements OnInit, OnDestroy {
   communicationTypes: Array<{id: number, name: string}> = [];
   taskUsers: Array<{name: string}> = [];
 
+  // Notification sender
+  notifTargetType: 'company' | 'user' = 'company';
+  notifTargetSearch = '';
+  notifTargetId: string | null = null;
+  notifTargetSuggestions: Array<{id: string, label: string}> = [];
+  notifType = 'admin_message';
+  notifTitle = '';
+  notifBody = '';
+  notifSending = false;
+  notifHistory: Array<{title: string, body: string, targetLabel: string, time: Date, success: boolean, sent: number}> = [];
+
   constructor(
     private caspioService: CaspioService,
     private loadingController: LoadingController,
@@ -579,6 +591,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     private alertController: AlertController,
     private modalController: ModalController,
     private confirmationDialog: ConfirmationDialogService,
+    private apiGateway: ApiGatewayService,
     private http: HttpClient,
     private router: Router,
     private pageTitleService: PageTitleService
@@ -3912,14 +3925,15 @@ export class CompanyPage implements OnInit, OnDestroy {
     }
   }
 
-  selectAdminMainTab(tab: 'company' | 'partners') {
+  selectAdminMainTab(tab: 'company' | 'partners' | 'notifications') {
     this.adminMainTab = tab;
     // Auto-select first sub-tab when switching main tabs
     if (tab === 'company') {
       this.selectTab('users');
-    } else {
+    } else if (tab === 'partners') {
       this.selectTab('companies');
     }
+    // Notifications tab has no sub-tabs
   }
 
   private tabDataLoaded: {[key: string]: boolean} = {
@@ -6973,6 +6987,105 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Navigate to login
       this.router.navigate(['/login']);
+    }
+  }
+
+  // --- Notification Sender Methods ---
+
+  filterNotifTargets() {
+    const query = this.notifTargetSearch.toLowerCase().trim();
+    if (!query || query.length < 2) {
+      this.notifTargetSuggestions = [];
+      return;
+    }
+
+    if (this.notifTargetType === 'company') {
+      this.notifTargetSuggestions = this.companies
+        .filter(c => c.CompanyName?.toLowerCase().includes(query))
+        .slice(0, 8)
+        .map(c => ({ id: String(c.CompanyID), label: c.CompanyName }));
+    } else {
+      this.notifTargetSuggestions = this.allUsers
+        .filter(u => {
+          const name = (u.Name || `${u.First || ''} ${u.Last || ''}`).toLowerCase();
+          const email = (u.Email || '').toLowerCase();
+          return name.includes(query) || email.includes(query);
+        })
+        .slice(0, 8)
+        .map(u => ({
+          id: String(u.PK_ID || u.UserID),
+          label: `${u.Name || `${u.First || ''} ${u.Last || ''}`} (${u.Email || ''})`
+        }));
+    }
+  }
+
+  selectNotifTarget(item: {id: string, label: string}) {
+    this.notifTargetId = item.id;
+    this.notifTargetSearch = item.label;
+    this.notifTargetSuggestions = [];
+  }
+
+  canSendNotification(): boolean {
+    return !!this.notifTargetId && !!this.notifTitle.trim() && !!this.notifBody.trim();
+  }
+
+  async sendNotification() {
+    if (!this.canSendNotification() || this.notifSending) return;
+    this.notifSending = true;
+
+    const payload: any = {
+      title: this.notifTitle.trim(),
+      body: this.notifBody.trim(),
+      data: { type: this.notifType }
+    };
+
+    if (this.notifTargetType === 'company') {
+      payload.companyId = this.notifTargetId;
+    } else {
+      payload.userId = this.notifTargetId;
+    }
+
+    try {
+      const result: any = await firstValueFrom(this.apiGateway.post('/api/notifications/send', payload));
+      this.notifHistory.unshift({
+        title: this.notifTitle,
+        body: this.notifBody,
+        targetLabel: `${this.notifTargetType === 'company' ? 'Company' : 'User'}: ${this.notifTargetSearch}`,
+        time: new Date(),
+        success: true,
+        sent: result?.sent || 0
+      });
+
+      const toast = await this.toastController.create({
+        message: `Notification sent to ${result?.sent || 0} device(s)`,
+        duration: 2000,
+        color: 'success',
+        position: 'top'
+      });
+      await toast.present();
+
+      // Reset form
+      this.notifTitle = '';
+      this.notifBody = '';
+    } catch (err: any) {
+      this.notifHistory.unshift({
+        title: this.notifTitle,
+        body: this.notifBody,
+        targetLabel: `${this.notifTargetType === 'company' ? 'Company' : 'User'}: ${this.notifTargetSearch}`,
+        time: new Date(),
+        success: false,
+        sent: 0
+      });
+
+      const toast = await this.toastController.create({
+        message: `Failed to send notification: ${err.message || 'Unknown error'}`,
+        duration: 3000,
+        color: 'danger',
+        position: 'top'
+      });
+      await toast.present();
+    } finally {
+      this.notifSending = false;
     }
   }
 }

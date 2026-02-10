@@ -551,6 +551,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
             // this guard, N fields = N × (convert + detectChanges) hammering the main thread.
             if (this.isCameraCaptureInProgress || this.isMultiImageUploadInProgress || this.isPopulatingPhotos) {
               this.logDebug('DEXIE', 'Suppressing liveQuery processing - operation in progress');
+              // Keep field data fresh even when suppressed, so subsequent refreshLocalState
+              // calls use current field data (with updated realIds from sync) rather than stale data.
+              this.lastConvertedGenericFields = fields;
               return;
             }
 

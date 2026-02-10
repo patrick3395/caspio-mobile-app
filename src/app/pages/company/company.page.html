@@ -1,6 +1,6 @@
 
 <ion-header class="custom-header">
-  <ion-toolbar class="action-toolbar">
+  <ion-toolbar class="action-toolbar" [class.web-centered]="isWeb">
     <ion-title>{{ isCompanyOne ? 'Noble Management' : 'Company' }}</ion-title>
     <ion-buttons slot="end">
       <button
@@ -41,6 +41,10 @@
       <button class="admin-main-tab" [class.active]="adminMainTab === 'partners'" (click)="selectAdminMainTab('partners')">
         <ion-icon name="people"></ion-icon>
         <span>Partners</span>
+      </button>
+      <button class="admin-main-tab" [class.active]="adminMainTab === 'notifications'" (click)="selectAdminMainTab('notifications')">
+        <ion-icon name="notifications"></ion-icon>
+        <span>Notifications</span>
       </button>
     </div>
 
@@ -1249,6 +1253,95 @@
           <p>Once invoices are generated they will appear here.</p>
         </div>
       </ng-template>
+    </div>
+
+    <!-- Notifications Main Tab Content -->
+    <div *ngIf="adminMainTab === 'notifications'" class="admin-tab-content">
+      <div class="notif-card">
+        <h3 class="notif-card-title">Send Notification</h3>
+
+        <!-- Target Type -->
+        <div class="notif-target-toggle">
+          <button class="notif-target-btn" [class.active]="notifTargetType === 'company'" (click)="notifTargetType = 'company'; notifTargetSearch = ''; notifTargetId = null">
+            <ion-icon name="business"></ion-icon> Company
+          </button>
+          <button class="notif-target-btn" [class.active]="notifTargetType === 'user'" (click)="notifTargetType = 'user'; notifTargetSearch = ''; notifTargetId = null">
+            <ion-icon name="person"></ion-icon> User
+          </button>
+        </div>
+
+        <!-- Target Search -->
+        <div class="notif-field">
+          <label class="notif-label">{{ notifTargetType === 'company' ? 'Company' : 'User' }}</label>
+          <div class="notif-search-wrapper">
+            <input type="text" class="notif-input" [(ngModel)]="notifTargetSearch"
+                   (input)="filterNotifTargets()"
+                   [placeholder]="notifTargetType === 'company' ? 'Search companies...' : 'Search users...'"
+                   autocomplete="off">
+            <div class="notif-suggestions" *ngIf="notifTargetSuggestions.length > 0 && !notifTargetId">
+              <button *ngFor="let item of notifTargetSuggestions" class="notif-suggestion-item" (click)="selectNotifTarget(item)">
+                {{ item.label }}
+              </button>
+            </div>
+          </div>
+          <div class="notif-selected-target" *ngIf="notifTargetId">
+            <span>{{ notifTargetSearch }}</span>
+            <button class="notif-clear-target" (click)="notifTargetId = null; notifTargetSearch = ''">
+              <ion-icon name="close-circle"></ion-icon>
+            </button>
+          </div>
+        </div>
+
+        <!-- Notification Type -->
+        <div class="notif-field">
+          <label class="notif-label">Notification Type</label>
+          <select class="notif-select" [(ngModel)]="notifType">
+            <option value="admin_message">Admin Message</option>
+            <option value="service_completed">Service Complete</option>
+            <option value="payment_received">Payment Received</option>
+          </select>
+        </div>
+
+        <!-- Title -->
+        <div class="notif-field">
+          <label class="notif-label">Title</label>
+          <input type="text" class="notif-input" [(ngModel)]="notifTitle" placeholder="Notification title" maxlength="100">
+        </div>
+
+        <!-- Body -->
+        <div class="notif-field">
+          <label class="notif-label">Message</label>
+          <textarea class="notif-textarea" [(ngModel)]="notifBody" placeholder="Notification message..." rows="3" maxlength="500"></textarea>
+        </div>
+
+        <!-- Send Button -->
+        <button class="notif-send-btn" [disabled]="!canSendNotification() || notifSending" (click)="sendNotification()">
+          <ion-spinner *ngIf="notifSending" name="crescent"></ion-spinner>
+          <span *ngIf="!notifSending">
+            <ion-icon name="send"></ion-icon> Send Notification
+          </span>
+        </button>
+      </div>
+
+      <!-- Notification History (session only) -->
+      <div class="notif-card" *ngIf="notifHistory.length > 0">
+        <h3 class="notif-card-title">Sent This Session</h3>
+        <div class="notif-history-list">
+          <div *ngFor="let entry of notifHistory" class="notif-history-item">
+            <div class="notif-history-header">
+              <span class="notif-history-title">{{ entry.title }}</span>
+              <span class="notif-history-time">{{ entry.time | date:'shortTime' }}</span>
+            </div>
+            <div class="notif-history-body">{{ entry.body }}</div>
+            <div class="notif-history-meta">
+              <span class="notif-history-target">{{ entry.targetLabel }}</span>
+              <span class="notif-history-result" [class.success]="entry.success" [class.failed]="!entry.success">
+                {{ entry.success ? 'Sent ' + entry.sent : 'Failed' }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Bottom spacer to ensure full scrolling on mobile -->

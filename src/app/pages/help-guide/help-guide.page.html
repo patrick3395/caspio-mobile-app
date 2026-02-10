@@ -29,14 +29,8 @@
       <ion-refresher-content></ion-refresher-content>
     </ion-refresher>
 
-    <!-- Loading State - Mobile only (spinner) -->
-    <div *ngIf="loading && !isWeb" class="loading-container">
-      <ion-spinner name="crescent"></ion-spinner>
-      <p>Loading help guide...</p>
-    </div>
-
-    <!-- WEBAPP: Skeleton loaders for Help Guide -->
-    <div *ngIf="loading && isWeb" class="skeleton-sections-container">
+    <!-- Skeleton loaders for Help Guide -->
+    <div *ngIf="loading" class="skeleton-sections-container">
       <div class="skeleton-file-section" *ngFor="let i of [1,2,3]">
         <div class="skeleton-section-title"></div>
         <div class="skeleton-files-table">

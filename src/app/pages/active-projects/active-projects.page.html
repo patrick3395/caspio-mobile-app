@@ -78,6 +78,54 @@
         </ion-toggle>
       </div>
     </div>
+    <div class="settings-group" *ngIf="!platform.isWeb()">
+      <div class="settings-group-title">
+        <ion-icon name="notifications-outline"></ion-icon>
+        <span>Notifications</span>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row-info">
+          <ion-icon name="checkmark-done-outline"></ion-icon>
+          <div>
+            <span class="settings-row-label">Service Complete</span>
+            <span class="settings-row-desc">Notify when a service is completed</span>
+          </div>
+        </div>
+        <ion-toggle
+          [checked]="notifServiceComplete"
+          (ionChange)="toggleNotifServiceComplete()"
+          mode="ios">
+        </ion-toggle>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row-info">
+          <ion-icon name="card-outline"></ion-icon>
+          <div>
+            <span class="settings-row-label">Payment Received</span>
+            <span class="settings-row-desc">Notify when a payment is processed</span>
+          </div>
+        </div>
+        <ion-toggle
+          [checked]="notifPaymentReceived"
+          (ionChange)="toggleNotifPaymentReceived()"
+          mode="ios">
+        </ion-toggle>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row-info">
+          <ion-icon name="megaphone-outline"></ion-icon>
+          <div>
+            <span class="settings-row-label">Admin Messages</span>
+            <span class="settings-row-desc">Receive messages from management</span>
+          </div>
+        </div>
+        <ion-toggle
+          [checked]="notifAdminMessages"
+          (ionChange)="toggleNotifAdminMessages()"
+          mode="ios">
+        </ion-toggle>
+      </div>
+    </div>
   </div>
 </div>
 

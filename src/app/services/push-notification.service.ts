@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { BehaviorSubject, Subject, filter, first, timeout } from 'rxjs';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications, PushNotificationSchema, ActionPerformed, Token } from '@capacitor/push-notifications';
+import { ToastController } from '@ionic/angular';
 import { PlatformDetectionService } from './platform-detection.service';
 import { ApiGatewayService } from './api-gateway.service';
 
@@ -25,9 +26,16 @@ export class PushNotificationService {
 
   private initialized = false;
 
+  private readonly PREF_KEYS: Record<string, string> = {
+    'service_completed': 'notif-service-complete',
+    'payment_received': 'notif-payment-received',
+    'admin_message': 'notif-admin-messages'
+  };
+
   constructor(
     private platformDetection: PlatformDetectionService,
     private apiGateway: ApiGatewayService,
+    private toastController: ToastController,
     private router: Router
   ) {}
 
@@ -57,6 +65,7 @@ export class PushNotificationService {
     PushNotifications.addListener('pushNotificationReceived', (notification: PushNotificationSchema) => {
       console.log('[PushNotification] Foreground notification:', notification.title);
       this.notificationReceivedSubject.next(notification);
+      this.showForegroundToast(notification);
     });
 
     PushNotifications.addListener('pushNotificationActionPerformed', (action: ActionPerformed) => {
@@ -138,6 +147,37 @@ export class PushNotificationService {
       str += String.fromCharCode(parseInt(hex.substring(i, i + 2), 16));
     }
     return str;
+  }
+
+  private isNotificationSuppressed(data: PushNotificationData): boolean {
+    const type = data?.type;
+    if (!type) return false;
+    const prefKey = this.PREF_KEYS[type];
+    if (!prefKey) return false;
+    return localStorage.getItem(prefKey) === 'false';
+  }
+
+  private async showForegroundToast(notification: PushNotificationSchema): Promise<void> {
+    const data = (notification.data || {}) as PushNotificationData;
+    if (this.isNotificationSuppressed(data)) {
+      console.log('[PushNotification] Suppressed by user preference:', data.type);
+      return;
+    }
+
+    const hasRoute = !!data.route;
+    const toast = await this.toastController.create({
+      header: notification.title || 'Notification',
+      message: notification.body || '',
+      duration: hasRoute ? 5000 : 3000,
+      position: 'top',
+      buttons: hasRoute ? [
+        { text: 'View', handler: () => this.handleNotificationTap(data) },
+        { text: 'Dismiss', role: 'cancel' }
+      ] : [
+        { text: 'OK', role: 'cancel' }
+      ]
+    });
+    await toast.present();
   }
 
   private handleNotificationTap(data: PushNotificationData): void {
