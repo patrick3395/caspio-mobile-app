@@ -2404,73 +2404,15 @@ body.dark-theme .caption-popup-alert .alert-button {
     background: white !important;
   }
 
-  // ── Hide UI chrome ──────────────────────────────────────────────
-  ion-backdrop,
-  .modal-shadow,
-  ion-loading,
-  ion-toast,
-  ion-header,
-  ion-toolbar,
-  ion-footer,
-  .pdf-close-btn,
-  #sidebarContainer,
-  #toolbarContainer,
-  #toolbarViewer,
-  .toolbar {
-    display: none !important;
-  }
-
-  // ── Unclip modal / page containers ──────────────────────────────
-  ion-modal,
-  .modal-wrapper,
-  .ion-page {
-    display: block !important;
-    position: static !important;
-    width: 100% !important;
-    height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-    contain: none !important;
-    transform: none !important;
-    box-shadow: none !important;
-    border-radius: 0 !important;
-    background: white !important;
-  }
-
-  // ── Unclip ion-content (including shadow DOM scroll container) ──
-  ion-content {
-    display: block !important;
-    position: static !important;
-    width: 100% !important;
-    height: auto !important;
-    overflow: visible !important;
-    contain: none !important;
-    --overflow: visible !important;
-    --background: white !important;
-    background: white !important;
-  }
-
-  // ── PDF viewer container ────────────────────────────────────────
-  .pdf-container,
-  ngx-extended-pdf-viewer {
-    display: block !important;
-    position: static !important;
-    overflow: visible !important;
-    height: auto !important;
-    width: 100% !important;
-  }
-
-  // ── Hide the interactive viewer (canvases, sidebar) ─────────────
-  #viewerContainer,
-  #mainContainer {
+  // ── Hide EVERYTHING except #printContainer ────────────────────
+  // ngx-extended-pdf-viewer moves #printContainer to be a direct
+  // child of <body>. Hide all other body children so only the
+  // pre-rendered print pages are visible.
+  body > *:not(#printContainer) {
     display: none !important;
   }
 
   // ── Show #printContainer with all rendered pages ────────────────
-  // ngx-extended-pdf-viewer creates this div and fills it with
-  // .printedPage elements (each containing a canvas/img for one page).
-  // Do NOT apply blanket transform:none — the library uses transforms
-  // to scale pages to fit the print area.
   #printContainer {
     display: block !important;
     position: static !important;

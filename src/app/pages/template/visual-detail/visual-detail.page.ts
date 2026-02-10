@@ -1079,7 +1079,14 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           existing.originalUrl = originalUrl;
         }
         (existing as any)._localBlobId = img.localBlobId;
-        photosNeedingBlobLoad.push({ photo: existing as PhotoItem & { _localBlobId?: number }, localImage: img });
+        // PHOTO STABILITY FIX: Only reload blobs for photos that still have placeholder URLs.
+        // Photos with valid displayUrl and originalUrl are already visible — don't touch them.
+        const needsBlobLoad = existing.displayUrl === 'assets/img/photo-placeholder.svg' ||
+          existing.originalUrl === 'assets/img/photo-placeholder.svg' ||
+          !existing.displayUrl || !existing.originalUrl;
+        if (needsBlobLoad) {
+          photosNeedingBlobLoad.push({ photo: existing as PhotoItem & { _localBlobId?: number }, localImage: img });
+        }
       } else {
         // NEW photo — append to array
         const newPhoto = {

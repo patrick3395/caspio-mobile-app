@@ -38,7 +38,7 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
           [showZoomButtons]="true"
           [showPresentationModeButton]="false"
           [showOpenFileButton]="false"
-          [showPrintButton]="true"
+          [showPrintButton]="false"
           [showDownloadButton]="false"
           [showSecondaryToolbarButton]="false"
           [showRotateButton]="false"
@@ -78,7 +78,8 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
       justify-content: center;
       overflow: hidden;
     }
-    /* Close button injected into toolbar */
+    /* Print and Close buttons injected into toolbar */
+    ::ng-deep #pdfPrintBtn,
     ::ng-deep #pdfCloseBtn {
       color: #fff !important;
       cursor: pointer !important;
@@ -96,6 +97,7 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
       border-radius: 6px !important;
       transition: all 0.2s ease !important;
     }
+    ::ng-deep #pdfPrintBtn:hover,
     ::ng-deep #pdfCloseBtn:hover {
       background-color: rgba(241, 90, 39, 0.8) !important;
     }
@@ -341,25 +343,7 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
       overflow: hidden !important;
     }
 
-    /* Print: unclip everything so all pages print */
-    @media print {
-      ion-content.document-viewer-content {
-        --overflow: visible !important;
-        overflow: visible !important;
-        height: auto !important;
-        contain: none !important;
-      }
-
-      ion-content.document-viewer-content ::ng-deep .inner-scroll {
-        overflow: visible !important;
-        height: auto !important;
-      }
-
-      .pdf-container {
-        height: auto !important;
-        overflow: visible !important;
-      }
-    }
+    /* Print: global.scss handles hiding everything except #printContainer */
 
   `]
 })
@@ -384,29 +368,70 @@ export class DocumentViewerComponent implements OnInit, AfterViewInit {
 
   ngAfterViewInit() {
     if (this.isPDF) {
-      this.injectCloseButton();
+      this.injectToolbarButtons();
     }
   }
 
-  private injectCloseButton() {
+  private injectToolbarButtons() {
     // Wait for the PDF viewer toolbar to render
     const tryInject = (attempts = 0) => {
       const toolbarRight = document.querySelector('#toolbarViewerRight');
       if (toolbarRight) {
-        const btn = document.createElement('button');
-        btn.id = 'pdfCloseBtn';
-        btn.className = 'toolbarButton';
-        btn.title = 'Close';
-        btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-        btn.addEventListener('click', () => {
+        // Print button - opens PDF in new tab for native browser printing
+        const printBtn = document.createElement('button');
+        printBtn.id = 'pdfPrintBtn';
+        printBtn.className = 'toolbarButton';
+        printBtn.title = 'Print';
+        printBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>`;
+        printBtn.addEventListener('click', () => {
+          this.ngZone.run(() => this.printPdf());
+        });
+        toolbarRight.appendChild(printBtn);
+
+        // Close button
+        const closeBtn = document.createElement('button');
+        closeBtn.id = 'pdfCloseBtn';
+        closeBtn.className = 'toolbarButton';
+        closeBtn.title = 'Close';
+        closeBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+        closeBtn.addEventListener('click', () => {
           this.ngZone.run(() => this.dismiss());
         });
-        toolbarRight.appendChild(btn);
+        toolbarRight.appendChild(closeBtn);
       } else if (attempts < 20) {
         setTimeout(() => tryInject(attempts + 1), 150);
       }
     };
     tryInject();
+  }
+
+  private printPdf() {
+    const url = this.fileUrl;
+    if (url.startsWith('data:')) {
+      const base64Data = url.split(',')[1];
+      const mimeType = url.split(':')[1].split(';')[0];
+      const byteCharacters = atob(base64Data);
+      const byteArray = new Uint8Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteArray[i] = byteCharacters.charCodeAt(i);
+      }
+      const blob = new Blob([byteArray], { type: mimeType });
+      const blobUrl = URL.createObjectURL(blob);
+      const printWindow = window.open(blobUrl, '_blank');
+      if (printWindow) {
+        printWindow.addEventListener('load', () => {
+          printWindow.print();
+        });
+      }
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    } else {
+      const printWindow = window.open(url, '_blank');
+      if (printWindow) {
+        printWindow.addEventListener('load', () => {
+          printWindow.print();
+        });
+      }
+    }
   }
 
   ngOnInit() {

@@ -914,7 +914,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       if (this.bulkAnnotatedImagesMap.size === 0) {
         this.indexedDb.getAllCachedAnnotatedImagesForService().then(annotatedImages => {
           this.bulkAnnotatedImagesMap = annotatedImages;
-          this.scheduleDetectChanges();
         });
       }
 
@@ -1005,85 +1004,90 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           );
 
           if (existingPhotoIndex !== -1) {
-            // Photo exists - refresh displayUrl from LocalImages
-            try {
-              const freshDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
-              if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.svg') {
-                const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10);
+            // PHOTO STABILITY FIX: Skip async operations for photos that already have valid URLs
+            const existingPhoto = this.visualPhotos[key][existingPhotoIndex];
+            const hasValidUrl = existingPhoto.displayUrl &&
+              existingPhoto.displayUrl !== 'assets/img/photo-placeholder.svg';
 
-                // Detect drawings change and invalidate stale annotation caches
-                const existingDrawings = this.visualPhotos[key][existingPhotoIndex].Drawings;
-                const drawingsChanged = localImage.drawings !== existingDrawings;
-                if (drawingsChanged) {
-                  const invalidateKey = localImage.attachId || localImage.imageId;
-                  this.bulkAnnotatedImagesMap.delete(invalidateKey);
-                  this.indexedDb.deleteCachedAnnotatedImage(invalidateKey).catch(() => {});
-                }
-
-                // ANNOTATION THUMBNAIL FIX: Use cached annotated image for thumbnail display
-                // Check BOTH attachId AND imageId for cached annotated image
-                // (cache may be stored under either depending on sync state)
-                let cachedAnnotatedUrl = localImage.attachId
-                  ? this.bulkAnnotatedImagesMap.get(localImage.attachId)
-                  : null;
-                if (!cachedAnnotatedUrl) {
-                  cachedAnnotatedUrl = this.bulkAnnotatedImagesMap.get(localImage.imageId);
-                }
-
-                // TIER 2: Check IndexedDB cache if not in memory (needed after rehydration)
-                if (!cachedAnnotatedUrl && hasAnnotations) {
-                  const cacheKey = localImage.attachId || localImage.imageId;
-                  try {
-                    cachedAnnotatedUrl = await this.indexedDb.getCachedAnnotatedImage(cacheKey);
-                    if (cachedAnnotatedUrl) {
-                      this.bulkAnnotatedImagesMap.set(cacheKey, cachedAnnotatedUrl);
-                    }
-                  } catch (e) { /* ignore cache lookup errors */ }
-                }
-
-                // TIER 3: Render on-the-fly if still no cached version (needed after rehydration clears cache)
-                if (!cachedAnnotatedUrl && hasAnnotations && freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.svg' && localImage.drawings) {
-                  try {
-                    const renderedUrl = await renderAnnotationsOnPhoto(freshDisplayUrl, localImage.drawings);
-                    if (renderedUrl && renderedUrl !== freshDisplayUrl) {
-                      cachedAnnotatedUrl = renderedUrl;
-                      const cacheKey = localImage.attachId || localImage.imageId;
-                      this.bulkAnnotatedImagesMap.set(cacheKey, renderedUrl);
-                      // Cache to IndexedDB in background (non-blocking)
-                      fetch(renderedUrl).then(r => r.blob()).then(blob =>
-                        this.indexedDb.cacheAnnotatedImage(cacheKey, blob)
-                      ).catch(() => {});
-                    }
-                  } catch (e) {
-                    this.logDebug('WARN', `Failed to render annotations on-the-fly: ${e}`);
-                  }
-                }
-
-                const thumbnailUrl = (cachedAnnotatedUrl && hasAnnotations) ? cachedAnnotatedUrl : freshDisplayUrl;
-
-                // DEXIE-FIRST FIX: Always set uploading/loading to false when updating from LocalImages
-                // The image data is already available locally in Dexie - no loading spinner needed
-                this.visualPhotos[key][existingPhotoIndex] = {
-                  ...this.visualPhotos[key][existingPhotoIndex],
-                  displayUrl: thumbnailUrl,         // Use annotated version for display
-                  url: freshDisplayUrl,             // Original for upload
-                  thumbnailUrl: thumbnailUrl,       // Use annotated version for thumbnail
-                  originalUrl: freshDisplayUrl,     // Original for re-editing in annotator
-                  localBlobId: localImage.localBlobId,
-                  caption: localImage.caption || '',
-                  Annotation: localImage.caption || '',
-                  Drawings: localImage.drawings || null,
-                  hasAnnotations: hasAnnotations,
-                  isLocalImage: true,
-                  isLocalFirst: true,
-                  // Clear loading states - data is available from Dexie
-                  uploading: false,
-                  loading: false,
-                  displayState: 'local'
-                };
+            if (hasValidUrl) {
+              // FAST PATH: Update metadata in-place only
+              existingPhoto.uploading = false;
+              existingPhoto.loading = false;
+              existingPhoto.isLocalImage = true;
+              existingPhoto.isLocalFirst = true;
+              existingPhoto.displayState = 'local';
+              if (localImage.caption) existingPhoto.caption = localImage.caption;
+              if (localImage.caption) existingPhoto.Annotation = localImage.caption;
+              if (localImage.localBlobId) existingPhoto.localBlobId = localImage.localBlobId;
+              if (localImage.attachId) existingPhoto.attachId = localImage.attachId;
+              const drawingsChanged = localImage.drawings !== existingPhoto.Drawings;
+              if (drawingsChanged && localImage.drawings) {
+                existingPhoto.Drawings = localImage.drawings;
+                existingPhoto.hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10);
+                const invalidateKey = localImage.attachId || localImage.imageId;
+                this.bulkAnnotatedImagesMap.delete(invalidateKey);
+                this.indexedDb.deleteCachedAnnotatedImage(invalidateKey).catch(() => {});
               }
-            } catch (e) {
-              this.logDebug('WARN', `Failed to refresh displayUrl for existing photo: ${e}`);
+            } else {
+              // SLOW PATH: Photo has placeholder URL — do full refresh
+              try {
+                const freshDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
+                if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.svg') {
+                  const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10);
+
+                  let cachedAnnotatedUrl = localImage.attachId
+                    ? this.bulkAnnotatedImagesMap.get(localImage.attachId)
+                    : null;
+                  if (!cachedAnnotatedUrl) {
+                    cachedAnnotatedUrl = this.bulkAnnotatedImagesMap.get(localImage.imageId);
+                  }
+
+                  if (!cachedAnnotatedUrl && hasAnnotations) {
+                    const cacheKey = localImage.attachId || localImage.imageId;
+                    try {
+                      cachedAnnotatedUrl = await this.indexedDb.getCachedAnnotatedImage(cacheKey);
+                      if (cachedAnnotatedUrl) {
+                        this.bulkAnnotatedImagesMap.set(cacheKey, cachedAnnotatedUrl);
+                      }
+                    } catch (e) { /* ignore cache lookup errors */ }
+                  }
+
+                  if (!cachedAnnotatedUrl && hasAnnotations && freshDisplayUrl && localImage.drawings) {
+                    try {
+                      const renderedUrl = await renderAnnotationsOnPhoto(freshDisplayUrl, localImage.drawings);
+                      if (renderedUrl && renderedUrl !== freshDisplayUrl) {
+                        cachedAnnotatedUrl = renderedUrl;
+                        const cacheKey = localImage.attachId || localImage.imageId;
+                        this.bulkAnnotatedImagesMap.set(cacheKey, renderedUrl);
+                        fetch(renderedUrl).then(r => r.blob()).then(blob =>
+                          this.indexedDb.cacheAnnotatedImage(cacheKey, blob)
+                        ).catch(() => {});
+                      }
+                    } catch (e) {
+                      this.logDebug('WARN', `Failed to render annotations on-the-fly: ${e}`);
+                    }
+                  }
+
+                  const thumbnailUrl = (cachedAnnotatedUrl && hasAnnotations) ? cachedAnnotatedUrl : freshDisplayUrl;
+
+                  existingPhoto.displayUrl = thumbnailUrl;
+                  existingPhoto.url = freshDisplayUrl;
+                  existingPhoto.thumbnailUrl = thumbnailUrl;
+                  existingPhoto.originalUrl = freshDisplayUrl;
+                  existingPhoto.localBlobId = localImage.localBlobId;
+                  existingPhoto.caption = localImage.caption || '';
+                  existingPhoto.Annotation = localImage.caption || '';
+                  existingPhoto.Drawings = localImage.drawings || null;
+                  existingPhoto.hasAnnotations = hasAnnotations;
+                  existingPhoto.isLocalImage = true;
+                  existingPhoto.isLocalFirst = true;
+                  existingPhoto.uploading = false;
+                  existingPhoto.loading = false;
+                  existingPhoto.displayState = 'local';
+                }
+              } catch (e) {
+                this.logDebug('WARN', `Failed to refresh displayUrl for existing photo: ${e}`);
+              }
             }
             loadedPhotoIds.add(imageId);
             if (localImage.attachId) loadedPhotoIds.add(localImage.attachId);
@@ -1223,7 +1227,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       if (this.bulkAnnotatedImagesMap.size === 0) {
         this.indexedDb.getAllCachedAnnotatedImagesForService().then(annotatedImages => {
           this.bulkAnnotatedImagesMap = annotatedImages;
-          this.scheduleDetectChanges();
         });
       }
 
@@ -1313,83 +1316,90 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           );
 
           if (existingPhotoIndex !== -1) {
-            // Photo exists - refresh displayUrl
-            try {
-              const freshDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
-              if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.svg') {
-                const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10);
+            // PHOTO STABILITY FIX: Skip async operations for photos that already have valid URLs
+            const existingPhoto = this.visualPhotos[key][existingPhotoIndex];
+            const hasValidUrl = existingPhoto.displayUrl &&
+              existingPhoto.displayUrl !== 'assets/img/photo-placeholder.svg';
 
-                // Detect drawings change and invalidate stale annotation caches
-                const existingDrawings = this.visualPhotos[key][existingPhotoIndex].Drawings;
-                const drawingsChanged = localImage.drawings !== existingDrawings;
-                if (drawingsChanged) {
-                  const invalidateKey = localImage.attachId || localImage.imageId;
-                  this.bulkAnnotatedImagesMap.delete(invalidateKey);
-                  this.indexedDb.deleteCachedAnnotatedImage(invalidateKey).catch(() => {});
-                }
-
-                // Check for cached annotated image
-                let cachedAnnotatedUrl = localImage.attachId
-                  ? this.bulkAnnotatedImagesMap.get(localImage.attachId)
-                  : null;
-                if (!cachedAnnotatedUrl) {
-                  cachedAnnotatedUrl = this.bulkAnnotatedImagesMap.get(localImage.imageId);
-                }
-
-                // TIER 2: Check IndexedDB cache if not in memory (needed after rehydration)
-                if (!cachedAnnotatedUrl && hasAnnotations) {
-                  const cacheKey = localImage.attachId || localImage.imageId;
-                  try {
-                    cachedAnnotatedUrl = await this.indexedDb.getCachedAnnotatedImage(cacheKey);
-                    if (cachedAnnotatedUrl) {
-                      this.bulkAnnotatedImagesMap.set(cacheKey, cachedAnnotatedUrl);
-                    }
-                  } catch (e) { /* ignore cache lookup errors */ }
-                }
-
-                // TIER 3: Render on-the-fly if still no cached version (needed after rehydration clears cache)
-                if (!cachedAnnotatedUrl && hasAnnotations && freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.svg' && localImage.drawings) {
-                  try {
-                    const renderedUrl = await renderAnnotationsOnPhoto(freshDisplayUrl, localImage.drawings);
-                    if (renderedUrl && renderedUrl !== freshDisplayUrl) {
-                      cachedAnnotatedUrl = renderedUrl;
-                      const cacheKey = localImage.attachId || localImage.imageId;
-                      this.bulkAnnotatedImagesMap.set(cacheKey, renderedUrl);
-                      // Cache to IndexedDB in background (non-blocking)
-                      fetch(renderedUrl).then(r => r.blob()).then(blob =>
-                        this.indexedDb.cacheAnnotatedImage(cacheKey, blob)
-                      ).catch(() => {});
-                    }
-                  } catch (e) {
-                    this.logDebug('WARN', `Failed to render annotations on-the-fly: ${e}`);
-                  }
-                }
-
-                const thumbnailUrl = (cachedAnnotatedUrl && hasAnnotations) ? cachedAnnotatedUrl : freshDisplayUrl;
-
-                // DEXIE-FIRST FIX: Always set uploading/loading to false when updating from LocalImages
-                // The image data is already available locally in Dexie - no loading spinner needed
-                this.visualPhotos[key][existingPhotoIndex] = {
-                  ...this.visualPhotos[key][existingPhotoIndex],
-                  displayUrl: thumbnailUrl,
-                  url: freshDisplayUrl,
-                  thumbnailUrl: thumbnailUrl,
-                  originalUrl: freshDisplayUrl,
-                  localBlobId: localImage.localBlobId,
-                  caption: localImage.caption || '',
-                  Annotation: localImage.caption || '',
-                  Drawings: localImage.drawings || null,
-                  hasAnnotations: hasAnnotations,
-                  isLocalImage: true,
-                  isLocalFirst: true,
-                  // Clear loading states - data is available from Dexie
-                  uploading: false,
-                  loading: false,
-                  displayState: 'local'
-                };
+            if (hasValidUrl) {
+              // FAST PATH: Update metadata in-place only
+              existingPhoto.uploading = false;
+              existingPhoto.loading = false;
+              existingPhoto.isLocalImage = true;
+              existingPhoto.isLocalFirst = true;
+              existingPhoto.displayState = 'local';
+              if (localImage.caption) existingPhoto.caption = localImage.caption;
+              if (localImage.caption) existingPhoto.Annotation = localImage.caption;
+              if (localImage.localBlobId) existingPhoto.localBlobId = localImage.localBlobId;
+              if (localImage.attachId) existingPhoto.attachId = localImage.attachId;
+              const drawingsChanged = localImage.drawings !== existingPhoto.Drawings;
+              if (drawingsChanged && localImage.drawings) {
+                existingPhoto.Drawings = localImage.drawings;
+                existingPhoto.hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10);
+                const invalidateKey = localImage.attachId || localImage.imageId;
+                this.bulkAnnotatedImagesMap.delete(invalidateKey);
+                this.indexedDb.deleteCachedAnnotatedImage(invalidateKey).catch(() => {});
               }
-            } catch (e) {
-              this.logDebug('WARN', `Failed to refresh displayUrl for existing photo: ${e}`);
+            } else {
+              // SLOW PATH: Photo has placeholder URL — do full refresh
+              try {
+                const freshDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
+                if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.svg') {
+                  const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10);
+
+                  let cachedAnnotatedUrl = localImage.attachId
+                    ? this.bulkAnnotatedImagesMap.get(localImage.attachId)
+                    : null;
+                  if (!cachedAnnotatedUrl) {
+                    cachedAnnotatedUrl = this.bulkAnnotatedImagesMap.get(localImage.imageId);
+                  }
+
+                  if (!cachedAnnotatedUrl && hasAnnotations) {
+                    const cacheKey = localImage.attachId || localImage.imageId;
+                    try {
+                      cachedAnnotatedUrl = await this.indexedDb.getCachedAnnotatedImage(cacheKey);
+                      if (cachedAnnotatedUrl) {
+                        this.bulkAnnotatedImagesMap.set(cacheKey, cachedAnnotatedUrl);
+                      }
+                    } catch (e) { /* ignore cache lookup errors */ }
+                  }
+
+                  if (!cachedAnnotatedUrl && hasAnnotations && freshDisplayUrl && localImage.drawings) {
+                    try {
+                      const renderedUrl = await renderAnnotationsOnPhoto(freshDisplayUrl, localImage.drawings);
+                      if (renderedUrl && renderedUrl !== freshDisplayUrl) {
+                        cachedAnnotatedUrl = renderedUrl;
+                        const cacheKey = localImage.attachId || localImage.imageId;
+                        this.bulkAnnotatedImagesMap.set(cacheKey, renderedUrl);
+                        fetch(renderedUrl).then(r => r.blob()).then(blob =>
+                          this.indexedDb.cacheAnnotatedImage(cacheKey, blob)
+                        ).catch(() => {});
+                      }
+                    } catch (e) {
+                      this.logDebug('WARN', `Failed to render annotations on-the-fly: ${e}`);
+                    }
+                  }
+
+                  const thumbnailUrl = (cachedAnnotatedUrl && hasAnnotations) ? cachedAnnotatedUrl : freshDisplayUrl;
+
+                  existingPhoto.displayUrl = thumbnailUrl;
+                  existingPhoto.url = freshDisplayUrl;
+                  existingPhoto.thumbnailUrl = thumbnailUrl;
+                  existingPhoto.originalUrl = freshDisplayUrl;
+                  existingPhoto.localBlobId = localImage.localBlobId;
+                  existingPhoto.caption = localImage.caption || '';
+                  existingPhoto.Annotation = localImage.caption || '';
+                  existingPhoto.Drawings = localImage.drawings || null;
+                  existingPhoto.hasAnnotations = hasAnnotations;
+                  existingPhoto.isLocalImage = true;
+                  existingPhoto.isLocalFirst = true;
+                  existingPhoto.uploading = false;
+                  existingPhoto.loading = false;
+                  existingPhoto.displayState = 'local';
+                }
+              } catch (e) {
+                this.logDebug('WARN', `Failed to refresh displayUrl for existing photo: ${e}`);
+              }
             }
             loadedPhotoIds.add(imageId);
             if (localImage.attachId) loadedPhotoIds.add(localImage.attachId);
@@ -1542,7 +1552,13 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         this.visualRecordIds[selectionKey] = field.visualId || field.tempVisualId || '';
       }
       if (!withinSelectionGuard) {
-        this.selectedItems[selectionKey] = field.isSelected;
+        const hasPhotos = (this.visualPhotos[selectionKey]?.length || 0) > 0;
+        const isExpanded = this.expandedPhotos[selectionKey];
+        if (hasPhotos || isExpanded) {
+          this.selectedItems[selectionKey] = true;
+        } else {
+          this.selectedItems[selectionKey] = field.isSelected;
+        }
       }
       this.photoCountsByKey[selectionKey] = field.photoCount;
 
@@ -1610,7 +1626,13 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         this.visualRecordIds[selectionKey] = field.hudId || field.tempHudId || '';
       }
       if (!withinSelectionGuard) {
-        this.selectedItems[selectionKey] = field.isSelected;
+        const hasPhotos = (this.visualPhotos[selectionKey]?.length || 0) > 0;
+        const isExpanded = this.expandedPhotos[selectionKey];
+        if (hasPhotos || isExpanded) {
+          this.selectedItems[selectionKey] = true;
+        } else {
+          this.selectedItems[selectionKey] = field.isSelected;
+        }
       }
       this.photoCountsByKey[selectionKey] = field.photoCount;
 
@@ -1699,7 +1721,16 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       // stale data, causing selections to flash off and photo counts to reset.
       if (!environment.isWeb || !this.isInitialDataLoaded) {
         if (!withinSelectionGuard) {
-          this.selectedItems[selectionKey] = field.isSelected;
+          // PHOTO STABILITY FIX: Never deselect an item that has photos or is expanded.
+          // This prevents photos from disappearing if field.isSelected is briefly stale.
+          const hasPhotos = (this.visualPhotos[selectionKey]?.length || 0) > 0;
+          const isExpanded = this.expandedPhotos[selectionKey];
+          if (hasPhotos || isExpanded) {
+            // Force selected=true when photos exist — photos must stay visible
+            this.selectedItems[selectionKey] = true;
+          } else {
+            this.selectedItems[selectionKey] = field.isSelected;
+          }
         }
         const withinPhotoGuard = (Date.now() - this.lastPhotoOperationTime) < 5000;
         if (!withinPhotoGuard) {
@@ -1768,10 +1799,11 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       this.logDebug('DEXIE', `Populating photos from Dexie for ${fields.length} fields (${this.config.id})...`);
 
       // Load annotated images in background if not loaded
+      // NOTE: Don't call scheduleDetectChanges here — it fires mid-populate and can cause
+      // the template to re-render while photos are being processed, causing flicker.
       if (this.bulkAnnotatedImagesMap.size === 0) {
         this.indexedDb.getAllCachedAnnotatedImagesForService().then(annotatedImages => {
           this.bulkAnnotatedImagesMap = annotatedImages;
-          this.scheduleDetectChanges();
         });
       }
 
@@ -1897,81 +1929,95 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           );
 
           if (existingPhotoIndex !== -1) {
-            // Photo exists - refresh displayUrl from LocalImages
-            try {
-              const freshDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
-              if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.svg') {
-                const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10);
+            // PHOTO STABILITY FIX: If the existing photo already has a valid displayUrl,
+            // do NOT call getDisplayUrl or replace the object. Only update metadata in-place.
+            // This prevents photos from flickering/disappearing during sync liveQuery emissions.
+            const existingPhoto = this.visualPhotos[key][existingPhotoIndex];
+            const hasValidUrl = existingPhoto.displayUrl &&
+              existingPhoto.displayUrl !== 'assets/img/photo-placeholder.svg';
 
-                // Detect drawings change and invalidate stale annotation caches
-                const existingDrawings = this.visualPhotos[key][existingPhotoIndex].Drawings;
-                const drawingsChanged = localImage.drawings !== existingDrawings;
-                if (drawingsChanged) {
-                  const invalidateKey = localImage.attachId || localImage.imageId;
-                  this.bulkAnnotatedImagesMap.delete(invalidateKey);
-                  this.indexedDb.deleteCachedAnnotatedImage(invalidateKey).catch(() => {});
-                }
-
-                // ANNOTATION THUMBNAIL FIX: Use cached annotated image for thumbnail display
-                let cachedAnnotatedUrl = localImage.attachId
-                  ? this.bulkAnnotatedImagesMap.get(localImage.attachId)
-                  : null;
-                if (!cachedAnnotatedUrl) {
-                  cachedAnnotatedUrl = this.bulkAnnotatedImagesMap.get(localImage.imageId);
-                }
-
-                // TIER 2: Check IndexedDB cache if not in memory (needed after rehydration)
-                if (!cachedAnnotatedUrl && hasAnnotations) {
-                  const cacheKey = localImage.attachId || localImage.imageId;
-                  try {
-                    cachedAnnotatedUrl = await this.indexedDb.getCachedAnnotatedImage(cacheKey);
-                    if (cachedAnnotatedUrl) {
-                      this.bulkAnnotatedImagesMap.set(cacheKey, cachedAnnotatedUrl);
-                    }
-                  } catch (e) { /* ignore cache lookup errors */ }
-                }
-
-                // TIER 3: Render on-the-fly if still no cached version (needed after rehydration clears cache)
-                if (!cachedAnnotatedUrl && hasAnnotations && freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.svg' && localImage.drawings) {
-                  try {
-                    const renderedUrl = await renderAnnotationsOnPhoto(freshDisplayUrl, localImage.drawings);
-                    if (renderedUrl && renderedUrl !== freshDisplayUrl) {
-                      cachedAnnotatedUrl = renderedUrl;
-                      const cacheKey = localImage.attachId || localImage.imageId;
-                      this.bulkAnnotatedImagesMap.set(cacheKey, renderedUrl);
-                      // Cache to IndexedDB in background (non-blocking)
-                      fetch(renderedUrl).then(r => r.blob()).then(blob =>
-                        this.indexedDb.cacheAnnotatedImage(cacheKey, blob)
-                      ).catch(() => {});
-                    }
-                  } catch (e) {
-                    this.logDebug('WARN', `Failed to render annotations on-the-fly: ${e}`);
-                  }
-                }
-
-                const thumbnailUrl = (cachedAnnotatedUrl && hasAnnotations) ? cachedAnnotatedUrl : freshDisplayUrl;
-
-                // DEXIE-FIRST FIX: Always set uploading/loading to false when updating from LocalImages
-                this.visualPhotos[key][existingPhotoIndex] = {
-                  ...this.visualPhotos[key][existingPhotoIndex],
-                  displayUrl: thumbnailUrl,
-                  url: freshDisplayUrl,
-                  thumbnailUrl: thumbnailUrl,
-                  originalUrl: freshDisplayUrl,
-                  localBlobId: localImage.localBlobId,
-                  caption: localImage.caption || '',
-                  Annotation: localImage.caption || '',
-                  Drawings: localImage.drawings || null,
-                  hasAnnotations: hasAnnotations,
-                  isLocalImage: true,
-                  isLocalFirst: true,
-                  uploading: false,
-                  loading: false,
-                  displayState: 'local'
-                };
+            if (hasValidUrl) {
+              // FAST PATH: Photo is already visible with a good URL — only update metadata in-place
+              existingPhoto.uploading = false;
+              existingPhoto.loading = false;
+              existingPhoto.isLocalImage = true;
+              existingPhoto.isLocalFirst = true;
+              existingPhoto.displayState = 'local';
+              if (localImage.caption) existingPhoto.caption = localImage.caption;
+              if (localImage.caption) existingPhoto.Annotation = localImage.caption;
+              if (localImage.localBlobId) existingPhoto.localBlobId = localImage.localBlobId;
+              if (localImage.attachId) existingPhoto.attachId = localImage.attachId;
+              // Only update drawings/annotations if they actually changed
+              const drawingsChanged = localImage.drawings !== existingPhoto.Drawings;
+              if (drawingsChanged && localImage.drawings) {
+                existingPhoto.Drawings = localImage.drawings;
+                existingPhoto.hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10);
+                // Invalidate annotation cache so next full load picks up changes
+                const invalidateKey = localImage.attachId || localImage.imageId;
+                this.bulkAnnotatedImagesMap.delete(invalidateKey);
+                this.indexedDb.deleteCachedAnnotatedImage(invalidateKey).catch(() => {});
               }
-            } catch (e) {
-              this.logDebug('WARN', `Failed to refresh displayUrl for existing photo: ${e}`);
+            } else {
+              // SLOW PATH: Photo has placeholder URL — do full refresh
+              try {
+                const freshDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
+                if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.svg') {
+                  const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10);
+
+                  let cachedAnnotatedUrl = localImage.attachId
+                    ? this.bulkAnnotatedImagesMap.get(localImage.attachId)
+                    : null;
+                  if (!cachedAnnotatedUrl) {
+                    cachedAnnotatedUrl = this.bulkAnnotatedImagesMap.get(localImage.imageId);
+                  }
+
+                  if (!cachedAnnotatedUrl && hasAnnotations) {
+                    const cacheKey = localImage.attachId || localImage.imageId;
+                    try {
+                      cachedAnnotatedUrl = await this.indexedDb.getCachedAnnotatedImage(cacheKey);
+                      if (cachedAnnotatedUrl) {
+                        this.bulkAnnotatedImagesMap.set(cacheKey, cachedAnnotatedUrl);
+                      }
+                    } catch (e) { /* ignore cache lookup errors */ }
+                  }
+
+                  if (!cachedAnnotatedUrl && hasAnnotations && freshDisplayUrl && localImage.drawings) {
+                    try {
+                      const renderedUrl = await renderAnnotationsOnPhoto(freshDisplayUrl, localImage.drawings);
+                      if (renderedUrl && renderedUrl !== freshDisplayUrl) {
+                        cachedAnnotatedUrl = renderedUrl;
+                        const cacheKey = localImage.attachId || localImage.imageId;
+                        this.bulkAnnotatedImagesMap.set(cacheKey, renderedUrl);
+                        fetch(renderedUrl).then(r => r.blob()).then(blob =>
+                          this.indexedDb.cacheAnnotatedImage(cacheKey, blob)
+                        ).catch(() => {});
+                      }
+                    } catch (e) {
+                      this.logDebug('WARN', `Failed to render annotations on-the-fly: ${e}`);
+                    }
+                  }
+
+                  const thumbnailUrl = (cachedAnnotatedUrl && hasAnnotations) ? cachedAnnotatedUrl : freshDisplayUrl;
+
+                  // Update in-place instead of replacing object
+                  existingPhoto.displayUrl = thumbnailUrl;
+                  existingPhoto.url = freshDisplayUrl;
+                  existingPhoto.thumbnailUrl = thumbnailUrl;
+                  existingPhoto.originalUrl = freshDisplayUrl;
+                  existingPhoto.localBlobId = localImage.localBlobId;
+                  existingPhoto.caption = localImage.caption || '';
+                  existingPhoto.Annotation = localImage.caption || '';
+                  existingPhoto.Drawings = localImage.drawings || null;
+                  existingPhoto.hasAnnotations = hasAnnotations;
+                  existingPhoto.isLocalImage = true;
+                  existingPhoto.isLocalFirst = true;
+                  existingPhoto.uploading = false;
+                  existingPhoto.loading = false;
+                  existingPhoto.displayState = 'local';
+                }
+              } catch (e) {
+                this.logDebug('WARN', `Failed to refresh displayUrl for existing photo: ${e}`);
+              }
             }
             loadedPhotoIds.add(imageId);
             if (localImage.attachId) loadedPhotoIds.add(localImage.attachId);
