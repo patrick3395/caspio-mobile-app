@@ -24,6 +24,7 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { LbwDataService } from './lbw-data.service';
 import { environment } from '../../../environments/environment';
+import { TemplatePdfService } from '../../services/template/template-pdf.service';
 
 type PdfPreviewCtor = typeof import('../../components/pdf-preview/pdf-preview.component')['PdfPreviewComponent'];
 // jsPDF is now lazy-loaded via PdfGeneratorService
@@ -420,7 +421,8 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
     private offlineTemplate: OfflineTemplateService,
     private hudData: LbwDataService,
     public operationsQueue: OperationsQueueService,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private templatePdfService: TemplatePdfService
   ) {
     // CRITICAL FIX: Setup scroll lock mechanism on webapp only
     if (typeof window !== 'undefined') {
@@ -2917,6 +2919,29 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async generatePDF(event?: Event) {
+    // Delegate to TemplatePdfService for modern DocumentViewerComponent PDF viewer
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    }
+
+    if (this.isPDFGenerating) {
+      return;
+    }
+
+    this.isPDFGenerating = true;
+    try {
+      await this.templatePdfService.generatePDF(this.projectId, this.serviceId, 'lbw');
+    } catch (error) {
+      console.error('[LBW] Error generating PDF:', error);
+    } finally {
+      this.isPDFGenerating = false;
+    }
+  }
+
+  // Legacy generatePDF kept for reference - replaced by TemplatePdfService delegation above
+  private async _legacyGeneratePDF_unused(event?: Event) {
 
     // CRITICAL: Prevent any default behavior that might cause reload
     if (event) {
@@ -2941,7 +2966,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
     if (this.isPDFGenerating) {
       return;
     }
-    
+
     // Set flag immediately to prevent any double clicks
     this.isPDFGenerating = true;
 

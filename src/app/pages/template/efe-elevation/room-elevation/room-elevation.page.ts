@@ -5367,6 +5367,13 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     // TASK 1 FIX: Start cooldown to prevent cache invalidation during photo capture
     this.startLocalOperationCooldown();
 
+    // If a photo already exists for this section, delete it first (queue deletion)
+    // EFE only supports one photo per section — new capture fully replaces old
+    const existingPhoto = point.photos?.find((p: any) => p.photoType === photoType);
+    if (existingPhoto) {
+      await this.deletePointPhotoSilent(point, existingPhoto);
+    }
+
     // Clear deleted tracking for this point+photoType so new capture works
     const pointIdForTracking = point.pointId || point.tempPointId;
     if (pointIdForTracking) {
@@ -5410,6 +5417,13 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     // TASK 1 FIX: Start cooldown to prevent cache invalidation during photo capture
     this.startLocalOperationCooldown();
 
+    // If a photo already exists for this section, delete it first (queue deletion)
+    // EFE only supports one photo per section — new capture fully replaces old
+    const existingPhoto = point.photos?.find((p: any) => p.photoType === photoType);
+    if (existingPhoto) {
+      await this.deletePointPhotoSilent(point, existingPhoto);
+    }
+
     // Clear deleted tracking for this point+photoType so new capture works
     const pointIdForTracking = point.pointId || point.tempPointId;
     if (pointIdForTracking) {
@@ -5449,7 +5463,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
   }
 
   // Point Photo Callback Handlers
-  private async handlePointPhotoAdded(point: any, photo: StandardPhotoEntry, photoType: 'Measurement' | 'Location') {
+  private handlePointPhotoAdded(point: any, photo: StandardPhotoEntry, photoType: 'Measurement' | 'Location') {
     // Skip if this photo was deleted (prevents re-adding from in-flight upload callbacks)
     if (photo.imageId && this.deletedPointPhotoIds.has(photo.imageId)) {
       return;
@@ -5483,83 +5497,28 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       return;
     }
 
-    // Find existing photo with same type or create new one
-    let existingPhoto = point.photos.find((p: any) => p.photoType === photoType);
-
-    if (existingPhoto) {
-      // REPLACEMENT: Clean up old photo's LocalImage, captions, and annotations before replacing
-      // EFE elevation only supports ONE photo per section (photoType), so new photo fully replaces old
-      const oldImageId = existingPhoto.imageId || existingPhoto.localImageId;
-      const oldAttachId = existingPhoto.attachId || existingPhoto.AttachID;
-
-      // Only clean up if the old photo is a DIFFERENT image than the new one
-      if (oldImageId && oldImageId !== photo.imageId) {
-        // Track old photo as deleted so in-flight upload callbacks don't re-add it
-        this.deletedPointPhotoIds.add(oldImageId);
-        if (oldAttachId) this.deletedPointPhotoIds.add(String(oldAttachId));
-
-        // Delete old LocalImage + cascade-delete old captions/annotations via data adapter
-        try {
-          await this.dataAdapter.deleteAttachmentWithConfig(this.efePointAttachConfig, oldImageId);
-          // Also try by attachId if different
-          if (oldAttachId && String(oldAttachId) !== String(oldImageId)) {
-            try { await this.dataAdapter.deleteAttachmentWithConfig(this.efePointAttachConfig, oldAttachId); } catch (e) { /* ignore */ }
-          }
-        } catch (e) {
-          console.warn('[EFE] Error cleaning up old photo during replacement:', e);
-        }
-
-        // Clear old photo from in-memory caches
-        this.bulkCachedPhotosMap.delete(oldImageId);
-        this.bulkAnnotatedImagesMap.delete(oldImageId);
-        if (oldAttachId) {
-          this.bulkCachedPhotosMap.delete(String(oldAttachId));
-          this.bulkAnnotatedImagesMap.delete(String(oldAttachId));
-        }
-      }
-
-      // Update existing photo with new data
-      existingPhoto.isSkeleton = false;
-      existingPhoto.url = photo.displayUrl;
-      existingPhoto.displayUrl = photo.displayUrl;
-      existingPhoto.originalUrl = photo.originalUrl;
-      existingPhoto.caption = photo.caption || '';
-      existingPhoto.Annotation = photo.annotation || '';
-      existingPhoto.Drawings = photo.Drawings || '';
-      existingPhoto.hasAnnotations = photo.hasAnnotations;
-      existingPhoto.uploading = photo.uploading;
-      existingPhoto.queued = photo.queued || false;
-      existingPhoto.imageId = photo.imageId;
-      existingPhoto.localImageId = photo.imageId;
-      existingPhoto.AttachID = photo.AttachID;
-      existingPhoto.attachId = photo.attachId;
-      existingPhoto._tempId = photo.imageId;
-      existingPhoto.isLocalFirst = photo.isLocalFirst || photo.isLocal;
-      existingPhoto.isPending = photo.isPending;
-    } else {
-      // Add new photo
-      const newPhoto = {
-        photoType: photoType,
-        isSkeleton: false,
-        url: photo.displayUrl,
-        displayUrl: photo.displayUrl,
-        originalUrl: photo.originalUrl,
-        caption: photo.caption || '',
-        Annotation: photo.annotation || '',
-        Drawings: photo.Drawings || '',
-        hasAnnotations: photo.hasAnnotations,
-        uploading: photo.uploading,
-        queued: photo.queued || false,
-        imageId: photo.imageId,
-        localImageId: photo.imageId,
-        AttachID: photo.AttachID,
-        attachId: photo.attachId,
-        _tempId: photo.imageId,
-        isLocalFirst: photo.isLocalFirst || photo.isLocal,
-        isPending: photo.isPending
-      };
-      point.photos.push(newPhoto);
-    }
+    // Add new photo (old photo was already deleted before capture started)
+    const newPhoto = {
+      photoType: photoType,
+      isSkeleton: false,
+      url: photo.displayUrl,
+      displayUrl: photo.displayUrl,
+      originalUrl: photo.originalUrl,
+      caption: photo.caption || '',
+      Annotation: photo.annotation || '',
+      Drawings: photo.Drawings || '',
+      hasAnnotations: photo.hasAnnotations,
+      uploading: photo.uploading,
+      queued: photo.queued || false,
+      imageId: photo.imageId,
+      localImageId: photo.imageId,
+      AttachID: photo.AttachID,
+      attachId: photo.attachId,
+      _tempId: photo.imageId,
+      isLocalFirst: photo.isLocalFirst || photo.isLocal,
+      isPending: photo.isPending
+    };
+    point.photos.push(newPhoto);
 
     this.changeDetectorRef.detectChanges();
   }
@@ -5800,6 +5759,90 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       console.error('Error annotating photo:', error);
       // Toast removed per user request
       // await this.showToast('Failed to save annotation', 'danger');
+    }
+  }
+
+  /**
+   * Silently delete a point photo (no confirmation dialog).
+   * Used when replacing an existing photo with a new capture — runs the same
+   * full deletion pipeline as deletePointPhoto (UI removal, data adapter,
+   * cache cleanup, photoCount update).
+   */
+  private async deletePointPhotoSilent(point: any, photo: any): Promise<void> {
+    try {
+      // 1. Remove from local array
+      let index = point.photos.findIndex((p: any) =>
+        (photo.attachId && p.attachId === photo.attachId) ||
+        (photo.imageId && p.imageId === photo.imageId) ||
+        (photo.localImageId && p.localImageId === photo.localImageId) ||
+        (photo.imageId && p.localImageId === photo.imageId) ||
+        (photo.localImageId && p.imageId === photo.localImageId)
+      );
+      if (index < 0 && photo.photoType) {
+        index = point.photos.findIndex((p: any) => p.photoType === photo.photoType);
+      }
+      if (index < 0) {
+        index = point.photos.indexOf(photo);
+      }
+      if (index >= 0) {
+        point.photos.splice(index, 1);
+      } else if (photo.photoType) {
+        point.photos = point.photos.filter((p: any) => p.photoType !== photo.photoType);
+      }
+
+      // 2. Track deleted photo IDs to prevent re-adding during rebuild/liveQuery
+      const imageId = photo.imageId || photo.localImageId;
+      if (imageId) this.deletedPointPhotoIds.add(imageId);
+      if (photo.attachId) this.deletedPointPhotoIds.add(String(photo.attachId));
+      if (photo._tempId) this.deletedPointPhotoIds.add(String(photo._tempId));
+      const pointIdForTracking = point.pointId || point.tempPointId;
+      if (pointIdForTracking && photo.photoType) {
+        this.deletedPointPhotoIds.add(`${pointIdForTracking}:${photo.photoType}`);
+      }
+
+      // 3. Remove from preservation maps
+      this.removeFromPreservationMaps(point, photo);
+
+      // 4. Force UI update
+      this.changeDetectorRef.detectChanges();
+
+      // 5. Use the GENERIC data adapter for deletion
+      const photoId = photo.attachId || photo.imageId || photo.localImageId;
+      if (photoId) {
+        await this.dataAdapter.deleteAttachmentWithConfig(this.efePointAttachConfig, photoId);
+        if (photo.imageId && photo.imageId !== photoId) {
+          try { await this.dataAdapter.deleteAttachmentWithConfig(this.efePointAttachConfig, photo.imageId); } catch (e) { /* ignore */ }
+        }
+        if (photo.attachId && photo.attachId !== photoId && photo.attachId !== photo.imageId) {
+          try { await this.dataAdapter.deleteAttachmentWithConfig(this.efePointAttachConfig, photo.attachId); } catch (e) { /* ignore */ }
+        }
+      }
+
+      // 6. Clear in-memory caches
+      if (imageId) {
+        this.bulkCachedPhotosMap.delete(imageId);
+        this.bulkAnnotatedImagesMap.delete(imageId);
+      }
+      if (photo.attachId) {
+        this.bulkCachedPhotosMap.delete(String(photo.attachId));
+        this.bulkAnnotatedImagesMap.delete(String(photo.attachId));
+      }
+
+      // 7. Update photoCount in efeFields
+      try {
+        await this.efeFieldRepo.updatePointPhotoCount(
+          this.serviceId, this.roomName, point.pointNumber,
+          point.photos?.length || 0
+        );
+      } catch (repoErr) {
+        console.warn('[Point Photo] Failed to update Dexie photoCount:', repoErr);
+      }
+
+      // 8. Clear attachments cache and final UI update
+      this.foundationData.clearEFEAttachmentsCache();
+      this.changeDetectorRef.detectChanges();
+    } catch (error) {
+      console.error('[EFE] Error in silent photo delete:', error);
     }
   }
 

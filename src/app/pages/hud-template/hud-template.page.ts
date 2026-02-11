@@ -20,6 +20,7 @@ import { HelpModalComponent } from '../../components/help-modal/help-modal.compo
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { environment } from '../../../environments/environment';
 import { firstValueFrom } from 'rxjs';
+import { TemplatePdfService } from '../../services/template/template-pdf.service';
 
 type PdfPreviewCtor = typeof import('../../components/pdf-preview/pdf-preview.component')['PdfPreviewComponent'];
 // jsPDF is now lazy-loaded via PdfGeneratorService
@@ -202,7 +203,8 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     private pdfGenerator: PdfGeneratorService,
     private cache: CacheService,
     private backgroundUploadService: BackgroundPhotoUploadService,
-    private fabricService: FabricService
+    private fabricService: FabricService,
+    private templatePdfService: TemplatePdfService
   ) {}
 
   async ngOnInit() {
@@ -3707,6 +3709,29 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async generatePDF(event?: Event) {
+    // Delegate to TemplatePdfService for modern DocumentViewerComponent PDF viewer
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    }
+
+    if (this.isPDFGenerating) {
+      return;
+    }
+
+    this.isPDFGenerating = true;
+    try {
+      await this.templatePdfService.generatePDF(this.projectId, this.serviceId, 'hud');
+    } catch (error) {
+      console.error('[HUD Template] Error generating PDF:', error);
+    } finally {
+      this.isPDFGenerating = false;
+    }
+  }
+
+  // Legacy generatePDF kept for reference - replaced by TemplatePdfService delegation above
+  private async _legacyGeneratePDF_unused(event?: Event) {
     if (event) {
       event.preventDefault();
       event.stopPropagation();

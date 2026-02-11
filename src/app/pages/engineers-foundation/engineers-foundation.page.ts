@@ -29,6 +29,7 @@ import { BackgroundSyncService } from '../../services/background-sync.service';
 // STATIC import for offline support - prevents ChunkLoadError when offline
 import { AddCustomVisualModalComponent } from '../../modals/add-custom-visual-modal/add-custom-visual-modal.component';
 import { environment } from '../../../environments/environment';
+import { TemplatePdfService } from '../../services/template/template-pdf.service';
 
 type PdfPreviewCtor = typeof import('../../components/pdf-preview/pdf-preview.component')['PdfPreviewComponent'];
 // jsPDF is now lazy-loaded via PdfGeneratorService
@@ -487,7 +488,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     private indexedDb: IndexedDbService,
     private offlineTemplate: OfflineTemplateService,
     private localImageService: LocalImageService,
-    private backgroundSync: BackgroundSyncService
+    private backgroundSync: BackgroundSyncService,
+    private templatePdfService: TemplatePdfService
   ) {
     // CRITICAL FIX: Setup scroll lock mechanism on webapp only
     if (typeof window !== 'undefined') {
@@ -7934,6 +7936,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   async generatePDF(event?: Event) {
+    // Delegate to TemplatePdfService for modern DocumentViewerComponent PDF viewer
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    }
+
+    if (this.isPDFGenerating) {
+      return;
+    }
+
+    this.isPDFGenerating = true;
+    try {
+      await this.templatePdfService.generatePDF(this.projectId, this.serviceId, 'efe');
+    } catch (error) {
+      console.error('[EFE] Error generating PDF:', error);
+    } finally {
+      this.isPDFGenerating = false;
+    }
+  }
+
+  // Legacy generatePDF kept for reference - replaced by TemplatePdfService delegation above
+  private async _legacyGeneratePDF_unused(event?: Event) {
 
     // CRITICAL: Prevent any default behavior that might cause reload
     if (event) {
@@ -7958,7 +7983,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     if (this.isPDFGenerating) {
       return;
     }
-    
+
     // Set flag immediately to prevent any double clicks
     this.isPDFGenerating = true;
 

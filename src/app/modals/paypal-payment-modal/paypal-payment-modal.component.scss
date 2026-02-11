@@ -1,8 +1,18 @@
-// Center the header title
+// Match Active Projects charcoal header
 ion-header {
   ion-toolbar {
+    --background: #333333;
+    --color: white;
+
     ion-title {
       text-align: center;
+      color: white;
+      padding-inline-start: 48px;
+      padding-inline-end: 48px;
+    }
+
+    ion-button {
+      --color: white;
     }
   }
 }

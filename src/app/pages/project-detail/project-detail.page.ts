@@ -3070,61 +3070,22 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   /**
-   * Opens a PDF in the browser's native PDF viewer (web) or in a modal viewer (mobile).
-   * Uses different strategies for web and mobile platforms.
+   * Opens a PDF in the DocumentViewerComponent modal (same viewer on both web and mobile).
    */
   private async openPdfInBrowser(fileUrl: string, filename: string): Promise<void> {
     try {
-      // On mobile, use the DocumentViewerComponent modal for inline PDF viewing
-      if (!environment.isWeb) {
-        const { DocumentViewerComponent } = await import('../../components/document-viewer/document-viewer.component');
-        const modal = await this.modalController.create({
-          component: DocumentViewerComponent,
-          componentProps: {
-            fileUrl: fileUrl,
-            fileName: filename,
-            fileType: 'pdf',
-            filePath: filename
-          },
-          cssClass: 'fullscreen-modal'
-        });
-        await modal.present();
-        return;
-      }
-
-      // On web, open in a new browser tab
-      let blobUrl: string;
-
-      if (fileUrl.startsWith('data:')) {
-        // Convert base64 data URL to blob URL
-        const base64Data = fileUrl.split(',')[1];
-        const mimeType = fileUrl.split(':')[1].split(';')[0] || 'application/pdf';
-        const byteCharacters = atob(base64Data);
-        const byteNumbers = new Array(byteCharacters.length);
-
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: mimeType });
-        blobUrl = URL.createObjectURL(blob);
-      } else if (fileUrl.startsWith('blob:')) {
-        // Already a blob URL, use directly
-        blobUrl = fileUrl;
-      } else {
-        // Regular URL - open directly
-        window.open(fileUrl, '_blank');
-        return;
-      }
-
-      // Open the blob URL in a new tab
-      window.open(blobUrl, '_blank');
-
-      // Clean up the blob URL after a short delay (allows the browser to start loading)
-      setTimeout(() => {
-        URL.revokeObjectURL(blobUrl);
-      }, 1000);
+      const { DocumentViewerComponent } = await import('../../components/document-viewer/document-viewer.component');
+      const modal = await this.modalController.create({
+        component: DocumentViewerComponent,
+        componentProps: {
+          fileUrl: fileUrl,
+          fileName: filename,
+          fileType: 'pdf',
+          filePath: filename
+        },
+        cssClass: 'fullscreen-modal'
+      });
+      await modal.present();
     } catch (error) {
       console.error('Error opening PDF:', error);
       await this.showToast('Failed to open PDF', 'danger');
