@@ -31,11 +31,8 @@ export const environment = {
   cognito: apiGatewayConfig.cognito,
   useApiGateway: apiGatewayConfig.useApiGateway,
   
-  // Existing Caspio configuration (keep as fallback)
+  // Caspio config (auth handled server-side via API Gateway)
   caspio: {
-    clientId: 'your-client-id',
-    clientSecret: 'your-client-secret',
-    tokenEndpoint: 'https://c0ady234.caspio.com/oauth/token',
     apiBaseUrl: 'https://c0ady234.caspio.com/rest/v2',
   },
 };

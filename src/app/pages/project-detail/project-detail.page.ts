@@ -571,35 +571,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   async loadProject() {
-    // When using API Gateway, AWS handles authentication - no need to auth here
-    if (environment.useApiGateway) {
-      await this.fetchProjectOptimized();
-      return;
-    }
-
-    // Legacy direct Caspio mode - requires frontend authentication
-    if (!this.caspioService.isAuthenticated()) {
-      return new Promise<void>((resolve, reject) => {
-        this.caspioService.authenticate().subscribe({
-          next: async () => {
-            await this.fetchProjectOptimized();
-            resolve();
-          },
-          error: (error) => {
-            this.error = 'Authentication failed';
-            console.error('❌ DEBUG: Authentication error:', error);
-            console.error('Error details:', {
-              status: error?.status,
-              message: error?.message,
-              error: error?.error
-            });
-            reject(error);
-          }
-        });
-      });
-    } else {
-      await this.fetchProjectOptimized();
-    }
+    // Auth handled server-side via API Gateway
+    await this.fetchProjectOptimized();
   }
 
   async fetchProjectOptimized() {
@@ -5091,27 +5064,6 @@ Troubleshooting:
     await loading.present();
 
     try {
-      
-      // Get account from CaspioService (it extracts from environment)
-      const account = this.caspioService.getAccountID();
-      
-      // Get token through CaspioService to ensure it's valid and handle refresh if needed
-      let token: string;
-      try {
-        const tokenResult = await this.caspioService.getValidToken().toPromise();
-        if (!tokenResult) {
-          throw new Error('Token is null or undefined');
-        }
-        token = tokenResult;
-      } catch (tokenError) {
-        console.error('❌ Failed to get valid token:', tokenError);
-        throw new Error('Failed to get authentication token. Please logout and login again.');
-      }
-      
-      if (!account || !token) {
-        throw new Error(`Authentication missing: Account: ${account}, Token exists: ${!!token}. Unable to authenticate with Caspio.`);
-      }
-      
       // Generate unique filename
       const timestamp = Date.now();
       const fileName = `property_${projectId}_${timestamp}.jpg`;
@@ -5120,67 +5072,33 @@ Troubleshooting:
         maxWidthOrHeight: 1920,
         useWebWorker: true
       });
-      
-      // No toast - just proceed with upload
+
+      // Upload via gateway proxy
       const formData = new FormData();
       formData.append('file', compressedFile, fileName);
-      
-      const filesUrl = `https://${account}.caspio.com/rest/v2/files`;
-      
-      const uploadResponse = await fetch(filesUrl, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`
-          // NO Content-Type header - let browser set it with boundary
-        },
+
+      const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/caspio-files/upload`, {
+        method: 'POST',
         body: formData
       });
-      
-      // Get response text first for debugging
-      const responseText = await uploadResponse.text();
-      
+
       if (!uploadResponse.ok) {
+        const responseText = await uploadResponse.text();
         console.error('Files API error:', responseText);
-        
-        // More detailed error for common issues
-        if (uploadResponse.status === 401) {
-          throw new Error(`Authentication failed (401): Token may be expired. Please logout and login again.`);
-        } else if (uploadResponse.status === 403) {
-          throw new Error(`Permission denied (403): Check if Files API is enabled for your account.`);
-        } else if (uploadResponse.status === 413) {
-          throw new Error(`File too large (413): Please use a smaller image.`);
-        } else {
-          throw new Error(`Files API failed: ${uploadResponse.status} - ${responseText}`);
-        }
+        throw new Error(`Upload failed: ${uploadResponse.status} - ${responseText}`);
       }
-      
-      // Try to parse the response as JSON
-      let uploadResult: any;
-      try {
-        uploadResult = JSON.parse(responseText);
-      } catch (parseError) {
-        uploadResult = responseText;
-      }
-      
+
+      const uploadResult = await uploadResponse.json();
+
       // Handle different possible response formats from Files API
       let uploadedFileName: string;
-      
-      // Check different possible property names for the filename
       if (uploadResult.Name) {
         uploadedFileName = uploadResult.Name;
       } else if (uploadResult.name) {
         uploadedFileName = uploadResult.name;
-      } else if (uploadResult.fileName) {
-        uploadedFileName = uploadResult.fileName;
-      } else if (uploadResult.FileName) {
-        uploadedFileName = uploadResult.FileName;
-      } else if (typeof uploadResult === 'string') {
-        // Sometimes the API returns just the filename as a string
-        uploadedFileName = uploadResult;
       } else if (uploadResult.Result && uploadResult.Result.Name) {
         uploadedFileName = uploadResult.Result.Name;
       } else {
-        // If we can't find the filename in the response, use the original filename
         console.warn('Could not find filename in Files API response, using original:', fileName);
         uploadedFileName = fileName;
       }

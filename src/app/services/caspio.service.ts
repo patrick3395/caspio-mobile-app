@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, BehaviorSubject, ReplaySubject, throwError, from, of, firstValueFrom, timer } from 'rxjs';
-import { map, tap, catchError, switchMap, finalize, retryWhen, mergeMap, take, filter, shareReplay, timeout, timeoutWith } from 'rxjs/operators';
+import { Observable, throwError, from, of, timer, firstValueFrom } from 'rxjs';
+import { map, tap, catchError, switchMap, finalize, retryWhen, mergeMap, filter } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { ImageCompressionService } from './image-compression.service';
 import { CacheService } from './cache.service';
@@ -11,25 +11,10 @@ import { ApiGatewayService } from './api-gateway.service';
 import { RetryNotificationService } from './retry-notification.service';
 import { compressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS } from '../utils/annotation-utils';
 
-export interface CaspioToken {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-}
-
-export interface CaspioAuthResponse {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-}
-
 @Injectable({
   providedIn: 'root'
 })
 export class CaspioService {
-  private tokenSubject = new BehaviorSubject<string | null>(null);
-  private tokenExpirationTimer: any;
-  private tokenRefreshTimer: any;
   private imageCache = new Map<string, string>(); // Cache for loaded images
   private imageWorker: Worker | null = null;
   private imageWorkerTaskId = 0;
@@ -38,13 +23,7 @@ export class CaspioService {
   // Request deduplication
   private pendingRequests = new Map<string, Observable<any>>();
 
-  // Token refresh management
-  private isRefreshing = false;
-  private refreshTokenSubject = new BehaviorSubject<string | null>(null);
-  private tokenExpiryTime: number = 0;
-  // G2-SEC-002: Disable debug logging in production to prevent sensitive data exposure
   private debugMode = !environment.production;
-  private ongoingAuthRequest: Observable<CaspioAuthResponse> | null = null;
 
   constructor(
     private http: HttpClient,
@@ -55,7 +34,6 @@ export class CaspioService {
     private apiGateway: ApiGatewayService,
     private retryNotification: RetryNotificationService
   ) {
-    this.loadStoredToken();
     this.offline.registerProcessor(this.processQueuedRequest.bind(this));
   }
 
@@ -66,273 +44,15 @@ export class CaspioService {
     return environment.useApiGateway === true;
   }
 
-  authenticate(): Observable<CaspioAuthResponse> {
-    // If there's already an ongoing auth request, return it to prevent duplicates
-    if (this.ongoingAuthRequest) {
-      if (this.debugMode) {
-      }
-      return this.ongoingAuthRequest;
-    }
-
-    const body = new URLSearchParams();
-    body.set('grant_type', 'client_credentials');
-    body.set('client_id', environment.caspio.clientId);
-    body.set('client_secret', environment.caspio.clientSecret);
-
-    const headers = new HttpHeaders({
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Accept': 'application/json'
-    });
-
-    this.ongoingAuthRequest = this.http.post<CaspioAuthResponse>(
-      environment.caspio.tokenEndpoint,
-      body.toString(),
-      { headers }
-    ).pipe(
-      tap(response => {
-        this.setToken(response.access_token, response.expires_in);
-      }),
-      catchError(error => {
-        if (!environment.production) {
-          console.error('Authentication failed:', error);
-          console.error('Auth error details:', {
-            status: error.status,
-            statusText: error.statusText,
-            message: error.message,
-            url: error.url,
-            error: error.error
-          });
-        }
-        return throwError(() => error);
-      }),
-      finalize(() => {
-        // Clear the ongoing request when complete (success or error)
-        this.ongoingAuthRequest = null;
-      }),
-      shareReplay(1)
-    );
-
-    return this.ongoingAuthRequest;
+  // Legacy: Caspio auth is now handled server-side. This stub prevents compile errors
+  // in the fallback code paths that are never reached when useApiGateway is true.
+  private getValidToken(): Observable<string> {
+    return throwError(() => new Error('Direct Caspio auth removed - all requests go through API Gateway'));
   }
 
-  private setToken(token: string, expiresIn: number): void {
-    const expiryTime = Date.now() + (expiresIn * 1000);
-    this.tokenExpiryTime = expiryTime;
-
-    this.tokenSubject.next(token);
-    localStorage.setItem('caspio_token', token);
-    localStorage.setItem('caspio_token_expiry', expiryTime.toString());
-
-    if (this.debugMode) {
-    }
-
-    // Set proactive refresh timer at 90% of token lifetime
-    this.setTokenRefreshTimer(expiresIn * 1000);
-    // Set expiration timer at 100% as backup
-    this.setTokenExpirationTimer(expiresIn * 1000);
-  }
-
-  private setTokenRefreshTimer(expiresInMs: number): void {
-    if (this.tokenRefreshTimer) {
-      clearTimeout(this.tokenRefreshTimer);
-    }
-
-    // Refresh at 90% of token lifetime to prevent expiration
-    const refreshTime = expiresInMs * 0.9;
-    this.tokenRefreshTimer = setTimeout(() => {
-      if (this.debugMode) {
-      }
-      this.refreshToken();
-    }, refreshTime);
-  }
-
-  private setTokenExpirationTimer(expiresInMs: number): void {
-    if (this.tokenExpirationTimer) {
-      clearTimeout(this.tokenExpirationTimer);
-    }
-
-    // This serves as a backup if refresh somehow fails
-    this.tokenExpirationTimer = setTimeout(() => {
-      if (this.debugMode) {
-        console.warn('⚠️ Token expired (100% lifetime) - this should not happen if refresh worked');
-      }
-      // Only clear if we're not currently refreshing
-      if (!this.isRefreshing) {
-        this.clearToken();
-      }
-    }, expiresInMs);
-  }
-
-  private loadStoredToken(): void {
-    const token = localStorage.getItem('caspio_token');
-    const expiry = localStorage.getItem('caspio_token_expiry');
-
-    if (token && expiry && Date.now() < parseInt(expiry, 10)) {
-      const expiryTime = parseInt(expiry, 10);
-      this.tokenExpiryTime = expiryTime;
-      this.tokenSubject.next(token);
-      const remainingTime = expiryTime - Date.now();
-
-      if (this.debugMode) {
-      }
-
-      // Set both refresh and expiration timers based on remaining time
-      this.setTokenRefreshTimer(remainingTime);
-      this.setTokenExpirationTimer(remainingTime);
-    } else {
-      if (this.debugMode && token) {
-      }
-      this.clearToken();
-    }
-  }
-
-  private clearToken(): void {
-    if (this.debugMode) {
-    }
-    this.tokenSubject.next(null);
-    this.refreshTokenSubject.next(null); // Reset refresh subject to prevent stale token caching
-    this.tokenExpiryTime = 0;
-    localStorage.removeItem('caspio_token');
-    localStorage.removeItem('caspio_token_expiry');
-    if (this.tokenExpirationTimer) {
-      clearTimeout(this.tokenExpirationTimer);
-      this.tokenExpirationTimer = null;
-    }
-    if (this.tokenRefreshTimer) {
-      clearTimeout(this.tokenRefreshTimer);
-      this.tokenRefreshTimer = null;
-    }
-  }
-
-  getToken(): Observable<string | null> {
-    return this.tokenSubject.asObservable();
-  }
-
-  getCurrentToken(): string | null {
-    return this.tokenSubject.value;
-  }
-
-  isAuthenticated(): boolean {
-    return this.getCurrentToken() !== null;
-  }
-
-  private isTokenValid(): boolean {
-    if (!this.isAuthenticated()) {
-      return false;
-    }
-    // Check if token expires in less than 5 minutes
-    const fiveMinutesFromNow = Date.now() + (5 * 60 * 1000);
-    return this.tokenExpiryTime > fiveMinutesFromNow;
-  }
-
-  private refreshToken(): void {
-    // Prevent concurrent refresh attempts
-    if (this.isRefreshing) {
-      if (this.debugMode) {
-      }
-      return;
-    }
-
-    if (this.debugMode) {
-    }
-
-    this.isRefreshing = true;
-
-    this.authenticate().subscribe({
-      next: (response) => {
-        this.isRefreshing = false;
-        // Emit the new token to all waiting subscribers
-        this.refreshTokenSubject.next(response.access_token);
-        if (this.debugMode) {
-        }
-      },
-      error: (error) => {
-        this.isRefreshing = false;
-        if (this.debugMode) {
-          console.error('❌ Token refresh failed:', error);
-        }
-        // If refresh fails, clear the token so next request will trigger new auth
-        // This also resets refreshTokenSubject to null, preventing stale token caching
-        this.clearToken();
-        // Note: Waiting subscribers will timeout after 5s and fall back to direct authentication
-      }
-    });
-  }
-
-  async ensureAuthenticated(): Promise<void> {
-    if (!this.isAuthenticated()) {
-      await this.authenticate().toPromise();
-    }
-  }
-
-  // Get a valid token, authenticating if necessary
-  getValidToken(): Observable<string> {
-    const currentToken = this.getCurrentToken();
-
-    if (this.debugMode) {
-      const timeToExpiry = this.tokenExpiryTime ? Math.round((this.tokenExpiryTime - Date.now()) / 1000) : 0;
-    }
-
-    // If we have a valid token, return it immediately
-    if (currentToken && this.isTokenValid()) {
-      return of(currentToken);
-    }
-
-    // If a refresh is already in progress, wait for it
-    if (this.isRefreshing) {
-      if (this.debugMode) {
-      }
-      return this.refreshTokenSubject.pipe(
-        filter(token => token !== null), // Skip null initial value
-        take(1), // Take the first emission only
-        timeout(5000), // 5-second timeout protection
-        catchError(error => {
-          // If waiting for refresh fails or times out, fall back to direct authentication
-          if (this.debugMode) {
-            console.warn('⚠️ Token refresh wait failed or timed out, falling back to direct authentication', error.name);
-          }
-          return this.authenticate().pipe(
-            map(response => response.access_token)
-          );
-        })
-      );
-    }
-
-    // If we have a token but it's expiring soon, refresh it
-    if (currentToken && !this.isTokenValid()) {
-      if (this.debugMode) {
-      }
-      this.refreshToken();
-      // Wait for the refresh to complete
-      return this.refreshTokenSubject.pipe(
-        filter(token => token !== null), // Skip null initial value
-        take(1),
-        timeout(5000), // 5-second timeout protection
-        catchError(error => {
-          // If refresh fails or times out, fall back to direct authentication
-          if (this.debugMode) {
-            console.warn('⚠️ Refresh failed or timed out, authenticating directly', error.name);
-          }
-          return this.authenticate().pipe(
-            map(response => response.access_token)
-          );
-        })
-      );
-    }
-
-    // No token at all, authenticate directly
-    if (this.debugMode) {
-    }
-    return this.authenticate().pipe(
-      map(response => response.access_token)
-    );
-  }
-  
-  // Get the Caspio account ID from the API URL
+  // Get the Caspio account ID
   getAccountID(): string {
-    // Extract account ID from the API base URL
-    const match = environment.caspio.apiBaseUrl.match(/https:\/\/([^.]+)\.caspio\.com/);
-    return match ? match[1] : 'c2hcf092'; // Fallback to known account ID
+    return 'c2hcf092';
   }
 
   /**
@@ -864,7 +584,7 @@ export class CaspioService {
   }
 
   logout(): void {
-    this.clearToken();
+    // Token management removed - auth handled server-side via API Gateway
   }
 
   getOfferById(offersId: string): Promise<any> {
@@ -4564,97 +4284,49 @@ export class CaspioService {
 
   // Authenticate user against Users table
   authenticateUser(email: string, password: string, companyId: number): Observable<any> {
-    return this.getValidToken().pipe(
-      switchMap(token => {
-        const headers = new HttpHeaders({
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        });
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
+    const whereClause = `Email='${email.replace(/'/g, "''")}'`;
 
-        // FIRST - Try to find user by email ONLY
-        // Properly escape special characters for Caspio
-        // The + character and @ need to be handled carefully
-        const escapedEmail = email
-          .replace(/'/g, "''")  // Escape single quotes for SQL
-          .replace(/\+/g, '%2B'); // URL encode plus sign
-        
-        // Query by EMAIL ONLY first to see what we get
-        const whereClause = `Email='${email.replace(/'/g, "''")}'`; // Keep original email in WHERE clause
-        
-        const params = {
-          q: JSON.stringify({
-            where: whereClause
-          })
-        };
+    return from(
+      fetch(`${PROXY_BASE_URL}/tables/LPS_Users/records?q.where=${encodeURIComponent(whereClause)}`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      }).then(response => {
+        if (!response.ok) throw new Error(`Auth request failed: ${response.status}`);
+        return response.json();
+      })
+    ).pipe(
+      map(response => {
+        const allUsers = response.Result || [];
 
-        return this.http.get<any>(
-          `${environment.caspio.apiBaseUrl}/tables/LPS_Users/records`,
-          { headers, params }
-        ).pipe(
-          map(response => {
-            const allUsers = response.Result || [];
-            
-            if (allUsers.length > 0) {
-              // Find exact email match (case-insensitive)
-              const exactMatch = allUsers.find((u: any) => 
-                u.Email && u.Email.toLowerCase() === email.toLowerCase()
-              );
-              
-              if (exactMatch) {
-                // Check if password matches
-                if (exactMatch.Password === password) {
-                  return [exactMatch]; // Return only the matching user
-                } else {
-                  // Password doesn't match - return empty array
-                  return [];
-                }
-              } else {
-                // No email match found
-                return [];
-              }
+        if (allUsers.length > 0) {
+          const exactMatch = allUsers.find((u: any) =>
+            u.Email && u.Email.toLowerCase() === email.toLowerCase()
+          );
+
+          if (exactMatch) {
+            if (exactMatch.Password === password) {
+              return [exactMatch];
+            } else {
+              return [];
             }
-            
+          } else {
             return [];
-          }),
-          catchError(error => {
-            console.error('User authentication failed:', error);
-            return of([]);
-          })
-        );
+          }
+        }
+
+        return [];
+      }),
+      catchError(error => {
+        console.error('User authentication failed:', error);
+        return of([]);
       })
     );
   }
 
   // Get the current auth token (for storing in localStorage)
   async getAuthToken(): Promise<string | null> {
-    return this.tokenSubject.value;
-  }
-
-  // Get ALL users for debugging (no WHERE clause)
-  getAllUsersForDebug(): Observable<any> {
-    return this.getValidToken().pipe(
-      switchMap(token => {
-        const headers = new HttpHeaders({
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        });
-
-        // Get ALL users without any WHERE clause
-        return this.http.get<any>(
-          `${environment.caspio.apiBaseUrl}/tables/LPS_Users/records`,
-          { headers }
-        ).pipe(
-          map(response => {
-            const users = response.Result || [];
-            return users;
-          }),
-          catchError(error => {
-            console.error('Failed to get users for debug:', error);
-            return of([]);
-          })
-        );
-      })
-    );
+    return null;
   }
 
   // Files table methods

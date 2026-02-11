@@ -997,21 +997,14 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       const fileName = `FDF_${photoType}_${roomName}_${Date.now()}.jpg`;
       uploadFormData.append('file', compressedFile, fileName);
       
-      const token = await this.caspioService.getValidToken();
-      const account = this.caspioService.getAccountID();
-      
-      const uploadResponse = await fetch(`https://${account}.caspio.com/rest/v2/files`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
+      const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/caspio-files/upload`, {
+        method: 'POST',
         body: uploadFormData
       });
-      
+
       const uploadResult = await uploadResponse.json();
 
-      // [v1.4.402] FDF Photo Fix: Handle API response structure properly
-      // The Files API returns {"Name": "filename.jpg"} or {"Result": {"Name": "filename.jpg"}}
+      // Handle API response structure: {"Name": "filename.jpg"} or {"Result": {"Name": "filename.jpg"}}
       const uploadedFileName = uploadResult.Name || uploadResult.Result?.Name || fileName;
       const filePath = `/${uploadedFileName}`;
       
@@ -1855,28 +1848,24 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       const formData = new FormData();
       formData.append('file', compressedBlob, fileName);
       
-      const token = await this.caspioService.getValidToken().toPromise();
-      const account = this.caspioService.getAccountID();
-      
-      const uploadResponse = await fetch(`https://${account}.caspio.com/rest/v2/files`, {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}` },
+      const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/caspio-files/upload`, {
+        method: 'POST',
         body: formData
       });
-      
+
       const uploadResult = await uploadResponse.json();
-      
+
       if (!uploadResult?.Name) {
         throw new Error('File upload failed');
       }
-      
+
       // Create Services_EFE_Attach record
       const attachData = {
         PointID: parseInt(pointId),
         Photo: `/${uploadResult.Name}`,
         Annotation: ''
       };
-      
+
       await this.caspioService.createServicesEFEAttach(attachData).toPromise();
       
     } catch (error) {
@@ -3261,21 +3250,18 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  // Helper method to construct Caspio file URL
-  async getCaspioFileUrl(filePath: string): Promise<string> {
+  // Helper method to construct Caspio file URL via gateway proxy
+  getCaspioFileUrl(filePath: string): string {
     if (!filePath) return '';
-    
+
     // If it's already a full URL or blob URL, return as is
     if (filePath.startsWith('http') || filePath.startsWith('blob:')) {
       return filePath;
     }
-    
-    const account = this.caspioService.getAccountID();
-    const token = await this.caspioService.getValidToken().toPromise();
-    
+
     // Ensure path starts with /
     const path = filePath.startsWith('/') ? filePath : `/${filePath}`;
-    return `https://${account}.caspio.com/rest/v2/files${path}?access_token=${token}`;
+    return `${environment.apiGatewayUrl}/api/caspio-files/download?filePath=${encodeURIComponent(path)}`;
   }
   
   // View room photo with annotation support (redirects to viewElevationPhoto)

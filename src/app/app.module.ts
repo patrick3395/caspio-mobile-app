@@ -7,7 +7,6 @@ import { IonicModule, IonicRouteStrategy } from '@ionic/angular';
 
 import { AppComponent } from './app.component';
 import { AppRoutingModule } from './app-routing.module';
-import { CaspioInterceptor } from './interceptors/caspio.interceptor';
 import { AuthInterceptor } from './interceptors/auth.interceptor';
 import { ThemeToggleComponent } from './components/theme-toggle/theme-toggle.component';
 import { SyncToggleComponent } from './components/sync-toggle/sync-toggle.component';
@@ -23,7 +22,6 @@ import { TEMPLATE_DATA_PROVIDERS } from './services/template/template-data-provi
   imports: [BrowserModule, HttpClientModule, IonicModule.forRoot(), AppRoutingModule, ThemeToggleComponent, SyncToggleComponent, UploadProgressComponent, ErrorBoundaryComponent, SkipLinkComponent, AgentationComponent],
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
-    { provide: HTTP_INTERCEPTORS, useClass: CaspioInterceptor, multi: true },
     { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
     // G2-ERRORS-001: Global error handler for web platform
     { provide: ErrorHandler, useClass: GlobalErrorHandlerService },

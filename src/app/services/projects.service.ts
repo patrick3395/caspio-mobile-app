@@ -49,8 +49,6 @@ export interface ProjectCreationData {
   providedIn: 'root'
 })
 export class ProjectsService {
-  private apiBaseUrl = environment.caspio.apiBaseUrl;
-
   // State mapping (exact same as local server)
   private stateMapping: { [key: string]: number } = {
     'TX': 1,    // Texas

@@ -2651,14 +2651,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const fileName = `FDF_${photoType}_${roomName}_${Date.now()}.jpg`;
       uploadFormData.append('file', compressedFile, fileName);
 
-      const token = await firstValueFrom(this.caspioService.getValidToken());
-      const account = this.caspioService.getAccountID();
-
-      const uploadResponse = await fetch(`https://${account}.caspio.com/rest/v2/files`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
+      const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/caspio-files/upload`, {
+        method: 'POST',
         body: uploadFormData
       });
 
@@ -2826,13 +2820,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
 
     try {
-      const token = await firstValueFrom(this.caspioService.getValidToken());
-      const account = this.caspioService.getAccountID();
-      const fallbackUrl = `https://${account}.caspio.com/rest/v2/files${normalizedPath}?access_token=${token}`;
+      const fallbackUrl = `${environment.apiGatewayUrl}/api/caspio-files/download?filePath=${encodeURIComponent(normalizedPath)}`;
       fdfPhotos[`${photoKey}Url`] = fallbackUrl;
       return fallbackUrl;
-    } catch (tokenError) {
-      console.error(`[FDF Photos] Fallback URL creation failed for ${roomName} ${photoType}:`, tokenError);
+    } catch (fallbackError) {
+      console.error(`[FDF Photos] Fallback URL creation failed for ${roomName} ${photoType}:`, fallbackError);
     }
 
     return null;
@@ -4054,28 +4046,24 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const formData = new FormData();
       formData.append('file', compressedBlob, fileName);
       
-      const token = await this.caspioService.getValidToken().toPromise();
-      const account = this.caspioService.getAccountID();
-      
-      const uploadResponse = await fetch(`https://${account}.caspio.com/rest/v2/files`, {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}` },
+      const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/caspio-files/upload`, {
+        method: 'POST',
         body: formData
       });
-      
+
       const uploadResult = await uploadResponse.json();
-      
+
       if (!uploadResult?.Name) {
         throw new Error('File upload failed');
       }
-      
+
       // Create Services_EFE_Attach record
       const attachData = {
         PointID: parseInt(pointId),
         Photo: `/${uploadResult.Name}`,
         Annotation: annotation
       };
-      
+
       await this.caspioService.createServicesEFEAttach(attachData).toPromise();
       
     } catch (error) {
@@ -7057,20 +7045,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   // Helper method to construct Caspio file URL
-  async getCaspioFileUrl(filePath: string): Promise<string> {
+  getCaspioFileUrl(filePath: string): string {
     if (!filePath) return '';
-    
+
     // If it's already a full URL or blob URL, return as is
     if (filePath.startsWith('http') || filePath.startsWith('blob:')) {
       return filePath;
     }
-    
-    const account = this.caspioService.getAccountID();
-    const token = await this.caspioService.getValidToken().toPromise();
-    
+
     // Ensure path starts with /
     const path = filePath.startsWith('/') ? filePath : `/${filePath}`;
-    return `https://${account}.caspio.com/rest/v2/files${path}?access_token=${token}`;
+    return `${environment.apiGatewayUrl}/api/caspio-files/download?filePath=${encodeURIComponent(path)}`;
   }
   
   // View room photo with annotation support (redirects to viewElevationPhoto)
@@ -15049,11 +15034,9 @@ Stack: ${error?.stack}`;
                   } catch (error) {
                     console.error(`[FDF Photos v1.4.327] Failed to convert FDF ${photoType.key} photo:`, error);
 
-                    // Try to use token-based URL as fallback
-                    const token = await firstValueFrom(this.caspioService.getValidToken());
-                    const account = this.caspioService.getAccountID();
+                    // Use gateway proxy URL as fallback
                     fdfPhotosData[photoType.key] = true;
-                    fdfPhotosData[`${photoType.key}Url`] = `https://${account}.caspio.com/rest/v2/files${photoPath}?access_token=${token}`;
+                    fdfPhotosData[`${photoType.key}Url`] = `${environment.apiGatewayUrl}/api/caspio-files/download?filePath=${encodeURIComponent(photoPath)}`;
                     // Load caption and drawings even in fallback case
                     fdfPhotosData[`${photoType.key}Caption`] = roomRecord[photoType.annotationField] || '';
                     fdfPhotosData[`${photoType.key}Drawings`] = roomRecord[photoType.drawingsField] || null;

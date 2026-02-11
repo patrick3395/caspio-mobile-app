@@ -5,6 +5,7 @@ import { PhotoViewerComponent } from '../photo-viewer/photo-viewer.component';
 import { CaspioService } from '../../services/caspio.service';
 import { PdfDocumentBuilderService } from '../../services/pdf/pdf-document-builder.service';
 import { TABLE_LAYOUTS } from '../../services/pdf/pdf-styles';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-pdf-preview',
@@ -186,9 +187,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     }
     
     if (photoPath.startsWith('/')) {
-      const account = this.caspioService.getAccountID();
-      const token = this.caspioService.getCurrentToken() || '';
-      return `https://${account}.caspio.com/rest/v2/files${photoPath}?access_token=${token}`;
+      return `${environment.apiGatewayUrl}/api/caspio-files/download?filePath=${encodeURIComponent(photoPath)}`;
     }
     
     return photoPath;
@@ -227,16 +226,7 @@ export class PdfPreviewComponent implements OnInit, AfterViewInit {
     // Caspio file path - WARNING: This shouldn't happen if conversion worked
     if (photoPath.startsWith('/')) {
       console.warn('[PDF Preview] Using Caspio file path (base64 conversion may have failed):', photoPath);
-      const account = this.caspioService.getAccountID();
-      const token = this.caspioService.getCurrentToken() || '';
-
-      if (!token) {
-        console.error('[PDF Preview] No token available for Caspio file path');
-        return 'assets/img/photo-placeholder.svg';
-      }
-
-      const photoUrl = `https://${account}.caspio.com/rest/v2/files${photoPath}?access_token=${token}`;
-      return photoUrl;
+      return `${environment.apiGatewayUrl}/api/caspio-files/download?filePath=${encodeURIComponent(photoPath)}`;
     }
 
     console.warn('[PDF Preview] Unknown photo path format:', photoPath.substring(0, 50));

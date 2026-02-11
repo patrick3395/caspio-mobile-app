@@ -235,34 +235,13 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
   }
 
   checkAuthAndLoadProjects() {
-    // When using API Gateway, AWS handles authentication - no need to auth here
-    if (environment.useApiGateway) {
-      this.loadActiveProjects();
-      return;
-    }
-
-    // Legacy direct Caspio mode - requires frontend authentication
-    if (!this.caspioService.isAuthenticated()) {
-      this.authenticateAndLoad();
-    } else {
-      this.loadActiveProjects();
-    }
+    // Auth handled server-side via API Gateway
+    this.loadActiveProjects();
   }
 
   authenticateAndLoad() {
-    this.loading = true;
-    this.caspioService.authenticate().subscribe({
-      next: () => {
-        this.loadActiveProjects();
-      },
-      error: (error) => {
-        const errorMessage = error?.error?.message || error?.message || 'Unknown error';
-        this.error = `Authentication failed: ${errorMessage}`;
-        this.loading = false;
-        console.error('Authentication error:', error);
-        console.error('Error details:', JSON.stringify(error, null, 2));
-      }
-    });
+    // Auth handled server-side via API Gateway
+    this.loadActiveProjects();
   }
 
   loadActiveProjects() {

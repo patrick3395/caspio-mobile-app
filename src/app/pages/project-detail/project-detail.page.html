@@ -467,21 +467,21 @@
                             </div>
                           </td>
                           <td class="doc-actions-cell">
-                            <ion-button size="small" fill="clear" class="orange-icon" *ngIf="doc.uploaded" (click)="viewDocument(doc)">
+                            <button class="doc-action-btn" *ngIf="doc.uploaded" (click)="viewDocument(doc)" title="View">
                               <ion-icon name="eye-outline"></ion-icon>
-                            </ion-button>
-                            <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly"
-                                        (click)="editLink(serviceDoc.serviceId, doc)" title="Edit Link">
+                            </button>
+                            <button class="doc-action-btn" *ngIf="!isReadOnly"
+                                    (click)="editLink(serviceDoc.serviceId, doc)" title="Edit Link">
                               <ion-icon name="create-outline"></ion-icon>
-                            </ion-button>
-                            <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly"
-                                        (click)="uploadDocument(serviceDoc.serviceId, serviceDoc.typeId, doc)" title="Upload Document">
+                            </button>
+                            <button class="doc-action-btn" *ngIf="!isReadOnly"
+                                    (click)="uploadDocument(serviceDoc.serviceId, serviceDoc.typeId, doc)" title="Upload Document">
                               <ion-icon name="cloud-upload-outline"></ion-icon>
-                            </ion-button>
-                            <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly"
-                                        (click)="doc.uploaded ? deleteRequiredDocument(serviceDoc.serviceId, doc) : removePendingDocument(serviceDoc.serviceId, doc)" title="Delete">
+                            </button>
+                            <button class="doc-action-btn" *ngIf="!isReadOnly"
+                                    (click)="doc.uploaded ? deleteRequiredDocument(serviceDoc.serviceId, doc) : removePendingDocument(serviceDoc.serviceId, doc)" title="Delete">
                               <ion-icon name="trash-outline"></ion-icon>
-                            </ion-button>
+                            </button>
                           </td>
                         </tr>
                       </ng-container>

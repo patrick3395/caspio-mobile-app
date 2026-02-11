@@ -2367,20 +2367,17 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
     // Handle elevation point value change
     // Take photo for elevation point
     // Helper method to construct Caspio file URL
-  async getCaspioFileUrl(filePath: string): Promise<string> {
+  getCaspioFileUrl(filePath: string): string {
     if (!filePath) return '';
-    
+
     // If it's already a full URL or blob URL, return as is
     if (filePath.startsWith('http') || filePath.startsWith('blob:')) {
       return filePath;
     }
-    
-    const account = this.caspioService.getAccountID();
-    const token = await this.caspioService.getValidToken().toPromise();
-    
+
     // Ensure path starts with /
     const path = filePath.startsWith('/') ? filePath : `/${filePath}`;
-    return `https://${account}.caspio.com/rest/v2/files${path}?access_token=${token}`;
+    return `${environment.apiGatewayUrl}/api/caspio-files/download?filePath=${encodeURIComponent(path)}`;
   }
   
   // View room photo with annotation support (redirects to viewElevationPhoto)

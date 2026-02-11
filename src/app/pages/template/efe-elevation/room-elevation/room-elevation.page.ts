@@ -5449,7 +5449,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
   }
 
   // Point Photo Callback Handlers
-  private handlePointPhotoAdded(point: any, photo: StandardPhotoEntry, photoType: 'Measurement' | 'Location') {
+  private async handlePointPhotoAdded(point: any, photo: StandardPhotoEntry, photoType: 'Measurement' | 'Location') {
     // Skip if this photo was deleted (prevents re-adding from in-flight upload callbacks)
     if (photo.imageId && this.deletedPointPhotoIds.has(photo.imageId)) {
       return;
@@ -5487,7 +5487,38 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     let existingPhoto = point.photos.find((p: any) => p.photoType === photoType);
 
     if (existingPhoto) {
-      // Update existing photo
+      // REPLACEMENT: Clean up old photo's LocalImage, captions, and annotations before replacing
+      // EFE elevation only supports ONE photo per section (photoType), so new photo fully replaces old
+      const oldImageId = existingPhoto.imageId || existingPhoto.localImageId;
+      const oldAttachId = existingPhoto.attachId || existingPhoto.AttachID;
+
+      // Only clean up if the old photo is a DIFFERENT image than the new one
+      if (oldImageId && oldImageId !== photo.imageId) {
+        // Track old photo as deleted so in-flight upload callbacks don't re-add it
+        this.deletedPointPhotoIds.add(oldImageId);
+        if (oldAttachId) this.deletedPointPhotoIds.add(String(oldAttachId));
+
+        // Delete old LocalImage + cascade-delete old captions/annotations via data adapter
+        try {
+          await this.dataAdapter.deleteAttachmentWithConfig(this.efePointAttachConfig, oldImageId);
+          // Also try by attachId if different
+          if (oldAttachId && String(oldAttachId) !== String(oldImageId)) {
+            try { await this.dataAdapter.deleteAttachmentWithConfig(this.efePointAttachConfig, oldAttachId); } catch (e) { /* ignore */ }
+          }
+        } catch (e) {
+          console.warn('[EFE] Error cleaning up old photo during replacement:', e);
+        }
+
+        // Clear old photo from in-memory caches
+        this.bulkCachedPhotosMap.delete(oldImageId);
+        this.bulkAnnotatedImagesMap.delete(oldImageId);
+        if (oldAttachId) {
+          this.bulkCachedPhotosMap.delete(String(oldAttachId));
+          this.bulkAnnotatedImagesMap.delete(String(oldAttachId));
+        }
+      }
+
+      // Update existing photo with new data
       existingPhoto.isSkeleton = false;
       existingPhoto.url = photo.displayUrl;
       existingPhoto.displayUrl = photo.displayUrl;
