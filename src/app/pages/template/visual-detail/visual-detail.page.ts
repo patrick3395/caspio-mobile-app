@@ -1274,6 +1274,7 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
   }
 
   async saveTitle() {
+    if (this.isDestroyed) return; // Guard: blur fires during component destruction
     if (this.editableTitle === (this.item?.name || '')) return;
 
     this.saving = true;
@@ -1322,6 +1323,7 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
   }
 
   async saveText() {
+    if (this.isDestroyed) return; // Guard: blur fires during component destruction
     if (this.editableText === (this.item?.text || '')) return;
 
     this.saving = true;

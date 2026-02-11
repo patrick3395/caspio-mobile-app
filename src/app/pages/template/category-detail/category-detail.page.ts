@@ -2254,16 +2254,20 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       // FIX: Re-convert fields to organizedData to ensure UI is properly rendered
       // This prevents "raw HTML showing" when returning from visual-detail
       this.convertGenericFieldsToOrganizedData(this.lastConvertedGenericFields);
+      // CRITICAL: Flush DOM immediately so [innerHTML] bindings re-apply before async work.
+      // scheduleDetectChanges (rAF) can be stale or delayed when the view was hidden;
+      // an explicit detectChanges here guarantees the organizedData change reaches the DOM.
+      this.safeDetectChanges();
       await this.populateGenericPhotosFromDexie(this.lastConvertedGenericFields);
-      this.scheduleDetectChanges();
+      this.safeDetectChanges();
     } else if (this.config?.id === 'efe' && this.lastConvertedFields && this.lastConvertedFields.length > 0) {
       // Legacy fallback for EFE
       await this.populatePhotosFromDexie(this.lastConvertedFields);
-      this.scheduleDetectChanges();
+      this.safeDetectChanges();
     } else if (this.config?.id === 'hud' && this.lastConvertedHudFields && this.lastConvertedHudFields.length > 0) {
       // Legacy fallback for HUD
       await this.populateHudPhotosFromDexie(this.lastConvertedHudFields);
-      this.scheduleDetectChanges();
+      this.safeDetectChanges();
     }
 
     // Merge any pending captions from IndexedDB

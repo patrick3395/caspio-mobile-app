@@ -244,7 +244,9 @@ export class CompanyPage implements OnInit, OnDestroy {
   clientTab: 'company' | 'payments' | 'metrics' = 'company';
   usersExpanded = true;
   servicesExpanded = true;
+  deleteAccountExpanded = false;
   editingAllFees = false;
+  savingFees = false;
   paymentSettingsExpanded = true;
   outstandingBalanceExpanded = true;
   paymentHistoryExpanded = true;
@@ -1096,8 +1098,11 @@ export class CompanyPage implements OnInit, OnDestroy {
   }
 
   async toggleEditAllFees(): Promise<void> {
+    if (this.savingFees) return;
+
     if (this.editingAllFees) {
       // Save all fees then exit edit mode
+      this.savingFees = true;
       for (const offer of this.clientOffers) {
         const offerId = offer.OffersID || offer.PK_ID;
         if (offerId) {
@@ -1112,6 +1117,7 @@ export class CompanyPage implements OnInit, OnDestroy {
           }
         }
       }
+      this.savingFees = false;
       this.editingAllFees = false;
     } else {
       this.editingAllFees = true;
@@ -5114,16 +5120,24 @@ export class CompanyPage implements OnInit, OnDestroy {
         this.caspioService.put(`/tables/LPS_Users/records?q.where=UserID=${userId}`, payload)
       );
 
-      // Update the user in the local array
-      const userIndex = this.allUsers.findIndex(u => 
+      // Update the user in the local arrays
+      const userIndex = this.allUsers.findIndex(u =>
         (u.UserID || u.PK_ID) === userId
       );
-      
+
       if (userIndex !== -1) {
         this.allUsers[userIndex].Headshot = base64Image;
       }
 
-      // Reapply filters to update the view
+      // Also update organizationUsers (partner/client portal view)
+      const orgIndex = this.organizationUsers.findIndex(u =>
+        (u.UserID || u.PK_ID) === userId
+      );
+      if (orgIndex !== -1) {
+        this.organizationUsers[orgIndex].Headshot = base64Image;
+      }
+
+      // Reapply filters to update the admin view
       this.applyUserFilters();
 
       await this.showToast('Headshot updated successfully', 'success');
@@ -5250,20 +5264,30 @@ export class CompanyPage implements OnInit, OnDestroy {
         }
       }
 
-      // Update the user in the local array
-      const userIndex = this.allUsers.findIndex(u => 
+      // Update the user in the local arrays
+      const userIndex = this.allUsers.findIndex(u =>
         (u.UserID || u.PK_ID) === userId
       );
-      
+
       if (userIndex !== -1) {
         this.allUsers[userIndex] = { ...this.allUsers[userIndex], ...payload };
-        // If headshot was updated, make sure it's set in the local array
         if (this.editUserModalHeadshotFile && payload.Headshot) {
           this.allUsers[userIndex].Headshot = payload.Headshot;
         }
       }
 
-      // Reapply filters to update the view
+      // Also update organizationUsers (partner/client portal view)
+      const orgIndex = this.organizationUsers.findIndex(u =>
+        (u.UserID || u.PK_ID) === userId
+      );
+      if (orgIndex !== -1) {
+        this.organizationUsers[orgIndex] = { ...this.organizationUsers[orgIndex], ...payload };
+        if (this.editUserModalHeadshotFile && payload.Headshot) {
+          this.organizationUsers[orgIndex].Headshot = payload.Headshot;
+        }
+      }
+
+      // Reapply filters to update the admin view
       this.applyUserFilters();
 
       await this.showToast('User updated successfully', 'success');
@@ -7010,6 +7034,24 @@ export class CompanyPage implements OnInit, OnDestroy {
     });
 
     await alert.present();
+  }
+
+  async requestAccountDeletion() {
+    const result = await this.confirmationDialog.confirm({
+      header: 'Delete Account',
+      message: 'Are you sure you want to delete your account? This action cannot be undone.',
+      confirmText: 'Yes, Delete',
+      cancelText: 'Cancel'
+    });
+
+    if (result.confirmed) {
+      const alert = await this.alertController.create({
+        header: 'Request Received',
+        message: 'The admin team will reach out to you to complete the account deletion process.',
+        buttons: ['OK']
+      });
+      await alert.present();
+    }
   }
 
   async logout() {

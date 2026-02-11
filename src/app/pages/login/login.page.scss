@@ -265,6 +265,15 @@
       font-size: 14px;
     }
   }
+
+  .privacy-link {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    text-decoration: underline;
+    opacity: 0.9;
+  }
 }
 
 // Custom alert styling to match app theme

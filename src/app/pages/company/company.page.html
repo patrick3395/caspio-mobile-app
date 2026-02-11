@@ -1473,7 +1473,9 @@
             <h3>Services Offered</h3>
             <span class="collapsible-count" *ngIf="clientOffers.length > 0">({{ clientOffers.length }})</span>
           </div>
-          <ion-icon [name]="editingAllFees ? 'checkmark-circle' : 'create-outline'"
+          <ion-spinner *ngIf="savingFees" name="crescent" class="fee-saving-spinner" (click)="$event.stopPropagation()"></ion-spinner>
+          <ion-icon *ngIf="!savingFees"
+                    [name]="editingAllFees ? 'checkbox' : 'create-outline'"
                     class="fee-header-edit-btn"
                     [class.saving]="editingAllFees"
                     (click)="toggleEditAllFees(); $event.stopPropagation()"></ion-icon>
@@ -1481,7 +1483,7 @@
 
         <div class="collapsible-content" [class.expanded]="servicesExpanded">
           <!-- Services List -->
-          <div *ngIf="clientOffers.length > 0" class="services-list">
+          <div *ngIf="clientOffers.length > 0" class="services-list" [class.shimmer-saving]="savingFees">
             <div class="services-list-header">
               <span class="sl-col-service">Service</span>
               <span class="sl-col-fee">Fee</span>
@@ -1511,6 +1513,22 @@
             <h3>No services configured</h3>
             <p>Contact support to set up your service offerings</p>
           </div>
+        </div>
+      </div>
+
+      <!-- Delete Account Section -->
+      <div class="collapsible-section delete-account-section">
+        <div class="collapsible-header" (click)="deleteAccountExpanded = !deleteAccountExpanded">
+          <div class="collapsible-title">
+            <ion-icon [name]="deleteAccountExpanded ? 'chevron-down' : 'chevron-forward'"></ion-icon>
+            <h3>Account</h3>
+          </div>
+        </div>
+        <div class="collapsible-content" [class.expanded]="deleteAccountExpanded">
+          <button class="delete-account-btn" (click)="requestAccountDeletion()">
+            <ion-icon name="trash-outline"></ion-icon>
+            Delete Account
+          </button>
         </div>
       </div>
     </div>
@@ -1714,6 +1732,10 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <div class="legal-footer">
+      <a href="https://www.noble-lps.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
     </div>
 
     <!-- Bottom spacer to ensure full scrolling on mobile -->

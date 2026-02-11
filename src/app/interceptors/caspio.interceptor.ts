@@ -3,6 +3,7 @@ import { HttpInterceptor, HttpRequest, HttpHandler, HttpEvent, HttpErrorResponse
 import { Observable, throwError } from 'rxjs';
 import { catchError, switchMap, take } from 'rxjs/operators';
 import { CaspioService } from '../services/caspio.service';
+import { environment } from '../../environments/environment';
 
 @Injectable()
 export class CaspioInterceptor implements HttpInterceptor {
@@ -42,7 +43,9 @@ export class CaspioInterceptor implements HttpInterceptor {
       }),
       catchError(authError => {
         // If we can't get a valid token, propagate the error
-        console.error('Interceptor: Failed to refresh token for 401 error', authError);
+        if (!environment.production) {
+          console.error('Interceptor: Failed to refresh token for 401 error', authError);
+        }
         return throwError(() => new Error('Authentication failed: Unable to refresh token'));
       })
     );

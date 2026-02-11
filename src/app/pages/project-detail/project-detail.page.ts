@@ -10,7 +10,7 @@ import { ImageCompressionService } from '../../services/image-compression.servic
 import { EngineersFoundationDataService } from '../engineers-foundation/engineers-foundation-data.service';
 import { PlatformDetectionService } from '../../services/platform-detection.service';
 import { firstValueFrom } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { filter, first, map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { PaypalPaymentModalComponent } from '../../modals/paypal-payment-modal/paypal-payment-modal.component';
 import { MutationTrackingService, MutationType } from '../../services/mutation-tracking.service';
@@ -4876,7 +4876,21 @@ Troubleshooting:
     await loading.present();
 
     try {
+      // Trigger the sync
       await this.backgroundSync.forceSyncNow();
+
+      // Wait for sync to actually complete (isSyncing becomes false)
+      // forceSyncNow may return early if a sync was already in progress
+      const status = this.backgroundSync.syncStatus$.value;
+      if (status.isSyncing) {
+        await firstValueFrom(
+          this.backgroundSync.syncStatus$.pipe(
+            filter(s => !s.isSyncing),
+            first()
+          )
+        );
+      }
+
       await loading.dismiss();
       await this.showToast('Changes saved to cloud', 'success');
     } catch (error) {

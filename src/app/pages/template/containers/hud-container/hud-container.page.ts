@@ -1350,7 +1350,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
     if (url.includes('/category/') && url.includes('/visual/')) {
       const categoryMatch = url.match(/\/category\/([^\/]+)/);
       if (categoryMatch) {
-        this.router.navigate(['/hud', this.projectId, this.serviceId, 'category', categoryMatch[1]]);
+        this.router.navigate(['/hud', this.projectId, this.serviceId, 'category', decodeURIComponent(categoryMatch[1])]);
       } else {
         this.router.navigate(['/hud', this.projectId, this.serviceId]);
       }
@@ -1424,7 +1424,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
         const categoryName = decodeURIComponent(categoryMatch[1]);
         // Uppercase 'hud' to 'HUD' for display
         const displayName = categoryName.toLowerCase() === 'hud' ? 'HUD' : categoryName;
-        this.breadcrumbs.push({ label: displayName, path: `category/${categoryMatch[1]}`, icon: 'checkbox-outline' });
+        this.breadcrumbs.push({ label: displayName, path: `category/${categoryName}`, icon: 'checkbox-outline' });
         this.currentPageTitle = displayName;
         this.currentPageShortTitle = displayName;
       }

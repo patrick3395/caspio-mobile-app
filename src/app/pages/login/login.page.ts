@@ -78,13 +78,12 @@ export class LoginPage implements OnInit, OnDestroy {
       return;
     }
 
-    // Restore saved credentials if remember me was checked
+    // Restore saved email if remember me was checked
     const savedCredentials = localStorage.getItem('savedCredentials');
     if (savedCredentials) {
       try {
         const saved = JSON.parse(savedCredentials);
         this.credentials.email = saved.email || '';
-        this.credentials.password = saved.password || '';
         this.credentials.companyId = saved.companyId || 1;
         this.rememberMe = true;
       } catch (e) {
@@ -208,11 +207,10 @@ export class LoginPage implements OnInit, OnDestroy {
       localStorage.setItem('authToken', 'authenticated');
     }
     
-    // Save credentials if remember me is checked
+    // Save email if remember me is checked (never store passwords)
     if (this.rememberMe) {
       localStorage.setItem('savedCredentials', JSON.stringify({
         email: this.credentials.email,
-        password: this.credentials.password,
         companyId: this.credentials.companyId
       }));
     } else {

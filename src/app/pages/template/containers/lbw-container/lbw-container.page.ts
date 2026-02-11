@@ -267,7 +267,7 @@ export class LbwContainerPage implements OnInit, OnDestroy {
       const categoryIcon = this.getCategoryIcon(categoryName);
       this.breadcrumbs.push({
         label: categoryName,
-        path: `category/${categoryMatch[1]}`,
+        path: `category/${categoryName}`,
         icon: categoryIcon
       });
       this.currentPageTitle = categoryName;
@@ -323,8 +323,7 @@ export class LbwContainerPage implements OnInit, OnDestroy {
       // URL format: /lbw/projectId/serviceId/category/categoryName/visual/templateId
       const categoryMatch = url.match(/\/category\/([^\/]+)/);
       if (categoryMatch) {
-        const categoryName = categoryMatch[1];
-        this.router.navigate(['/lbw', this.projectId, this.serviceId, 'category', categoryName]);
+        this.router.navigate(['/lbw', this.projectId, this.serviceId, 'category', decodeURIComponent(categoryMatch[1])]);
       } else {
         // Fallback to categories list if category can't be extracted
         this.router.navigate(['/lbw', this.projectId, this.serviceId, 'categories']);

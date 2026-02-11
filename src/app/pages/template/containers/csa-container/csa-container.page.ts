@@ -153,7 +153,7 @@ export class CsaContainerPage implements OnInit {
       const categoryIcon = this.getCategoryIcon(categoryName);
       this.breadcrumbs.push({
         label: categoryName,
-        path: `category/${categoryMatch[1]}`,
+        path: `category/${categoryName}`,
         icon: categoryIcon
       });
       this.currentPageTitle = categoryName;
@@ -163,9 +163,11 @@ export class CsaContainerPage implements OnInit {
     // Check for visual detail (must be after category check)
     const visualMatch = url.match(/\/visual\/([^\/]+)/);
     if (visualMatch && categoryMatch) {
+      const decodedCategory = decodeURIComponent(categoryMatch[1]);
+      const decodedVisual = decodeURIComponent(visualMatch[1]);
       this.breadcrumbs.push({
         label: 'Visual Detail',
-        path: `category/${categoryMatch[1]}/visual/${visualMatch[1]}`,
+        path: `category/${decodedCategory}/visual/${decodedVisual}`,
         icon: 'image-outline'
       });
       this.currentPageTitle = 'Visual Detail';
@@ -216,7 +218,7 @@ export class CsaContainerPage implements OnInit {
       // On visual-detail page - navigate back to category-detail page
       const categoryMatch = url.match(/\/category\/([^\/]+)/);
       if (categoryMatch) {
-        this.router.navigate(['/csa', this.projectId, this.serviceId, 'category', categoryMatch[1]]);
+        this.router.navigate(['/csa', this.projectId, this.serviceId, 'category', decodeURIComponent(categoryMatch[1])]);
       } else {
         this.router.navigate(['/csa', this.projectId, this.serviceId]);
       }

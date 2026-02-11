@@ -2003,6 +2003,11 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
             delete this.savingRooms[oldName];
           }
 
+          // Update lastNavigatedRoom if it pointed to the old name (pre-rename)
+          if (this.lastNavigatedRoom === oldName) {
+            this.lastNavigatedRoom = newName;
+          }
+
           this.changeDetectorRef.detectChanges();
           nextNumber = 2; // The new room will be #2
         }
@@ -2101,10 +2106,10 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       };
 
       // Insert at the calculated position
-      if (insertIndex === 0) {
-        this.roomTemplates.unshift(newRoom);  // Add to top if no last room
-      } else {
+      if (insertIndex > 0) {
         this.roomTemplates.splice(insertIndex, 0, newRoom);  // Insert after last navigated room
+      } else {
+        this.roomTemplates.push(newRoom);  // Add to end if no position found
       }
 
       // Update lastNavigatedRoom so next added room chains after this one

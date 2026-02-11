@@ -18,7 +18,7 @@ const config: CapacitorConfig = {
     // Performance optimizations
     allowsLinkPreview: false,
     // Memory management
-    limitsNavigationsToAppBoundDomains: false,
+    limitsNavigationsToAppBoundDomains: true,
     // Security
     allowsArbitraryLoads: false,
     allowsLocalNetworking: true
@@ -27,7 +27,7 @@ const config: CapacitorConfig = {
     // Performance optimizations
     allowMixedContent: false,
     captureInput: true,
-    webContentsDebuggingEnabled: true,
+    webContentsDebuggingEnabled: false,
     // Memory management
     initialFocus: false,
     // Network security

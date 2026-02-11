@@ -349,7 +349,7 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
       if (categoryMatch) {
         const categoryName = decodeURIComponent(categoryMatch[1]);
         const categoryIcon = this.getCategoryIcon(categoryName);
-        this.breadcrumbs.push({ label: categoryName, path: `structural/category/${categoryMatch[1]}`, icon: categoryIcon });
+        this.breadcrumbs.push({ label: categoryName, path: `structural/category/${categoryName}`, icon: categoryIcon });
         this.currentPageTitle = categoryName;
         this.currentPageShortTitle = categoryName;
       }
@@ -368,7 +368,7 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
         const roomMatch = url.match(/\/room\/([^\/]+)/);
         if (roomMatch) {
           const roomName = decodeURIComponent(roomMatch[1]);
-          this.breadcrumbs.push({ label: roomName, path: `elevation/room/${roomMatch[1]}`, icon: 'location-outline' });
+          this.breadcrumbs.push({ label: roomName, path: `elevation/room/${roomName}`, icon: 'location-outline' });
           this.currentPageTitle = roomName;
           this.currentPageShortTitle = roomName;
         }
@@ -424,7 +424,7 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
       // On visual-detail page - navigate back to category-detail page
       const categoryMatch = url.match(/\/structural\/category\/([^\/]+)/);
       if (categoryMatch) {
-        this.router.navigate(['/engineers-foundation', this.projectId, this.serviceId, 'structural', 'category', categoryMatch[1]]);
+        this.router.navigate(['/engineers-foundation', this.projectId, this.serviceId, 'structural', 'category', decodeURIComponent(categoryMatch[1])]);
       } else {
         this.router.navigate(['/engineers-foundation', this.projectId, this.serviceId, 'structural']);
       }

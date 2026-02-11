@@ -93,14 +93,16 @@ export class CaspioService {
         this.setToken(response.access_token, response.expires_in);
       }),
       catchError(error => {
-        console.error('Authentication failed:', error);
-        console.error('Auth error details:', {
-          status: error.status,
-          statusText: error.statusText,
-          message: error.message,
-          url: error.url,
-          error: error.error
-        });
+        if (!environment.production) {
+          console.error('Authentication failed:', error);
+          console.error('Auth error details:', {
+            status: error.status,
+            statusText: error.statusText,
+            message: error.message,
+            url: error.url,
+            error: error.error
+          });
+        }
         return throwError(() => error);
       }),
       finalize(() => {
@@ -362,7 +364,9 @@ export class CaspioService {
           }
         }),
         catchError(error => {
-          console.error(`[CaspioService] AWS API Gateway error for ${endpoint}:`, error);
+          if (!environment.production) {
+            console.error(`[CaspioService] AWS API Gateway error for ${endpoint}:`, error);
+          }
           return throwError(() => error);
         })
       );

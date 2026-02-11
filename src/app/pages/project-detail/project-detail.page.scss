@@ -1120,6 +1120,11 @@ ion-modal {
     border-right: none;
     overflow: hidden;
     min-width: 0;
+
+    @media (max-width: 768px) {
+      display: block;
+      width: 100%;
+    }
   }
 
   .doc-actions-cell {
@@ -1128,6 +1133,14 @@ ion-modal {
     text-align: right;
     white-space: nowrap;
     vertical-align: middle;
+
+    @media (max-width: 768px) {
+      display: block;
+      width: 100%;
+      text-align: left;
+      white-space: normal;
+      padding-top: 4px;
+    }
 
     ion-button {
       --padding-start: 2px;
@@ -1202,6 +1215,24 @@ ion-modal {
 
   .support-doc-row.doc-row {
     background: $white;
+
+    @media (max-width: 768px) {
+      display: block;
+
+      .doc-info-cell,
+      .doc-actions-cell {
+        border-right: none;
+      }
+
+      .doc-info-cell {
+        padding-bottom: 2px;
+        border-bottom: none;
+      }
+
+      .doc-actions-cell {
+        padding-top: 0;
+      }
+    }
   }
 
   .support-doc-row.doc-row.pending {
