@@ -2101,6 +2101,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         ...template,
         RoomName: roomName,
         Organization: newOrganization,
+        PointCount: template.PointCount || elevationPoints.length,
         isSelected: true,
         isSaving: false  // No loading needed - Dexie-first architecture
       };

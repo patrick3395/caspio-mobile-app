@@ -5367,10 +5367,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     // TASK 1 FIX: Start cooldown to prevent cache invalidation during photo capture
     this.startLocalOperationCooldown();
 
-    // If a photo already exists for this section, delete it first (queue deletion)
-    // EFE only supports one photo per section — new capture fully replaces old
+    // If a photo already exists for this section, confirm replacement then delete it
     const existingPhoto = point.photos?.find((p: any) => p.photoType === photoType);
     if (existingPhoto) {
+      const confirmed = await this.confirmReplacePhoto();
+      if (!confirmed) return;
       await this.deletePointPhotoSilent(point, existingPhoto);
     }
 
@@ -5417,10 +5418,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     // TASK 1 FIX: Start cooldown to prevent cache invalidation during photo capture
     this.startLocalOperationCooldown();
 
-    // If a photo already exists for this section, delete it first (queue deletion)
-    // EFE only supports one photo per section — new capture fully replaces old
+    // If a photo already exists for this section, confirm replacement then delete it
     const existingPhoto = point.photos?.find((p: any) => p.photoType === photoType);
     if (existingPhoto) {
+      const confirmed = await this.confirmReplacePhoto();
+      if (!confirmed) return;
       await this.deletePointPhotoSilent(point, existingPhoto);
     }
 
@@ -5768,6 +5770,28 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
    * full deletion pipeline as deletePointPhoto (UI removal, data adapter,
    * cache cleanup, photoCount update).
    */
+  private confirmReplacePhoto(): Promise<boolean> {
+    return new Promise(async (resolve) => {
+      const alert = await this.alertController.create({
+        header: 'Replace Photo',
+        message: 'Are you sure you want to replace the image?',
+        buttons: [
+          {
+            text: 'Replace',
+            handler: () => resolve(true)
+          },
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            handler: () => resolve(false)
+          }
+        ],
+        cssClass: 'custom-document-alert'
+      });
+      await alert.present();
+    });
+  }
+
   private async deletePointPhotoSilent(point: any, photo: any): Promise<void> {
     try {
       // 1. Remove from local array

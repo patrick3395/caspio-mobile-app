@@ -538,10 +538,7 @@
           [readonly]="isReadOnly"
           placeholder="Add notes for this project...">
         </textarea>
-        <span *ngIf="savingNotes" class="saving-indicator">
-          <ion-spinner name="dots"></ion-spinner>
-          Saving...
-        </span>
+        <!-- Saving indicator removed - save happens silently on blur -->
       </div>
     </div>
   </div>
