@@ -15,11 +15,11 @@
 
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
-    script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.paypal.com https://js.stripe.com;
+    script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.paypal.com https://js.stripe.com https://cdn.jsdelivr.net;
     style-src 'self' 'unsafe-inline';
     img-src 'self' data: blob: https: http:;
     font-src 'self' data:;
-    connect-src 'self'
+    connect-src 'self' blob: data:
       https://*.execute-api.us-east-1.amazonaws.com
       https://c2hcf092.caspio.com
       https://lps-field-app.s3.us-east-1.amazonaws.com
