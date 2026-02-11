@@ -1485,67 +1485,6 @@ export class CaspioService {
     });
   }
 
-  private async uploadAndUpdateEFEPointsAttachPhoto(attachId: number, file: File) {
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
-    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
-
-    try {
-      // Upload file
-      const timestamp = Date.now();
-      const randomId = Math.random().toString(36).substring(2, 8);
-      const fileExt = file.name.split('.').pop() || 'jpg';
-      const uniqueFilename = `efe_point_attach_${attachId}_${timestamp}_${randomId}.${fileExt}`;
-
-      const formData = new FormData();
-      formData.append('file', file, uniqueFilename);
-
-      const uploadResponse = await fetch(`${API_BASE_URL}/files`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        },
-        body: formData
-      });
-
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        console.error('Files API upload failed:', errorText);
-        throw new Error('Failed to upload file to Files API: ' + errorText);
-      }
-
-      const uploadResult = await uploadResponse.json();
-      const filePath = `/${uploadResult.Name || uniqueFilename}`;
-
-      // Update the record with the photo path
-      const updateData: any = {
-        Photo: filePath
-      };
-
-      const updateResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData)
-      });
-
-      if (!updateResponse.ok) {
-        const errorText = await updateResponse.text();
-        console.error('Failed to update Services_EFE_Points_Attach record:', errorText);
-        throw new Error('Failed to update record: ' + errorText);
-      }
-
-      return {
-        AttachID: attachId,
-        Photo: filePath,
-        success: true
-      };
-
-    } catch (error: any) {
-      console.error('[uploadAndUpdateEFEPointsAttachPhoto] ERROR:', error);
-      throw error;
-    }
-  }
-
   // Legacy method for direct data posting (kept for backward compatibility)
   createServicesEFEAttach(data: any): Observable<any> {
     return this.post<any>('/tables/LPS_Services_EFE_Points_Attach/records?response=rows', data).pipe(
