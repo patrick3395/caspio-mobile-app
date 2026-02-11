@@ -102,13 +102,15 @@ interface HelpItem {
   `,
   styles: [`
     ion-header ion-toolbar {
+      --background: #333333;
+      --color: white;
       --min-height: auto;
       height: auto;
       min-height: 56px;
       display: flex !important;
       align-items: center !important;
     }
-    
+
     ion-header ion-toolbar ion-title {
       white-space: normal !important;
       overflow: visible !important;
@@ -122,8 +124,9 @@ interface HelpItem {
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
+      color: white;
     }
-    
+
     .help-modal-title {
       font-size: 16px !important;
       white-space: normal !important;
@@ -134,6 +137,11 @@ interface HelpItem {
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
+      color: white;
+    }
+
+    ion-header ion-toolbar ion-button {
+      --color: white;
     }
 
     .help-modal-content {

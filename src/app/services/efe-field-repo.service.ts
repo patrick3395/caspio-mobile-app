@@ -367,6 +367,7 @@ export class EfeFieldRepoService {
           tempEfeId,
           organization,
           elevationPoints,
+          pointCount: elevationPoints.length || existing.pointCount,
           rev: existing.rev + 1,
           updatedAt: now,
           dirty: true

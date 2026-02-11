@@ -345,7 +345,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           RoomName: roomName,
           TemplateID: templateId,
           PK_ID: templateId,
-          PointCount: template.PointCount || 0,
+          PointCount: template.PointCount || elevationPoints.length,
           Organization: existingRoom?.Organization ?? template['Organization'],
           isSelected: isSelected,
           isSaving: false,
@@ -361,9 +361,9 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         const templateId = room.TemplateID;
         const efeId = String(room.EFEID || room.PK_ID);
 
-        // Find matching template for point count
+        // Find matching template for point count (use == for type coercion: string vs number)
         const template = this.allRoomTemplates.find((t: any) =>
-          t.TemplateID === templateId || t.PK_ID === templateId
+          t.TemplateID == templateId || t.PK_ID == templateId
         );
 
         this.selectedRooms[roomName] = true;
@@ -401,7 +401,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           RoomName: roomName,
           TemplateID: templateId,
           PK_ID: templateId,
-          PointCount: template?.PointCount || room.PointCount || 0,
+          PointCount: template?.PointCount || elevationPoints.length || room.PointCount || 0,
           Organization: room.Organization ?? 999999,
           isSelected: true,
           isSaving: false,
@@ -478,7 +478,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         RoomName: field.roomName,
         TemplateID: field.templateId,
         PK_ID: field.templateId,
-        PointCount: field.pointCount,
+        PointCount: field.pointCount || field.elevationPoints?.length || 0,
         Organization: field.organization,
         isSelected: field.isSelected,
         isSaving: !!this.savingRooms[field.roomName],
@@ -1591,7 +1591,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
               RoomName: roomName,
               TemplateID: room.TemplateID || 0,
               PK_ID: room.PK_ID || effectiveRoomId,
-              PointCount: room.PointCount || 0,
+              PointCount: room.PointCount || this.roomElevationData[roomName]?.pointCount || 0,
               Organization: room.Organization,
               isSelected: true,
               isSaving: !!this.savingRooms[roomName],
@@ -1700,7 +1700,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
                 RoomName: roomName,
                 TemplateID: templateId || 0,
                 PK_ID: room.PK_ID || room._tempId,
-                PointCount: room.PointCount || 0,
+                PointCount: room.PointCount || this.roomElevationData[roomName]?.pointCount || 0,
                 Auto: 'Yes'
               };
             }
@@ -1786,8 +1786,10 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         }
 
         // Convert to display format
+        // Use roomElevationData.pointCount as fallback since template.PointCount may be 0/undefined
         this.roomTemplates = roomsToDisplay.map(template => ({
           ...template,
+          PointCount: template.PointCount || this.roomElevationData[template.RoomName]?.pointCount || 0,
           isSelected: !!this.selectedRooms[template.RoomName],
           isSaving: !!this.savingRooms[template.RoomName],
           efeId: this.efeRecordIds[template.RoomName]
@@ -1827,7 +1829,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
               RoomName: room.RoomName,
               TemplateID: room.TemplateID || 0,
               PK_ID: room.PK_ID || room._tempId,
-              PointCount: room.PointCount || 0,
+              PointCount: room.PointCount || this.roomElevationData[room.RoomName]?.pointCount || 0,
               Organization: room.Organization,
               isSelected: true,
               isSaving: false,
