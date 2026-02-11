@@ -25,6 +25,9 @@ import { db, EfeField, EfePoint } from '../../../../services/caspio-db';
 import { EfeFieldRepoService } from '../../../../services/efe-field-repo.service';
 import { HasUnsavedChanges } from '../../../../services/unsaved-changes.service';
 import { ServiceMetadataService } from '../../../../services/service-metadata.service';
+import { TemplateDataAdapter } from '../../../../services/template/template-data-adapter.service';
+import { EFE_CONFIG } from '../../../../services/template/configs';
+import { TemplateConfig } from '../../../../services/template/template-config.interface';
 
 @Component({
   selector: 'app-room-elevation',
@@ -142,8 +145,15 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     private photoHandler: PhotoHandlerService,
     private ngZone: NgZone,
     private efeFieldRepo: EfeFieldRepoService,
-    private serviceMetadata: ServiceMetadataService
+    private serviceMetadata: ServiceMetadataService,
+    private dataAdapter: TemplateDataAdapter
   ) {}
+
+  // EFE elevation points use a different attach table than the structural visuals
+  private readonly efePointAttachConfig: TemplateConfig = {
+    ...EFE_CONFIG,
+    attachTableName: 'LPS_Services_EFE_Points_Attach',
+  };
 
   // WEBAPP MODE flag for easy checking
   private get isWebappMode(): boolean {
@@ -5658,10 +5668,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         {
           text: 'Delete',
           handler: async () => {
-            // DEXIE-FIRST: Immediate UI update, then delete from Dexie tables
             try {
-              // Remove from local array IMMEDIATELY (optimistic update)
-              // DELETE FIX: Check multiple identifiers - local photos may not have attachId yet
+              // 1. Remove from local array IMMEDIATELY (optimistic UI update)
               let index = point.photos.findIndex((p: any) =>
                 (photo.attachId && p.attachId === photo.attachId) ||
                 (photo.imageId && p.imageId === photo.imageId) ||
@@ -5669,204 +5677,73 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                 (photo.imageId && p.localImageId === photo.imageId) ||
                 (photo.localImageId && p.imageId === photo.localImageId)
               );
-
-              // DEXIE-FIRST FIX: Fallback to photoType match if ID-based search fails
-              // This handles cases where photo IDs aren't populated yet
               if (index < 0 && photo.photoType) {
                 index = point.photos.findIndex((p: any) => p.photoType === photo.photoType);
-                if (index >= 0) {
-                }
               }
-
-              // DEXIE-FIRST FIX: Last resort - find by object reference
               if (index < 0) {
                 index = point.photos.indexOf(photo);
-                if (index >= 0) {
-                }
               }
 
               if (index >= 0) {
                 point.photos.splice(index, 1);
-              } else {
-                console.warn('[Point Photo] Could not find photo in array to remove:', photo);
-                // DEXIE-FIRST FIX: Force clear the array for this photoType as last resort
-                if (photo.photoType) {
-                  point.photos = point.photos.filter((p: any) => p.photoType !== photo.photoType);
-                }
+              } else if (photo.photoType) {
+                point.photos = point.photos.filter((p: any) => p.photoType !== photo.photoType);
               }
 
-              // DEXIE-FIRST FIX: Track deleted photo IDs to prevent re-adding during sync/reload
-              // Add all possible identifiers for this photo to the tracking set
+              // 2. Track deleted photo IDs to prevent re-adding during rebuild/liveQuery
               const imageId = photo.imageId || photo.localImageId;
-              if (imageId) {
-                this.deletedPointPhotoIds.add(imageId);
-              }
-              if (photo.attachId) {
-                this.deletedPointPhotoIds.add(String(photo.attachId));
-              }
-              if (photo._tempId) {
-                this.deletedPointPhotoIds.add(String(photo._tempId));
-              }
-              // DEXIE-FIRST FIX: Also track by composite key (pointId:photoType) as fallback
-              // This handles cases where photo has no IDs yet
+              if (imageId) this.deletedPointPhotoIds.add(imageId);
+              if (photo.attachId) this.deletedPointPhotoIds.add(String(photo.attachId));
+              if (photo._tempId) this.deletedPointPhotoIds.add(String(photo._tempId));
               const pointIdForTracking = point.pointId || point.tempPointId;
               if (pointIdForTracking && photo.photoType) {
-                const compositeKey = `${pointIdForTracking}:${photo.photoType}`;
-                this.deletedPointPhotoIds.add(compositeKey);
+                this.deletedPointPhotoIds.add(`${pointIdForTracking}:${photo.photoType}`);
               }
 
-              // DEXIE-FIRST FIX: Remove from preservation maps so photo doesn't reappear
-              // These maps are used during sync/reload to restore photos
-              const pointName = point.name;
-              const pointId = point.pointId;
-              if (pointName && this.preservedPhotosByPointName.has(pointName)) {
-                const preserved = this.preservedPhotosByPointName.get(pointName) || [];
-                const filteredPreserved = preserved.filter((p: any) => {
-                  const pImageId = p.imageId || p.localImageId;
-                  const pAttachId = p.attachId ? String(p.attachId) : null;
-                  const pTempId = p._tempId ? String(p._tempId) : null;
-                  const pCompositeKey = pointIdForTracking && p.photoType ? `${pointIdForTracking}:${p.photoType}` : null;
-                  return !this.deletedPointPhotoIds.has(pImageId) &&
-                         !this.deletedPointPhotoIds.has(pAttachId || '') &&
-                         !this.deletedPointPhotoIds.has(pTempId || '') &&
-                         !this.deletedPointPhotoIds.has(pCompositeKey || '');
-                });
-                this.preservedPhotosByPointName.set(pointName, filteredPreserved);
-              }
-              if (pointId && this.preservedPhotosByPointId.has(String(pointId))) {
-                const preserved = this.preservedPhotosByPointId.get(String(pointId)) || [];
-                const filteredPreserved = preserved.filter((p: any) => {
-                  const pImageId = p.imageId || p.localImageId;
-                  const pAttachId = p.attachId ? String(p.attachId) : null;
-                  const pTempId = p._tempId ? String(p._tempId) : null;
-                  const pCompositeKey = pointId && p.photoType ? `${pointId}:${p.photoType}` : null;
-                  return !this.deletedPointPhotoIds.has(pImageId) &&
-                         !this.deletedPointPhotoIds.has(pAttachId || '') &&
-                         !this.deletedPointPhotoIds.has(pTempId || '') &&
-                         !this.deletedPointPhotoIds.has(pCompositeKey || '');
-                });
-                this.preservedPhotosByPointId.set(String(pointId), filteredPreserved);
-              }
+              // 3. Remove from preservation maps
+              this.removeFromPreservationMaps(point, photo);
 
-              // Force UI update first
+              // 4. Force UI update
               this.changeDetectorRef.detectChanges();
 
-              // DEXIE-FIRST: Delete from LocalImages table (the source of truth)
-              // imageId already defined above for tracking deleted photos
-              if (imageId) {
-                try {
-                  await this.localImageService.deleteLocalImage(imageId);
+              // 5. Use the GENERIC data adapter for all deletion (same as category-detail/visual-detail)
+              // This handles: localImages deletion, cachedServiceData cleanup, pending caption cascade,
+              // backend DELETE queue (sync modal), web vs mobile, temp vs real IDs
+              const photoId = photo.attachId || photo.imageId || photo.localImageId;
+              if (photoId) {
+                await this.dataAdapter.deleteAttachmentWithConfig(this.efePointAttachConfig, photoId);
 
-                  // DELETE FIX: Also clear cached photos/annotations by imageId
-                  // Local-first photos may be cached by imageId, not attachId
-                  // deleteCachedPhoto deletes both regular and annotated versions
-                  await this.indexedDb.deleteCachedPhoto(imageId);
-
-                  // Clear from in-memory caches
-                  this.bulkCachedPhotosMap.delete(imageId);
-                  this.bulkAnnotatedImagesMap.delete(imageId);
-                } catch (e) {
-                  console.warn('[Point Photo] Failed to delete from LocalImages:', e);
+                // Also try alternate IDs for complete cleanup (matches category-detail pattern)
+                if (photo.imageId && photo.imageId !== photoId) {
+                  try { await this.dataAdapter.deleteAttachmentWithConfig(this.efePointAttachConfig, photo.imageId); } catch (e) { /* ignore */ }
+                }
+                if (photo.attachId && photo.attachId !== photoId && photo.attachId !== photo.imageId) {
+                  try { await this.dataAdapter.deleteAttachmentWithConfig(this.efePointAttachConfig, photo.attachId); } catch (e) { /* ignore */ }
                 }
               }
 
-              // DEXIE-FIRST: Update photoCount in efeFields.elevationPoints
-              // This ensures the Dexie state reflects the deletion
+              // 6. Clear in-memory caches
+              if (imageId) {
+                this.bulkCachedPhotosMap.delete(imageId);
+                this.bulkAnnotatedImagesMap.delete(imageId);
+              }
+              if (photo.attachId) {
+                this.bulkCachedPhotosMap.delete(String(photo.attachId));
+                this.bulkAnnotatedImagesMap.delete(String(photo.attachId));
+              }
+
+              // 7. Update photoCount in efeFields
               try {
-                const newPhotoCount = point.photos?.length || 0;
                 await this.efeFieldRepo.updatePointPhotoCount(
-                  this.serviceId,
-                  this.roomName,
-                  point.pointNumber,
-                  newPhotoCount
+                  this.serviceId, this.roomName, point.pointNumber,
+                  point.photos?.length || 0
                 );
               } catch (repoErr) {
                 console.warn('[Point Photo] Failed to update Dexie photoCount:', repoErr);
               }
 
-              if (photo.attachId) {
-                // Clear cached photo IMAGE from IndexedDB by attachId
-                // deleteCachedPhoto deletes both regular and annotated versions
-                await this.indexedDb.deleteCachedPhoto(String(photo.attachId));
-
-                // Clear from in-memory caches by attachId
-                this.bulkCachedPhotosMap.delete(String(photo.attachId));
-                this.bulkAnnotatedImagesMap.delete(String(photo.attachId));
-
-                // Remove from cached ATTACHMENTS LIST in IndexedDB
-                await this.indexedDb.removeAttachmentFromCache(String(photo.attachId), 'efe_point_attachments');
-
-                // Delete from database - only if this is a real server AttachID (numeric)
-                // Local-first photos have UUID attachIds and don't exist on server yet
-                const attachIdStr = String(photo.attachId);
-                const isNumericAttachId = /^\d+$/.test(attachIdStr);
-                const isLocalOnlyPhoto = attachIdStr.startsWith('temp_') ||
-                                         attachIdStr.startsWith('img_') ||
-                                         attachIdStr.startsWith('uploading_') ||
-                                         photo.isLocalFirst ||
-                                         photo.isLocal ||
-                                         !isNumericAttachId;
-
-                if (!isLocalOnlyPhoto) {
-                  // WEBAPP MODE: Call API directly for immediate persistence
-                  if (environment.isWeb) {
-                    try {
-                      const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`, {
-                        method: 'DELETE',
-                        headers: { 'Content-Type': 'application/json' }
-                      });
-
-                      if (!response.ok) {
-                        console.warn('[Point Photo] WEBAPP: Delete API returned non-OK status');
-                      } else {
-                      }
-                    } catch (apiError: any) {
-                      console.error('[Point Photo] WEBAPP: ❌ Delete failed:', apiError?.message || apiError);
-                      // Queue for retry on failure
-                      await this.indexedDb.addPendingRequest({
-                        type: 'DELETE',
-                        endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`,
-                        method: 'DELETE',
-                        data: {
-                          attachId: photo.attachId,
-                          _displayType: 'POINT_PHOTO_DELETE',
-                          _photoType: photo.photoType,
-                          _pointName: point.pointName || point.name,
-                          _roomName: this.roomName
-                        },
-                        dependencies: [],
-                        status: 'pending',
-                        priority: 'high',
-                      });
-                    }
-                  } else {
-                    // MOBILE MODE: Queue for background sync
-                    await this.indexedDb.addPendingRequest({
-                      type: 'DELETE',
-                      endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`,
-                      method: 'DELETE',
-                      data: {
-                        attachId: photo.attachId,
-                        _displayType: 'POINT_PHOTO_DELETE',
-                        _photoType: photo.photoType,
-                        _pointName: point.pointName || point.name,
-                        _roomName: this.roomName
-                      },
-                      dependencies: [],
-                      status: 'pending',
-                      priority: 'high',
-                    });
-                    // Sync will happen on next 60-second interval (batched sync)
-                  }
-                } else {
-                }
-
-              }
-
-              // Clear the in-memory attachments cache
+              // 8. Clear the in-memory attachments cache and final UI update
               this.foundationData.clearEFEAttachmentsCache();
-
-              // DEXIE-FIRST: Final UI update to ensure photo is visually removed
               this.changeDetectorRef.detectChanges();
             } catch (error) {
               console.error('Error deleting photo:', error);
@@ -5882,6 +5759,33 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     });
 
     await alert.present();
+  }
+
+  /**
+   * Helper: Remove photo from preservation maps to prevent re-adding
+   */
+  private removeFromPreservationMaps(point: any, photo: any): void {
+    const pointName = point.name;
+    const pointId = point.pointId;
+    const pointIdForTracking = point.pointId || point.tempPointId;
+
+    const filterPreserved = (preserved: any[]) => preserved.filter((p: any) => {
+      const pImageId = p.imageId || p.localImageId;
+      const pAttachId = p.attachId ? String(p.attachId) : null;
+      const pTempId = p._tempId ? String(p._tempId) : null;
+      const pCompositeKey = pointIdForTracking && p.photoType ? `${pointIdForTracking}:${p.photoType}` : null;
+      return !this.deletedPointPhotoIds.has(pImageId) &&
+             !this.deletedPointPhotoIds.has(pAttachId || '') &&
+             !this.deletedPointPhotoIds.has(pTempId || '') &&
+             !this.deletedPointPhotoIds.has(pCompositeKey || '');
+    });
+
+    if (pointName && this.preservedPhotosByPointName.has(pointName)) {
+      this.preservedPhotosByPointName.set(pointName, filterPreserved(this.preservedPhotosByPointName.get(pointName) || []));
+    }
+    if (pointId && this.preservedPhotosByPointId.has(String(pointId))) {
+      this.preservedPhotosByPointId.set(String(pointId), filterPreserved(this.preservedPhotosByPointId.get(String(pointId)) || []));
+    }
   }
 
   async openPointCaptionPopup(point: any, photo: any, event: Event) {
