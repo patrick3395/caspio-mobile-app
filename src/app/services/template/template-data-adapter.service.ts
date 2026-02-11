@@ -605,12 +605,17 @@ export class TemplateDataAdapter {
       let deletedCount = 0;
       const attachIdStr = String(attachId);
 
+      // Collect ALL IDs this image is known by (for cascade caption cleanup)
+      const allImageIds: string[] = [attachIdStr];
+
       // MOBILE: Delete from local storage (localImages table)
       // Try multiple lookup methods since photos can be stored under different IDs
 
       // Method 1: Delete by imageId (primary key)
       const beforeDelete1 = await db.localImages.get(attachId);
       if (beforeDelete1) {
+        if (beforeDelete1.attachId) allImageIds.push(String(beforeDelete1.attachId));
+        if (beforeDelete1.imageId) allImageIds.push(String(beforeDelete1.imageId));
         await db.localImages.delete(attachId);
         deletedCount++;
       }
@@ -618,6 +623,8 @@ export class TemplateDataAdapter {
       // Method 2: Find and delete by attachId field (for synced images)
       const byAttachId = await db.localImages.where('attachId').equals(attachId).toArray();
       for (const img of byAttachId) {
+        if (img.imageId) allImageIds.push(String(img.imageId));
+        if (img.attachId) allImageIds.push(String(img.attachId));
         await db.localImages.delete(img.imageId);
         deletedCount++;
       }
@@ -625,9 +632,14 @@ export class TemplateDataAdapter {
       // Method 3: Find by entityId (in case the ID is actually an entityId)
       const byEntityId = await db.localImages.where('entityId').equals(attachId).toArray();
       for (const img of byEntityId) {
+        if (img.imageId) allImageIds.push(String(img.imageId));
+        if (img.attachId) allImageIds.push(String(img.attachId));
         await db.localImages.delete(img.imageId);
         deletedCount++;
       }
+
+      // CASCADE: Delete any pending captions/annotations for this image
+      await this.indexedDb.deletePendingCaptionsByAttachIds(allImageIds);
 
 
       // CRITICAL FIX: Also remove from attachment cache (visual_attachments, hud_attachments, etc.)

@@ -2432,6 +2432,34 @@ export class IndexedDbService {
   }
 
   /**
+   * Delete all pending captions whose attachId matches any of the given IDs.
+   * Called when an image is deleted to cascade-remove orphaned caption/annotation sync items.
+   */
+  async deletePendingCaptionsByAttachIds(attachIds: string[]): Promise<number> {
+    let deletedCount = 0;
+    const uniqueIds = [...new Set(attachIds.filter(id => !!id))];
+    if (uniqueIds.length === 0) return 0;
+
+    for (const id of uniqueIds) {
+      const captions = await db.pendingCaptions
+        .where('attachId')
+        .equals(id)
+        .toArray();
+
+      if (captions.length > 0) {
+        await db.pendingCaptions.bulkDelete(captions.map(c => c.captionId));
+        deletedCount += captions.length;
+      }
+    }
+
+    if (deletedCount > 0) {
+      console.log(`[IndexedDB] Cascade-deleted ${deletedCount} orphaned pending captions for deleted image`);
+    }
+
+    return deletedCount;
+  }
+
+  /**
    * Clean up orphaned captions
    */
   async cleanupOrphanedCaptions(): Promise<number> {
@@ -2439,17 +2467,15 @@ export class IndexedDbService {
 
     try {
       const allCaptions = await this.getAllPendingCaptions();
-      const tempIdCaptions = allCaptions.filter(c =>
-        String(c.attachId || '').startsWith('temp_')
-      );
-
-      if (tempIdCaptions.length === 0) {
-        return 0;
-      }
-
+      if (allCaptions.length === 0) return 0;
 
       const pendingImages = await db.pendingImages.toArray();
       const pendingImagesMap = new Set(pendingImages.map(img => img.imageId));
+
+      // Handle temp_ prefix captions (original logic)
+      const tempIdCaptions = allCaptions.filter(c =>
+        String(c.attachId || '').startsWith('temp_')
+      );
 
       for (const caption of tempIdCaptions) {
         const tempId = String(caption.attachId);
@@ -2470,7 +2496,37 @@ export class IndexedDbService {
         deletedCount++;
       }
 
+      // Handle img_ prefix captions — delete if image no longer exists in localImages or pendingImages
+      const imgIdCaptions = allCaptions.filter(c =>
+        String(c.attachId || '').startsWith('img_')
+      );
+
+      for (const caption of imgIdCaptions) {
+        const imgId = String(caption.attachId);
+
+        if (pendingImagesMap.has(imgId)) {
+          continue;
+        }
+
+        // Check if the image still exists in localImages
+        const localImage = await db.localImages.get(imgId);
+        if (localImage) {
+          continue;
+        }
+
+        // Also check if any localImage has this as its attachId field
+        const byAttachId = await db.localImages.where('attachId').equals(imgId).first();
+        if (byAttachId) {
+          continue;
+        }
+
+        // Image doesn't exist anywhere — orphaned caption, delete it
+        await this.deletePendingCaption(caption.captionId);
+        deletedCount++;
+      }
+
       if (deletedCount > 0) {
+        console.log(`[IndexedDB] Cleaned up ${deletedCount} orphaned captions`);
       }
 
       return deletedCount;

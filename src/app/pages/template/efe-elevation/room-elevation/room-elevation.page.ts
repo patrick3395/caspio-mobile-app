@@ -1414,6 +1414,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             for (const attach of pointAttachments) {
               const attachIdStr = String(attach.AttachID || attach.PK_ID);
 
+              // Skip deleted photos (prevents ghost placeholder during rebuild)
+              if (this.deletedPointPhotoIds.has(attachIdStr)) {
+                continue;
+              }
+
               // TASK 1 FIX: Check if this server attachment matches any LocalImage we have
               // This handles the case where photo was captured with imageId, then synced to get real attachId
               // The in-memory photo still has imageId as attachId, but server has the real attachId
@@ -3335,6 +3340,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             const photoType = attach.Type || attach.photoType || 'Measurement';
             const attachIdStr = String(attach.AttachID || attach.PK_ID);
 
+            // Skip photos that were deleted (prevents ghost placeholder during rebuild)
+            if (this.deletedPointPhotoIds.has(attachIdStr)) {
+              continue;
+            }
+
             // TASK 1 FIX: Check if server attachment matches any LocalImage by attachId
             // This handles photos that were captured with imageId then synced to get real attachId
             let matchingImageId: string | null = null;
@@ -3541,18 +3551,27 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         if (localImagesForPoint.length > 0) {
           
           for (const localImage of localImagesForPoint) {
+            // Skip deleted photos (prevents ghost placeholder during rebuild)
+            const localImgAttachId = localImage.attachId ? String(localImage.attachId) : null;
+            const compositeKey = `${pointIdStr}:${localImage.photoType || 'Measurement'}`;
+            if (this.deletedPointPhotoIds.has(localImage.imageId) ||
+                this.deletedPointPhotoIds.has(localImgAttachId || '') ||
+                this.deletedPointPhotoIds.has(compositeKey)) {
+              continue;
+            }
+
             // Skip if already added (by imageId or attachId)
-            const alreadyExists = pointData.photos.some((p: any) => 
+            const alreadyExists = pointData.photos.some((p: any) =>
               String(p.attachId) === localImage.imageId ||
               String(p.imageId) === localImage.imageId ||
               String(p.localImageId) === localImage.imageId ||
               (localImage.attachId && String(p.attachId) === localImage.attachId)
             );
-            
+
             if (alreadyExists) {
               continue;
             }
-            
+
             // Get display URL from LocalImageService
             let displayUrl = 'assets/img/photo-placeholder.svg';
             try {
@@ -3726,12 +3745,21 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             if (localImagesForCustomPoint.length > 0) {
               
               for (const localImage of localImagesForCustomPoint) {
+                // Skip deleted photos (prevents ghost placeholder during rebuild)
+                const localImgAttachId = localImage.attachId ? String(localImage.attachId) : null;
+                const compositeKey = `${customPointIdStr}:${localImage.photoType || 'Measurement'}`;
+                if (this.deletedPointPhotoIds.has(localImage.imageId) ||
+                    this.deletedPointPhotoIds.has(localImgAttachId || '') ||
+                    this.deletedPointPhotoIds.has(compositeKey)) {
+                  continue;
+                }
+
                 // Skip if already added
-                const alreadyExists = customPointData.photos.some((p: any) => 
+                const alreadyExists = customPointData.photos.some((p: any) =>
                   String(p.imageId) === localImage.imageId ||
                   String(p.localImageId) === localImage.imageId
                 );
-                
+
                 if (alreadyExists) continue;
 
                 let displayUrl = 'assets/img/photo-placeholder.svg';

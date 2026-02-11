@@ -1328,9 +1328,10 @@ export class CaspioService {
 
   // Two-step upload method for Services_EFE_Points_Attach (matching visual method)
   private async uploadEFEPointsAttachWithFilesAPI(pointId: number, drawingsData: string, file: File, photoType?: string) {
-    
+
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
     
     try {
       // [v1.4.391] Generate unique filename to prevent duplication (like Structural section)
@@ -1375,13 +1376,10 @@ export class CaspioService {
         recordData.Drawings = drawingsData;
       }
       
-      const createUrl = `${API_BASE_URL}/tables/LPS_Services_EFE_Points_Attach/records?response=rows`;
+      const createUrl = `${PROXY_BASE_URL}/tables/LPS_Services_EFE_Points_Attach/records?response=rows`;
       const createResponse = await fetch(createUrl, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(recordData)
       });
       
@@ -1418,8 +1416,7 @@ export class CaspioService {
   }
 
   private async createEFEPointsAttachRecordOnly(pointId: number, drawingsData: string, photoType?: string) {
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
 
     try {
       const recordData: any = {
@@ -1438,12 +1435,9 @@ export class CaspioService {
         recordData.Drawings = drawingsData;
       }
 
-      const createResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_EFE_Points_Attach/records?response=rows`, {
+      const createResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_EFE_Points_Attach/records?response=rows`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(recordData)
       });
 
@@ -1499,6 +1493,7 @@ export class CaspioService {
   private async uploadAndUpdateEFEPointsAttachPhoto(attachId: number, file: File) {
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
 
     try {
       // Upload file
@@ -1532,12 +1527,9 @@ export class CaspioService {
         Photo: filePath
       };
 
-      const updateResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`, {
+      const updateResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData)
       });
 
@@ -1755,9 +1747,10 @@ export class CaspioService {
 
   private async uploadHUDAttachWithFilesAPI(hudId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Promise<any> {
     // Use same 2-step approach as uploadVisualsAttachWithFilesAPI but for HUD table
-    
+
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
     
     try {
       let originalFilePath = '';
@@ -1850,12 +1843,9 @@ export class CaspioService {
       }
 
 
-      const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records?response=rows`, {
+      const recordResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_HUD_Attach/records?response=rows`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(recordData)
       });
 
@@ -1900,6 +1890,7 @@ export class CaspioService {
   private async uploadAndUpdateHUDAttachPhoto(attachId: number, file: File, originalFile?: File): Promise<any> {
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
 
     try {
       let filePath = '';
@@ -1959,12 +1950,9 @@ export class CaspioService {
         Photo: originalFilePath || filePath
       };
 
-      const updateResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${attachId}`, {
+      const updateResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${attachId}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData)
       });
 
@@ -2000,20 +1988,16 @@ export class CaspioService {
   }
 
   private async createHUDAttachRecordOnly(hudId: number, annotation: string, drawings?: string): Promise<any> {
-    const token = await firstValueFrom(this.getValidToken());
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
     const payload = {
       HUDID: hudId,
       Annotation: annotation || '',
       Drawings: drawings || ''
     };
 
-    const response = await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records?response=rows`, {
+    const response = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_HUD_Attach/records?response=rows`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
 
@@ -2069,19 +2053,15 @@ export class CaspioService {
 
 
       // Update the HUD attach record with the S3 key in Attachment field
-      const token = await firstValueFrom(this.getValidToken());
-      const API_BASE_URL = environment.caspio.apiBaseUrl;
+      const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
 
       const updateData: any = {
         Attachment: s3Key  // Store S3 key in Attachment field
       };
 
-      const updateResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${attachId}`, {
+      const updateResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${attachId}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData)
       });
 
@@ -2474,8 +2454,7 @@ export class CaspioService {
       }
     }
 
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
 
     try {
       // Prepare record data
@@ -2547,9 +2526,9 @@ export class CaspioService {
       // Step 2: Create the Caspio record WITH the Attachment field populated
       recordData.Attachment = s3Key;  // CRITICAL: Include Attachment in initial creation
 
-      const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?response=rows`, {
+      const recordResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_LBW_Attach/records?response=rows`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(recordData)
       });
 
@@ -2599,9 +2578,6 @@ export class CaspioService {
         // Continue with original file - may fail with 413 but worth trying
       }
     }
-
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
 
     try {
       // Prepare record data for Caspio
@@ -2716,8 +2692,7 @@ export class CaspioService {
   }
 
   private async uploadDTEAttachWithS3(dteId: number, annotation: string, file: File, drawings?: string): Promise<any> {
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
 
     try {
       // Prepare record data
@@ -2752,9 +2727,9 @@ export class CaspioService {
       // Step 2: Create the Caspio record WITH the Attachment field populated
       recordData.Attachment = s3Key;  // CRITICAL: Include Attachment in initial creation
 
-      const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_DTE_Attach/records?response=rows`, {
+      const recordResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_DTE_Attach/records?response=rows`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(recordData)
       });
 
@@ -2871,9 +2846,10 @@ export class CaspioService {
   // Private helper methods for LBW file uploads
   private async uploadLBWAttachWithFilesAPI(lbwId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Promise<any> {
     // Use same 2-step approach as HUD but for LBW table
-    
+
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
     
     try {
       let originalFilePath = '';
@@ -2942,12 +2918,9 @@ export class CaspioService {
       };
 
 
-      const createResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?response=rows`, {
+      const createResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_LBW_Attach/records?response=rows`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(recordData)
       });
 
@@ -2976,6 +2949,7 @@ export class CaspioService {
   private async uploadAndUpdateLBWAttachPhoto(attachId: number, file: File, originalFile?: File): Promise<any> {
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
 
     try {
       let filePath = '';
@@ -3034,12 +3008,9 @@ export class CaspioService {
         Photo: originalFilePath || filePath
       };
 
-      const updateResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?q.where=AttachID=${attachId}`, {
+      const updateResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_LBW_Attach/records?q.where=AttachID=${attachId}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData)
       });
 
@@ -3061,20 +3032,16 @@ export class CaspioService {
   }
 
   private async createLBWAttachRecordOnly(lbwId: number, annotation: string, drawings?: string): Promise<any> {
-    const token = await firstValueFrom(this.getValidToken());
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
     const payload = {
       LBWID: lbwId,
       Annotation: annotation || '',
       Drawings: drawings || ''
     };
 
-    const response = await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?response=rows`, {
+    const response = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_LBW_Attach/records?response=rows`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
 
@@ -3226,9 +3193,10 @@ export class CaspioService {
 
   // Private helper methods for DTE file uploads
   private async uploadDTEAttachWithFilesAPI(dteId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Promise<any> {
-    
+
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
     
     try {
       let originalFilePath = '';
@@ -3306,12 +3274,9 @@ export class CaspioService {
       };
 
 
-      const createRecordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_DTE_Attach/records?response=rows`, {
+      const createRecordResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_DTE_Attach/records?response=rows`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 
@@ -3334,6 +3299,7 @@ export class CaspioService {
   private async uploadAndUpdateDTEAttachPhoto(attachId: number, file: File, originalFile?: File): Promise<any> {
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
 
     try {
       let filePath = '';
@@ -3392,12 +3358,9 @@ export class CaspioService {
         Photo: originalFilePath || filePath
       };
 
-      const updateResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_DTE_Attach/records?q.where=AttachID=${attachId}`, {
+      const updateResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_DTE_Attach/records?q.where=AttachID=${attachId}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData)
       });
 
@@ -3419,20 +3382,16 @@ export class CaspioService {
   }
 
   private async createDTEAttachRecordOnly(dteId: number, annotation: string, drawings?: string): Promise<any> {
-    const token = await firstValueFrom(this.getValidToken());
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
     const payload = {
       DTEID: dteId,
       Annotation: annotation || '',
       Drawings: drawings || ''
     };
 
-    const response = await fetch(`${API_BASE_URL}/tables/LPS_Services_DTE_Attach/records?response=rows`, {
+    const response = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_DTE_Attach/records?response=rows`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
 
@@ -3557,10 +3516,6 @@ export class CaspioService {
   }
 
   private async uploadCSAAttachWithS3(csaId: number, annotation: string, file: File, drawings?: string): Promise<any> {
-
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
-
     try {
       // Prepare record data
       const recordData: any = { CSAID: parseInt(csaId.toString()), Annotation: annotation || '' };
@@ -3737,21 +3692,14 @@ export class CaspioService {
     // v1.4.329 FIX: Use raw fetch like CREATE does, not Angular HttpClient
     // This prevents double JSON.stringify of the Drawings field
     return new Observable(observer => {
-      const accessToken = this.getCurrentToken();
-      if (!accessToken) {
-        observer.error(new Error('No authentication token available'));
-        return;
-      }
-      
-      const API_BASE_URL = environment.caspio.apiBaseUrl;
+      const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
       const endpoint = `/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachIdNum}`;
-      const fullUrl = `${API_BASE_URL}${endpoint}`;
-      
+      const fullUrl = `${PROXY_BASE_URL}${endpoint}`;
+
       // Use fetch directly like the CREATE operation does
       fetch(fullUrl, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(data)  // Single stringify, just like CREATE
@@ -4198,7 +4146,8 @@ export class CaspioService {
 
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
-    
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
+
     try {
       let originalFilePath = '';
 
@@ -4295,12 +4244,9 @@ export class CaspioService {
         }
       }
       
-      const createResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_Visuals_Attach/records?response=rows`, {
+      const createResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_Visuals_Attach/records?response=rows`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(recordData)
       });
       
@@ -4359,8 +4305,7 @@ export class CaspioService {
   }
 
   private async createVisualsAttachRecordOnly(visualId: number, annotation: string, drawings?: string) {
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
 
     try {
       const recordData: any = {
@@ -4386,12 +4331,9 @@ export class CaspioService {
         }
       }
 
-      const createResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_Visuals_Attach/records?response=rows`, {
+      const createResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_Visuals_Attach/records?response=rows`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(recordData)
       });
 
@@ -4447,6 +4389,7 @@ export class CaspioService {
   private async uploadAndUpdateVisualsAttachPhoto(attachId: number, file: File, originalFile?: File) {
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
 
     try {
       let filePath = '';
@@ -4506,12 +4449,9 @@ export class CaspioService {
         Photo: originalFilePath || filePath
       };
 
-      const updateResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`, {
+      const updateResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData)
       });
 
@@ -4675,9 +4615,7 @@ export class CaspioService {
 
   // Helper method to check for duplicate document titles and add versioning
   private async getVersionedDocumentTitle(projectId: number, typeId: number, baseTitle: string, serviceId?: string): Promise<string> {
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
-
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
 
     try {
       // Build query to get existing documents with same ProjectID and TypeID
@@ -4690,12 +4628,9 @@ export class CaspioService {
         })
       });
 
-      const response = await fetch(`${API_BASE_URL}/tables/LPS_Attach/records?${queryParams}`, {
+      const response = await fetch(`${PROXY_BASE_URL}/tables/LPS_Attach/records?${queryParams}`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
+        headers: { 'Content-Type': 'application/json' }
       });
 
       if (!response.ok) {
@@ -4769,6 +4704,7 @@ export class CaspioService {
 
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
 
     try {
       const formData = new FormData();
@@ -4817,17 +4753,14 @@ export class CaspioService {
           : serviceIdPrefix;
       }
       
-      const createResponse = await fetch(`${API_BASE_URL}/tables/LPS_Attach/records?response=rows`, {
+      const createResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Attach/records?response=rows`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(recordData)
       });
-      
+
       const createResponseText = await createResponse.text();
-      
+
       if (!createResponse.ok) {
         console.error('Failed to create Attach record:', createResponseText);
         throw new Error('Failed to create Attach record: ' + createResponseText);
@@ -4878,6 +4811,7 @@ export class CaspioService {
   private async replaceAttachmentFile(attachId: string, file: File) {
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
     
     try {
       // Check if file is an image and compress if needed
@@ -4914,13 +4848,10 @@ export class CaspioService {
       
       // Step 2: Update the Attach record with new file path and name
       const updateResponse = await fetch(
-        `${API_BASE_URL}/tables/LPS_Attach/records?q.where=AttachID=${attachId}`,
+        `${PROXY_BASE_URL}/tables/LPS_Attach/records?q.where=AttachID=${attachId}`,
         {
           method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             Attachment: filePath,  // Update file path
             Link: file.name        // Update filename
@@ -5041,17 +4972,15 @@ export class CaspioService {
 
   // Get attachment with file data for display (following the working example pattern)
   getAttachmentWithImage(attachId: string): Observable<any> {
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
-    
+
     return new Observable(observer => {
       // First get the record to find the file path in the Attachment field
-      fetch(`${API_BASE_URL}/tables/LPS_Attach/records?q.where=AttachID=${attachId}`, {
+      fetch(`${PROXY_BASE_URL}/tables/LPS_Attach/records?q.where=AttachID=${attachId}`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Accept': 'application/json'
-        }
+        headers: { 'Accept': 'application/json' }
       })
       .then(response => {
         if (!response.ok) {
@@ -5243,6 +5172,7 @@ export class CaspioService {
   async updateAttachmentImage(attachId: string, imageBlob: Blob, filename: string): Promise<boolean> {
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
     
     try {
       
@@ -5289,17 +5219,14 @@ export class CaspioService {
         Link: uniqueFilename
       };
       
-      const updateResponse = await fetch(`${API_BASE_URL}/tables/LPS_Attach/records?q.where=AttachID=${attachId}`, {
+      const updateResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Attach/records?q.where=AttachID=${attachId}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData)
       });
-      
+
       const updateResponseText = await updateResponse.text();
-      
+
       if (!updateResponse.ok) {
         console.error('? Failed to update Attach record!');
         console.error('  - Status:', updateResponse.status);
@@ -5308,7 +5235,7 @@ export class CaspioService {
         return false;
       }
       return true;
-      
+
     } catch (error) {
       console.error('? EXCEPTION in updateAttachmentImage:');
       console.error('  - Error type:', error instanceof Error ? error.constructor.name : typeof error);
@@ -5320,22 +5247,18 @@ export class CaspioService {
   
   // Save annotation data as JSON in Notes field or separate table
   async saveAnnotationData(attachId: string, annotationData: any): Promise<boolean> {
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
-    
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
+
     try {
-      
+
       // Store annotations as JSON in the Notes field of Attach table
       const updateData = {
         Notes: JSON.stringify(annotationData)
       };
-      
-      const response = await fetch(`${API_BASE_URL}/tables/LPS_Attach/records?q.where=AttachID=${attachId}`, {
+
+      const response = await fetch(`${PROXY_BASE_URL}/tables/LPS_Attach/records?q.where=AttachID=${attachId}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData)
       });
       
@@ -5353,16 +5276,12 @@ export class CaspioService {
   
   // Retrieve annotation data from Notes field
   async getAnnotationData(attachId: string): Promise<any | null> {
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
-    
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
+
     try {
-      const response = await fetch(`${API_BASE_URL}/tables/LPS_Attach/records?q.where=AttachID=${attachId}`, {
+      const response = await fetch(`${PROXY_BASE_URL}/tables/LPS_Attach/records?q.where=AttachID=${attachId}`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Accept': 'application/json'
-        }
+        headers: { 'Accept': 'application/json' }
       });
       
       if (!response.ok) {
@@ -5392,15 +5311,11 @@ export class CaspioService {
   
   // Helper to get record and create placeholder
   private getRecordAndCreatePlaceholder(attachId: string, observer: any): void {
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
-    
-    fetch(`${API_BASE_URL}/tables/LPS_Attach/records?q.where=AttachID=${attachId}`, {
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
+
+    fetch(`${PROXY_BASE_URL}/tables/LPS_Attach/records?q.where=AttachID=${attachId}`, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Accept': 'application/json'
-      }
+      headers: { 'Accept': 'application/json' }
     })
     .then(r => r.json())
     .then(data => {
