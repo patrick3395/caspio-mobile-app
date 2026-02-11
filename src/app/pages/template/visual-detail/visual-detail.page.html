@@ -51,19 +51,13 @@
       <div class="image-preview-section" *ngIf="photos.length > 0">
         <div class="image-preview-container">
           <div class="image-preview structural-photo-preview"
-               *ngFor="let photo of photos; trackBy: trackByPhotoId"
-               [class.uploading]="photo.uploading"
-               [class.loading-image]="photo.loading">
+               *ngFor="let photo of photos; trackBy: trackByPhotoId">
             <img [appLazyImage]="photo.displayUrl || 'assets/img/photo-placeholder.svg'"
                  [lazyPlaceholder]="'assets/img/photo-placeholder.svg'"
                  alt="Photo"
                  (click)="viewPhoto(photo)"
-                 (load)="onImageLoad(photo)"
-                 [class.loading]="photo.uploading || photo.loading">
-            <div class="upload-indicator" *ngIf="photo.uploading">
-              <ion-spinner name="crescent" color="light"></ion-spinner>
-            </div>
-            <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo); $event.stopPropagation()" title="Delete">
+                 (load)="onImageLoad(photo)">
+            <button class="delete-btn" (click)="deletePhoto(photo); $event.stopPropagation()" title="Delete">
               <ion-icon name="close"></ion-icon>
             </button>
             <button

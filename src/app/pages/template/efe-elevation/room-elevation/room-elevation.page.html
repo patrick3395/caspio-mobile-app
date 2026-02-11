@@ -56,27 +56,22 @@
       <!-- FDF Photos Section (hidden for Base Station and unless Different Elevation is selected) -->
       <div class="fdf-photos-container" *ngIf="!isBaseStation() && shouldShowFDFPhotos()" style="margin-top: 10px;">
         <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #666;">FDF Photos:</div>
-        <div class="fdf-photos-row" style="display: flex; gap: 8px; flex-wrap: nowrap;">
+        <div class="fdf-photos-row" style="display: flex; gap: 8px; flex-wrap: nowrap; max-width: 100%; overflow: hidden;">
           <!-- Top Photo Column -->
           <div class="fdf-photo-column" style="flex: 1; min-width: 0; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
             <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; text-align: center;">Top</div>
-            <div style="display: flex; gap: 4px; margin-bottom: 2px;">
-              <button *ngIf="!isWeb"
+            <div class="photo-action-grid">
+              <button class="action-btn" *ngIf="!isWeb"
                       (click)="takeFDFPhotoCamera('Top')"
-                      [disabled]="!isRoomReady()"
-                      class="fdf-photo-button"
-                      [style.opacity]="isRoomReady() ? '1' : '0.4'"
-                      [style.cursor]="isRoomReady() ? 'pointer' : 'not-allowed'"
-                      style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
-                <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
+                      [disabled]="!isRoomReady()">
+                <ion-icon name="camera"></ion-icon>
+                <span>Camera</span>
               </button>
-              <button (click)="takeFDFPhotoGallery('Top')"
-                      [disabled]="!isRoomReady()"
-                      class="fdf-photo-button"
-                      [style.opacity]="isRoomReady() ? '1' : '0.4'"
-                      [style.cursor]="isRoomReady() ? 'pointer' : 'not-allowed'"
-                      style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
-                <ion-icon name="images" style="font-size: 28px;"></ion-icon>
+              <button class="action-btn"
+                      (click)="takeFDFPhotoGallery('Top')"
+                      [disabled]="!isRoomReady()">
+                <ion-icon name="images"></ion-icon>
+                <span>Gallery</span>
               </button>
             </div>
             <!-- Skeleton loader while photo URL is loading -->
@@ -115,23 +110,18 @@
           <!-- Bottom Photo Column -->
           <div class="fdf-photo-column" style="flex: 1; min-width: 0; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
             <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; text-align: center;">Bottom</div>
-            <div style="display: flex; gap: 4px; margin-bottom: 2px;">
-              <button *ngIf="!isWeb"
+            <div class="photo-action-grid">
+              <button class="action-btn" *ngIf="!isWeb"
                       (click)="takeFDFPhotoCamera('Bottom')"
-                      [disabled]="!isRoomReady()"
-                      class="fdf-photo-button"
-                      [style.opacity]="isRoomReady() ? '1' : '0.4'"
-                      [style.cursor]="isRoomReady() ? 'pointer' : 'not-allowed'"
-                      style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
-                <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
+                      [disabled]="!isRoomReady()">
+                <ion-icon name="camera"></ion-icon>
+                <span>Camera</span>
               </button>
-              <button (click)="takeFDFPhotoGallery('Bottom')"
-                      [disabled]="!isRoomReady()"
-                      class="fdf-photo-button"
-                      [style.opacity]="isRoomReady() ? '1' : '0.4'"
-                      [style.cursor]="isRoomReady() ? 'pointer' : 'not-allowed'"
-                      style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
-                <ion-icon name="images" style="font-size: 28px;"></ion-icon>
+              <button class="action-btn"
+                      (click)="takeFDFPhotoGallery('Bottom')"
+                      [disabled]="!isRoomReady()">
+                <ion-icon name="images"></ion-icon>
+                <span>Gallery</span>
               </button>
             </div>
             <!-- Skeleton loader while photo URL is loading -->
@@ -170,23 +160,18 @@
           <!-- Location Photo Column (Threshold) -->
           <div class="fdf-photo-column" style="flex: 1; min-width: 0; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
             <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; text-align: center;">Location</div>
-            <div style="display: flex; gap: 4px; margin-bottom: 2px;">
-              <button *ngIf="!isWeb"
+            <div class="photo-action-grid">
+              <button class="action-btn" *ngIf="!isWeb"
                       (click)="takeFDFPhotoCamera('Threshold')"
-                      [disabled]="!isRoomReady()"
-                      class="fdf-photo-button"
-                      [style.opacity]="isRoomReady() ? '1' : '0.4'"
-                      [style.cursor]="isRoomReady() ? 'pointer' : 'not-allowed'"
-                      style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
-                <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
+                      [disabled]="!isRoomReady()">
+                <ion-icon name="camera"></ion-icon>
+                <span>Camera</span>
               </button>
-              <button (click)="takeFDFPhotoGallery('Threshold')"
-                      [disabled]="!isRoomReady()"
-                      class="fdf-photo-button"
-                      [style.opacity]="isRoomReady() ? '1' : '0.4'"
-                      [style.cursor]="isRoomReady() ? 'pointer' : 'not-allowed'"
-                      style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
-                <ion-icon name="images" style="font-size: 28px;"></ion-icon>
+              <button class="action-btn"
+                      (click)="takeFDFPhotoGallery('Threshold')"
+                      [disabled]="!isRoomReady()">
+                <ion-icon name="images"></ion-icon>
+                <span>Gallery</span>
               </button>
             </div>
             <!-- Skeleton loader while photo URL is loading -->
@@ -307,9 +292,9 @@
             </div>
 
             <!-- Measurement and Location Photos -->
-            <div style="margin-top: 10px; display: flex; gap: 8px;">
+            <div style="margin-top: 10px; display: flex; gap: 8px; max-width: 100%; overflow: hidden;">
               <!-- Measurement Photo Container -->
-              <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
+              <div style="flex: 1; min-width: 0; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
                 <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px; text-align: center;">
                   Measurement
                   <ion-spinner *ngIf="isPointPending(point)" name="dots" style="width: 16px; height: 16px; margin-left: 4px; vertical-align: middle;"></ion-spinner>
@@ -368,7 +353,7 @@
               </div>
 
               <!-- Location Photo Container -->
-              <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
+              <div style="flex: 1; min-width: 0; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
                 <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px; text-align: center;">
                   Location
                   <ion-spinner *ngIf="isPointPending(point)" name="dots" style="width: 16px; height: 16px; margin-left: 4px; vertical-align: middle;"></ion-spinner>

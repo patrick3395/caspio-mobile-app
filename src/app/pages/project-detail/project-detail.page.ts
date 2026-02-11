@@ -173,6 +173,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   // Sync/Save button states
   isSaving = false;
   isSyncing = false;
+  pendingSyncCount = 0;
 
   private documentViewerComponent?: DocumentViewerCtor;
   private templateServicesCache: ServiceSelection[] = [];
@@ -460,6 +461,14 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   ngOnInit() {
     this.projectId = this.route.snapshot.paramMap.get('id') || '';
+
+    // Subscribe to pending sync changes count (mobile only)
+    if (!environment.isWeb) {
+      this.backgroundSync.pendingChanges$.subscribe(count => {
+        this.pendingSyncCount = count;
+        this.changeDetectorRef.markForCheck();
+      });
+    }
 
     // Check for add-service mode
     this.route.queryParams.subscribe(params => {

@@ -208,57 +208,6 @@
       background: transparent !important;
       box-sizing: border-box !important;
 
-      // Shimmer animation for loading states
-      @keyframes image-shimmer {
-        0% {
-          background-position: -200% 0;
-        }
-        100% {
-          background-position: 200% 0;
-        }
-      }
-
-      &.uploading,
-      &.loading-image {
-        position: relative;
-
-        // Shimmer overlay
-        &::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          border-radius: 16px;
-          background: linear-gradient(90deg,
-            rgba(240, 240, 240, 0.1) 25%,
-            rgba(255, 255, 255, 0.4) 50%,
-            rgba(240, 240, 240, 0.1) 75%
-          );
-          background-size: 200% 100%;
-          animation: image-shimmer 1.5s ease-in-out infinite;
-          z-index: 5;
-          pointer-events: none;
-        }
-
-        img {
-          opacity: 0.7;
-        }
-      }
-
-      .upload-indicator {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        z-index: 10;
-
-        ion-spinner {
-          --color: #F15A27;
-        }
-      }
-
       img {
         width: 100% !important;
         aspect-ratio: 1 / 1 !important;

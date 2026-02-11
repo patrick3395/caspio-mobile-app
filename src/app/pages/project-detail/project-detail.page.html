@@ -417,7 +417,8 @@
                             title="Sync report to cloud">
                       <ion-icon [name]="isSaving ? 'sync' : 'cloud-upload-outline'"
                                 [class.spinning]="isSaving"></ion-icon>
-                      <span>Sync</span>
+                      <span class="sync-text">Sync</span>
+                      <span class="sync-badge" *ngIf="pendingSyncCount > 0">{{ pendingSyncCount }}</span>
                     </button>
                   </div>
                   <div class="templates-container">

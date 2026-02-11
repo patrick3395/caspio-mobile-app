@@ -563,7 +563,47 @@ select.styled-input {
 // ========================================
 // MOBILE RESPONSIVE STYLES
 // ========================================
+
+// Prevent horizontal overflow on mobile
+.page-container {
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.elevation-points-container,
+.elevation-points-grid,
+.elevation-point-card {
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
 @media (max-width: 768px) {
+  .page-container {
+    padding: 12px;
+  }
+
+  .elevation-point-card {
+    padding: 10px !important;
+  }
+
+  .photo-action-grid {
+    gap: 4px !important;
+
+    .action-btn {
+      min-width: 0 !important;
+      padding: 6px 8px !important;
+      height: 48px;
+
+      ion-icon {
+        font-size: 20px;
+      }
+
+      span {
+        font-size: 10px !important;
+      }
+    }
+  }
   .fdf-photo-column {
     border: 2px solid var(--color-border-default) !important;
     border-radius: 8px !important;
@@ -642,7 +682,35 @@ select.styled-input {
 }
 
 @media (max-width: 480px) {
+  .page-container {
+    padding: 8px;
+  }
+
+  .elevation-point-card {
+    padding: 8px !important;
+  }
+
+  .photo-action-grid {
+    gap: 3px !important;
+
+    .action-btn {
+      min-width: 0 !important;
+      padding: 5px 6px !important;
+      height: 44px;
+
+      ion-icon {
+        font-size: 18px;
+      }
+
+      span {
+        font-size: 9px !important;
+      }
+    }
+  }
+
   .fdf-photo-column {
+    padding: 6px !important;
+
     .fdf-photo-button {
       padding: 16px 8px !important;
       margin-bottom: 12px !important;

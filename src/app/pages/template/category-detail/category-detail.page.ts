@@ -4587,7 +4587,10 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   // ==================== TrackBy Functions ====================
 
   trackByItemId(index: number, item: VisualItem): string {
-    return `${item.category}_${item.templateId}`;
+    // Use lookupId instead of templateId to avoid duplicate trackBy keys for custom visuals.
+    // Custom visuals all share templateId=0, causing Angular to accumulate DOM elements on re-render.
+    // lookupId uses the unique recordId for custom items (templateId===0) and templateId for template items.
+    return `${item.category}_${item.lookupId}`;
   }
 
   trackByPhotoId(index: number, photo: any): string {

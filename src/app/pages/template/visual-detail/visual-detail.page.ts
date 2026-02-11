@@ -1004,8 +1004,8 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       }
     }
 
-    // Sort by createdAt (oldest first) to maintain consistent order with category-detail
-    localImages.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    // Sort by createdAt (newest first) to match category-detail order
+    localImages.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
     // Log final result
     if (localImages.length > 0) {

@@ -3730,8 +3730,16 @@ export class CompanyPage implements OnInit, OnDestroy {
 
   selectClientTab(tab: 'company' | 'payments' | 'metrics') {
     this.clientTab = tab;
-    if (tab === 'metrics' && !this.clientMetrics) {
-      this.loadClientMetrics();
+    if (tab === 'metrics') {
+      if (!this.clientMetrics) {
+        this.loadClientMetrics();
+      } else {
+        // Data already loaded but canvas elements are fresh from *ngIf — re-render charts
+        setTimeout(() => {
+          this.renderClientProjectsChart();
+          this.renderClientServicesChart();
+        }, 100);
+      }
     }
     if (tab === 'payments' && this.currentUserCompanyId) {
       // Force reload payment data each time tab is selected
