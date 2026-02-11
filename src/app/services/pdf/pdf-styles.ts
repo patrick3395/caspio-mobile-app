@@ -26,7 +26,7 @@ export const PDF_STYLES: StyleDictionary = {
   value: { fontSize: 9.5, color: COLORS.darkGray },
   itemName: { fontSize: 11, bold: true, color: COLORS.charcoal },
   bodyText: { fontSize: 10, color: COLORS.darkGray, lineHeight: 1.4 },
-  caption: { fontSize: 8, italics: true, color: COLORS.mediumGray, alignment: 'center' },
+  caption: { fontSize: 8, color: COLORS.black, alignment: 'center' },
   pageHeader: { fontSize: 9, color: COLORS.mediumGray },
   pageFooter: { fontSize: 8, color: COLORS.mediumGray },
   answers: { fontSize: 10, color: COLORS.black },
@@ -69,7 +69,7 @@ export const LAYOUT_SUMMARY_TABLE: CustomTableLayout = {
   vLineWidth: () => 0,
   hLineColor: (i: number) => i === 1 ? COLORS.primary : COLORS.borderGray,
   fillColor: (rowIndex: number, _node: any, columnIndex: number) => {
-    if (rowIndex === 0) return COLORS.primary;
+    if (rowIndex === 0) return '#4a4f52';
     return (rowIndex % 2 === 0) ? COLORS.backgroundGray : null;
   },
   paddingLeft: () => 10,

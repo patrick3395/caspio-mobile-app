@@ -95,6 +95,7 @@ interface ProjectDetailCacheState {
   showDeliverablesTable: boolean;
   isCompanyOne: boolean;
   projectCompanyId: string;
+  projectTotalPaid: number;
   timestamp: number;
 }
 
@@ -130,6 +131,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   // Services tab toggle: 'active' shows selected services, 'add' shows available-to-add
   servicesTab: 'active' | 'add' = 'add';
+
+  // Project balance (services total - payments from LPS_Invoices)
+  projectTotalPaid: number = 0;
 
   // WEBAPP: Cache sorted offers to prevent DOM re-creation
   private sortedOffersCache: any[] = [];
@@ -215,6 +219,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.showDeliverablesTable = cached.showDeliverablesTable;
       this.isCompanyOne = cached.isCompanyOne;
       this.projectCompanyId = cached.projectCompanyId || '1';
+      this.projectTotalPaid = cached.projectTotalPaid || 0;
 
       // Apply pending finalized service flag if present (from cache restoration)
       if (this.pendingFinalizedServiceId) {
@@ -269,6 +274,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         showDeliverablesTable: this.showDeliverablesTable,
         isCompanyOne: this.isCompanyOne,
         projectCompanyId: this.projectCompanyId,
+        projectTotalPaid: this.projectTotalPaid,
         timestamp: Date.now()
       };
 
@@ -642,6 +648,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Always load Status table for deliverables
       promises.push(this.caspioService.get<any>('/tables/LPS_Status/records').toPromise());
 
+      // Load invoices for balance calculation (always fresh, no cache)
+      promises.push(this.caspioService.get<any>(`/tables/LPS_Invoices/records?q.where=ProjectID=${actualProjectId}`, false).toPromise());
+
       // Load company name for admin view
       if (this.isCompanyOne && projectCompanyId) {
         promises.push(this.caspioService.get<any>(`/tables/LPS_Companies/records?q.where=CompanyID=${projectCompanyId}`).toPromise());
@@ -649,7 +658,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       const results = await Promise.allSettled(promises);
 
-      const [offers, types, services, attachTemplates, existingAttachments, statuses, companyResult] = results;
+      const [offers, types, services, attachTemplates, existingAttachments, statuses, invoicesResult, companyResult] = results;
 
       const parallelElapsed = performance.now() - parallelStartTime;
 
@@ -673,6 +682,20 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         const companyData: any = companyResult.value;
         if (companyData?.Result?.[0]) {
           this.projectCompanyName = companyData.Result[0].CompanyName || companyData.Result[0].Name || '';
+        }
+      }
+
+      // Calculate total paid from invoice records (negative Fee = payment)
+      this.projectTotalPaid = 0;
+      if (invoicesResult && invoicesResult.status === 'fulfilled') {
+        const invoicesData: any = invoicesResult.value;
+        if (invoicesData?.Result) {
+          invoicesData.Result.forEach((invoice: any) => {
+            const fee = parseFloat(invoice.Fee) || 0;
+            if (fee < 0) {
+              this.projectTotalPaid += Math.abs(fee);
+            }
+          });
         }
       }
 
@@ -1188,7 +1211,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
     return total;
   }
-  
+
+  calculateProjectBalance(): number {
+    return this.calculateServicesTotal() - this.projectTotalPaid;
+  }
+
   // Check if all required documents are uploaded for a service
   areAllRequiredDocsUploaded(serviceDoc: any): boolean {
     if (!serviceDoc || !serviceDoc.documents) return false;
@@ -5248,12 +5275,17 @@ Time: ${debugInfo.timestamp}
     const alert = await this.alertController.create({
       header: 'Select Template',
       message: 'Choose a template to open its PDF report.',
-      inputs: savedServices.map((service, index) => ({
-        type: 'radio',
-        label: service.typeName,
-        value: index,
-        checked: index === 0
-      })),
+      inputs: savedServices.map((service, index) => {
+        const count = this.getServiceCount(service.offersId);
+        const instanceNum = count > 1 ? ` #${this.getServiceInstanceNumber(service)}` : '';
+        const prefix = service.typeShort ? `${service.typeShort} - ` : '';
+        return {
+          type: 'radio' as const,
+          label: `${prefix}${service.typeName}${instanceNum}`,
+          value: index,
+          checked: index === 0
+        };
+      }),
       buttons: [
         {
           text: 'Open PDF',
@@ -5520,7 +5552,8 @@ Time: ${debugInfo.timestamp}
   }
 
   /**
-   * Process payment and update invoice
+   * Process payment and create invoice records (matches autopay ledger model)
+   * Creates one negative-fee record per service paid
    */
   async processPayment(paymentData: any) {
     const loading = await this.loadingController.create({
@@ -5529,19 +5562,35 @@ Time: ${debugInfo.timestamp}
     await loading.present();
 
     try {
-      // Update invoice with payment information
-      await firstValueFrom(
-        this.caspioService.updateInvoiceWithPayment(paymentData.invoiceID, {
-          amount: parseFloat(paymentData.amount),
-          orderID: paymentData.orderID,
-          payerID: paymentData.payerID,
-          payerEmail: paymentData.payerEmail,
-          payerName: paymentData.payerName,
-          status: paymentData.status,
-          createTime: paymentData.createTime,
-          updateTime: paymentData.updateTime
-        })
-      );
+      const paymentNotes = `PayPal Payment - Order: ${paymentData.orderID}\n` +
+                          `Payer: ${paymentData.payerName} (${paymentData.payerEmail})\n` +
+                          `Transaction ID: ${paymentData.payerID}\n` +
+                          `Processed: ${new Date(paymentData.createTime).toLocaleString()}\n` +
+                          `Status: ${paymentData.status}`;
+
+      // Create a negative-fee invoice record per service (matches autopay ledger model)
+      for (const service of this.selectedServices) {
+        const fee = this.getServicePrice(service);
+        if (fee <= 0) continue;
+
+        await firstValueFrom(
+          this.caspioService.post<any>('/tables/LPS_Invoices/records', {
+            ProjectID: Number(this.project?.ProjectID),
+            ServiceID: Number(service.serviceId),
+            Fee: Number((-fee).toFixed(2)),
+            Date: new Date().toISOString().split('T')[0],
+            Address: String(this.project?.Address || ''),
+            InvoiceNotes: String(paymentNotes),
+            Mode: 'negative',
+            PaymentProcessor: 'PayPal'
+          })
+        );
+      }
+
+      this.caspioService.clearInvoicesCache();
+
+      // Update paid total so balance reflects immediately
+      this.projectTotalPaid += this.calculateServicesTotal();
 
       await loading.dismiss();
 

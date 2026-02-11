@@ -14,6 +14,7 @@ import { ApiGatewayService } from '../../services/api-gateway.service';
 import { firstValueFrom } from 'rxjs';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 import { db } from '../../services/caspio-db';
+import { getLogoBase64 } from '../../services/pdf/pdf-logo';
 
 interface StageDefinition {
   id: number;
@@ -69,6 +70,7 @@ interface CompanyRecord {
   AutopayLastRun?: string;
   AutopayLastStatus?: string;
   AutopayReviewRequired?: boolean;
+  Logo?: string;
 }
 
 interface InvoiceTotals {
@@ -242,6 +244,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
   // Client-only tabs (for non-CompanyID 1 users)
   clientTab: 'company' | 'payments' | 'metrics' = 'company';
+  detailsExpanded = true;
   usersExpanded = true;
   servicesExpanded = true;
   deleteAccountExpanded = false;
@@ -251,6 +254,8 @@ export class CompanyPage implements OnInit, OnDestroy {
   outstandingBalanceExpanded = true;
   paymentHistoryExpanded = true;
   autopaySettingsExpanded = true;
+  autopayAutoCharge = false; // Derived from CompanyID=1 AutopayReviewRequired (inverted)
+  autopayDueCompanies: CompanyViewModel[] = []; // Companies with autopay due today
   clientOffers: any[] = [];
   clientMetrics: { totalProjects: number; activeProjects: number; completedProjects: number } | null = null;
 
@@ -276,14 +281,12 @@ export class CompanyPage implements OnInit, OnDestroy {
       remaining: number;
     }>;
     paidInvoices: Array<{
-      invoiceId: number;
+      projectId: number;
       projectAddress: string;
-      serviceName: string;
-      fee: number;
       paidAmount: number;
       paidDate: string | null;
-      paymentProcessor: string;
-      paymentNotes: string;
+      balance: number;
+      services: Array<{ name: string; fee: number }>;
     }>;
   }> = new Map();
 
@@ -494,6 +497,8 @@ export class CompanyPage implements OnInit, OnDestroy {
 
   editingCompany: any = null;
   isEditModalOpen = false;
+  editingCompanyLogoFile: File | null = null;
+  editingCompanyLogoPreview: string | null = null;
 
   // Add company modal
   isAddCompanyModalOpen = false;
@@ -849,7 +854,7 @@ export class CompanyPage implements OnInit, OnDestroy {
         }
       });
 
-      // Collect unpaid services and paid invoices
+      // Collect unpaid services
       const unpaidServices: Array<{
         projectAddress: string;
         serviceName: string;
@@ -858,20 +863,13 @@ export class CompanyPage implements OnInit, OnDestroy {
         remaining: number;
       }> = [];
 
-      const paidInvoices: Array<{
-        invoiceId: number;
-        projectAddress: string;
-        serviceName: string;
-        fee: number;
-        paidAmount: number;
-        paidDate: string | null;
-        paymentProcessor: string;
-        paymentNotes: string;
-      }> = [];
+      // Track project-level service fee totals and service breakdown for invoices
+      const projectFeeTotals = new Map<number, number>();
+      const projectServicesList = new Map<number, Array<{ name: string; fee: number }>>();
 
       let totalBalance = 0;
 
-      // Process services to calculate outstanding balance and payment history
+      // Process services to calculate outstanding balance and accumulate fee totals per project
       servicesResponses.forEach((response: any, index: number) => {
         const projectId = projectIds[index];
         const projectInfo = projectLookup.get(projectId);
@@ -882,10 +880,15 @@ export class CompanyPage implements OnInit, OnDestroy {
             const statusId = Number(service.StatusID);
             const typeId = service.TypeID;
             const serviceId = service.ServiceID || service.PK_ID;
-            const serviceName = typeNameLookup.get(typeId) || `Service ${typeId}`;
             const fee = offerFeeLookup.get(typeId) || 0;
 
             if (fee > 0) {
+              // Accumulate total service fees and service list per project
+              projectFeeTotals.set(projectId, (projectFeeTotals.get(projectId) || 0) + fee);
+              const servicesList = projectServicesList.get(projectId) || [];
+              servicesList.push({ name: typeNameLookup.get(typeId) || `Service ${typeId}`, fee });
+              projectServicesList.set(projectId, servicesList);
+
               // Check if this service has been paid
               const paidKey = `${projectId}-${serviceId}`;
               const paidInfo = paidAmountsMap.get(paidKey);
@@ -896,30 +899,60 @@ export class CompanyPage implements OnInit, OnDestroy {
               if (statusId === 5 && remaining > 0) {
                 unpaidServices.push({
                   projectAddress,
-                  serviceName,
+                  serviceName: typeNameLookup.get(typeId) || `Service ${typeId}`,
                   fee,
                   paid: paidAmount,
                   remaining
                 });
                 totalBalance += remaining;
               }
-
-              // Track paid invoices for payment history (show ALL paid services regardless of status)
-              if (paidAmount > 0 && paidInfo?.invoice) {
-                paidInvoices.push({
-                  invoiceId: paidInfo.invoice.InvoiceID || paidInfo.invoice.PK_ID,
-                  projectAddress,
-                  serviceName,
-                  fee,
-                  paidAmount,
-                  paidDate: paidInfo.invoice.Date || null,
-                  paymentProcessor: paidInfo.invoice.PaymentProcessor || 'Unknown',
-                  paymentNotes: paidInfo.invoice.InvoiceNotes || ''
-                });
-              }
             }
           });
         }
+      });
+
+      // Build project-level payment history directly from ALL negative Fee invoice records
+      const projectPayments = new Map<number, { totalPaid: number; latestDate: string | null }>();
+
+      invoiceResponses.forEach((response: any, index: number) => {
+        const projectId = projectIds[index];
+        if (response?.Result) {
+          response.Result.forEach((invoice: any) => {
+            const fee = parseFloat(invoice.Fee) || 0;
+            if (fee < 0) {
+              const existing = projectPayments.get(projectId) || { totalPaid: 0, latestDate: null };
+              existing.totalPaid += Math.abs(fee);
+              if (invoice.Date) {
+                if (!existing.latestDate || new Date(invoice.Date) > new Date(existing.latestDate)) {
+                  existing.latestDate = invoice.Date;
+                }
+              }
+              projectPayments.set(projectId, existing);
+            }
+          });
+        }
+      });
+
+      const paidInvoices: Array<{
+        projectId: number;
+        projectAddress: string;
+        paidAmount: number;
+        paidDate: string | null;
+        balance: number;
+        services: Array<{ name: string; fee: number }>;
+      }> = [];
+
+      projectPayments.forEach((payments, projectId) => {
+        const projectInfo = projectLookup.get(projectId);
+        const totalFees = projectFeeTotals.get(projectId) || 0;
+        paidInvoices.push({
+          projectId,
+          projectAddress: projectInfo?.address || 'Unknown',
+          paidAmount: payments.totalPaid,
+          paidDate: payments.latestDate,
+          balance: totalFees - payments.totalPaid,
+          services: projectServicesList.get(projectId) || []
+        });
       });
 
       // Sort paid invoices by date (most recent first)
@@ -949,90 +982,142 @@ export class CompanyPage implements OnInit, OnDestroy {
   /**
    * Generate and download an invoice PDF
    */
-  async downloadInvoice(invoice: any, companyName: string): Promise<void> {
-    // Create a simple invoice HTML for download
-    const invoiceHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Invoice #${invoice.invoiceId}</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
-          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-          .header h1 { margin: 0; color: #333; }
-          .header p { margin: 5px 0; color: #666; }
-          .details { margin-bottom: 30px; }
-          .details-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
-          .label { font-weight: bold; color: #555; }
-          .value { color: #333; }
-          .amount-section { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-top: 30px; }
-          .amount-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
-          .total { font-size: 1.2em; font-weight: bold; border-top: 2px solid #333; padding-top: 10px; margin-top: 10px; }
-          .footer { margin-top: 40px; text-align: center; color: #888; font-size: 0.9em; }
-          .paid-badge { background: #28a745; color: white; padding: 5px 15px; border-radius: 4px; display: inline-block; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>Noble Engineering Services</h1>
-          <p>Invoice</p>
-        </div>
-        <div class="details">
-          <div class="details-row">
-            <span class="label">Invoice #:</span>
-            <span class="value">${invoice.invoiceId}</span>
-          </div>
-          <div class="details-row">
-            <span class="label">Company:</span>
-            <span class="value">${companyName}</span>
-          </div>
-          <div class="details-row">
-            <span class="label">Property:</span>
-            <span class="value">${invoice.projectAddress}</span>
-          </div>
-          <div class="details-row">
-            <span class="label">Service:</span>
-            <span class="value">${invoice.serviceName}</span>
-          </div>
-          <div class="details-row">
-            <span class="label">Date:</span>
-            <span class="value">${invoice.paidDate ? new Date(invoice.paidDate).toLocaleDateString() : 'N/A'}</span>
-          </div>
-        </div>
-        <div class="amount-section">
-          <div class="amount-row">
-            <span class="label">Service Fee:</span>
-            <span class="value">$${invoice.fee.toFixed(2)}</span>
-          </div>
-          <div class="amount-row">
-            <span class="label">Amount Paid:</span>
-            <span class="value">$${invoice.paidAmount.toFixed(2)}</span>
-          </div>
-          <div class="amount-row total">
-            <span>Status:</span>
-            <span class="paid-badge">PAID</span>
-          </div>
-        </div>
-        <div class="footer">
-          <p style="white-space: pre-line;">${invoice.paymentNotes ? invoice.paymentNotes : (invoice.paymentProcessor !== 'Unknown' ? `Payment processed via ${invoice.paymentProcessor}` : 'Autopay Payment')}</p>
-          <p>Thank you for your business!</p>
-        </div>
-      </body>
-      </html>
-    `;
+  async downloadInvoice(payment: any, companyName: string): Promise<void> {
+    try {
+      const totalCost = payment.paidAmount + payment.balance;
+      const services: Array<{ name: string; fee: number }> = payment.services || [];
+      const logoBase64 = await getLogoBase64();
 
-    // Create blob and download
-    const blob = new Blob([invoiceHtml], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Invoice_${invoice.invoiceId}_${companyName.replace(/\s+/g, '_')}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+      // Dynamic import pdfmake
+      const pdfMakeModule = await import('pdfmake/build/pdfmake');
+      const pdfMake = pdfMakeModule.default || pdfMakeModule;
+      const pdfFontsModule: any = await import('pdfmake/build/vfs_fonts');
+      const pdfFonts = pdfFontsModule.default || pdfFontsModule;
+      (pdfMake as any).vfs = pdfFonts.pdfMake?.vfs || pdfFonts.vfs || pdfFonts;
 
-    await this.showToast('Invoice downloaded', 'success');
+      // Build header - logo left, title centered
+      const headerContent: any[] = [];
+      if (logoBase64) {
+        headerContent.push({ image: logoBase64, width: 25, margin: [0, 0, 0, 8] });
+      }
+      headerContent.push({ text: 'Noble Engineering Services', style: 'companyName', alignment: 'center', margin: [0, 0, 0, 4] });
+      headerContent.push({ text: 'Payment Invoice', style: 'subtitle', alignment: 'center', margin: [0, 0, 0, 0] });
+
+      // Build services table rows
+      const serviceTableBody: any[][] = [
+        [
+          { text: 'Service', style: 'tableHeader' },
+          { text: 'Fee', style: 'tableHeader', alignment: 'right' }
+        ]
+      ];
+      for (const s of services) {
+        serviceTableBody.push([
+          { text: s.name },
+          { text: '$' + s.fee.toFixed(2), alignment: 'right' }
+        ]);
+      }
+
+      // Balance color
+      const balanceColor = payment.balance <= 0 ? '#28a745' : '#dc3545';
+
+      const docDefinition: any = {
+        content: [
+          // Header
+          ...headerContent,
+          { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1, lineColor: '#cccccc' }], margin: [0, 12, 0, 20] },
+
+          // Details
+          {
+            columns: [
+              { text: 'Company:', style: 'label', width: 80 },
+              { text: companyName }
+            ],
+            margin: [0, 0, 0, 6]
+          },
+          {
+            columns: [
+              { text: 'Property:', style: 'label', width: 80 },
+              { text: payment.projectAddress }
+            ],
+            margin: [0, 0, 0, 6]
+          },
+          {
+            columns: [
+              { text: 'Date:', style: 'label', width: 80 },
+              { text: payment.paidDate ? new Date(payment.paidDate).toLocaleDateString() : 'N/A' }
+            ],
+            margin: [0, 0, 0, 20]
+          },
+
+          // Services table
+          {
+            table: {
+              headerRows: 1,
+              widths: ['*', 'auto'],
+              body: serviceTableBody
+            },
+            layout: {
+              hLineWidth: (i: number, node: any) => i === 1 ? 2 : (i === node.table.body.length ? 0 : 0.5),
+              vLineWidth: () => 0,
+              hLineColor: (i: number) => i === 1 ? '#333333' : '#eeeeee',
+              paddingTop: () => 6,
+              paddingBottom: () => 6
+            },
+            margin: [0, 0, 0, 15]
+          },
+
+          // Summary section
+          {
+            table: {
+              widths: ['*', 'auto'],
+              body: [
+                [
+                  { text: 'Total Services:', style: 'label' },
+                  { text: '$' + totalCost.toFixed(2), alignment: 'right' }
+                ],
+                [
+                  { text: 'Amount Paid:', style: 'label' },
+                  { text: '$' + payment.paidAmount.toFixed(2), alignment: 'right' }
+                ],
+                [
+                  { text: 'Balance:', bold: true, fontSize: 13 },
+                  { text: '$' + payment.balance.toFixed(2), alignment: 'right', bold: true, fontSize: 13, color: balanceColor }
+                ]
+              ]
+            },
+            layout: {
+              hLineWidth: (i: number) => i === 2 ? 2 : 0,
+              vLineWidth: () => 0,
+              hLineColor: () => '#333333',
+              paddingTop: () => 6,
+              paddingBottom: () => 6,
+              fillColor: () => '#f5f5f5'
+            },
+            margin: [0, 0, 0, 30]
+          },
+
+          // Footer
+          { text: 'Thank you for your business!', alignment: 'center', color: '#888888', italics: true }
+        ],
+        styles: {
+          companyName: { fontSize: 20, bold: true, color: '#333333' },
+          subtitle: { fontSize: 12, color: '#666666' },
+          label: { bold: true, color: '#555555' },
+          tableHeader: { bold: true, color: '#555555' }
+        },
+        defaultStyle: {
+          fontSize: 10
+        }
+      };
+
+      const fileName = `Invoice_${payment.projectAddress.replace(/\s+/g, '_')}_${companyName.replace(/\s+/g, '_')}.pdf`;
+      (pdfMake as any).createPdf(docDefinition).download(fileName);
+
+      await this.showToast('Invoice downloaded', 'success');
+    } catch (error) {
+      console.error('Error generating invoice PDF:', error);
+      await this.showToast('Failed to download invoice', 'danger');
+    }
   }
 
   async loadClientOffers() {
@@ -1354,6 +1439,9 @@ export class CompanyPage implements OnInit, OnDestroy {
       this.categorizeInvoices();
       this.applyUserFilters();
       this.updateSelectedCompanySnapshot();
+
+      // Check for companies with autopay due today and load global toggle
+      this.checkAutopayDueToday();
     } catch (error: any) {
       console.error('Error loading company data:', error);
       await this.showToast(error?.message ?? 'Unable to load company data', 'danger');
@@ -3410,6 +3498,89 @@ export class CompanyPage implements OnInit, OnDestroy {
       ]
     });
     await alert.present();
+  }
+
+  /**
+   * Check if any companies have autopay due today and load the global system toggle
+   */
+  private async checkAutopayDueToday(): Promise<void> {
+    try {
+      const today = new Date().getDate();
+
+      // Load global auto-charge toggle from CompanyID=1
+      // AutopayReviewRequired=true means manual-only (auto-charge OFF)
+      const adminCompany = this.companies.find(c => c.CompanyID === 1);
+      if (adminCompany) {
+        this.autopayAutoCharge = !adminCompany.AutopayReviewRequired;
+      }
+
+      // Find companies with autopay enabled and due today
+      this.autopayDueCompanies = (this.companies as CompanyViewModel[]).filter(c =>
+        c.AutopayEnabled && c.AutopayDay === today && c.CompanyID !== 1 &&
+        (c.PayPalVaultToken || c.StripePaymentMethodID)
+      );
+
+      // Show alert once if there are companies due and auto-charge is off
+      if (this.autopayDueCompanies.length > 0 && !this.autopayAutoCharge) {
+        const companyNames = this.autopayDueCompanies
+          .map(c => c.CompanyName)
+          .join(', ');
+
+        const alert = await this.alertController.create({
+          header: 'Autopay Due Today',
+          message: `${this.autopayDueCompanies.length} company(s) have autopay scheduled for today: ${companyNames}. Go to each company profile to review and manually run their payment.`,
+          buttons: ['OK'],
+          cssClass: 'custom-document-alert'
+        });
+        await alert.present();
+      }
+    } catch (error) {
+      console.error('Error checking autopay due today:', error);
+    }
+  }
+
+  /**
+   * Toggle the global autopay auto-charge (ON = auto-charges, OFF = manual only)
+   * Writes to AutopayReviewRequired on CompanyID=1 (inverted: auto-charge ON = ReviewRequired OFF)
+   */
+  async toggleAutopaySystem(event: any): Promise<void> {
+    const autoCharge = event.detail.checked;
+
+    const loading = await this.loadingController.create({
+      message: autoCharge ? 'Enabling auto-charge...' : 'Disabling auto-charge...',
+      spinner: 'lines'
+    });
+    await loading.present();
+
+    try {
+      await firstValueFrom(
+        this.caspioService.put(
+          `/tables/LPS_Companies/records?q.where=CompanyID=1`,
+          { AutopayReviewRequired: autoCharge ? 0 : 1 }
+        )
+      );
+
+      this.autopayAutoCharge = autoCharge;
+
+      // Update local company record
+      const adminCompany = this.companies.find(c => c.CompanyID === 1);
+      if (adminCompany) {
+        adminCompany.AutopayReviewRequired = !autoCharge;
+      }
+
+      await this.showToast(
+        autoCharge
+          ? 'Auto-charge enabled — scheduled payments will now process automatically'
+          : 'Auto-charge disabled — you must manually trigger payments',
+        'success'
+      );
+    } catch (error: any) {
+      console.error('Error toggling autopay system:', error);
+      await this.showToast('Failed to update autopay setting', 'danger');
+      event.target.checked = !autoCharge;
+    } finally {
+      await loading.dismiss();
+    }
   }
 
   async triggerAutopay(company: CompanyViewModel): Promise<void> {
@@ -5525,12 +5696,68 @@ export class CompanyPage implements OnInit, OnDestroy {
       AutopayReviewRequired: company.AutopayReviewRequired || false
     };
     this.editingCompanyContractFile = null;
+    this.editingCompanyLogoFile = null;
+    this.editingCompanyLogoPreview = null;
     this.isEditModalOpen = true;
+  }
+
+  async editClientCompanyDetails(): Promise<void> {
+    const company = this.clientCompany;
+    if (!company) return;
+    this.editingCompany = { ...company };
+    this.editingCompanyContractFile = null;
+    this.editingCompanyLogoFile = null;
+    this.editingCompanyLogoPreview = null;
+    this.isEditModalOpen = true;
+
+    // Load lookup data for dropdowns if not already loaded (client users skip loadCompanyData)
+    if (this.softwareOptions.length === 0) {
+      try {
+        const response = await firstValueFrom(
+          this.caspioService.get<any>('/tables/LPS_Software/records?q.orderBy=Software&q.limit=500')
+        );
+        if (response?.Result) {
+          this.softwareOptions = response.Result
+            .map((r: any) => r.Software ?? r.Name ?? '')
+            .filter((name: string) => name.trim() !== '')
+            .sort();
+        }
+      } catch (e) {
+        console.error('Error loading software options:', e);
+      }
+    }
+    if (this.uniqueCompanySizes.length === 0) {
+      try {
+        const response = await firstValueFrom(
+          this.caspioService.get<any>('/tables/LPS_Companies/records?q.select=Size&q.limit=500')
+        );
+        if (response?.Result) {
+          this.uniqueCompanySizes = [...new Set(
+            response.Result.map((r: any) => r.Size).filter((s: string) => s && s.trim() !== '')
+          )].sort() as string[];
+        }
+      } catch (e) {
+        console.error('Error loading size options:', e);
+      }
+    }
   }
 
   closeEditModal(): void {
     this.isEditModalOpen = false;
     this.editingCompany = null;
+    this.editingCompanyLogoFile = null;
+    this.editingCompanyLogoPreview = null;
+  }
+
+  onLogoFileChange(event: any): void {
+    const file = event.target?.files?.[0];
+    if (!file) return;
+    this.editingCompanyLogoFile = file;
+    const reader = new FileReader();
+    reader.onload = () => {
+      this.editingCompanyLogoPreview = reader.result as string;
+    };
+    reader.readAsDataURL(file);
   }
 
   async saveCompanyChanges(): Promise<void> {
@@ -5625,6 +5852,18 @@ export class CompanyPage implements OnInit, OnDestroy {
           };
           reader.onerror = reject;
           reader.readAsDataURL(this.editingCompanyContractFile!);
+        });
+      }
+
+      if (this.editingCompanyLogoFile) {
+        const reader = new FileReader();
+        await new Promise((resolve, reject) => {
+          reader.onload = () => {
+            payload.Logo = reader.result;
+            resolve(true);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(this.editingCompanyLogoFile!);
         });
       }
 

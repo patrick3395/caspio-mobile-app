@@ -286,13 +286,17 @@
       <div class="section-header-with-total">
         <h2 class="section-title">Services</h2>
         <div *ngIf="selectedServices.length > 0" class="header-total-with-button">
-          <div class="header-total">
-            ${{ calculateServicesTotal() | number:'1.2-2' }}
+          <div class="header-total" *ngIf="calculateProjectBalance() > 0">
+            ${{ calculateProjectBalance() | number:'1.2-2' }}
+          </div>
+          <div class="paid-badge" *ngIf="calculateProjectBalance() <= 0 && calculateServicesTotal() > 0">
+            <ion-icon name="checkmark-circle-outline"></ion-icon>
+            PAID
           </div>
 
-          <button class="pay-now-btn" (click)="openPaymentModal()" *ngIf="calculateServicesTotal() > 0 && !isReadOnly">
+          <button class="pay-now-btn" (click)="openPaymentModal()" *ngIf="calculateProjectBalance() > 0 && !isReadOnly">
             <ion-icon name="card-outline"></ion-icon>
-            Pay Now
+            PAY
           </button>
 
           <button class="pdf-btn" (click)="generateServicePDF(); $event.stopPropagation()" title="Generate PDF"
@@ -432,6 +436,7 @@
                           <span class="service-title">
                             <span *ngIf="service.typeShort" class="type-short">{{ service.typeShort }}</span>
                             <span *ngIf="service.typeShort"> - </span>{{ service.typeName }}
+                            <span *ngIf="getServiceCount(service.offersId) > 1"> #{{ getServiceInstanceNumber(service) }}</span>
                           </span>
                         </div>
                         <div *ngIf="service.StatusID || service.Status" class="report-status-container">

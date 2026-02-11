@@ -228,7 +228,10 @@ export class TemplatePdfService {
       if (cancelRequested) return;
 
       updateProgress(55, 'Processing cover photo...');
-      await this.loadPrimaryPhoto(projectInfo);
+      await Promise.all([
+        this.loadPrimaryPhoto(projectInfo),
+        this.loadCompanyLogo(projectInfo)
+      ]);
 
       if (cancelRequested) return;
 
@@ -255,47 +258,60 @@ export class TemplatePdfService {
       updateProgress(85, 'Generating PDF...');
       const pdfDoc = (pdfMake as any).createPdf(docDefinition, TABLE_LAYOUTS);
       const pdfBlob: Blob = await pdfDoc.getBlob();
-      const pdfDataUrl = await this.blobToBase64(pdfBlob);
 
       if (cancelRequested) return;
 
-      updateProgress(90, 'Loading viewer...');
-      const DocumentViewerComponent = await this.loadDocumentViewer();
+      // On web, open PDF directly in a new browser tab
+      if (environment.isWeb) {
+        updateProgress(95, 'Opening PDF...');
+        const blobUrl = URL.createObjectURL(pdfBlob);
+        window.open(blobUrl, '_blank');
 
-      const pdfProjectId = projectInfo?.projectId || 'draft';
-      const clientName = (projectInfo?.clientName || 'Client').replace(/[^a-z0-9]/gi, '_');
-      const date = new Date().toISOString().split('T')[0];
-      const fileName = `EFE_Report_${clientName}_${pdfProjectId}_${date}.pdf`;
-
-      updateProgress(95, 'Opening PDF...');
-      const modal = await this.modalController.create({
-        component: DocumentViewerComponent,
-        componentProps: {
-          fileUrl: pdfDataUrl,
-          fileName: fileName,
-          fileType: 'pdf'
-        },
-        cssClass: 'fullscreen-modal',
-        animated: this.pdfGenerationAttempts > 1,
-        backdropDismiss: false
-      });
-
-      if (cancelRequested) return;
-
-      await modal.present();
-
-      setTimeout(async () => {
         try {
           if (loading) await loading.dismiss();
         } catch { /* ignore */ }
-      }, 100);
 
-      modal.onDidDismiss().then(() => {
         this.isPDFGenerating = false;
-        if (environment.isWeb) {
-          this.retryNotification.resumeNotifications();
-        }
-      });
+        this.retryNotification.resumeNotifications();
+      } else {
+        // On mobile, use the modal PDF viewer
+        const pdfDataUrl = await this.blobToBase64(pdfBlob);
+
+        updateProgress(90, 'Loading viewer...');
+        const DocumentViewerComponent = await this.loadDocumentViewer();
+
+        const pdfProjectId = projectInfo?.projectId || 'draft';
+        const clientName = (projectInfo?.clientName || 'Client').replace(/[^a-z0-9]/gi, '_');
+        const date = new Date().toISOString().split('T')[0];
+        const fileName = `EFE_Report_${clientName}_${pdfProjectId}_${date}.pdf`;
+
+        updateProgress(95, 'Opening PDF...');
+        const modal = await this.modalController.create({
+          component: DocumentViewerComponent,
+          componentProps: {
+            fileUrl: pdfDataUrl,
+            fileName: fileName,
+            fileType: 'pdf'
+          },
+          cssClass: 'fullscreen-modal',
+          animated: this.pdfGenerationAttempts > 1,
+          backdropDismiss: false
+        });
+
+        if (cancelRequested) return;
+
+        await modal.present();
+
+        setTimeout(async () => {
+          try {
+            if (loading) await loading.dismiss();
+          } catch { /* ignore */ }
+        }, 100);
+
+        modal.onDidDismiss().then(() => {
+          this.isPDFGenerating = false;
+        });
+      }
 
     } catch (error) {
       console.error(`${logTag} Error generating PDF:`, error);
@@ -345,9 +361,29 @@ export class TemplatePdfService {
     const s = serviceData as any;
     const primaryPhoto = p?.PrimaryPhoto || null;
 
+    // Fetch the project's company name and logo from LPS_Companies
+    let companyName = '';
+    let companyLogo: string | null = null;
+    const projectCompanyId = Number(p?.CompanyID || p?.Company_ID || 0);
+    if (projectCompanyId) {
+      try {
+        const companyResult: any = await firstValueFrom(
+          this.caspioService.get<any>(`/tables/LPS_Companies/records?q.where=CompanyID=${projectCompanyId}`)
+        );
+        if (companyResult?.Result?.[0]) {
+          companyName = companyResult.Result[0].CompanyName || companyResult.Result[0].Name || '';
+          companyLogo = companyResult.Result[0].Logo || null;
+        }
+      } catch (e) {
+        console.warn('[PDF] Failed to fetch company data:', e);
+      }
+    }
+
     return {
       projectId, serviceId, primaryPhoto,
       primaryPhotoBase64: null as string | null,
+      companyLogo,
+      companyLogoBase64: null as string | null,
 
       // Address
       address: p?.Address || '',
@@ -394,7 +430,7 @@ export class TemplatePdfService {
       // Company
       inspectorPhone: '936-202-8013',
       inspectorEmail: 'info@noblepropertyinspections.com',
-      companyName: 'Noble Property Inspections',
+      companyName,
 
       // Raw data
       projectData, serviceData
@@ -523,6 +559,7 @@ export class TemplatePdfService {
 
       const roomResult: any = {
         name: roomName,
+        location: roomRecord.Location || '',
         fdf: roomRecord.FDF || '',
         fdfPhotos: {},
         notes: roomRecord.Notes || '',
@@ -856,6 +893,44 @@ export class TemplatePdfService {
       convertedPhotoData = await this.ensurePdfCompatibleImage(convertedPhotoData);
       projectInfo.primaryPhotoBase64 = convertedPhotoData;
       projectInfo.primaryPhoto = convertedPhotoData;
+    }
+  }
+
+  // ─── Company Logo ──────────────────────────────────────────────────
+
+  private async loadCompanyLogo(projectInfo: any): Promise<void> {
+    if (!projectInfo?.companyLogo || typeof projectInfo.companyLogo !== 'string') {
+      return;
+    }
+
+    let logoData: string | null = null;
+    const logoPath = projectInfo.companyLogo;
+
+    try {
+      if (logoPath.startsWith('data:')) {
+        logoData = logoPath;
+      } else if (this.caspioService.isS3Key(logoPath)) {
+        const s3Url = await this.caspioService.getS3FileUrl(logoPath);
+        if (s3Url) {
+          const response = await fetch(s3Url);
+          if (response.ok) {
+            const blob = await response.blob();
+            logoData = await this.blobToBase64(blob);
+          }
+        }
+      } else if (logoPath.startsWith('/')) {
+        const imageData = await firstValueFrom(this.caspioService.getImageFromFilesAPI(logoPath));
+        if (imageData && typeof imageData === 'string' && imageData.startsWith('data:')) {
+          logoData = imageData;
+        }
+      }
+    } catch (error) {
+      console.warn('[PDF] Failed to load company logo:', error);
+    }
+
+    if (logoData) {
+      logoData = await this.ensurePdfCompatibleImage(logoData);
+      projectInfo.companyLogoBase64 = logoData;
     }
   }
 

@@ -275,10 +275,7 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
           this.paymentCompleted = true;
           this.isLoading = false;
 
-          // Show success message
-          await this.showSuccess(order, vaultToken !== null);
-
-          // Return payment details to parent
+          // Return payment details to parent (parent handles success message)
           this.modalController.dismiss({
             success: true,
             paymentData: {

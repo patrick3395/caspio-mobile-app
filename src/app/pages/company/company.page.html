@@ -555,9 +555,8 @@
                         <tr>
                           <th>Date</th>
                           <th>Property</th>
-                          <th>Service</th>
                           <th>Amount</th>
-                          <th>Method</th>
+                          <th>Balance</th>
                           <th></th>
                         </tr>
                       </thead>
@@ -565,13 +564,8 @@
                         <tr *ngFor="let payment of getCompanyOutstandingData(company.CompanyID).paidInvoices">
                           <td>{{ payment.paidDate ? (payment.paidDate | date:'shortDate') : 'N/A' }}</td>
                           <td class="truncate-text">{{ payment.projectAddress }}</td>
-                          <td>{{ payment.serviceName }}</td>
                           <td class="payment-amount">{{ payment.paidAmount | currency:'USD':'symbol':'1.2-2' }}</td>
-                          <td>
-                            <span class="payment-method-badge" [class.paypal]="payment.paymentProcessor === 'PayPal'">
-                              {{ payment.paymentProcessor }}
-                            </span>
-                          </td>
+                          <td [class.has-balance]="payment.balance > 0">{{ payment.balance | currency:'USD':'symbol':'1.2-2' }}</td>
                           <td>
                             <button class="download-btn" (click)="downloadInvoice(payment, company.CompanyName)" title="Download Invoice">
                               <ion-icon name="download-outline"></ion-icon>
@@ -1131,6 +1125,24 @@
       </ng-template>
     </div>
     <div *ngIf="selectedTab === 'invoices'" class="tab-content invoices-tab">
+      <!-- Autopay Due Today Banner -->
+      <div *ngIf="autopayDueCompanies.length > 0 && !autopayAutoCharge" class="autopay-due-banner">
+        <ion-icon name="alert-circle"></ion-icon>
+        <span><strong>{{ autopayDueCompanies.length }}</strong> company(s) have autopay due today. Review each company and manually run their payment.</span>
+      </div>
+
+      <!-- Global Autopay Auto-Charge Toggle -->
+      <div class="autopay-system-toggle">
+        <div class="setting-info">
+          <ion-icon name="flash-outline"></ion-icon>
+          <div>
+            <span class="setting-label">Auto-Charge</span>
+            <span class="setting-description">{{ autopayAutoCharge ? 'Payments auto-charge on schedule' : 'Manual trigger only — no auto-charging' }}</span>
+          </div>
+        </div>
+        <ion-toggle [checked]="autopayAutoCharge" (ionChange)="toggleAutopaySystem($event)" mode="ios"></ion-toggle>
+      </div>
+
       <div class="tab-header">
         <div class="search-and-action">
           <div class="search-wrapper">
@@ -1383,6 +1395,89 @@
     <!-- Company Tab Content -->
     <div *ngIf="clientTab === 'company'" class="client-tab-content">
 
+      <!-- Company Details Collapsible Section -->
+      <div class="collapsible-section" *ngIf="clientCompany">
+        <div class="collapsible-header" (click)="detailsExpanded = !detailsExpanded">
+          <div class="collapsible-title">
+            <ion-icon [name]="detailsExpanded ? 'chevron-down' : 'chevron-forward'"></ion-icon>
+            <h3>Details</h3>
+          </div>
+          <button class="minimal-edit-btn" (click)="editClientCompanyDetails(); $event.stopPropagation()" title="Edit Details">
+            <ion-icon name="create-outline"></ion-icon>
+          </button>
+        </div>
+
+        <div class="collapsible-content" [class.expanded]="detailsExpanded">
+          <div class="client-details-card">
+            <div class="client-details-header">
+              <div class="company-logo-container" *ngIf="clientCompany.Logo">
+                <img [src]="clientCompany.Logo" [alt]="clientCompany.CompanyName" class="company-logo">
+              </div>
+              <div class="company-logo-container logo-placeholder" *ngIf="!clientCompany.Logo">
+                <ion-icon name="business"></ion-icon>
+              </div>
+              <div class="company-name-block">
+                <h2>{{ clientCompany.CompanyName }}</h2>
+                <p *ngIf="clientCompany.ServiceArea" class="service-area-text">{{ clientCompany.ServiceArea }}</p>
+              </div>
+            </div>
+
+            <div class="client-details-grid">
+              <div class="detail-section">
+                <h4>Contact Information</h4>
+                <div class="detail-row">
+                  <div class="detail-col">
+                    <label>Phone</label>
+                    <p>
+                      <a *ngIf="clientCompany.Phone" [href]="'tel:' + clientCompany.Phone" class="phone-link">
+                        {{ formatPhone(clientCompany.Phone) }}
+                      </a>
+                      <span *ngIf="!clientCompany.Phone" class="not-provided">Not provided</span>
+                    </p>
+                  </div>
+                  <div class="detail-col">
+                    <label>Email</label>
+                    <p>
+                      <a *ngIf="clientCompany.Email" [href]="'mailto:' + clientCompany.Email" class="email-link">{{ clientCompany.Email }}</a>
+                      <span *ngIf="!clientCompany.Email" class="not-provided">Not provided</span>
+                    </p>
+                  </div>
+                  <div class="detail-col">
+                    <label>Website</label>
+                    <p *ngIf="!clientCompany.Website" class="not-provided">Not provided</p>
+                    <a *ngIf="clientCompany.Website" [href]="clientCompany.Website" target="_blank" rel="noopener noreferrer" class="website-link">
+                      {{ clientCompany.Website }}
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              <div class="detail-section">
+                <h4>Address</h4>
+                <div class="detail-row">
+                  <div class="detail-col">
+                    <label>Address</label>
+                    <p>{{ clientCompany.Address || 'Not provided' }}</p>
+                  </div>
+                  <div class="detail-col">
+                    <label>City</label>
+                    <p>{{ clientCompany.City || 'Not provided' }}</p>
+                  </div>
+                  <div class="detail-col-half">
+                    <label>State</label>
+                    <p>{{ clientCompany.State || 'Not provided' }}</p>
+                  </div>
+                  <div class="detail-col-half">
+                    <label>Zip</label>
+                    <p>{{ clientCompany.Zip || 'Not provided' }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Users Collapsible Section -->
       <div class="collapsible-section">
         <div class="collapsible-header" (click)="usersExpanded = !usersExpanded">
@@ -1465,57 +1560,6 @@
         </div>
       </div>
 
-      <!-- Services Offered Collapsible Section -->
-      <div class="collapsible-section">
-        <div class="collapsible-header" (click)="servicesExpanded = !servicesExpanded">
-          <div class="collapsible-title">
-            <ion-icon [name]="servicesExpanded ? 'chevron-down' : 'chevron-forward'"></ion-icon>
-            <h3>Services Offered</h3>
-            <span class="collapsible-count" *ngIf="clientOffers.length > 0">({{ clientOffers.length }})</span>
-          </div>
-          <ion-spinner *ngIf="savingFees" name="crescent" class="fee-saving-spinner" (click)="$event.stopPropagation()"></ion-spinner>
-          <ion-icon *ngIf="!savingFees"
-                    [name]="editingAllFees ? 'checkbox' : 'create-outline'"
-                    class="fee-header-edit-btn"
-                    [class.saving]="editingAllFees"
-                    (click)="toggleEditAllFees(); $event.stopPropagation()"></ion-icon>
-        </div>
-
-        <div class="collapsible-content" [class.expanded]="servicesExpanded">
-          <!-- Services List -->
-          <div *ngIf="clientOffers.length > 0" class="services-list" [class.shimmer-saving]="savingFees">
-            <div class="services-list-header">
-              <span class="sl-col-service">Service</span>
-              <span class="sl-col-fee">Fee</span>
-              <span class="sl-col-myfee">My Fee</span>
-            </div>
-            <div class="services-list-row" *ngFor="let offer of clientOffers">
-              <span class="sl-col-service">{{ offer.typeName }}</span>
-              <span class="sl-col-fee">{{ offer.ServiceFee ? ('$' + offer.ServiceFee) : '—' }}</span>
-              <span class="sl-col-myfee">
-                <span class="fee-value" *ngIf="!editingAllFees">{{ offer.ClientFee ? ('$' + offer.ClientFee) : '—' }}</span>
-                <div class="fee-input-wrapper" *ngIf="editingAllFees">
-                  <span class="fee-prefix">$</span>
-                  <input type="number" class="fee-input"
-                         [(ngModel)]="offer.ClientFee"
-                         placeholder="0.00"
-                         step="0.01" min="0">
-                </div>
-              </span>
-            </div>
-          </div>
-
-          <!-- Empty State -->
-          <div *ngIf="clientOffers.length === 0" class="empty-state-modern compact">
-            <div class="empty-icon-wrapper small">
-              <ion-icon name="pricetag-outline"></ion-icon>
-            </div>
-            <h3>No services configured</h3>
-            <p>Contact support to set up your service offerings</p>
-          </div>
-        </div>
-      </div>
-
       <!-- Delete Account Section -->
       <div class="collapsible-section delete-account-section">
         <div class="collapsible-header" (click)="deleteAccountExpanded = !deleteAccountExpanded">
@@ -1590,15 +1634,15 @@
               <div class="list-table-header">
                 <span class="lt-col lt-col-date">Date</span>
                 <span class="lt-col lt-col-property">Property</span>
-                <span class="lt-col lt-col-service">Service</span>
                 <span class="lt-col lt-col-amount">Amount</span>
+                <span class="lt-col lt-col-amount">Balance</span>
                 <span class="lt-col lt-col-action"></span>
               </div>
               <div class="list-table-row" *ngFor="let payment of getCompanyOutstandingData(currentUserCompanyId || 0).paidInvoices">
                 <span class="lt-col lt-col-date">{{ payment.paidDate ? (payment.paidDate | date:'shortDate') : 'N/A' }}</span>
                 <span class="lt-col lt-col-property truncate-cell">{{ payment.projectAddress }}</span>
-                <span class="lt-col lt-col-service">{{ payment.serviceName }}</span>
                 <span class="lt-col lt-col-amount"><span class="currency-sign">$</span><span class="currency-value">{{ payment.paidAmount | number:'1.2-2' }}</span></span>
+                <span class="lt-col lt-col-amount" [class.balance-due]="payment.balance > 0"><span class="currency-sign">$</span><span class="currency-value">{{ payment.balance | number:'1.2-2' }}</span></span>
                 <span class="lt-col lt-col-action">
                   <button class="download-invoice-btn" (click)="downloadInvoice(payment, clientCompany?.CompanyName || 'Company')" title="Download Invoice">
                     <ion-icon name="download-outline"></ion-icon>
@@ -1831,15 +1875,33 @@
     </ion-header>
     <ion-content class="edit-modal-content" *ngIf="editingCompany">
       <div class="edit-form">
-        <div class="form-section">
-          <h4>Basic Information</h4>
-          <div class="form-row">
-            <div class="form-field">
+        <!-- Logo + Company Name Header -->
+        <div class="form-section edit-logo-section">
+          <div class="edit-logo-row">
+            <div class="edit-logo-container">
+              <img *ngIf="editingCompanyLogoPreview || editingCompany.Logo"
+                   [src]="editingCompanyLogoPreview || editingCompany.Logo"
+                   alt="Company Logo"
+                   class="edit-logo-image">
+              <div *ngIf="!editingCompanyLogoPreview && !editingCompany.Logo" class="edit-logo-placeholder">
+                <ion-icon name="image-outline"></ion-icon>
+              </div>
+              <label class="edit-logo-overlay" for="logoFileInput">
+                <ion-icon name="camera"></ion-icon>
+              </label>
+              <input type="file" id="logoFileInput" class="hidden-file-input"
+                     accept="image/*" (change)="onLogoFileChange($event)">
+            </div>
+            <div class="edit-logo-name">
               <label>Company Name</label>
               <input type="text" [(ngModel)]="editingCompany.CompanyName" class="form-input">
             </div>
           </div>
-          <div class="form-row">
+        </div>
+
+        <div class="form-section">
+          <h4>Basic Information</h4>
+          <div class="form-row" *ngIf="isCompanyOne">
             <div class="form-field">
               <label>Onboarding Date</label>
               <input type="date" [(ngModel)]="editingCompany.DateOnboarded" class="form-input">
@@ -1853,6 +1915,17 @@
                 </option>
               </select>
             </div>
+            <div class="form-field">
+              <label>Software</label>
+              <select [(ngModel)]="editingCompany.SoftwareID" class="form-input">
+                <option value="">-- Select --</option>
+                <option *ngFor="let software of softwareOptions" [value]="software">
+                  {{ software }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row" *ngIf="!isCompanyOne">
             <div class="form-field">
               <label>Software</label>
               <select [(ngModel)]="editingCompany.SoftwareID" class="form-input">
@@ -1877,7 +1950,7 @@
               <label>Franchise</label>
               <ion-toggle [(ngModel)]="editingCompany.Franchise"></ion-toggle>
             </div>
-            <div class="form-field">
+            <div class="form-field" *ngIf="isCompanyOne">
               <label>Lead Source</label>
               <input type="text" [(ngModel)]="editingCompany.LeadSource" class="form-input">
             </div>
@@ -1940,13 +2013,13 @@
               <textarea [(ngModel)]="editingCompany.ServiceArea" class="form-textarea" rows="3"></textarea>
             </div>
           </div>
-          <div class="form-row">
+          <div class="form-row" *ngIf="isCompanyOne">
             <div class="form-field full-width">
               <label>Contract Document</label>
               <input type="file" (change)="onEditCompanyContractChange($event)" class="form-input" accept=".pdf,.doc,.docx">
             </div>
           </div>
-          <div class="form-row">
+          <div class="form-row" *ngIf="isCompanyOne">
             <div class="form-field full-width">
               <label>Notes</label>
               <textarea [(ngModel)]="editingCompany.Notes" class="form-textarea" rows="4"></textarea>
@@ -1954,7 +2027,7 @@
           </div>
         </div>
 
-        <div class="form-section">
+        <div class="form-section" *ngIf="isCompanyOne">
           <h4>Services Offered</h4>
           <div *ngIf="getCompanyOffers(editingCompany.CompanyID).length > 0; else noEditOffers">
             <div class="offers-edit-table">
@@ -1986,7 +2059,7 @@
           </ng-template>
         </div>
 
-        <div class="form-section">
+        <div class="form-section" *ngIf="isCompanyOne">
           <h4>Payment Settings</h4>
 
           <div class="form-row">
@@ -2083,7 +2156,7 @@
           </div>
         </div>
 
-        <div class="form-section">
+        <div class="form-section" *ngIf="isCompanyOne">
           <div class="form-row">
             <div class="form-field full-width">
               <button class="delete-task-btn" (click)="deleteCompany(editingCompany, $event)">

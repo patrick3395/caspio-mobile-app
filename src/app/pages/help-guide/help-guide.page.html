@@ -72,33 +72,12 @@
             
             <!-- Preview Column -->
             <ion-col size="4" size-md="3" class="preview-col">
-              <div class="preview-container" (click)="openFile(file)">
-                <!-- Image Preview -->
-                <div *ngIf="isImageFile(file.FileFile)" class="image-preview">
-                  <img [src]="getImageUrl(file.FileFile)"
-                       [alt]="file.Description"
-                       loading="lazy"
-                       (error)="$event.target.src='assets/img/photo-placeholder.svg'">
-                </div>
-                
-                <!-- PDF Preview -->
-                <div *ngIf="isPdfFile(file.FileFile)" class="pdf-preview">
-                  <ion-icon name="document-text" class="preview-icon"></ion-icon>
-                  <span class="file-type">PDF</span>
-                </div>
-                
-                <!-- Generic File Preview -->
-                <div *ngIf="!isImageFile(file.FileFile) && !isPdfFile(file.FileFile)" 
-                     class="generic-preview">
-                  <ion-icon name="document" class="preview-icon"></ion-icon>
-                  <span class="file-type">{{ getFileExtension(file.FileFile) }}</span>
-                </div>
-                
-                <div class="preview-overlay">
-                  <ion-icon name="eye-outline"></ion-icon>
-                  <span>View</span>
-                </div>
-              </div>
+              <button class="action-btn" (click)="openFile(file)">
+                <ion-icon *ngIf="isImageFile(file.FileFile)" name="image"></ion-icon>
+                <ion-icon *ngIf="isPdfFile(file.FileFile)" name="document-text"></ion-icon>
+                <ion-icon *ngIf="!isImageFile(file.FileFile) && !isPdfFile(file.FileFile)" name="document"></ion-icon>
+                <span>View</span>
+              </button>
             </ion-col>
           </ion-row>
         </ion-grid>

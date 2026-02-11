@@ -294,6 +294,18 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         }
       }
 
+      // Build a map of existing rooms by TemplateID for detecting renamed rooms
+      const existingRoomsByTemplateId = new Map<string | number, any[]>();
+      for (const room of existingRooms || []) {
+        if (room.TemplateID) {
+          const tid = room.TemplateID;
+          if (!existingRoomsByTemplateId.has(tid)) {
+            existingRoomsByTemplateId.set(tid, []);
+          }
+          existingRoomsByTemplateId.get(tid)!.push(room);
+        }
+      }
+
       // Step 1: Add ALL Auto='Yes' templates (like mobile seedFromTemplates)
       for (const template of this.allRoomTemplates) {
         const roomName = template.RoomName;
@@ -303,7 +315,67 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         if (!isAutoInclude) continue;
 
         const templateId = template.TemplateID || template.PK_ID;
-        const existingRoom = existingRoomsByName.get(roomName);
+        let existingRoom = existingRoomsByName.get(roomName);
+
+        // Check for renamed rooms: if no exact name match, find an existing room
+        // with the same TemplateID that was renamed (different name, not a duplicate #N)
+        if (!existingRoom && templateId) {
+          const roomsWithTemplateId = existingRoomsByTemplateId.get(templateId) || [];
+          // Find a renamed room (same TemplateID, different name, that IS the original - not a #N duplicate)
+          const renamedRoom = roomsWithTemplateId.find(r =>
+            r.RoomName !== roomName && existingRoomsByName.has(r.RoomName)
+          );
+          if (renamedRoom) {
+            existingRoom = renamedRoom;
+            // Use the renamed name instead of the template name
+            const renamedName = renamedRoom.RoomName;
+
+            const efeId = String(renamedRoom.EFEID || renamedRoom.PK_ID);
+            this.selectedRooms[renamedName] = true;
+            this.efeRecordIds[renamedName] = efeId;
+
+            // Extract elevation points from template
+            const elevationPoints: any[] = [];
+            for (let i = 1; i <= 20; i++) {
+              const pointName = template[`Point${i}Name`];
+              if (pointName && pointName.trim() !== '') {
+                elevationPoints.push({
+                  pointNumber: i,
+                  name: pointName,
+                  value: '',
+                  photo: null,
+                  photos: [],
+                  photoCount: 0
+                });
+              }
+            }
+
+            this.roomElevationData[renamedName] = {
+              roomName: renamedName,
+              templateId: templateId,
+              elevationPoints: elevationPoints,
+              pointCount: template.PointCount || elevationPoints.length,
+              notes: renamedRoom.Notes || '',
+              fdf: renamedRoom.FDF || '',
+              location: renamedRoom.Location || ''
+            };
+
+            this.roomTemplates.push({
+              RoomName: renamedName,
+              TemplateID: templateId,
+              PK_ID: templateId,
+              PointCount: template.PointCount || elevationPoints.length,
+              Organization: renamedRoom.Organization ?? template['Organization'],
+              isSelected: true,
+              isSaving: false,
+              efeId: efeId
+            } as RoomDisplayData);
+
+            // Mark as processed
+            existingRoomsByName.delete(renamedName);
+            continue;
+          }
+        }
 
         // If room exists in database, mark as selected with its data
         const isSelected = !!existingRoom;

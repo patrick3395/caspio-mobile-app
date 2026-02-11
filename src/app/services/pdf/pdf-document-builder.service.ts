@@ -30,16 +30,22 @@ export class PdfDocumentBuilderService {
 
     // Structural sections
     if (structuralData && structuralData.length > 0) {
+      content.push({ text: '', pageBreak: 'before' });
+      content.push(this.buildMajorSectionHeader('Visual Condition Assessment'));
       for (const category of structuralData) {
         content.push({ text: '', pageBreak: 'before' });
         content.push(this.buildStructuralSection(category));
       }
     }
 
-    // Elevation data
+    // Elevation data - each room as its own section
     if (elevationData && elevationData.length > 0) {
       content.push({ text: '', pageBreak: 'before' });
-      content.push(this.buildElevationSection(elevationData));
+      content.push(this.buildMajorSectionHeader('Elevation Plot'));
+      for (let i = 0; i < elevationData.length; i++) {
+        content.push({ text: '', pageBreak: 'before' });
+        content.push(this.buildElevationRoom(elevationData[i]));
+      }
     }
 
     return {
@@ -59,7 +65,7 @@ export class PdfDocumentBuilderService {
       footer: (currentPage: number, pageCount: number) => ({
         margin: [40, 10, 40, 0],
         columns: [
-          { text: 'Noble Property Inspections LLC', style: 'pageFooter', width: '*' },
+          { text: projectData?.companyName || '', style: 'pageFooter', width: '*' },
           { text: `Page ${currentPage} of ${pageCount}`, style: 'pageFooter', alignment: 'right', width: 'auto' }
         ]
       } as ContentColumns),
@@ -74,7 +80,7 @@ export class PdfDocumentBuilderService {
 
   private buildCoverPage(projectData: any, serviceData: any): Content {
     const serviceName = serviceData?.serviceName || 'EFE - Engineer\'s Foundation Evaluation';
-    const companyName = projectData?.companyName || 'Noble Property Inspections';
+    const companyName = projectData?.companyName || '';
     const address = projectData?.address || 'Property Address';
     const cityStateZip = `${projectData?.city || ''}, ${projectData?.state || ''} ${projectData?.zip || ''}`;
     const clientName = projectData?.clientName || 'Client';
@@ -83,14 +89,33 @@ export class PdfDocumentBuilderService {
 
     const stack: Content[] = [];
 
-    // Orange accent line at top
+    // Company logo (top-right)
+    const companyLogo = projectData?.companyLogoBase64;
+    if (companyLogo && this.isPdfSafeImage(companyLogo)) {
+      stack.push({
+        image: companyLogo,
+        width: 40,
+        alignment: 'right',
+        margin: [0, 0, 0, 8]
+      });
+    }
+
+    // Orange accent line
     stack.push({
-      canvas: [{ type: 'line', x1: 0, y1: 0, x2: 452, y2: 0, lineWidth: 3, lineColor: COLORS.primary }],
+      canvas: [{ type: 'line', x1: 0, y1: 0, x2: 532, y2: 0, lineWidth: 3, lineColor: COLORS.primary }],
       margin: [0, 0, 0, 20]
     });
 
     // Title
-    stack.push({ text: serviceName, style: 'title', margin: [0, 10, 0, 6] });
+    stack.push({
+      text: [
+        { text: 'Site Assessment for:\n', italics: true, bold: false, fontSize: 16 },
+        { text: serviceName, bold: true, fontSize: 22 }
+      ],
+      alignment: 'center',
+      color: COLORS.charcoal,
+      margin: [0, 10, 0, 6]
+    });
     stack.push({ text: `Prepared by ${companyName}`, style: 'subtitle', margin: [0, 0, 0, 24] });
 
     // Primary photo
@@ -98,7 +123,7 @@ export class PdfDocumentBuilderService {
     if (primaryPhoto && this.isPdfSafeImage(primaryPhoto)) {
       stack.push({
         image: primaryPhoto,
-        width: 420,
+        width: 315,
         alignment: 'center',
         margin: [0, 0, 0, 24]
       });
@@ -163,14 +188,15 @@ export class PdfDocumentBuilderService {
     for (const category of structuralData) {
       const count = category.deficiencies?.length || 0;
       total += count;
+      if (count === 0) continue; // Skip categories with no deficiencies
       tableBody.push([
         { text: category.name, fontSize: 9.5, color: COLORS.darkGray },
         {
-          text: count > 0 ? `${count} ${count !== 1 ? 'Defects' : 'Defect'}` : 'None',
+          text: `${count}`,
           fontSize: 9.5,
           alignment: 'center',
-          bold: count > 0,
-          color: count > 0 ? COLORS.deficiencyHeader : COLORS.mediumGray
+          bold: true,
+          color: COLORS.deficiencyHeader
         }
       ]);
     }
@@ -179,7 +205,7 @@ export class PdfDocumentBuilderService {
     tableBody.push([
       { text: 'TOTAL', bold: true, fontSize: 10, color: COLORS.charcoal, fillColor: COLORS.labelBg },
       {
-        text: `${total} Total ${total !== 1 ? 'Defects' : 'Defect'}`,
+        text: `${total}`,
         bold: true,
         fontSize: 10,
         alignment: 'center',
@@ -283,25 +309,25 @@ export class PdfDocumentBuilderService {
 
     // Comments
     if (category.comments && category.comments.length > 0) {
-      stack.push(this.buildSubSectionBanner('COMMENTS', COLORS.commentHeader, true));
+      stack.push(this.buildSubSectionBanner('COMMENTS', '#4a4f52', true));
       for (const item of category.comments) {
-        stack.push(this.buildVisualItem(item));
+        stack.push(this.buildVisualItem(item, '#27ae60'));
       }
     }
 
     // Limitations
     if (category.limitations && category.limitations.length > 0) {
-      stack.push(this.buildSubSectionBanner('LIMITATIONS', COLORS.limitationHeader, false));
+      stack.push(this.buildSubSectionBanner('LIMITATIONS', '#4a4f52', true));
       for (const item of category.limitations) {
-        stack.push(this.buildVisualItem(item));
+        stack.push(this.buildVisualItem(item, COLORS.limitationHeader));
       }
     }
 
     // Deficiencies
     if (category.deficiencies && category.deficiencies.length > 0) {
-      stack.push(this.buildSubSectionBanner('DEFICIENCIES', COLORS.deficiencyHeader, true));
+      stack.push(this.buildSubSectionBanner('DEFICIENCIES', '#4a4f52', true));
       for (const item of category.deficiencies) {
-        stack.push(this.buildVisualItem(item));
+        stack.push(this.buildVisualItem(item, COLORS.deficiencyHeader));
       }
     }
 
@@ -310,15 +336,15 @@ export class PdfDocumentBuilderService {
 
   // ─── Visual Item ─────────────────────────────────────────────────
 
-  private buildVisualItem(item: any): Content {
+  private buildVisualItem(item: any, accentColor: string = COLORS.primary): Content {
     const itemStack: Content[] = [];
 
-    // Item name with orange left accent bar
+    // Item name with left accent bar
     itemStack.push({
       table: {
         widths: [3, '*'],
         body: [[
-          { text: '', fillColor: COLORS.primary },
+          { text: '', fillColor: accentColor },
           { text: item.name || '', style: 'itemName', fillColor: COLORS.labelBg, margin: [8, 5, 6, 5] }
         ]]
       },
@@ -346,7 +372,7 @@ export class PdfDocumentBuilderService {
 
     // Subtle separator
     itemStack.push({
-      canvas: [{ type: 'line', x1: 0, y1: 0, x2: 452, y2: 0, lineWidth: 0.3, lineColor: COLORS.lightGray }],
+      canvas: [{ type: 'line', x1: 0, y1: 0, x2: 532, y2: 0, lineWidth: 0.3, lineColor: COLORS.lightGray }],
       margin: [0, 8, 0, 4]
     });
 
@@ -417,22 +443,156 @@ export class PdfDocumentBuilderService {
     return { stack: gridStack } as ContentStack;
   }
 
-  // ─── Elevation Section ───────────────────────────────────────────
+  // ─── Elevation Room ─────────────────────────────────────────────
 
-  private buildElevationSection(elevationData: any[]): Content {
+  private buildElevationRoom(room: any): Content {
     const stack: Content[] = [];
 
-    stack.push(this.buildPageTitle('ELEVATION PLOT DATA'));
-    stack.push({ text: 'Foundation elevation measurements and observations', style: 'bodyText', margin: [0, 0, 0, 10] });
-    stack.push(this.buildSubSectionBanner('ELEVATION MEASUREMENTS', COLORS.commentHeader, true));
+    // Room name as section title (like structural categories)
+    stack.push(this.buildPageTitle(room.name?.toUpperCase() || 'ROOM'));
 
-    for (const room of elevationData) {
-      const roomItem = {
-        name: room.name,
-        text: this.buildRoomDescriptionText(room),
-        photos: this.getAllRoomPhotos(room)
-      };
-      stack.push(this.buildVisualItem(roomItem));
+    // Location sub-section (only if applicable)
+    if (room.location && room.location.trim()) {
+      stack.push(this.buildSubSectionBanner('LOCATION', '#4a4f52', true));
+      stack.push({
+        text: room.location,
+        style: 'bodyText',
+        margin: [12, 4, 0, 8]
+      });
+    }
+
+    // Flooring Difference Factor sub-section (only if not None/empty)
+    const hasFdf = room.fdf && room.fdf.trim() && room.fdf !== 'None';
+    if (hasFdf) {
+      stack.push(this.buildSubSectionBanner('FLOORING DIFFERENCE FACTOR', '#4a4f52', true));
+      stack.push({
+        text: room.fdf,
+        style: 'bodyText',
+        margin: [12, 4, 0, 4]
+      });
+
+      // FDF Photos with titles
+      const fdfPhotoLabels: { key: string; label: string }[] = [
+        { key: 'top', label: 'FDF Top' },
+        { key: 'bottom', label: 'FDF Bottom' },
+        { key: 'threshold', label: 'FDF Threshold' }
+      ];
+      const fdfColumns: Content[] = [];
+
+      for (const { key, label } of fdfPhotoLabels) {
+        const url = room.fdfPhotos?.[`${key}Url`];
+        if (url && this.isPdfSafeImage(url)) {
+          fdfColumns.push({
+            stack: [
+              { text: label, bold: true, fontSize: 10, color: COLORS.charcoal, margin: [0, 0, 0, 4] },
+              { image: url, width: 143, margin: [0, 0, 0, 2] }
+            ],
+            width: 143
+          } as any);
+        }
+      }
+
+      if (fdfColumns.length > 0) {
+        // Pad to 3 columns
+        while (fdfColumns.length < 3) {
+          fdfColumns.push({ text: '', width: 143 } as any);
+        }
+        stack.push({
+          columns: fdfColumns,
+          columnGap: 8,
+          margin: [12, 4, 0, 4]
+        } as ContentColumns);
+      }
+    }
+
+    // Measurements sub-section
+    if (room.points && room.points.length > 0) {
+      stack.push(this.buildSubSectionBanner('MEASUREMENTS', '#4a4f52', true));
+
+      for (const point of room.points) {
+        const pointStack: Content[] = [];
+
+        // Point name with accent bar
+        pointStack.push({
+          table: {
+            widths: [3, '*'],
+            body: [[
+              { text: '', fillColor: COLORS.primary },
+              { text: point.name || 'Point', style: 'itemName', fillColor: COLORS.labelBg, margin: [8, 5, 6, 5] }
+            ]]
+          },
+          layout: LAYOUT_NO_BORDERS,
+          margin: [0, 8, 0, 4]
+        } as ContentTable);
+
+        // Measurement value (only if present)
+        if (point.value) {
+          pointStack.push({ text: `${point.value}"`, style: 'bodyText', margin: [12, 0, 0, 4] });
+        }
+
+        // Photos with "Location" / "Measurement" titles
+        const photos = (point.photos || []).filter((p: any) => {
+          const url = p?.displayUrl || p?.url || '';
+          return this.isPdfSafeImage(url);
+        });
+
+        if (photos.length > 0) {
+          const photoLabels = ['Location', 'Measurement'];
+          const columns: Content[] = [];
+
+          for (let j = 0; j < photos.length; j++) {
+            const photo = photos[j];
+            const url = photo.displayUrl || photo.url || '';
+            const label = j < photoLabels.length ? photoLabels[j] : `Photo ${j + 1}`;
+
+            columns.push({
+              stack: [
+                { text: label, bold: true, fontSize: 10, color: COLORS.charcoal, margin: [0, 0, 0, 4] },
+                { image: url, width: 143, margin: [0, 0, 0, 2] }
+              ],
+              width: 143
+            } as any);
+          }
+
+          // Pad to 3 columns
+          while (columns.length < 3) {
+            columns.push({ text: '', width: 143 } as any);
+          }
+
+          pointStack.push({
+            columns,
+            columnGap: 8,
+            margin: [12, 4, 0, 4]
+          } as ContentColumns);
+        }
+
+        // Subtle separator
+        pointStack.push({
+          canvas: [{ type: 'line', x1: 0, y1: 0, x2: 532, y2: 0, lineWidth: 0.3, lineColor: COLORS.lightGray }],
+          margin: [0, 8, 0, 4]
+        });
+
+        stack.push({ stack: pointStack } as ContentStack);
+      }
+    }
+
+    // Notes (if any)
+    if (room.notes && room.notes.trim()) {
+      stack.push({
+        table: {
+          widths: ['*'],
+          body: [[{
+            stack: [
+              { text: 'Notes', bold: true, fontSize: 11, color: COLORS.charcoal, margin: [0, 0, 0, 6] },
+              { text: room.notes, style: 'bodyText' }
+            ],
+            margin: [12, 10, 12, 10],
+            fillColor: COLORS.backgroundGray
+          }]]
+        },
+        layout: LAYOUT_NO_BORDERS,
+        margin: [0, 12, 0, 0]
+      } as ContentTable);
     }
 
     return { stack } as ContentStack;
@@ -440,11 +600,22 @@ export class PdfDocumentBuilderService {
 
   // ─── Helpers ─────────────────────────────────────────────────────
 
+  private buildMajorSectionHeader(title: string): Content {
+    return {
+      text: title,
+      fontSize: 26,
+      bold: true,
+      color: COLORS.charcoal,
+      alignment: 'center',
+      margin: [0, 200, 0, 0]
+    };
+  }
+
   private buildPageTitle(title: string): Content {
     return {
       stack: [
         { text: title, style: 'sectionHeader' },
-        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 452, y2: 0, lineWidth: 2, lineColor: COLORS.primary }], margin: [0, 0, 0, 14] }
+        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 532, y2: 0, lineWidth: 2, lineColor: COLORS.primary }], margin: [0, 0, 0, 14] }
       ]
     } as ContentStack;
   }
@@ -478,73 +649,6 @@ export class PdfDocumentBuilderService {
       layout: LAYOUT_INFO_TABLE,
       margin: [0, 8, 0, 0]
     } as ContentTable;
-  }
-
-  private buildRoomDescriptionText(room: any): string {
-    let text = '';
-
-    if (room.fdf && room.fdf !== 'None') {
-      text += `Floor Differential Factor: ${room.fdf}\n`;
-    }
-
-    if (room.points && room.points.length > 0) {
-      text += `Measurements taken at ${room.points.length} points:\n`;
-      for (const point of room.points) {
-        const value = point.value ? `${point.value}"` : 'Pending';
-        text += `  \u2022 ${point.name}: ${value}`;
-        if (point.photos && point.photos.length > 0) {
-          text += ` (${point.photos.length} photo${point.photos.length > 1 ? 's' : ''})`;
-        }
-        text += '\n';
-      }
-    }
-
-    if (room.notes && room.notes.trim()) {
-      text += `\nNotes: ${room.notes}`;
-    }
-
-    return text.trim();
-  }
-
-  private getAllRoomPhotos(room: any): any[] {
-    const allPhotos: any[] = [];
-
-    if (room.points) {
-      for (const point of room.points) {
-        if (point.photos && point.photos.length > 0) {
-          for (const photo of point.photos) {
-            allPhotos.push({
-              ...photo,
-              caption: photo.caption || `${point.name} - ${point.value ? point.value + '"' : 'N/A'}`
-            });
-          }
-        }
-      }
-    }
-
-    if (room.photos) {
-      for (const photo of room.photos) {
-        allPhotos.push({
-          ...photo,
-          caption: photo.caption || `${room.name} - Room Photo`
-        });
-      }
-    }
-
-    // FDF photos
-    if (room.fdfPhotos) {
-      for (const key of ['top', 'bottom', 'threshold']) {
-        const url = room.fdfPhotos[`${key}Url`];
-        if (url && this.isPdfSafeImage(url)) {
-          allPhotos.push({
-            url,
-            caption: room.fdfPhotos[`${key}Caption`] || `FDF ${key}`
-          });
-        }
-      }
-    }
-
-    return allPhotos;
   }
 
   private isSmallEnoughToBeUnbreakable(item: any): boolean {
