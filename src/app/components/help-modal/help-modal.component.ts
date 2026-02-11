@@ -112,32 +112,25 @@ interface HelpItem {
     }
 
     ion-header ion-toolbar ion-title {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      bottom: 0;
       white-space: normal !important;
       overflow: visible !important;
       text-overflow: clip !important;
       text-align: center !important;
       font-size: 16px !important;
       line-height: 1.3 !important;
-      padding: 8px 50px !important; // Space for close button
+      padding: 8px 48px !important;
       max-height: none !important;
       height: auto !important;
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
       color: white;
-    }
-
-    .help-modal-title {
-      font-size: 16px !important;
-      white-space: normal !important;
-      overflow: visible !important;
-      text-overflow: clip !important;
-      text-align: center !important;
-      line-height: 1.3 !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      color: white;
+      pointer-events: none;
     }
 
     ion-header ion-toolbar ion-button {
