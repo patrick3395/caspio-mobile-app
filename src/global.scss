@@ -5698,3 +5698,13 @@ ion-tab-bar.page-tab-bar {
     padding: 0;
   }
 }
+
+/* ============================================================================
+ * MOBILE APP: Support Document action icons - 1.5x size
+ * Must be in global.scss to penetrate ion-button shadow DOM
+ * ============================================================================ */
+@media (max-width: 768px) {
+  .doc-actions-cell ion-button.orange-icon ion-icon {
+    font-size: 33px !important;
+  }
+}

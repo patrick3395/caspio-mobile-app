@@ -895,36 +895,31 @@ export class CaspioService {
 
   // Get icon image from LPS_Type table attachment
   getTypeIconImage(typeId: string | number, iconFileName?: string): Observable<string> {
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const GATEWAY_URL = environment.apiGatewayUrl;
 
-    // Table attachment API: single direct request (fast)
-    const fetchFromTable$ = this.getValidToken().pipe(
-      switchMap(accessToken => new Observable<string>(observer => {
-        const url = `${API_BASE_URL}/tables/LPS_Type/records/${typeId}/files/Icon`;
+    // Table attachment API via backend proxy: single direct request (fast)
+    const fetchFromTable$ = new Observable<string>(observer => {
+      const url = `${GATEWAY_URL}/api/caspio-files/table-file?table=LPS_Type&recordId=${typeId}&fieldName=Icon`;
 
-        fetch(url, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Accept': 'application/octet-stream'
-          }
-        })
-        .then(response => {
-          if (!response.ok) {
-            throw new Error(`Failed to fetch icon: ${response.status}`);
-          }
-          return response.blob();
-        })
-        .then(blob => this.convertBlobToDataUrl(blob))
-        .then(result => {
-          observer.next(result);
-          observer.complete();
-        })
-        .catch(error => {
-          observer.error(error);
-        });
-      }))
-    );
+      fetch(url, {
+        method: 'GET',
+        headers: { 'Accept': 'application/octet-stream' }
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Failed to fetch icon: ${response.status}`);
+        }
+        return response.blob();
+      })
+      .then(blob => this.convertBlobToDataUrl(blob))
+      .then(result => {
+        observer.next(result);
+        observer.complete();
+      })
+      .catch(error => {
+        observer.error(error);
+      });
+    });
 
     const trimmedFileName = iconFileName?.trim();
 
@@ -1745,130 +1740,6 @@ export class CaspioService {
     });
   }
 
-  private async uploadHUDAttachWithFilesAPI(hudId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Promise<any> {
-    // Use same 2-step approach as uploadVisualsAttachWithFilesAPI but for HUD table
-
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
-    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
-    
-    try {
-      let originalFilePath = '';
-
-      // STEP 1A: If we have an original file (before annotation), upload it first
-      if (originalFile && drawings) {
-        const originalFormData = new FormData();
-        const timestamp = Date.now();
-        const randomId = Math.random().toString(36).substring(2, 8);
-        const fileExt = originalFile.name.split('.').pop() || 'jpg';
-        const originalFileName = `hud_${hudId}_original_${timestamp}_${randomId}.${fileExt}`;
-        originalFormData.append('file', originalFile, originalFileName);
-        
-        const originalUploadResponse = await fetch(`${API_BASE_URL}/files`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          },
-          body: originalFormData
-        });
-        
-        if (originalUploadResponse.ok) {
-          const originalUploadResult = await originalUploadResponse.json();
-          originalFilePath = `/${originalUploadResult.Name || originalFileName}`;
-        } else {
-          const errorText = await originalUploadResponse.text();
-          console.error('[HUD ATTACH] ❌ Original file upload failed:', errorText);
-        }
-      }
-      
-      // STEP 1B: Upload main file to Caspio Files API
-      let filePath = '';
-
-      if (originalFilePath) {
-        filePath = originalFilePath;
-      } else {
-        const timestamp = Date.now();
-        const randomId = Math.random().toString(36).substring(2, 8);
-        const fileExt = file.name.split('.').pop() || 'jpg';
-        const uniqueFilename = `hud_${hudId}_${timestamp}_${randomId}.${fileExt}`;
-
-        const formData = new FormData();
-        formData.append('file', file, uniqueFilename);
-
-        const filesUrl = `${API_BASE_URL}/files`;
-
-        const uploadResponse = await fetch(filesUrl, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-            // NO Content-Type header - let browser set it with boundary
-          },
-          body: formData
-        });
-
-
-        if (!uploadResponse.ok) {
-          const errorText = await uploadResponse.text();
-          console.error('[HUD ATTACH] ❌ Files API upload failed:', errorText);
-          throw new Error('Failed to upload file to Files API: ' + errorText);
-        }
-
-        const uploadResult = await uploadResponse.json();
-        filePath = `/${uploadResult.Name || uniqueFilename}`;
-      }
-      
-      // STEP 2: Create database record with file path
-      const recordData: any = {
-        HUDID: parseInt(hudId.toString()),
-        Annotation: annotation || '',
-        Photo: filePath
-      };
-      
-      // Add Drawings field if annotation data is provided
-      if (drawings && drawings.length > 0) {
-        let compressedDrawings = drawings;
-        
-        // Apply compression if needed
-        if (drawings.length > 50000) {
-          compressedDrawings = compressAnnotationData(drawings, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
-        }
-        
-        // Only add if within the field limit after compression
-        if (compressedDrawings.length <= 64000) {
-          recordData.Drawings = compressedDrawings;
-        } else {
-          console.warn('[HUD ATTACH] ⚠️ Drawings data too large after compression:', compressedDrawings.length, 'bytes');
-          console.warn('[HUD ATTACH] ⚠️ Skipping Drawings field');
-        }
-      }
-
-
-      const recordResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_HUD_Attach/records?response=rows`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(recordData)
-      });
-
-
-      if (!recordResponse.ok) {
-        const errorText = await recordResponse.text();
-        console.error('[HUD ATTACH] ❌ Record creation failed!');
-        console.error('[HUD ATTACH] Status:', recordResponse.status, recordResponse.statusText);
-        console.error('[HUD ATTACH] Error body:', errorText);
-        throw new Error(`HUD attach record creation failed: ${recordResponse.status} ${recordResponse.statusText} - ${errorText}`);
-      }
-
-      const result = await recordResponse.json();
-      
-      // Return the result in the same format as the response
-      // Caspio returns { Result: [...] } format
-      return result;
-    } catch (error: any) {
-      console.error('[HUD ATTACH] ❌ Upload process failed:', error);
-      throw error;
-    }
-  }
-
   updateServicesHUDAttach(attachId: string, data: any): Observable<any> {
     const url = `/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${attachId}`;
     return this.put<any>(url, data);
@@ -1876,7 +1747,7 @@ export class CaspioService {
 
   updateServicesHUDAttachPhoto(attachId: number, file: File, originalFile?: File): Observable<any> {
     return new Observable(observer => {
-      this.uploadAndUpdateHUDAttachPhoto(attachId, file, originalFile)
+      this.uploadAndUpdateHUDAttachPhotoToS3(attachId, file, originalFile)
         .then(result => {
           observer.next(result);
           observer.complete();
@@ -1885,93 +1756,6 @@ export class CaspioService {
           observer.error(error);
         });
     });
-  }
-
-  private async uploadAndUpdateHUDAttachPhoto(attachId: number, file: File, originalFile?: File): Promise<any> {
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
-    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
-
-    try {
-      let filePath = '';
-      let originalFilePath = '';
-
-      // Upload original file first if present
-      if (originalFile) {
-        const originalFormData = new FormData();
-        const timestamp = Date.now();
-        const randomId = Math.random().toString(36).substring(2, 8);
-        const fileExt = originalFile.name.split('.').pop() || 'jpg';
-        const originalFileName = `hud_attach_${attachId}_original_${timestamp}_${randomId}.${fileExt}`;
-        originalFormData.append('file', originalFile, originalFileName);
-
-        const originalUploadResponse = await fetch(`${API_BASE_URL}/files`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          },
-          body: originalFormData
-        });
-
-        if (originalUploadResponse.ok) {
-          const originalUploadResult = await originalUploadResponse.json();
-          originalFilePath = `/${originalUploadResult.Name || originalFileName}`;
-        }
-      }
-
-      // Upload main file to Files API
-      const timestamp = Date.now();
-      const randomId = Math.random().toString(36).substring(2, 8);
-      const fileExt = file.name.split('.').pop() || 'jpg';
-      const uniqueFilename = `hud_attach_${attachId}_${timestamp}_${randomId}.${fileExt}`;
-
-      const formData = new FormData();
-      formData.append('file', file, uniqueFilename);
-
-      const uploadResponse = await fetch(`${API_BASE_URL}/files`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        },
-        body: formData
-      });
-
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        console.error('Files API upload failed:', errorText);
-        throw new Error('Failed to upload file to Files API: ' + errorText);
-      }
-
-      const uploadResult = await uploadResponse.json();
-      filePath = `/${uploadResult.Name || uniqueFilename}`;
-
-      // Update the HUD attach record with the photo path
-      const updateData: any = {
-        Photo: originalFilePath || filePath
-      };
-
-      const updateResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${attachId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData)
-      });
-
-      if (!updateResponse.ok) {
-        const errorText = await updateResponse.text();
-        console.error('Failed to update Services_HUD_Attach record:', errorText);
-        throw new Error('Failed to update record: ' + errorText);
-      }
-
-      return {
-        AttachID: attachId,
-        Photo: originalFilePath || filePath,
-        OriginalPhoto: originalFilePath
-      };
-
-    } catch (error) {
-      console.error('Error in uploadAndUpdateHUDAttachPhoto:', error);
-      throw error;
-    }
   }
 
   createServicesHUDAttachRecord(hudId: number, annotation: string, drawings?: string): Observable<any> {
@@ -2843,113 +2627,9 @@ export class CaspioService {
     return this.delete<any>(`/tables/LPS_Services_LBW_Attach/records?q.where=AttachID=${attachId}`);
   }
 
-  // Private helper methods for LBW file uploads
-  private async uploadLBWAttachWithFilesAPI(lbwId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Promise<any> {
-    // Use same 2-step approach as HUD but for LBW table
-
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
-    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
-    
-    try {
-      let originalFilePath = '';
-
-      // STEP 1A: If we have an original file (before annotation), upload it first
-      if (originalFile && drawings) {
-        const originalFormData = new FormData();
-        const timestamp = Date.now();
-        const randomId = Math.random().toString(36).substring(2, 8);
-        const fileExt = originalFile.name.split('.').pop() || 'jpg';
-        const originalFileName = `lbw_${lbwId}_original_${timestamp}_${randomId}.${fileExt}`;
-        originalFormData.append('file', originalFile, originalFileName);
-        
-        const originalUploadResponse = await fetch(`${API_BASE_URL}/files`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          },
-          body: originalFormData
-        });
-        
-        if (originalUploadResponse.ok) {
-          const originalUploadResult = await originalUploadResponse.json();
-          originalFilePath = `/${originalUploadResult.Name || originalFileName}`;
-        } else {
-          const errorText = await originalUploadResponse.text();
-          console.error('[LBW ATTACH] ❌ Original file upload failed:', errorText);
-        }
-      }
-      
-      // STEP 1B: Upload main file to Caspio Files API
-      let filePath = '';
-      const timestamp = Date.now();
-      const randomId = Math.random().toString(36).substring(2, 8);
-      const fileExt = file.name.split('.').pop() || 'jpg';
-      const uniqueFilename = `lbw_${lbwId}_${timestamp}_${randomId}.${fileExt}`;
-
-      
-      const formData = new FormData();
-      formData.append('file', file, uniqueFilename);
-
-      const uploadResponse = await fetch(`${API_BASE_URL}/files`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        },
-        body: formData
-      });
-
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        console.error('[LBW ATTACH] Files API upload failed:', errorText);
-        throw new Error('Failed to upload file to Files API: ' + errorText);
-      }
-
-      const uploadResult = await uploadResponse.json();
-      filePath = `/${uploadResult.Name || uniqueFilename}`;
-
-      // STEP 2: Create Services_LBW_Attach record with LBWID and Photo path
-      
-      const recordData = {
-        LBWID: lbwId,
-        Annotation: annotation || '',
-        Photo: originalFilePath || filePath,
-        Drawings: drawings || ''
-      };
-
-
-      const createResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_LBW_Attach/records?response=rows`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(recordData)
-      });
-
-      if (!createResponse.ok) {
-        const errorText = await createResponse.text();
-        console.error('[LBW ATTACH] Failed to create record:', errorText);
-        throw new Error('Failed to create Services_LBW_Attach record: ' + errorText);
-      }
-
-      const createResult = await createResponse.json();
-
-      const finalRecord = createResult.Result && createResult.Result.length > 0 
-        ? createResult.Result[0] 
-        : createResult;
-
-      return {
-        Result: [finalRecord]
-      };
-
-    } catch (error) {
-      console.error('[LBW ATTACH] Upload failed:', error);
-      throw error;
-    }
-  }
-
   private async uploadAndUpdateLBWAttachPhoto(attachId: number, file: File, originalFile?: File): Promise<any> {
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
-    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
+    const GATEWAY_URL = environment.apiGatewayUrl;
+    const PROXY_BASE_URL = `${GATEWAY_URL}/api/caspio-proxy`;
 
     try {
       let filePath = '';
@@ -2963,22 +2643,19 @@ export class CaspioService {
         const fileExt = originalFile.name.split('.').pop() || 'jpg';
         const originalFileName = `lbw_attach_${attachId}_original_${timestamp}_${randomId}.${fileExt}`;
         originalFormData.append('file', originalFile, originalFileName);
-        
-        const originalUploadResponse = await fetch(`${API_BASE_URL}/files`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          },
+
+        const originalUploadResponse = await fetch(`${GATEWAY_URL}/api/caspio-files/upload`, {
+          method: 'POST',
           body: originalFormData
         });
-        
+
         if (originalUploadResponse.ok) {
           const originalUploadResult = await originalUploadResponse.json();
           originalFilePath = `/${originalUploadResult.Name || originalFileName}`;
         }
       }
 
-      // Upload main file to Files API
+      // Upload main file via backend proxy
       const timestamp = Date.now();
       const randomId = Math.random().toString(36).substring(2, 8);
       const fileExt = file.name.split('.').pop() || 'jpg';
@@ -2987,11 +2664,8 @@ export class CaspioService {
       const formData = new FormData();
       formData.append('file', file, uniqueFilename);
 
-      const uploadResponse = await fetch(`${API_BASE_URL}/files`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        },
+      const uploadResponse = await fetch(`${GATEWAY_URL}/api/caspio-files/upload`, {
+        method: 'POST',
         body: formData
       });
 
@@ -3191,115 +2865,9 @@ export class CaspioService {
     return this.delete<any>(`/tables/LPS_Services_DTE_Attach/records?q.where=AttachID=${attachId}`);
   }
 
-  // Private helper methods for DTE file uploads
-  private async uploadDTEAttachWithFilesAPI(dteId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Promise<any> {
-
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
-    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
-    
-    try {
-      let originalFilePath = '';
-
-      // STEP 1A: If we have an original file (before annotation), upload it first
-      if (originalFile && drawings) {
-        const originalFormData = new FormData();
-        const timestamp = Date.now();
-        const randomId = Math.random().toString(36).substring(2, 8);
-        const fileExt = originalFile.name.split('.').pop() || 'jpg';
-        const originalFileName = `dte_${dteId}_original_${timestamp}_${randomId}.${fileExt}`;
-        originalFormData.append('file', originalFile, originalFileName);
-        
-        const originalUploadResponse = await fetch(`${API_BASE_URL}/files`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          },
-          body: originalFormData
-        });
-        
-        if (originalUploadResponse.ok) {
-          const originalUploadResult = await originalUploadResponse.json();
-          originalFilePath = `/${originalUploadResult.Name || originalFileName}`;
-        } else {
-          const errorText = await originalUploadResponse.text();
-          console.error('[DTE ATTACH] ❌ Original file upload failed:', errorText);
-        }
-      }
-      
-      // STEP 1B: Upload main file to Caspio Files API
-      let filePath = '';
-
-      if (originalFilePath) {
-        filePath = originalFilePath;
-      } else {
-        const timestamp = Date.now();
-        const randomId = Math.random().toString(36).substring(2, 8);
-        const fileExt = file.name.split('.').pop() || 'jpg';
-        const uniqueFilename = `dte_${dteId}_${timestamp}_${randomId}.${fileExt}`;
-
-        const formData = new FormData();
-        formData.append('file', file, uniqueFilename);
-
-        const filesUrl = `${API_BASE_URL}/files`;
-
-        const uploadResponse = await fetch(filesUrl, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          },
-          body: formData
-        });
-
-
-        if (!uploadResponse.ok) {
-          const errorText = await uploadResponse.text();
-          console.error('[DTE ATTACH] ❌ Files API upload failed:', errorText);
-          throw new Error('Failed to upload file to Files API: ' + errorText);
-        }
-
-        const uploadResult = await uploadResponse.json();
-
-        filePath = `/${uploadResult.Name || uniqueFilename}`;
-      }
-
-      // STEP 2: Create the DTE attach record with all data
-      const token = await firstValueFrom(this.getValidToken());
-      
-      const payload = {
-        DTEID: dteId,
-        Photo: filePath,
-        Annotation: annotation || '',
-        Drawings: drawings || ''
-      };
-
-
-      const createRecordResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_DTE_Attach/records?response=rows`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-
-      if (!createRecordResponse.ok) {
-        const errorText = await createRecordResponse.text();
-        console.error('[DTE ATTACH] ❌ Failed to create DTE attach record:', errorText);
-        throw new Error('Failed to create attach record: ' + errorText);
-      }
-
-      const result = await createRecordResponse.json();
-      
-      return result;
-    } catch (error: any) {
-      console.error('[DTE ATTACH] ❌ Upload process failed:', error);
-      throw error;
-    }
-  }
-
   private async uploadAndUpdateDTEAttachPhoto(attachId: number, file: File, originalFile?: File): Promise<any> {
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
-    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
+    const GATEWAY_URL = environment.apiGatewayUrl;
+    const PROXY_BASE_URL = `${GATEWAY_URL}/api/caspio-proxy`;
 
     try {
       let filePath = '';
@@ -3314,11 +2882,8 @@ export class CaspioService {
         const originalFileName = `dte_attach_${attachId}_original_${timestamp}_${randomId}.${fileExt}`;
         originalFormData.append('file', originalFile, originalFileName);
 
-        const originalUploadResponse = await fetch(`${API_BASE_URL}/files`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          },
+        const originalUploadResponse = await fetch(`${GATEWAY_URL}/api/caspio-files/upload`, {
+          method: 'POST',
           body: originalFormData
         });
 
@@ -3328,7 +2893,7 @@ export class CaspioService {
         }
       }
 
-      // Upload main file to Files API
+      // Upload main file via backend proxy
       const timestamp = Date.now();
       const randomId = Math.random().toString(36).substring(2, 8);
       const fileExt = file.name.split('.').pop() || 'jpg';
@@ -3337,11 +2902,8 @@ export class CaspioService {
       const formData = new FormData();
       formData.append('file', file, uniqueFilename);
 
-      const uploadResponse = await fetch(`${API_BASE_URL}/files`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        },
+      const uploadResponse = await fetch(`${GATEWAY_URL}/api/caspio-files/upload`, {
+        method: 'POST',
         body: formData
       });
 
@@ -3752,36 +3314,27 @@ export class CaspioService {
     return this.delete<any>(`/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`);
   }
   
-  // Upload file to Caspio Files API
+  // Upload file to Caspio Files API via backend proxy
   uploadFile(file: File, customFileName?: string): Observable<any> {
-    const token = this.getCurrentToken();
-    if (!token) {
-      return throwError(() => new Error('No authentication token available'));
-    }
-    
+    const GATEWAY_URL = environment.apiGatewayUrl;
     const fileName = customFileName || file.name;
     const formData = new FormData();
     formData.append('file', file, fileName);
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
-    
+
     return new Observable(observer => {
-      fetch(`${API_BASE_URL}/files`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
+      fetch(`${GATEWAY_URL}/api/caspio-files/upload`, {
+        method: 'POST',
         body: formData
       })
       .then(async response => {
-        
         if (!response.ok) {
           const errorText = await response.text();
           console.error('Files API error response:', errorText);
           throw new Error(`Files API error (${response.status}): ${errorText}`);
         }
-        
+
         const result = await response.json();
-        
+
         // Check multiple possible response formats
         const fileName = result.Name || result.name || result.FileName || result.fileName || file.name;
         const finalResult = {
@@ -3823,19 +3376,15 @@ export class CaspioService {
   
   // Get PDF from Files API
   getPDFFromFilesAPI(filePath: string): Observable<string> {
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
-    
+    const GATEWAY_URL = environment.apiGatewayUrl;
+
     return new Observable(observer => {
       // Clean the file path
       const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
-      
-      // Fetch from Files API
-      fetch(`${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
+
+      // Fetch via backend proxy
+      fetch(`${GATEWAY_URL}/api/caspio-files/download?filePath=${encodeURIComponent(cleanPath)}`, {
+        method: 'GET'
       })
       .then(response => {
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -3875,184 +3424,173 @@ export class CaspioService {
   }
 
   getImageFromFilesAPI(filePath: string): Observable<string> {
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const GATEWAY_URL = environment.apiGatewayUrl;
 
     // IMPORTANT: Cache disabled to prevent duplication
     // DO NOT use normalized/lowercase paths
 
-    // Use getValidToken to ensure fresh token
-    return this.getValidToken().pipe(
-      switchMap(accessToken => new Observable<string>(observer => {
-        // If the path is just a filename (no "/" anywhere), try common icon folders
-        const isJustFilename = !filePath.includes('/');
-        const generateFilenameVariants = (filename: string): string[] => {
-          const variants = new Set<string>();
-          const trimmed = filename.trim().replace(/^\/+/, '');
-          variants.add(trimmed);
+    return new Observable<string>(observer => {
+      // If the path is just a filename (no "/" anywhere), try common icon folders
+      const isJustFilename = !filePath.includes('/');
+      const generateFilenameVariants = (filename: string): string[] => {
+        const variants = new Set<string>();
+        const trimmed = filename.trim().replace(/^\/+/, '');
+        variants.add(trimmed);
 
-          const dotIndex = trimmed.lastIndexOf('.');
-          const hasExtension = dotIndex > 0 && dotIndex < trimmed.length - 1;
-          const baseName = hasExtension ? trimmed.substring(0, dotIndex) : trimmed;
-          const extension = hasExtension ? trimmed.substring(dotIndex + 1) : '';
+        const dotIndex = trimmed.lastIndexOf('.');
+        const hasExtension = dotIndex > 0 && dotIndex < trimmed.length - 1;
+        const baseName = hasExtension ? trimmed.substring(0, dotIndex) : trimmed;
+        const extension = hasExtension ? trimmed.substring(dotIndex + 1) : '';
 
-          const extensionVariants = extension
-            ? [extension.toLowerCase(), extension.toUpperCase()]
-            : [''];
+        const extensionVariants = extension
+          ? [extension.toLowerCase(), extension.toUpperCase()]
+          : [''];
 
-          const baseVariantsSeed = new Set<string>();
-          baseVariantsSeed.add(baseName);
-          baseVariantsSeed.add(baseName.replace(/\s+/g, '_'));
-          baseVariantsSeed.add(baseName.replace(/\s+/g, ''));
-          baseVariantsSeed.add(baseName.replace(/[\s-]+/g, '-'));
-          baseVariantsSeed.add(baseName.replace(/[\s-]+/g, '_'));
-          baseVariantsSeed.add(baseName.replace(/-/g, ''));
+        const baseVariantsSeed = new Set<string>();
+        baseVariantsSeed.add(baseName);
+        baseVariantsSeed.add(baseName.replace(/\s+/g, '_'));
+        baseVariantsSeed.add(baseName.replace(/\s+/g, ''));
+        baseVariantsSeed.add(baseName.replace(/[\s-]+/g, '-'));
+        baseVariantsSeed.add(baseName.replace(/[\s-]+/g, '_'));
+        baseVariantsSeed.add(baseName.replace(/-/g, ''));
 
-          baseVariantsSeed.forEach(variant => variants.add(variant));
+        baseVariantsSeed.forEach(variant => variants.add(variant));
 
-          const combinedVariants = new Set<string>();
-          if (extensionVariants.length === 1 && extensionVariants[0] === '') {
-            variants.forEach(variant => combinedVariants.add(variant));
-          } else {
-            baseVariantsSeed.forEach(baseVariant => {
-              extensionVariants.forEach(extVariant => {
-                if (extVariant) {
-                  combinedVariants.add(`${baseVariant}.${extVariant}`);
-                }
-              });
-            });
-          }
-
+        const combinedVariants = new Set<string>();
+        if (extensionVariants.length === 1 && extensionVariants[0] === '') {
           variants.forEach(variant => combinedVariants.add(variant));
-          return Array.from(combinedVariants);
-        };
-
-        const filenameVariants = isJustFilename ? generateFilenameVariants(filePath) : [filePath];
-        const pathPrefixes = ['/Icons', '/images', '/icons', ''];
-        const pathsToTry = isJustFilename
-          ? Array.from(new Set(pathPrefixes.flatMap(prefix => {
-              return filenameVariants.map(variant => {
-                const cleanedVariant = variant.replace(/^\/+/, '');
-                const basePath = prefix ? `${prefix}/${cleanedVariant}` : `/${cleanedVariant}`;
-                return basePath.replace(/\/{2,}/g, '/');
-              });
-            })))
-          : [filePath.startsWith('/') ? filePath : `/${filePath}`];
-
-
-        // Try each path in sequence
-        const tryNextPath = (index: number): void => {
-          if (index >= pathsToTry.length) {
-            const error = new Error(`Failed to fetch image from any location - Path: "${filePath}"`);
-            console.error(`❌ [Files API] All ${pathsToTry.length} path attempts failed for "${filePath}"`);
-            console.error(`   Tried paths:`, pathsToTry);
-            observer.error(error);
-            return;
-          }
-
-          const cleanPath = pathsToTry[index];
-          const fullUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`;
-
-          fetch(fullUrl, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Accept': 'application/octet-stream'
-            }
-          })
-          .then(response => {
-            if (!response.ok) {
-              // If this path failed, try the next one
-              console.warn(`⚠️ [Files API] Attempt ${index + 1} failed - Status ${response.status}: "${cleanPath}"`);
-              tryNextPath(index + 1);
-              return null;
-            }
-            return response.blob();
-          })
-          .then(blob => {
-            if (blob) {
-              return this.convertBlobToDataUrl(blob);
-            }
-            return null;
-          })
-          .then(result => {
-            if (result) {
-              observer.next(result);
-              observer.complete();
-            }
-          })
-          .catch(error => {
-            // Error in this attempt, try next path
-            console.warn(`⚠️ [Files API] Error on attempt ${index + 1}: "${cleanPath}"`, error?.message || error);
-            tryNextPath(index + 1);
+        } else {
+          baseVariantsSeed.forEach(baseVariant => {
+            extensionVariants.forEach(extVariant => {
+              if (extVariant) {
+                combinedVariants.add(`${baseVariant}.${extVariant}`);
+              }
+            });
           });
-        };
+        }
 
-        // Start trying paths
-        tryNextPath(0);
-      }))
-    );
+        variants.forEach(variant => combinedVariants.add(variant));
+        return Array.from(combinedVariants);
+      };
+
+      const filenameVariants = isJustFilename ? generateFilenameVariants(filePath) : [filePath];
+      const pathPrefixes = ['/Icons', '/images', '/icons', ''];
+      const pathsToTry = isJustFilename
+        ? Array.from(new Set(pathPrefixes.flatMap(prefix => {
+            return filenameVariants.map(variant => {
+              const cleanedVariant = variant.replace(/^\/+/, '');
+              const basePath = prefix ? `${prefix}/${cleanedVariant}` : `/${cleanedVariant}`;
+              return basePath.replace(/\/{2,}/g, '/');
+            });
+          })))
+        : [filePath.startsWith('/') ? filePath : `/${filePath}`];
+
+
+      // Try each path in sequence
+      const tryNextPath = (index: number): void => {
+        if (index >= pathsToTry.length) {
+          const error = new Error(`Failed to fetch image from any location - Path: "${filePath}"`);
+          console.error(`[Files API] All ${pathsToTry.length} path attempts failed for "${filePath}"`);
+          console.error(`   Tried paths:`, pathsToTry);
+          observer.error(error);
+          return;
+        }
+
+        const cleanPath = pathsToTry[index];
+        const fullUrl = `${GATEWAY_URL}/api/caspio-files/download?filePath=${encodeURIComponent(cleanPath)}`;
+
+        fetch(fullUrl, {
+          method: 'GET',
+          headers: { 'Accept': 'application/octet-stream' }
+        })
+        .then(response => {
+          if (!response.ok) {
+            // If this path failed, try the next one
+            console.warn(`[Files API] Attempt ${index + 1} failed - Status ${response.status}: "${cleanPath}"`);
+            tryNextPath(index + 1);
+            return null;
+          }
+          return response.blob();
+        })
+        .then(blob => {
+          if (blob) {
+            return this.convertBlobToDataUrl(blob);
+          }
+          return null;
+        })
+        .then(result => {
+          if (result) {
+            observer.next(result);
+            observer.complete();
+          }
+        })
+        .catch(error => {
+          // Error in this attempt, try next path
+          console.warn(`[Files API] Error on attempt ${index + 1}: "${cleanPath}"`, error?.message || error);
+          tryNextPath(index + 1);
+        });
+      };
+
+      // Start trying paths
+      tryNextPath(0);
+    });
   }
 
   // [PERFORMANCE] New method to return blob directly without base64 conversion
   // Eliminates 33% bandwidth overhead from base64 encoding
   getImageBlobFromFilesAPI(filePath: string): Observable<Blob> {
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const GATEWAY_URL = environment.apiGatewayUrl;
 
-    return this.getValidToken().pipe(
-      switchMap(accessToken => new Observable<Blob>(observer => {
-        // If the path is just a filename (no "/" anywhere), try common icon folders
-        const isJustFilename = !filePath.includes('/');
-        const pathsToTry = isJustFilename 
-          ? [
-              `/Icons/${filePath}`,           // Try Icons folder first
-              `/images/${filePath}`,          // Try images folder
-              `/icons/${filePath}`,           // Try lowercase icons folder
-              `/${filePath}`                  // Finally try root
-            ]
-          : [filePath.startsWith('/') ? filePath : `/${filePath}`]; // Use path as-is if it has folders
+    return new Observable<Blob>(observer => {
+      // If the path is just a filename (no "/" anywhere), try common icon folders
+      const isJustFilename = !filePath.includes('/');
+      const pathsToTry = isJustFilename
+        ? [
+            `/Icons/${filePath}`,           // Try Icons folder first
+            `/images/${filePath}`,          // Try images folder
+            `/icons/${filePath}`,           // Try lowercase icons folder
+            `/${filePath}`                  // Finally try root
+          ]
+        : [filePath.startsWith('/') ? filePath : `/${filePath}`]; // Use path as-is if it has folders
 
-        // Try each path in sequence
-        const tryNextPath = (index: number): void => {
-          if (index >= pathsToTry.length) {
-            const error = new Error(`Failed to fetch blob from any location - Path: "${filePath}"`);
-            observer.error(error);
-            return;
-          }
+      // Try each path in sequence
+      const tryNextPath = (index: number): void => {
+        if (index >= pathsToTry.length) {
+          const error = new Error(`Failed to fetch blob from any location - Path: "${filePath}"`);
+          observer.error(error);
+          return;
+        }
 
-          const cleanPath = pathsToTry[index];
-          const fullUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`;
+        const cleanPath = pathsToTry[index];
+        const fullUrl = `${GATEWAY_URL}/api/caspio-files/download?filePath=${encodeURIComponent(cleanPath)}`;
 
-          fetch(fullUrl, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Accept': 'application/octet-stream'
-            }
-          })
-          .then(response => {
-            if (!response.ok) {
-              // If this path failed, try the next one
-              tryNextPath(index + 1);
-              return null;
-            }
-            return response.blob();
-          })
-          .then(blob => {
-            if (blob) {
-              observer.next(blob);
-              observer.complete();
-            }
-          })
-          .catch(error => {
-            // Error in this attempt, try next path
+        fetch(fullUrl, {
+          method: 'GET',
+          headers: { 'Accept': 'application/octet-stream' }
+        })
+        .then(response => {
+          if (!response.ok) {
+            // If this path failed, try the next one
             tryNextPath(index + 1);
-          });
-        };
+            return null;
+          }
+          return response.blob();
+        })
+        .then(blob => {
+          if (blob) {
+            observer.next(blob);
+            observer.complete();
+          }
+        })
+        .catch(error => {
+          // Error in this attempt, try next path
+          tryNextPath(index + 1);
+        });
+      };
 
-        // Start trying paths
-        tryNextPath(0);
-      }))
-    );
+      // Start trying paths
+      tryNextPath(0);
+    });
   }
 
   private convertBlobToDataUrl(blob: Blob): Promise<string> {
@@ -4137,156 +3675,6 @@ export class CaspioService {
           observer.error(error);
         });
     });
-  }
-
-  // New method using PROVEN Files API approach for Services_Visuals_Attach
-  private async uploadVisualsAttachWithFilesAPI(visualId: number, annotation: string, file: File, drawings?: string, originalFile?: File) {
-    // [v1.4.571] Generate unique call ID to track duplicate calls
-    const callId = `svcCall_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
-    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
-
-    try {
-      let originalFilePath = '';
-
-      // STEP 1A: If we have an original file (before annotation), upload it first
-      if (originalFile && drawings) {
-        const originalFormData = new FormData();
-        // CRITICAL FIX: Generate UNIQUE filename for original to prevent duplicates
-        const timestamp = Date.now();
-        const randomId = Math.random().toString(36).substring(2, 8);
-        const fileExt = originalFile.name.split('.').pop() || 'jpg';
-        const originalFileName = `visual_${visualId}_original_${timestamp}_${randomId}.${fileExt}`;
-        originalFormData.append('file', originalFile, originalFileName);
-        
-        const originalUploadResponse = await fetch(`${API_BASE_URL}/files`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          },
-          body: originalFormData
-        });
-        
-        if (originalUploadResponse.ok) {
-          const originalUploadResult = await originalUploadResponse.json();
-          originalFilePath = `/${originalUploadResult.Name || originalFileName}`;
-        }
-      }
-      
-      // STEP 1B: Upload file to Caspio Files API
-      // [v1.4.570] FIX: Only upload the main file if we DON'T have an original file already
-      // This prevents duplicate uploads when annotations are present
-      let filePath = '';
-
-      if (originalFilePath) {
-        filePath = originalFilePath;
-      } else {
-
-        // [v1.4.387] Generate unique filename to prevent duplication
-        const timestamp = Date.now();
-        const randomId = Math.random().toString(36).substring(2, 8);
-        const fileExt = file.name.split('.').pop() || 'jpg';
-        const uniqueFilename = `visual_${visualId}_${timestamp}_${randomId}.${fileExt}`;
-
-        const formData = new FormData();
-        formData.append('file', file, uniqueFilename);
-
-        const filesUrl = `${API_BASE_URL}/files`;
-
-        const uploadResponse = await fetch(filesUrl, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-            // NO Content-Type header - let browser set it with boundary
-          },
-          body: formData
-        });
-
-        if (!uploadResponse.ok) {
-          const errorText = await uploadResponse.text();
-          console.error('Files API upload failed:', errorText);
-          throw new Error('Failed to upload file to Files API: ' + errorText);
-        }
-
-        const uploadResult = await uploadResponse.json();
-
-        // The file path for the Photo field - use unique filename
-        filePath = `/${uploadResult.Name || uniqueFilename}`;
-      }
-      
-      const recordData: any = {
-        VisualID: parseInt(visualId.toString()),
-        Annotation: annotation || '',  // Keep blank if no annotation provided
-        Photo: filePath  // Include the file path in initial creation
-      };
-      
-      // Add Drawings field if annotation data is provided
-      // IMPORTANT: Drawings field is TEXT type with 64KB limit
-      // Apply compression like Elevation Plot does
-      if (drawings && drawings.length > 0) {
-        
-        // Apply compression if needed (using the same method as Elevation Plot)
-        let compressedDrawings = drawings;
-        
-        // Try to compress the data if it's large
-        if (drawings.length > 50000) {
-          compressedDrawings = compressAnnotationData(drawings, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
-        }
-        
-        // Only add if within the field limit after compression
-        if (compressedDrawings.length <= 64000) {
-          recordData.Drawings = compressedDrawings;
-        } else {
-          console.warn('?? Drawings data still too large after compression:', compressedDrawings.length, 'bytes');
-          console.warn('?? Skipping Drawings field to avoid data type error');
-        }
-      }
-      
-      const createResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_Visuals_Attach/records?response=rows`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(recordData)
-      });
-      
-      const createResponseText = await createResponse.text();
-      
-      if (!createResponse.ok) {
-        console.error('Failed to create Services_Visuals_Attach record:', createResponseText);
-        throw new Error('Failed to create record: ' + createResponseText);
-      }
-      
-      let createResult: any;
-      if (createResponseText.length > 0) {
-        const parsedResponse = JSON.parse(createResponseText);
-        if (parsedResponse.Result && Array.isArray(parsedResponse.Result) && parsedResponse.Result.length > 0) {
-          createResult = parsedResponse.Result[0];
-        } else if (Array.isArray(parsedResponse) && parsedResponse.length > 0) {
-          createResult = parsedResponse[0];
-        } else {
-          createResult = parsedResponse;
-        }
-      } else {
-        createResult = { success: true };
-      }
-      
-      // Return the created record with the file path
-      const attachId = createResult.AttachID || createResult.PK_ID || createResult.id;
-      
-      // No need for STEP 3 anymore - Photo field is already set with the file path
-      
-      return {
-        ...createResult,
-        AttachID: attachId,
-        Photo: filePath,  // Include the file path
-        success: true
-      };
-
-    } catch (error) {
-      console.error('? Services_Visuals_Attach upload failed:', error);
-      throw error;
-    }
   }
 
   // FAST UPLOAD: Create attachment record immediately, then upload photo asynchronously
@@ -4387,9 +3775,8 @@ export class CaspioService {
   }
 
   private async uploadAndUpdateVisualsAttachPhoto(attachId: number, file: File, originalFile?: File) {
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
-    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
+    const GATEWAY_URL = environment.apiGatewayUrl;
+    const PROXY_BASE_URL = `${GATEWAY_URL}/api/caspio-proxy`;
 
     try {
       let filePath = '';
@@ -4404,11 +3791,8 @@ export class CaspioService {
         const originalFileName = `visual_attach_${attachId}_original_${timestamp}_${randomId}.${fileExt}`;
         originalFormData.append('file', originalFile, originalFileName);
 
-        const originalUploadResponse = await fetch(`${API_BASE_URL}/files`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          },
+        const originalUploadResponse = await fetch(`${GATEWAY_URL}/api/caspio-files/upload`, {
+          method: 'POST',
           body: originalFormData
         });
 
@@ -4418,7 +3802,7 @@ export class CaspioService {
         }
       }
 
-      // Upload main file
+      // Upload main file via backend proxy
       const timestamp = Date.now();
       const randomId = Math.random().toString(36).substring(2, 8);
       const fileExt = file.name.split('.').pop() || 'jpg';
@@ -4427,11 +3811,8 @@ export class CaspioService {
       const formData = new FormData();
       formData.append('file', file, uniqueFilename);
 
-      const uploadResponse = await fetch(`${API_BASE_URL}/files`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        },
+      const uploadResponse = await fetch(`${GATEWAY_URL}/api/caspio-files/upload`, {
+        method: 'POST',
         body: formData
       });
 
@@ -4472,10 +3853,6 @@ export class CaspioService {
       throw error;
     }
   }
-
-  // OLD METHOD REMOVED - now using uploadVisualsAttachWithFilesAPI
-  // The old testTwoStepUploadVisuals method has been removed as it used incorrect approaches
-  // Always use the Files API method (upload file first, then store path in database)
 
   // Get unique categories from Services_Visuals_Templates
   getServicesVisualsCategories(): Observable<string[]> {
@@ -4702,23 +4079,16 @@ export class CaspioService {
   // Two-step upload method for Attach table - Upload to Files API then create record with path
   private async twoStepUploadForAttach(projectId: number, typeId: number, title: string, notes: string, file: File, serviceId?: string) {
 
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
-    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
+    const GATEWAY_URL = environment.apiGatewayUrl;
+    const PROXY_BASE_URL = `${GATEWAY_URL}/api/caspio-proxy`;
 
     try {
       const formData = new FormData();
       formData.append('file', file, file.name);
 
-      // Upload to Files API (can optionally specify folder with externalKey)
-      const filesUrl = `${API_BASE_URL}/files`;
-
-      const uploadResponse = await fetch(filesUrl, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-          // NO Content-Type header - let browser set it with boundary
-        },
+      // Upload to Files API via backend proxy
+      const uploadResponse = await fetch(`${GATEWAY_URL}/api/caspio-files/upload`, {
+        method: 'POST',
         body: formData
       });
 
@@ -4809,10 +4179,9 @@ export class CaspioService {
   }
   
   private async replaceAttachmentFile(attachId: string, file: File) {
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
-    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
-    
+    const GATEWAY_URL = environment.apiGatewayUrl;
+    const PROXY_BASE_URL = `${GATEWAY_URL}/api/caspio-proxy`;
+
     try {
       // Check if file is an image and compress if needed
       let fileToUpload: File | Blob = file;
@@ -4827,14 +4196,10 @@ export class CaspioService {
       }
       const formData = new FormData();
       formData.append('file', fileToUpload, file.name);
-      
-      const filesUrl = `${API_BASE_URL}/files`;
-      const uploadResponse = await fetch(filesUrl, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-          // NO Content-Type header - let browser set it with boundary
-        },
+
+      // Upload via backend proxy
+      const uploadResponse = await fetch(`${GATEWAY_URL}/api/caspio-files/upload`, {
+        method: 'POST',
         body: formData
       });
       
@@ -4885,9 +4250,7 @@ export class CaspioService {
 
   // Get file from Caspio using file path (for file fields like Deliverable)
   getFileFromPath(filePath: string): Observable<any> {
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
-
+    const GATEWAY_URL = environment.apiGatewayUrl;
 
     return new Observable(observer => {
       // Ensure file path starts with /
@@ -4895,16 +4258,12 @@ export class CaspioService {
         filePath = '/' + filePath;
       }
 
-
-      // Use the /files/path endpoint
-      const fileUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(filePath)}`;
+      // Use the backend proxy
+      const fileUrl = `${GATEWAY_URL}/api/caspio-files/download?filePath=${encodeURIComponent(filePath)}`;
 
       fetch(fileUrl, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Accept': 'application/octet-stream'
-        }
+        headers: { 'Accept': 'application/octet-stream' }
       })
       .then(async fileResponse => {
 
@@ -4973,8 +4332,7 @@ export class CaspioService {
   // Get attachment with file data for display (following the working example pattern)
   getAttachmentWithImage(attachId: string): Observable<any> {
     const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const GATEWAY_URL = environment.apiGatewayUrl;
 
     return new Observable(observer => {
       // First get the record to find the file path in the Attachment field
@@ -4991,45 +4349,33 @@ export class CaspioService {
       .then(async data => {
         if (data.Result && data.Result.length > 0) {
           const record = data.Result[0];
-          
+
           if (record.Attachment && typeof record.Attachment === 'string' && record.Attachment.length > 0) {
-            // The Attachment field might contain:
-            // 1. Just a filename: "IMG_7755.png"
-            // 2. A full path: "/IMG_7755.png" or "/Inspections/IMG_7755.png"
-            // 3. Or something else
             let filePath = record.Attachment;
-            
-            // If it's just a filename, try adding a leading slash
+
             if (!filePath.startsWith('/')) {
-              // Try with just a leading slash first
               filePath = '/' + filePath;
             }
-            
-            // Use the /files/path endpoint EXACTLY like the working example
-            const fileUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(filePath)}`;
-            
+
+            // Download via backend proxy
+            const fileUrl = `${GATEWAY_URL}/api/caspio-files/download?filePath=${encodeURIComponent(filePath)}`;
+
             try {
               const fileResponse = await fetch(fileUrl, {
                 method: 'GET',
-                headers: {
-                  'Authorization': `Bearer ${accessToken}`,
-                  'Accept': 'application/octet-stream'
-                }
+                headers: { 'Accept': 'application/octet-stream' }
               });
-              
+
               if (!fileResponse.ok) {
                 const errorBody = await fileResponse.text();
                 console.error('  - Error response body:', errorBody);
                 throw new Error(`File fetch failed: ${fileResponse.status} ${fileResponse.statusText}`);
               }
-              
-              // Get the blob
+
               let blob = await fileResponse.blob();
-              
-              // Detect MIME type if not set
+
               let mimeType = blob.type;
               if (!mimeType || mimeType === 'application/octet-stream') {
-                // Try to detect from filename
                 const filename = record.Link || record.Attachment || '';
                 if (filename.toLowerCase().endsWith('.png')) {
                   mimeType = 'image/png';
@@ -5040,15 +4386,12 @@ export class CaspioService {
                 } else if (filename.toLowerCase().endsWith('.pdf')) {
                   mimeType = 'application/pdf';
                 }
-                
-                // Create new blob with correct MIME type
+
                 if (mimeType !== blob.type) {
                   blob = new Blob([blob], { type: mimeType });
                 }
               }
-              
-              // For PDFs, convert to base64 data URL instead of blob URL
-              // ngx-extended-pdf-viewer doesn't work well with blob URLs
+
               if (mimeType === 'application/pdf') {
                 const reader = new FileReader();
                 reader.onloadend = () => {
@@ -5059,35 +4402,29 @@ export class CaspioService {
                 };
                 reader.readAsDataURL(blob);
               } else {
-                // For images and other files, use object URL as before
                 const objectUrl = URL.createObjectURL(blob);
                 record.Attachment = objectUrl;
                 observer.next(record);
                 observer.complete();
               }
-              
+
             } catch (error) {
-              console.error('? File fetch failed:', error);
-              console.error('  - Error details:', error);
-              
+              console.error('File fetch failed:', error);
+
               // Try with /Inspections/ prefix if the simple path failed
               if (!filePath.includes('/Inspections/')) {
                 try {
                   const inspectionsPath = '/Inspections' + (filePath.startsWith('/') ? filePath : '/' + filePath);
-                  const inspectionsUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(inspectionsPath)}`;
-                  
+                  const inspectionsUrl = `${GATEWAY_URL}/api/caspio-files/download?filePath=${encodeURIComponent(inspectionsPath)}`;
+
                   const inspResponse = await fetch(inspectionsUrl, {
                     method: 'GET',
-                    headers: {
-                      'Authorization': `Bearer ${accessToken}`,
-                      'Accept': 'application/octet-stream'
-                    }
+                    headers: { 'Accept': 'application/octet-stream' }
                   });
-                  
+
                   if (inspResponse.ok) {
                     let blob = await inspResponse.blob();
-                    
-                    // Detect MIME type if not set
+
                     let mimeType = blob.type;
                     if (!mimeType || mimeType === 'application/octet-stream') {
                       const filename = record.Link || record.Attachment || '';
@@ -5096,8 +4433,7 @@ export class CaspioService {
                         blob = new Blob([blob], { type: mimeType });
                       }
                     }
-                    
-                    // For PDFs, convert to base64
+
                     if (mimeType === 'application/pdf') {
                       const reader = new FileReader();
                       reader.onloadend = () => {
@@ -5116,35 +4452,32 @@ export class CaspioService {
                     return;
                   }
                 } catch (inspError) {
-                  console.error('? /Inspections prefix also failed:', inspError);
+                  console.error('/Inspections prefix also failed:', inspError);
                 }
               }
-              
-              // Try alternate method if path-based methods fail
+
+              // Try alternate method: table record attachment field via backend proxy
               try {
-                const altUrl = `${API_BASE_URL}/tables/LPS_Attach/records/${attachId}/files/Attachment`;
-                
+                const altUrl = `${GATEWAY_URL}/api/caspio-files/table-file?table=LPS_Attach&recordId=${attachId}&fieldName=Attachment`;
+
                 const altResponse = await fetch(altUrl, {
                   method: 'GET',
-                  headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Accept': 'application/octet-stream'
-                  }
+                  headers: { 'Accept': 'application/octet-stream' }
                 });
-                
+
                 if (!altResponse.ok) {
                   throw new Error(`Alternate method failed: ${altResponse.status}`);
                 }
-                
+
                 const blob = await altResponse.blob();
                 const objectUrl = URL.createObjectURL(blob);
-                
+
                 record.Attachment = objectUrl;
                 observer.next(record);
                 observer.complete();
-                
+
               } catch (altError) {
-                console.error('? Both methods failed:', altError);
+                console.error('Both methods failed:', altError);
                 record.Attachment = this.createPlaceholderImage(record.Title, record.Link);
                 observer.next(record);
                 observer.complete();
@@ -5161,7 +4494,7 @@ export class CaspioService {
         }
       })
       .catch(error => {
-        console.error('? Error fetching attachment record:', error);
+        console.error('Error fetching attachment record:', error);
         observer.next(null);
         observer.complete();
       });
@@ -5170,30 +4503,27 @@ export class CaspioService {
   
   // Update an existing attachment with new image data
   async updateAttachmentImage(attachId: string, imageBlob: Blob, filename: string): Promise<boolean> {
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
-    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
-    
+    const GATEWAY_URL = environment.apiGatewayUrl;
+    const PROXY_BASE_URL = `${GATEWAY_URL}/api/caspio-proxy`;
+
     try {
-      
+
       if (!attachId) {
-        console.error('? ERROR: No attachId provided!');
+        console.error('ERROR: No attachId provided!');
         return false;
       }
-      
-      // Step 1: Upload new file to Files API
+
+      // Step 1: Upload new file to Files API via backend proxy
       const timestamp = Date.now();
       const uniqueFilename = `annotated_${timestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
       const filePath = `/Inspections/${uniqueFilename}`;
-      
+
       const formData = new FormData();
-      formData.append('File', imageBlob, uniqueFilename);
-      
-      const uploadResponse = await fetch(`${API_BASE_URL}/files/Inspections`, {
+      formData.append('file', imageBlob, uniqueFilename);
+      formData.append('folder', 'Inspections');
+
+      const uploadResponse = await fetch(`${GATEWAY_URL}/api/caspio-files/upload`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        },
         body: formData
       });
       

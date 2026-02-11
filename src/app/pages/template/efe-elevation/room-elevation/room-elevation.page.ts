@@ -716,6 +716,32 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       this.bulkLocalImagesMap.get(entityId)!.push(img);
     }
 
+    // Also index by mapped IDs (matches category-detail multi-tier lookup pattern)
+    // This ensures photos can be found under BOTH temp and real pointIds
+    this.addMappedIdsToLocalImagesMap(this.bulkLocalImagesMap);
+  }
+
+  /**
+   * Add reverse ID mappings to a LocalImages map so photos can be found under any ID
+   * Matches category-detail's multi-tier ID lookup pattern
+   */
+  private async addMappedIdsToLocalImagesMap(map: Map<string, LocalImage[]>): Promise<void> {
+    const entries = Array.from(map.entries());
+    for (const [entityId, images] of entries) {
+      if (entityId.startsWith('temp_')) {
+        // Temp ID → look up real ID
+        const realId = await this.indexedDb.getRealId(entityId);
+        if (realId && realId !== entityId && !map.has(realId)) {
+          map.set(realId, images);
+        }
+      } else {
+        // Real ID → look up temp ID
+        const tempId = await this.indexedDb.getTempId(entityId);
+        if (tempId && tempId !== entityId && !map.has(tempId)) {
+          map.set(tempId, images);
+        }
+      }
+    }
   }
 
   /**
@@ -726,15 +752,33 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     if (!this.roomData?.elevationPoints) return;
 
     for (const localImage of localImages) {
-      // Find matching point
+      // Skip deleted photos
+      if (this.deletedPointPhotoIds.has(localImage.imageId)) continue;
+      if (localImage.attachId && this.deletedPointPhotoIds.has(String(localImage.attachId))) continue;
+
+      // Find matching point — check both direct entityId AND mapped IDs
       const pointId = localImage.entityId;
-      const point = this.roomData.elevationPoints.find((p: any) =>
+      let point = this.roomData.elevationPoints.find((p: any) =>
         String(p.pointId) === String(pointId)
       );
 
-      if (!point || !point.photos) continue;
+      // If no direct match, try reverse mapping (matches category-detail multi-tier pattern)
+      if (!point && pointId) {
+        const mappedId = String(pointId).startsWith('temp_')
+          ? await this.indexedDb.getRealId(String(pointId))
+          : await this.indexedDb.getTempId(String(pointId));
+        if (mappedId) {
+          point = this.roomData.elevationPoints.find((p: any) =>
+            String(p.pointId) === mappedId
+          );
+        }
+      }
+
+      if (!point) continue;
+      if (!point.photos) point.photos = [];
 
       // Find matching photo in point's photos array
+      let matched = false;
       for (const photo of point.photos) {
         const isMatch =
           photo.imageId === localImage.imageId ||
@@ -742,31 +786,23 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           (localImage.attachId && String(photo.attachId) === String(localImage.attachId));
 
         if (isMatch) {
-          // CRITICAL: Update the displayUrl from the LocalImage
-          // This ensures the photo stays visible even if blob URL was invalidated
+          matched = true;
           try {
-            // ANNOTATION FIX: Invalidate display URL cache to force re-evaluation
-            // This ensures annotated images are properly shown after sync
             this.localImageService.invalidateDisplayUrlCache(localImage.imageId);
 
-            // ANNOTATION FIX: Check bulkAnnotatedImagesMap FIRST for cached annotated images
-            // This handles cases where the LocalImage.drawings field isn't properly set
             const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10);
             let freshUrl: string | null = null;
 
-            // Try to get annotated image from in-memory cache first
             const cachedAnnotated = this.bulkAnnotatedImagesMap.get(localImage.imageId)
               || (localImage.attachId ? this.bulkAnnotatedImagesMap.get(String(localImage.attachId)) : null);
 
             if (cachedAnnotated) {
               freshUrl = cachedAnnotated;
             } else {
-              // Fall back to getDisplayUrl which checks IndexedDB
               freshUrl = await this.localImageService.getDisplayUrl(localImage);
             }
 
             if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.svg') {
-              // Only update if we got a valid URL and current one is invalid
               const currentUrl = photo.displayUrl;
               const needsUpdate = !currentUrl ||
                 currentUrl === 'assets/img/photo-placeholder.svg' ||
@@ -779,19 +815,15 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                 photo.thumbnailUrl = freshUrl;
               }
 
-              // SILENT SYNC: Don't show uploading indicators (matches Structural Systems pattern)
-              // Photos should display normally from cache without spinners
               photo.uploading = false;
               photo.queued = false;
               photo.isPending = localImage.status !== 'verified';
 
-              // ANNOTATION FIX: Update hasAnnotations and drawings from LocalImage
               if (localImage.drawings) {
                 photo.drawings = localImage.drawings;
                 photo.hasAnnotations = hasAnnotations;
               }
 
-              // Update attachId if LocalImage has a real one
               if (localImage.attachId && !String(localImage.attachId).startsWith('img_')) {
                 photo.attachId = localImage.attachId;
                 photo.AttachID = localImage.attachId;
@@ -802,6 +834,48 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           }
           break;
         }
+      }
+
+      // If no matching photo found but LocalImage belongs to this point, ADD it
+      // This matches category-detail's "never lose photos" pattern
+      if (!matched) {
+        const compositeKey = `${point.pointId}:${localImage.photoType || 'Measurement'}`;
+        if (this.deletedPointPhotoIds.has(compositeKey)) continue;
+
+        let displayUrl = 'assets/img/photo-placeholder.svg';
+        try {
+          displayUrl = await this.localImageService.getDisplayUrl(localImage);
+        } catch (e) { /* use placeholder */ }
+
+        const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10);
+        let thumbnailUrl = displayUrl;
+        if (hasAnnotations) {
+          const cachedAnnotated = this.bulkAnnotatedImagesMap.get(localImage.imageId)
+            || (localImage.attachId ? this.bulkAnnotatedImagesMap.get(String(localImage.attachId)) : null);
+          if (cachedAnnotated) thumbnailUrl = cachedAnnotated;
+        }
+
+        point.photos.push({
+          imageId: localImage.imageId,
+          attachId: localImage.attachId || localImage.imageId,
+          AttachID: localImage.attachId || localImage.imageId,
+          localImageId: localImage.imageId,
+          localBlobId: localImage.localBlobId,
+          photoType: localImage.photoType || 'Measurement',
+          Type: localImage.photoType || 'Measurement',
+          url: displayUrl,
+          displayUrl: thumbnailUrl,
+          thumbnailUrl: thumbnailUrl,
+          caption: localImage.caption || '',
+          drawings: localImage.drawings || null,
+          hasAnnotations: hasAnnotations,
+          uploading: false,
+          queued: false,
+          isPending: localImage.status !== 'verified',
+          isLocalImage: true,
+          isLocalFirst: true,
+          _tempId: localImage.imageId,
+        });
       }
     }
   }
@@ -2100,9 +2174,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     this.efeFieldSubscription = this.efeFieldRepo
       .getFieldByRoom$(this.serviceId, this.roomName)
       .subscribe({
-        next: (updatedField) => {
+        next: async (updatedField) => {
           if (!updatedField) return;
 
+          let idsChanged = false;
 
           // Update metadata from liveQuery
           if (this.roomData) {
@@ -2124,6 +2199,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                 // Update pointId if it changed (temp → real after sync)
                 if (efePoint.pointId && existingPoint.pointId !== efePoint.pointId) {
                   existingPoint.pointId = efePoint.pointId;
+                  idsChanged = true;
                 }
               }
             }
@@ -2133,6 +2209,13 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           if (updatedField.efeId && this.roomId !== updatedField.efeId) {
             this.roomId = updatedField.efeId;
             this.lastLoadedRoomId = this.roomId;
+            idsChanged = true;
+          }
+
+          // ID fingerprint change: repopulate photos to find them under new IDs
+          // Matches category-detail's computeIdFingerprint pattern
+          if (idsChanged) {
+            await this.populatePhotosFromLocalImages();
           }
 
           this.changeDetectorRef.detectChanges();
@@ -2233,11 +2316,22 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
         if (localImagesForPoint.length === 0) continue;
 
+        // MERGE photos into existing array (never replace — matches category-detail pattern)
+        if (!point.photos) point.photos = [];
 
-        // Convert LocalImages to photo objects
-        point.photos = [];
         for (const localImage of localImagesForPoint) {
-          // Get display URL
+          // Skip deleted photos
+          if (this.deletedPointPhotoIds.has(localImage.imageId)) continue;
+          if (localImage.attachId && this.deletedPointPhotoIds.has(String(localImage.attachId))) continue;
+
+          // Skip if already in array (by imageId or attachId)
+          const alreadyExists = point.photos.some((p: any) =>
+            String(p.imageId) === localImage.imageId ||
+            String(p.localImageId) === localImage.imageId ||
+            (localImage.attachId && String(p.attachId) === String(localImage.attachId))
+          );
+          if (alreadyExists) continue;
+
           let displayUrl = 'assets/img/photo-placeholder.svg';
           try {
             displayUrl = await this.localImageService.getDisplayUrl(localImage);
@@ -2248,15 +2342,18 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           point.photos.push({
             imageId: localImage.imageId,
             attachId: localImage.attachId || localImage.imageId,
+            AttachID: localImage.attachId || localImage.imageId,
+            localImageId: localImage.imageId,
             photoType: localImage.photoType || 'Measurement',
+            Type: localImage.photoType || 'Measurement',
             displayUrl,
             url: displayUrl,
             caption: localImage.caption || '',
-            annotations: localImage.annotations || null,
+            drawings: localImage.drawings || null,
             isLocalImage: true,
             isLocalFirst: true,
-            localImageId: localImage.imageId,
-            syncStatus: localImage.syncStatus || 'pending'
+            _tempId: localImage.imageId,
+            isPending: localImage.status !== 'verified'
           });
         }
       }
@@ -4661,14 +4758,31 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             // Track deleted FDF photo types to prevent re-addition from in-flight upload callbacks
             this.deletedFdfPhotoTypes.add(photoKey);
 
-            // 2. MOBILE: Delete from LocalImages table (source of truth)
-            // Note: WEBAPP FDF photos are stored on the EFE record (not in a separate attach table)
-            // so deletion is handled by clearing the FDF columns on the EFE record below
+            // 2. Delete from LocalImages + clean up all pending sync items for this photo
             if (imageId) {
               try {
                 await this.localImageService.deleteLocalImage(imageId);
               } catch (localErr) {
                 console.warn('[FDF Delete] Error deleting from LocalImages:', localErr);
+              }
+
+              // Remove any pending upload request for this imageId (prevents orphaned upload in sync modal)
+              try {
+                await this.indexedDb.removePendingRequest(imageId);
+              } catch (e) { /* ignore if not found */ }
+
+              // Cascade-delete any pending captions/annotations for this photo
+              const attachId = fdfPhotos[`${photoKey}AttachId`];
+              const idsToClean = [imageId];
+              if (attachId) idsToClean.push(String(attachId));
+              try {
+                await this.indexedDb.deletePendingCaptionsByAttachIds(idsToClean);
+              } catch (e) { /* ignore */ }
+
+              // Clear cached photo data
+              await this.indexedDb.deleteCachedPhoto(imageId);
+              if (attachId) {
+                await this.indexedDb.deleteCachedPhoto(String(attachId));
               }
             }
 
