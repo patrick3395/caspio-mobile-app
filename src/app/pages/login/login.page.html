@@ -70,16 +70,15 @@
         <span class="remember-label">Remember me</span>
       </div>
 
-      <ion-button
+      <button
         data-testid="sign-in-button"
-        expand="block"
         class="login-button"
         (click)="login()"
         [disabled]="!isFormValid()"
         [tabindex]="isWeb ? 4 : undefined">
-        <ion-icon name="log-in-outline" slot="start"></ion-icon>
+        <ion-icon name="log-in-outline"></ion-icon>
         Sign In
-      </ion-button>
+      </button>
 
       <div class="forgot-password">
         <ion-button data-testid="forgot-password-button" fill="clear" size="small" (click)="forgotPassword()">

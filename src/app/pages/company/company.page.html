@@ -1528,16 +1528,15 @@
             <h3>Outstanding Balance</h3>
           </div>
           <div class="balance-actions">
-            <button class="pay-now-btn" (click)="openBalancePaymentModal($event)" *ngIf="getCompanyOutstandingData(currentUserCompanyId || 0).balance > 0 && !getCompanyOutstandingData(currentUserCompanyId || 0).loading">
-              <ion-icon name="card-outline"></ion-icon>
-              PAY
-            </button>
             <div class="balance-total" [class.has-balance]="getCompanyOutstandingData(currentUserCompanyId || 0).balance > 0">
               <ion-spinner *ngIf="getCompanyOutstandingData(currentUserCompanyId || 0).loading" name="crescent"></ion-spinner>
               <span *ngIf="!getCompanyOutstandingData(currentUserCompanyId || 0).loading">
                 {{ getCompanyOutstandingData(currentUserCompanyId || 0).balance | currency:'USD':'symbol':'1.2-2' }}
               </span>
             </div>
+            <button class="pay-now-btn" (click)="openBalancePaymentModal($event)" *ngIf="getCompanyOutstandingData(currentUserCompanyId || 0).balance > 0 && !getCompanyOutstandingData(currentUserCompanyId || 0).loading">
+              <ion-icon name="card-outline"></ion-icon>
+            </button>
           </div>
         </div>
 

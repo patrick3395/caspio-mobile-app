@@ -3492,29 +3492,27 @@ ion-segment.filter-segment {
       }
 
       .pay-now-btn {
-        background: #f5f5f5;
-        color: #333;
+        background: none;
+        color: #F15A27;
         border: 2px solid #F15A27;
-        padding: 8px 20px;
+        width: 36px;
+        height: 36px;
+        padding: 0;
         border-radius: 8px;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 6px;
-        font-size: 14px;
-        font-weight: 600;
-        letter-spacing: 0.03em;
         transition: all 0.2s ease;
-        white-space: nowrap;
+        flex-shrink: 0;
 
         ion-icon {
-          font-size: 16px;
+          font-size: 18px;
         }
 
         @media (hover: hover) and (pointer: fine) {
           &:hover {
-            background: #e8e8e8;
+            background: rgba(241, 90, 39, 0.1);
           }
         }
       }
@@ -3611,7 +3609,14 @@ ion-segment.filter-segment {
   .unpaid-invoices-list .list-table {
     .list-table-header,
     .list-table-row {
-      grid-template-columns: 1.2fr 1.2fr 120px 120px;
+      grid-template-columns: 1.2fr 1fr 80px 80px;
+    }
+
+    @media (max-width: 400px) {
+      .list-table-header,
+      .list-table-row {
+        grid-template-columns: 1fr 1fr 65px 65px;
+      }
     }
   }
 
@@ -3619,12 +3624,28 @@ ion-segment.filter-segment {
   .payment-history-list .list-table {
     .list-table-header,
     .list-table-row {
-      grid-template-columns: 100px 2fr 1.5fr 120px 80px;
+      grid-template-columns: 80px 1.5fr 1fr 80px 40px;
+    }
+
+    @media (max-width: 400px) {
+      .list-table-header,
+      .list-table-row {
+        grid-template-columns: 60px 1.5fr 1fr 65px 32px;
+      }
     }
   }
 
   .payment-history-list,
   .unpaid-invoices-list {
+    overflow-x: hidden;
+
+    .lt-col {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .truncate-cell {
       white-space: nowrap;
       overflow: hidden;
