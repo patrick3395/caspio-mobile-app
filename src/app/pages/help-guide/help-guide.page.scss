@@ -236,8 +236,8 @@ ion-content {
   min-width: 80px;
   height: 56px;
   padding: 8px 16px;
-  background: #bdbdbd;
-  color: white;
+  background: none;
+  color: var(--color-text-secondary);
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -257,7 +257,6 @@ ion-content {
 
   &:active {
     transform: scale(0.95);
-    background: #b0b0b0;
   }
 }
 

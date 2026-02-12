@@ -379,17 +379,6 @@ export class DocumentViewerComponent implements OnInit, AfterViewInit {
     const tryInject = (attempts = 0) => {
       const toolbarRight = document.querySelector('#toolbarViewerRight');
       if (toolbarRight) {
-        // Print button - opens PDF in new tab for native browser printing
-        const printBtn = document.createElement('button');
-        printBtn.id = 'pdfPrintBtn';
-        printBtn.className = 'toolbarButton';
-        printBtn.title = 'Print';
-        printBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>`;
-        printBtn.addEventListener('click', () => {
-          this.ngZone.run(() => this.printPdf());
-        });
-        toolbarRight.appendChild(printBtn);
-
         // Close button
         const closeBtn = document.createElement('button');
         closeBtn.id = 'pdfCloseBtn';

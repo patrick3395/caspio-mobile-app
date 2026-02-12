@@ -2967,9 +2967,10 @@ export class CaspioService {
       // Clean the file path
       const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
 
-      // Fetch via backend proxy
-      fetch(`${GATEWAY_URL}/api/caspio-files/download?filePath=${encodeURIComponent(cleanPath)}`, {
-        method: 'GET'
+      // Fetch via backend proxy (cache-busted to avoid stale cached responses)
+      fetch(`${GATEWAY_URL}/api/caspio-files/download?filePath=${encodeURIComponent(cleanPath)}&_t=${Date.now()}`, {
+        method: 'GET',
+        cache: 'no-store'
       })
       .then(response => {
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);

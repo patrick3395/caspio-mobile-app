@@ -194,6 +194,11 @@ export class HelpGuidePage implements OnInit {
     return filePath.toLowerCase().endsWith('.pdf');
   }
 
+  getPdfUrl(file: FileItem): string {
+    const cleanPath = file.FileFile.startsWith('/') ? file.FileFile : `/${file.FileFile}`;
+    return `${environment.apiGatewayUrl}/api/caspio-files/download?filePath=${encodeURIComponent(cleanPath)}`;
+  }
+
   getFileExtension(filePath: string): string {
     const parts = filePath.split('.');
     return parts.length > 1 ? parts[parts.length - 1].toUpperCase() : 'FILE';
@@ -203,18 +208,13 @@ export class HelpGuidePage implements OnInit {
     const filePath = file.FileFile;
     if (!filePath) return;
 
-    const isImage = this.isImageFile(filePath);
-    const isPDF = this.isPdfFile(filePath);
+    const dataUrl = await this.getFileDataUrl(file);
+    if (!dataUrl) return;
 
-    if (isPDF) {
-      // Open PDF directly in new browser tab — bypasses pdf.js, uses native browser PDF viewer
-      const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
-      const url = `${environment.apiGatewayUrl}/api/caspio-files/download?filePath=${encodeURIComponent(cleanPath)}`;
-      window.open(url, '_blank');
-    } else if (isImage) {
-      const dataUrl = await this.getFileDataUrl(file);
-      if (!dataUrl) return;
-      const filename = file.Description || this.getFileName(filePath);
+    const filename = file.Description || this.getFileName(filePath);
+    const isImage = this.isImageFile(filePath);
+
+    if (isImage) {
       const modal = await this.modalController.create({
         component: ImageViewerComponent,
         componentProps: {
@@ -228,9 +228,6 @@ export class HelpGuidePage implements OnInit {
       });
       await modal.present();
     } else {
-      const dataUrl = await this.getFileDataUrl(file);
-      if (!dataUrl) return;
-      const filename = file.Description || this.getFileName(filePath);
       const DocumentViewerComponent = await this.loadDocumentViewer();
       const modal = await this.modalController.create({
         component: DocumentViewerComponent,
