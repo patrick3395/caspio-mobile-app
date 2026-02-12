@@ -28,8 +28,8 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
       <div class="pdf-container" *ngIf="isPDF">
         <ngx-extended-pdf-viewer
           [src]="pdfSource"
-          [height]="'100vh'"
-          [mobileFriendlyZoom]="'100%'"
+          [height]="'100%'"
+          [mobileFriendlyZoom]="'150%'"
           [showToolbar]="true"
           [showSidebarButton]="true"
           [sidebarVisible]="true"
@@ -51,7 +51,7 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
           [showTextEditor]="false"
           [showCommentEditor]="false"
           [showSignatureEditor]="false"
-          [zoom]="100"
+          [zoom]="'page-width'"
           [spread]="'off'"
           [theme]="'dark'"
           [pageViewMode]="'multiple'"
@@ -107,12 +107,12 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
     }
     .pdf-container {
       width: 100%;
-      height: 100vh;
+      height: 100%;
       background: #2d2d2d;
       overflow: auto !important;
       -webkit-overflow-scrolling: touch;
       position: relative;
-      padding: 0;
+      padding-top: env(safe-area-inset-top, 0px);
       display: flex;
       flex-direction: column;
     }
@@ -325,7 +325,7 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
       .pdf-container {
         -webkit-overflow-scrolling: touch;
         overflow: auto !important;
-        height: 100vh !important;
+        height: 100% !important;
       }
 
       .pdf-container ::ng-deep #viewerContainer {
@@ -337,10 +337,12 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
     /* Ensure ion-content doesn't interfere with scrolling */
     ion-content.document-viewer-content {
       --overflow: hidden;
+      height: 100%;
     }
 
     ion-content.document-viewer-content ::ng-deep .inner-scroll {
       overflow: hidden !important;
+      height: 100% !important;
     }
 
     /* Print: global.scss handles hiding everything except #printContainer */

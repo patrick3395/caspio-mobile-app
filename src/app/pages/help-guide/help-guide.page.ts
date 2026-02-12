@@ -4,8 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { CaspioService } from '../../services/caspio.service';
 import { PlatformDetectionService } from '../../services/platform-detection.service';
-import { environment } from '../../../environments/environment';
 import { ImageViewerComponent } from '../../components/image-viewer/image-viewer.component';
+import { environment } from '../../../environments/environment';
 
 type DocumentViewerCtor = typeof import('../../components/document-viewer/document-viewer.component')['DocumentViewerComponent'];
 
@@ -133,56 +133,55 @@ export class HelpGuidePage implements OnInit {
     }
   }
 
-  async getFileUrl(filePath: string): Promise<string> {
-    if (!filePath) return '';
+  // Fetch file data URL using CaspioService (same pattern as Template PDF viewer)
+  async getFileDataUrl(file: FileItem): Promise<string> {
+    const cacheKey = `file_${file.FileID}`;
 
     // Check cache first
-    if (this.fileUrls.has(filePath)) {
-      return this.fileUrls.get(filePath) || '';
+    if (this.fileUrls.has(cacheKey)) {
+      return this.fileUrls.get(cacheKey) || '';
     }
 
-    // If it's already a full URL or data URL, return as is
-    if (filePath.startsWith('http://') || filePath.startsWith('https://') || filePath.startsWith('data:')) {
-      return filePath;
+    const filePath = file.FileFile;
+    if (!filePath) return '';
+
+    try {
+      const isPDF = this.isPdfFile(filePath);
+      const isImage = this.isImageFile(filePath);
+
+      let dataUrl: string;
+      if (isPDF) {
+        dataUrl = await this.caspioService.getPDFFromFilesAPI(filePath).toPromise() || '';
+      } else if (isImage) {
+        dataUrl = await this.caspioService.getImageFromFilesAPI(filePath).toPromise() || '';
+      } else {
+        dataUrl = await this.caspioService.getFileFromPath(filePath).toPromise() || '';
+        // getFileFromPath returns {blob, dataUrl} or object URL string
+        if (typeof dataUrl === 'object' && (dataUrl as any).dataUrl) {
+          dataUrl = (dataUrl as any).dataUrl;
+        }
+      }
+
+      if (dataUrl) {
+        this.fileUrls.set(cacheKey, dataUrl);
+      }
+      return dataUrl;
+    } catch (error) {
+      console.error('[HelpGuide] Error fetching file:', error);
+      return '';
     }
-
-    // Use direct URL for much faster loading (skip base64 conversion)
-    const account = localStorage.getItem('caspio_account') || 'c7bbd842ec87b9';
-    const token = localStorage.getItem('caspio_token');
-    const cleanPath = filePath.startsWith('/') ? filePath.substring(1) : filePath;
-    const url = `https://${account}.caspio.com/rest/v2/files/${cleanPath}?access_token=${token}`;
-
-    this.fileUrls.set(filePath, url);
-    return url;
   }
-  
+
   // Synchronous version for template binding
   getCachedFileUrl(filePath: string): string {
     return this.fileUrls.get(filePath) || '';
   }
 
-  // Lazy loading image URL for template - now synchronous since we build URLs directly
-  getImageUrl(filePath: string): string {
-    if (!filePath) return 'assets/img/photo-placeholder.svg';
-
-    // Check cache first
-    if (this.fileUrls.has(filePath)) {
-      return this.fileUrls.get(filePath) || 'assets/img/photo-placeholder.svg';
-    }
-
-    // Build URL directly (synchronous)
-    if (filePath.startsWith('http://') || filePath.startsWith('https://') || filePath.startsWith('data:')) {
-      return filePath;
-    }
-
-    const account = localStorage.getItem('caspio_account') || 'c7bbd842ec87b9';
-    const token = localStorage.getItem('caspio_token');
-    const cleanPath = filePath.startsWith('/') ? filePath.substring(1) : filePath;
-    const url = `https://${account}.caspio.com/rest/v2/files/${cleanPath}?access_token=${token}`;
-
-    // Cache it for next time
-    this.fileUrls.set(filePath, url);
-    return url;
+  // Synchronous cached image URL (populated after getFileDataUrl resolves)
+  getImageUrl(file: FileItem): string {
+    if (!file || !file.FileFile) return 'assets/img/photo-placeholder.svg';
+    const cacheKey = `file_${file.FileID}`;
+    return this.fileUrls.get(cacheKey) || 'assets/img/photo-placeholder.svg';
   }
 
   isImageFile(filePath: string): boolean {
@@ -201,23 +200,26 @@ export class HelpGuidePage implements OnInit {
   }
 
   async openFile(file: FileItem) {
-    const url = await this.getFileUrl(file.FileFile);
-    if (!url) return;
+    const filePath = file.FileFile;
+    if (!filePath) return;
 
-    const filename = file.Description || this.getFileName(file.FileFile);
-    const isPDF = this.isPdfFile(file.FileFile);
-    const isImage = this.isImageFile(file.FileFile);
+    const isImage = this.isImageFile(filePath);
+    const isPDF = this.isPdfFile(filePath);
 
     if (isPDF) {
-      // Match Support Documents PDF viewing behavior
-      await this.openPdfInBrowser(url, filename);
+      // Open PDF directly in new browser tab — bypasses pdf.js, uses native browser PDF viewer
+      const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
+      const url = `${environment.apiGatewayUrl}/api/caspio-files/download?filePath=${encodeURIComponent(cleanPath)}`;
+      window.open(url, '_blank');
     } else if (isImage) {
-      // Match Support Documents image viewing behavior - use ImageViewerComponent
+      const dataUrl = await this.getFileDataUrl(file);
+      if (!dataUrl) return;
+      const filename = file.Description || this.getFileName(filePath);
       const modal = await this.modalController.create({
         component: ImageViewerComponent,
         componentProps: {
           images: [{
-            url: url,
+            url: dataUrl,
             title: file.Description,
             filename: filename
           }],
@@ -226,15 +228,17 @@ export class HelpGuidePage implements OnInit {
       });
       await modal.present();
     } else {
-      // For other file types, use DocumentViewerComponent
+      const dataUrl = await this.getFileDataUrl(file);
+      if (!dataUrl) return;
+      const filename = file.Description || this.getFileName(filePath);
       const DocumentViewerComponent = await this.loadDocumentViewer();
       const modal = await this.modalController.create({
         component: DocumentViewerComponent,
         componentProps: {
-          fileUrl: url,
+          fileUrl: dataUrl,
           fileName: filename,
-          fileType: this.getFileExtension(file.FileFile),
-          filePath: file.FileFile
+          fileType: this.getFileExtension(filePath),
+          filePath: filePath
         },
         cssClass: 'fullscreen-modal'
       });
@@ -242,67 +246,6 @@ export class HelpGuidePage implements OnInit {
     }
   }
 
-  /**
-   * Open PDF in browser - matches Support Documents implementation
-   * Web: Opens in new browser tab
-   * Mobile: Uses DocumentViewerComponent modal
-   */
-  private async openPdfInBrowser(fileUrl: string, filename: string): Promise<void> {
-    try {
-      // On mobile, use the DocumentViewerComponent modal for inline PDF viewing
-      if (!environment.isWeb) {
-        const DocumentViewerComponent = await this.loadDocumentViewer();
-        const modal = await this.modalController.create({
-          component: DocumentViewerComponent,
-          componentProps: {
-            fileUrl: fileUrl,
-            fileName: filename,
-            fileType: 'pdf',
-            filePath: filename
-          },
-          cssClass: 'fullscreen-modal'
-        });
-        await modal.present();
-        return;
-      }
-
-      // On web, open in a new browser tab
-      let blobUrl: string;
-
-      if (fileUrl.startsWith('data:')) {
-        // Convert base64 data URL to blob URL
-        const base64Data = fileUrl.split(',')[1];
-        const mimeType = fileUrl.split(':')[1].split(';')[0] || 'application/pdf';
-        const byteCharacters = atob(base64Data);
-        const byteNumbers = new Array(byteCharacters.length);
-
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: mimeType });
-        blobUrl = URL.createObjectURL(blob);
-      } else if (fileUrl.startsWith('blob:')) {
-        // Already a blob URL, use directly
-        blobUrl = fileUrl;
-      } else {
-        // Regular URL - open directly
-        window.open(fileUrl, '_blank');
-        return;
-      }
-
-      // Open the blob URL in a new tab
-      window.open(blobUrl, '_blank');
-
-      // Clean up the blob URL after a short delay (allows the browser to start loading)
-      setTimeout(() => {
-        URL.revokeObjectURL(blobUrl);
-      }, 1000);
-    } catch (error) {
-      console.error('Error opening PDF:', error);
-    }
-  }
 
   getFileName(filePath: string): string {
     const parts = filePath.split('/');

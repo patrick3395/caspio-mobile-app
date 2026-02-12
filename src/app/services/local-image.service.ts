@@ -811,6 +811,7 @@ export class LocalImageService {
 
     // Only mark as failed after many retries
     if (attempts >= 10) {
+      await this.indexedDb.removeOutboxItem(opId);
       await this.markFailed(imageId, `Upload failed after ${attempts} attempts: ${error}`);
     } else {
       // Keep as queued for retry

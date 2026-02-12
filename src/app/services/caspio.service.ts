@@ -1635,7 +1635,7 @@ export class CaspioService {
         console.error('[HUD ATTACH S3] ❌ Record creation failed:', errorText);
         // S3 file was uploaded but record creation failed - file is orphaned in S3
         // This is acceptable - orphaned S3 files don't cause broken images in UI
-        throw new Error('HUD record creation failed');
+        throw new Error(`HUD record creation failed (${recordResponse.status})`);
       }
 
       const attachId = (await recordResponse.json()).Result?.[0]?.AttachID;
@@ -2032,7 +2032,7 @@ export class CaspioService {
         console.error('[VISUALS ATTACH S3] ❌ Record creation failed:', errorText);
         // S3 file was uploaded but record creation failed - file is orphaned in S3
         // This is acceptable - orphaned S3 files don't cause broken images in UI
-        throw new Error('Visuals record creation failed');
+        throw new Error(`Visuals record creation failed (${recordResponse.status})`);
       }
 
       const attachId = (await recordResponse.json()).Result?.[0]?.AttachID;
@@ -2105,7 +2105,7 @@ export class CaspioService {
       if (!recordResponse.ok) {
         const errorText = await recordResponse.text();
         console.error('[DTE ATTACH S3] ❌ Record creation failed:', errorText);
-        throw new Error('DTE record creation failed');
+        throw new Error(`DTE record creation failed (${recordResponse.status})`);
       }
 
       const attachId = (await recordResponse.json()).Result?.[0]?.AttachID;
@@ -2708,7 +2708,7 @@ export class CaspioService {
       if (!recordResponse.ok) {
         const errorText = await recordResponse.text();
         console.error('[CSA ATTACH S3] ❌ Record creation failed:', errorText);
-        throw new Error('CSA record creation failed');
+        throw new Error(`CSA record creation failed (${recordResponse.status})`);
       }
 
       const attachId = (await recordResponse.json()).Result?.[0]?.AttachID;
