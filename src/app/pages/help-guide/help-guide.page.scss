@@ -506,3 +506,17 @@ ion-content {
     height: 80px;
   }
 }
+
+// ==============================================
+// Dark Theme Overrides
+// ==============================================
+
+:host-context(body.dark-theme) {
+  .custom-header ion-toolbar.action-toolbar {
+    --background: var(--ion-toolbar-background, #1E1E1E);
+  }
+
+  .tab-container {
+    box-shadow: none;
+  }
+}

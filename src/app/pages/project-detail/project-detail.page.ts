@@ -96,6 +96,7 @@ interface ProjectDetailCacheState {
   isCompanyOne: boolean;
   projectCompanyId: string;
   projectTotalPaid: number;
+  projectInvoiceBalance: number;
   timestamp: number;
 }
 
@@ -132,8 +133,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   // Services tab toggle: 'active' shows selected services, 'add' shows available-to-add
   servicesTab: 'active' | 'add' = 'add';
 
-  // Project balance (services total - payments from LPS_Invoices)
+  // Project balance from LPS_Invoices (sum of all Fee: positive = charges, negative = payments)
   projectTotalPaid: number = 0;
+  projectInvoiceBalance: number = 0;
 
   // WEBAPP: Cache sorted offers to prevent DOM re-creation
   private sortedOffersCache: any[] = [];
@@ -220,6 +222,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.isCompanyOne = cached.isCompanyOne;
       this.projectCompanyId = cached.projectCompanyId || '1';
       this.projectTotalPaid = cached.projectTotalPaid || 0;
+      this.projectInvoiceBalance = cached.projectInvoiceBalance || 0;
 
       // Apply pending finalized service flag if present (from cache restoration)
       if (this.pendingFinalizedServiceId) {
@@ -275,6 +278,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         isCompanyOne: this.isCompanyOne,
         projectCompanyId: this.projectCompanyId,
         projectTotalPaid: this.projectTotalPaid,
+        projectInvoiceBalance: this.projectInvoiceBalance,
         timestamp: Date.now()
       };
 
@@ -685,13 +689,15 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
       }
 
-      // Calculate total paid from invoice records (negative Fee = payment)
+      // Calculate balance from ALL invoice records (positive Fee = charge, negative Fee = payment)
       this.projectTotalPaid = 0;
+      this.projectInvoiceBalance = 0;
       if (invoicesResult && invoicesResult.status === 'fulfilled') {
         const invoicesData: any = invoicesResult.value;
         if (invoicesData?.Result) {
           invoicesData.Result.forEach((invoice: any) => {
             const fee = parseFloat(invoice.Fee) || 0;
+            this.projectInvoiceBalance += fee;
             if (fee < 0) {
               this.projectTotalPaid += Math.abs(fee);
             }
@@ -1213,7 +1219,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   calculateProjectBalance(): number {
-    return this.calculateServicesTotal() - this.projectTotalPaid;
+    return this.projectInvoiceBalance;
   }
 
   // Check if all required documents are uploaded for a service
@@ -1343,7 +1349,28 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       const newService = await this.caspioService.createService(serviceData).toPromise();
 
-      
+      // Create corresponding invoice record in LPS_Invoices with positive fee
+      const serviceFee = parseFloat(offer.ServiceFee) || 0;
+      if (serviceFee > 0) {
+        try {
+          await firstValueFrom(
+            this.caspioService.post<any>('/tables/LPS_Invoices/records', {
+              ProjectID: Number(projectIdToUse),
+              ServiceID: Number(offer.TypeID),
+              Fee: Number(serviceFee.toFixed(2)),
+              Date: new Date().toISOString().split('T')[0],
+              Address: String(this.project?.Address || ''),
+              City: String(this.project?.City || ''),
+              StateID: this.project?.StateID ? Number(this.project.StateID) : null,
+              Zip: String(this.project?.Zip || '')
+            })
+          );
+          this.projectInvoiceBalance += serviceFee;
+        } catch (invoiceError) {
+          console.error('Error creating invoice for service:', invoiceError);
+        }
+      }
+
       // Caspio returns the service instantly - get the ID
       if (!newService || (!newService.PK_ID && !newService.ServiceID)) {
         throw new Error('Service created but no ID returned from Caspio');
@@ -1456,6 +1483,22 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     const actualProjectId = this.project?.ProjectID || this.projectId;
     const serviceId = service.serviceId; // Capture for closure
+
+    // Delete corresponding invoice from LPS_Invoices matching ProjectID and ServiceID (TypeID)
+    if (this.project?.ProjectID && service.typeId) {
+      try {
+        const serviceFee = this.getServicePrice(service);
+        await firstValueFrom(
+          this.caspioService.delete<any>(
+            `/tables/LPS_Invoices/records?q.where=ProjectID=${Number(this.project.ProjectID)} AND ServiceID=${Number(service.typeId)} AND Fee>0`
+          )
+        );
+        this.projectInvoiceBalance -= serviceFee;
+        this.changeDetectorRef.markForCheck();
+      } catch (invoiceError) {
+        console.error('Error deleting invoice for service:', invoiceError);
+      }
+    }
 
     // OPTIMIZATION: Use optimistic update for instant removal
     this.optimisticUpdate.removeFromArray(
@@ -1581,9 +1624,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   hasTemplate(service: ServiceSelection): boolean {
     const name = service.typeName?.toLowerCase() || '';
+    const typeShort = service.typeShort?.toUpperCase() || '';
     return !name.includes('defect cost report') &&
            !name.includes('engineers inspection review') &&
-           !name.includes("engineer's inspection review");
+           !name.includes("engineer's inspection review") &&
+           typeShort !== 'ENG';
   }
 
   getServiceDocumentGroup(service: ServiceSelection): ServiceDocumentGroup | undefined {
@@ -1603,6 +1648,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const typeShort = service.typeShort?.toUpperCase() || '';
     const isDCR = typeShort === 'DCR' || typeName.includes('defect cost report');
     const isEIR = typeShort === 'EIR' || typeName.includes('engineers inspection review') || typeName.includes("engineer's inspection review");
+    const isENG = typeShort === 'ENG';
 
     // If already submitted (Status = "Under Review"), only enable if changes have been made
     if (this.hasBeenSubmitted(service)) {
@@ -1615,8 +1661,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       return true;
     }
 
-    // For DCR and EIR, enable if required document (Property Inspection Report) is uploaded
-    if (isDCR || isEIR) {
+    // For DCR, EIR, and ENG, enable if required document (Property Inspection Report) is uploaded
+    if (isDCR || isEIR || isENG) {
       // Find the service documents for this service
       const serviceDoc = this.serviceDocuments.find(sd => sd.serviceId === service.serviceId);
       if (serviceDoc) {
@@ -1741,9 +1787,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.templateServicesCacheKey = cacheKey;
       this.templateServicesCache = this.selectedServices.filter(service => {
         const name = service.typeName?.toLowerCase() || '';
+        const short = service.typeShort?.toUpperCase() || '';
         return !name.includes('defect cost report') &&
                !name.includes('engineers inspection review') &&
-               !name.includes("engineer's inspection review");
+               !name.includes("engineer's inspection review") &&
+               short !== 'ENG';
       });
     }
 
@@ -5388,6 +5436,7 @@ Time: ${debugInfo.timestamp}
     const isDCR = typeShort === 'DCR' || typeName.includes('defect cost report');
     const isEIR = typeShort === 'EIR' || typeName.includes('engineers inspection review') || typeName.includes("engineer's inspection review");
     const isEFE = typeShort === 'EFE' || typeName.includes('engineers foundation') || typeName.includes("engineer's foundation");
+    const isENG = typeShort === 'ENG';
 
     let message = '';
     let header = 'Submit Not Available';
@@ -5400,7 +5449,7 @@ Time: ${debugInfo.timestamp}
     // For initial submission (not yet submitted)
     else if (isEFE) {
       message = 'The report must be finalized before it can be submitted. Complete the Engineers Foundation template and finalize the report.';
-    } else if (isDCR || isEIR) {
+    } else if (isDCR || isEIR || isENG) {
       message = 'A Property Inspection Report or Home Inspection Report must be uploaded before this report can be submitted.';
     } else {
       message = 'The report must be finalized or required documents must be uploaded before submission.';

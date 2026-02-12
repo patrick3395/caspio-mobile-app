@@ -16,9 +16,12 @@ export class PdfDocumentBuilderService {
     // Cover page
     content.push(this.buildCoverPage(projectData, serviceData));
 
-    // Deficiency summary
-    content.push({ text: '', pageBreak: 'before' });
-    content.push(this.buildDeficiencySummary(structuralData));
+    // Deficiency summary (only if there are deficiencies)
+    const totalDeficiencies = (structuralData || []).reduce((sum, cat) => sum + (cat.deficiencies?.length || 0), 0);
+    if (totalDeficiencies > 0) {
+      content.push({ text: '', pageBreak: 'before' });
+      content.push(this.buildDeficiencySummary(structuralData));
+    }
 
     // Project information
     content.push({ text: '', pageBreak: 'before' });
@@ -451,9 +454,10 @@ export class PdfDocumentBuilderService {
     // Room name as section title (like structural categories)
     stack.push(this.buildPageTitle(room.name?.toUpperCase() || 'ROOM'));
 
-    // Location sub-section (only if applicable)
+    // Location / Type sub-section (only if applicable)
     if (room.location && room.location.trim()) {
-      stack.push(this.buildSubSectionBanner('LOCATION', '#4a4f52', true));
+      const isGarage = room.name?.toLowerCase().includes('garage');
+      stack.push(this.buildSubSectionBanner(isGarage ? 'TYPE' : 'LOCATION', '#4a4f52', true));
       stack.push({
         text: room.location,
         style: 'bodyText',

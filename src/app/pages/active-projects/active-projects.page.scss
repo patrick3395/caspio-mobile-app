@@ -723,6 +723,31 @@ ion-item-option {
 }
 
 // ==============================================
+// Dark Theme Overrides
+// ==============================================
+
+:host-context(body.dark-theme) {
+  .custom-header ion-toolbar.action-toolbar {
+    --background: var(--ion-toolbar-background, #1E1E1E);
+  }
+
+  .toolbar-btn,
+  .toolbar-btn.primary {
+    background: transparent;
+  }
+
+  .search-container {
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .project-item {
+    border-color: transparent;
+    box-shadow: none;
+  }
+}
+
+// ==============================================
 // WEBAPP: Virtual Scroll Styles
 // ==============================================
 

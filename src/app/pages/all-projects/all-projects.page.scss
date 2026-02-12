@@ -674,6 +674,20 @@ ion-item-sliding {
 // ==============================================
 
 :host-context(body.dark-theme) {
+  .custom-header ion-toolbar.action-toolbar {
+    --background: var(--ion-toolbar-background, #1E1E1E);
+  }
+
+  .search-container {
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .project-item {
+    border-color: transparent;
+    box-shadow: none;
+  }
+
   .skeleton-card {
     background: var(--color-bg-card);
     border-color: var(--color-border-default);
@@ -681,7 +695,7 @@ ion-item-sliding {
 
   .month-header {
     background: var(--color-bg-card);
-    box-shadow: 0 1px 3px var(--color-shadow);
+    box-shadow: none;
 
     &:hover {
       background: var(--color-bg-elevated);

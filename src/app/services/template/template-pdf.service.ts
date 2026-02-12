@@ -507,7 +507,8 @@ export class TemplatePdfService {
           console.log(`[PDF] Record: ${config.idFieldName}=${record[config.idFieldName]}, PK_ID=${record.PK_ID}, using recordId=${recordId}`);
 
           const displayText = record.Text || record.VisualText || '';
-          const answers = record.Answers || record.Answer || '';
+          const rawAnswers = record.Answers || record.Answer || '';
+          const answers = rawAnswers.split(',').map((a: string) => a.trim()).filter((a: string) => a && a !== 'Other').join(', ');
 
           photoFetches.push(this.getPhotos(config, recordId, fabric));
           photoMappings.push({

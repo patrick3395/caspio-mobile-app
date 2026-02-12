@@ -31,7 +31,7 @@
   </ion-refresher>
 
   <!-- CRM View for Company ID 1 -->
-  <div *ngIf="isCompanyOne" class="page-shell" [class.full-width]="selectedTab === 'metrics'">
+  <div *ngIf="isCompanyOne" class="page-shell" [class.full-width]="adminMainTab === 'metrics'">
     <!-- Main Tab Bar -->
     <div class="admin-main-tabs">
       <button class="admin-main-tab" [class.active]="adminMainTab === 'company'" (click)="selectAdminMainTab('company')">
@@ -42,20 +42,250 @@
         <ion-icon name="people"></ion-icon>
         <span>Partners</span>
       </button>
+      <button class="admin-main-tab" [class.active]="adminMainTab === 'metrics'" (click)="selectAdminMainTab('metrics')">
+        <ion-icon name="analytics"></ion-icon>
+        <span>Metrics</span>
+      </button>
     </div>
 
     <!-- Company Main Tab Content -->
-    <div *ngIf="adminMainTab === 'company'" class="admin-tab-content">
-      <div class="sub-tab-bar">
-        <button class="sub-tab" [class.active]="selectedTab === 'users'" (click)="selectTab('users')">
-          <ion-icon name="people"></ion-icon>
-          <span>Users</span>
-        </button>
-        <button class="sub-tab" [class.active]="selectedTab === 'company'" (click)="selectTab('company')">
-          <ion-icon name="business"></ion-icon>
-          <span>Company</span>
-        </button>
+    <div *ngIf="adminMainTab === 'company'" class="admin-tab-content client-tab-content">
+
+      <!-- Details Collapsible Section -->
+      <div class="collapsible-section">
+        <div class="collapsible-header" (click)="adminDetailsExpanded = !adminDetailsExpanded">
+          <div class="collapsible-title">
+            <ion-icon [name]="adminDetailsExpanded ? 'chevron-down' : 'chevron-forward'"></ion-icon>
+            <h3>Details</h3>
+          </div>
+          <button class="minimal-edit-btn" (click)="editAdminCompanyDetails(); $event.stopPropagation()" title="Edit Details">
+            <ion-icon name="create-outline"></ion-icon>
+          </button>
+        </div>
+
+        <div class="collapsible-content" [class.expanded]="adminDetailsExpanded">
+          <!-- Loading State - Skeleton loader -->
+          <div *ngIf="!currentCompany" class="skeleton-company-details">
+            <div class="skeleton-company-header">
+              <div class="skeleton-title-line"></div>
+            </div>
+            <div class="skeleton-detail-section">
+              <div class="skeleton-section-title"></div>
+              <div class="skeleton-detail-row">
+                <div class="skeleton-detail-col" *ngFor="let i of [1,2,3]">
+                  <div class="skeleton-label"></div>
+                  <div class="skeleton-value"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div *ngIf="currentCompany" class="client-details-card">
+            <div class="client-details-header">
+              <div class="company-logo-container">
+                <img [src]="currentCompany.Logo && !adminLogoFailed ? currentCompany.Logo : 'assets/img/company-logo-placeholder.svg'"
+                     [alt]="currentCompany.CompanyName"
+                     class="company-logo"
+                     (error)="adminLogoFailed = true">
+              </div>
+              <div class="company-name-block">
+                <h2>{{ currentCompany.CompanyName }}</h2>
+                <p *ngIf="currentCompany.ServiceArea" class="service-area-text">{{ currentCompany.ServiceArea }}</p>
+                <div class="company-meta-tags">
+                  <span class="meta-tag" *ngIf="currentCompany.SoftwareID">
+                    <ion-icon name="desktop-outline"></ion-icon> {{ currentCompany.SoftwareID }}
+                  </span>
+                  <span class="meta-tag" *ngIf="currentCompany.Size">
+                    <ion-icon name="people-outline"></ion-icon> {{ currentCompany.Size }}
+                  </span>
+                  <span class="meta-tag" *ngIf="currentCompany.Franchise">
+                    <ion-icon name="storefront-outline"></ion-icon> Franchise
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="client-details-grid">
+              <div class="detail-section">
+                <h4>Basic Information</h4>
+                <div class="detail-row">
+                  <div class="detail-col">
+                    <label>Onboarding Date</label>
+                    <p>{{ formatDate(currentCompany.DateOnboarded) || 'Not provided' }}</p>
+                  </div>
+                  <div class="detail-col">
+                    <label>Onboarding Stage</label>
+                    <p>{{ currentCompany['Onboarding Stage'] || 'Not provided' }}</p>
+                  </div>
+                  <div class="detail-col">
+                    <label>Lead Source</label>
+                    <p>{{ currentCompany.LeadSource || 'Not provided' }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="detail-section">
+                <h4>Contact Information</h4>
+                <div class="detail-row">
+                  <div class="detail-col">
+                    <label>Phone</label>
+                    <p>
+                      <a *ngIf="currentCompany.Phone" [href]="'tel:' + currentCompany.Phone" class="phone-link">
+                        {{ formatPhone(currentCompany.Phone) }}
+                      </a>
+                      <span *ngIf="!currentCompany.Phone" class="not-provided">Not provided</span>
+                    </p>
+                  </div>
+                  <div class="detail-col">
+                    <label>Email</label>
+                    <p>
+                      <a *ngIf="currentCompany.Email" [href]="'mailto:' + currentCompany.Email" class="email-link">{{ currentCompany.Email }}</a>
+                      <span *ngIf="!currentCompany.Email" class="not-provided">Not provided</span>
+                    </p>
+                  </div>
+                  <div class="detail-col">
+                    <label>CC Email</label>
+                    <p class="wrap-text">{{ currentCompany.CC_Email || currentCompany.CCEmail || 'Not provided' }}</p>
+                  </div>
+                </div>
+                <div class="detail-row">
+                  <div class="detail-col">
+                    <label>Website</label>
+                    <p *ngIf="!currentCompany.Website" class="not-provided">Not provided</p>
+                    <a *ngIf="currentCompany.Website" [href]="currentCompany.Website" target="_blank" rel="noopener noreferrer" class="website-link wrap-text">
+                      {{ currentCompany.Website }}
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              <div class="detail-section">
+                <h4>Address</h4>
+                <div class="detail-row">
+                  <div class="detail-col">
+                    <label>Address</label>
+                    <p>{{ currentCompany.Address || 'Not provided' }}</p>
+                  </div>
+                  <div class="detail-col">
+                    <label>City</label>
+                    <p>{{ currentCompany.City || 'Not provided' }}</p>
+                  </div>
+                  <div class="detail-col-half">
+                    <label>State</label>
+                    <p>{{ currentCompany.State || 'Not provided' }}</p>
+                  </div>
+                  <div class="detail-col-half">
+                    <label>Zip</label>
+                    <p>{{ currentCompany.Zip || 'Not provided' }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="detail-section" *ngIf="currentCompany.Notes">
+                <h4>Notes</h4>
+                <p class="wrap-text">{{ currentCompany.Notes }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+
+      <!-- Users Collapsible Section -->
+      <div class="collapsible-section">
+        <div class="collapsible-header" (click)="adminUsersExpanded = !adminUsersExpanded">
+          <div class="collapsible-title">
+            <ion-icon [name]="adminUsersExpanded ? 'chevron-down' : 'chevron-forward'"></ion-icon>
+            <h3>Users</h3>
+            <span class="collapsible-count" *ngIf="!isLoading">({{ filteredUsers.length }})</span>
+          </div>
+          <button class="minimal-add-btn" (click)="openAddUserModal(); $event.stopPropagation()" title="Add User">
+            <ion-icon name="add"></ion-icon>
+          </button>
+        </div>
+
+        <div class="collapsible-content" [class.expanded]="adminUsersExpanded">
+          <div class="collapsible-search-bar">
+            <ion-searchbar
+              [(ngModel)]="usersSearchTerm"
+              (ionChange)="onUserSearchChange($event.detail.value)"
+              placeholder="Search users by name, email, or title"
+              animated="true"
+              class="modern-search">
+            </ion-searchbar>
+          </div>
+
+          <!-- Skeleton loaders for users -->
+          <div *ngIf="isLoading" class="skeleton-users-grid">
+            <div class="skeleton-user-card" *ngFor="let i of [1,2,3,4,5,6]">
+              <div class="skeleton-user-header">
+                <div class="skeleton-user-avatar"></div>
+                <div class="skeleton-user-info">
+                  <div class="skeleton-user-name"></div>
+                  <div class="skeleton-user-role"></div>
+                </div>
+              </div>
+              <div class="skeleton-user-details">
+                <div class="skeleton-user-detail-item">
+                  <div class="skeleton-icon"></div>
+                  <div class="skeleton-detail-text"></div>
+                </div>
+                <div class="skeleton-user-detail-item">
+                  <div class="skeleton-icon"></div>
+                  <div class="skeleton-detail-text"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div *ngIf="!isLoading && filteredUsers.length; else emptyAdminUsers" class="users-grid">
+            <div class="user-card" *ngFor="let user of filteredUsers">
+              <div class="org-user-actions">
+                <ion-icon name="create-outline" class="action-edit" (click)="openEditUserModal(user)" title="Edit user"></ion-icon>
+                <ion-icon name="trash-outline" class="action-delete" (click)="deleteUser(user, $event)" title="Delete user"></ion-icon>
+              </div>
+              <div class="user-card-content">
+                <div class="user-header">
+                  <div class="user-avatar">
+                    <img *ngIf="getUserHeadshot(user)" [src]="getUserHeadshot(user)" [alt]="user.Name" class="headshot-image">
+                    <div *ngIf="!getUserHeadshot(user)" class="headshot-placeholder">
+                      <ion-icon name="person"></ion-icon>
+                    </div>
+                  </div>
+                  <div class="user-info">
+                    <h4>{{ user.Name || 'Unnamed User' }}</h4>
+                    <p class="user-role">{{ user.Title || 'No title assigned' }}</p>
+                  </div>
+                </div>
+                <div class="user-details">
+                  <div class="user-detail-item" *ngIf="user.Email">
+                    <ion-icon name="mail-outline"></ion-icon>
+                    <a [href]="'mailto:' + user.Email" (click)="$event.stopPropagation()">{{ user.Email }}</a>
+                  </div>
+                  <div class="user-detail-item" *ngIf="user.Phone">
+                    <ion-icon name="call-outline"></ion-icon>
+                    <a [href]="'tel:' + user.Phone" class="phone-link" (click)="$event.stopPropagation()">{{ formatPhone(user.Phone) }}</a>
+                  </div>
+                  <div class="user-detail-item">
+                    <ion-icon name="business-outline"></ion-icon>
+                    <span>{{ getCompanyName(user.CompanyID) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <ng-template #emptyAdminUsers>
+            <div *ngIf="!isLoading" class="empty-state-modern">
+              <div class="empty-icon-wrapper">
+                <ion-icon name="people"></ion-icon>
+              </div>
+              <h3>No users found</h3>
+              <p>No users match your search.</p>
+            </div>
+          </ng-template>
+        </div>
+      </div>
+
     </div>
 
     <!-- Partners Main Tab Content -->
@@ -125,157 +355,10 @@
           <ion-icon name="receipt-outline"></ion-icon>
           <span>Invoices</span>
         </button>
-        <button class="sub-tab" [class.active]="selectedTab === 'metrics'" (click)="selectTab('metrics')">
-          <ion-icon name="analytics-outline"></ion-icon>
-          <span>Metrics</span>
-        </button>
         <button class="sub-tab" [class.active]="selectedTab === 'notifications'" (click)="selectTab('notifications')">
           <ion-icon name="notifications-outline"></ion-icon>
           <span>Notifications</span>
         </button>
-      </div>
-    </div>
-    <div *ngIf="selectedTab === 'company'" class="tab-content company-tab">
-
-
-      <!-- Loading State - Skeleton loader -->
-      <div *ngIf="!currentCompany" class="skeleton-company-details">
-        <div class="skeleton-company-header">
-          <div class="skeleton-title-line"></div>
-        </div>
-        <div class="skeleton-detail-section">
-          <div class="skeleton-section-title"></div>
-          <div class="skeleton-detail-row">
-            <div class="skeleton-detail-col" *ngFor="let i of [1,2,3]">
-              <div class="skeleton-label"></div>
-              <div class="skeleton-value"></div>
-            </div>
-          </div>
-          <div class="skeleton-detail-row">
-            <div class="skeleton-detail-col" *ngFor="let i of [1,2,3]">
-              <div class="skeleton-label"></div>
-              <div class="skeleton-value"></div>
-            </div>
-          </div>
-        </div>
-        <div class="skeleton-detail-section">
-          <div class="skeleton-section-title"></div>
-          <div class="skeleton-detail-row">
-            <div class="skeleton-detail-col" *ngFor="let i of [1,2,3]">
-              <div class="skeleton-label"></div>
-              <div class="skeleton-value"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Company Details -->
-      <div *ngIf="currentCompany" class="company-details-card">
-        <div class="company-header-display">
-          <h2>{{ currentCompany.CompanyName }}</h2>
-        </div>
-        
-        <div class="detail-section">
-          <h4>Basic Information</h4>
-          <div class="detail-row">
-            <div class="detail-col">
-              <label>Onboarding Date</label>
-              <p>{{ formatDate(currentCompany.DateOnboarded) || 'Not provided' }}</p>
-            </div>
-            <div class="detail-col">
-              <label>Onboarding Stage</label>
-              <p>{{ currentCompany['Onboarding Stage'] || 'Not provided' }}</p>
-            </div>
-            <div class="detail-col">
-              <label>Software</label>
-              <p>{{ currentCompany.SoftwareID || 'Not provided' }}</p>
-            </div>
-          </div>
-          <div class="detail-row">
-            <div class="detail-col">
-              <label>Size</label>
-              <p>{{ currentCompany.Size || 'Not provided' }}</p>
-            </div>
-            <div class="detail-col">
-              <label>Franchise</label>
-              <p>{{ currentCompany.Franchise ? 'Yes' : 'No' }}</p>
-            </div>
-            <div class="detail-col">
-              <label>Lead Source</label>
-              <p>{{ currentCompany.LeadSource || 'Not provided' }}</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="detail-section">
-          <h4>Contact Information</h4>
-          <div class="detail-row">
-            <div class="detail-col">
-              <label>Company Phone</label>
-              <p>
-                <a *ngIf="currentCompany.Phone" [href]="'tel:' + currentCompany.Phone" class="phone-link">
-                  {{ formatPhone(currentCompany.Phone) }}
-                </a>
-                <span *ngIf="!currentCompany.Phone">Not provided</span>
-              </p>
-            </div>
-            <div class="detail-col">
-              <label>Company Email</label>
-              <p>
-                <a *ngIf="currentCompany.Email" [href]="'mailto:' + currentCompany.Email">{{ currentCompany.Email }}</a>
-                <span *ngIf="!currentCompany.Email">Not provided</span>
-              </p>
-            </div>
-            <div class="detail-col">
-              <label>CC Email</label>
-              <p class="wrap-text">{{ currentCompany.CC_Email || 'Not provided' }}</p>
-            </div>
-          </div>
-          <div class="detail-row">
-            <div class="detail-col">
-              <label>Website</label>
-              <p class="wrap-text" *ngIf="!currentCompany.Website">Not provided</p>
-              <a *ngIf="currentCompany.Website" [href]="currentCompany.Website" target="_blank" rel="noopener noreferrer" class="website-link wrap-text">
-                {{ currentCompany.Website }}
-              </a>
-            </div>
-          </div>
-        </div>
-
-        <div class="detail-section">
-          <h4>Address</h4>
-          <div class="detail-row">
-            <div class="detail-col">
-              <label>Address</label>
-              <p>{{ currentCompany.Address || 'Not provided' }}</p>
-            </div>
-            <div class="detail-col">
-              <label>City</label>
-              <p>{{ currentCompany.City || 'Not provided' }}</p>
-            </div>
-          </div>
-          <div class="detail-row">
-            <div class="detail-col">
-              <label>State</label>
-              <p>{{ currentCompany.State || 'Not provided' }}</p>
-            </div>
-            <div class="detail-col">
-              <label>Zip</label>
-              <p>{{ currentCompany.Zip || 'Not provided' }}</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="detail-section" *ngIf="currentCompany.ServiceArea">
-          <h4>Service Area(s)</h4>
-          <p class="wrap-text">{{ currentCompany.ServiceArea }}</p>
-        </div>
-
-        <div class="detail-section" *ngIf="currentCompany.Notes">
-          <h4>Notes</h4>
-          <p class="wrap-text">{{ currentCompany.Notes }}</p>
-        </div>
-
       </div>
     </div>
     <div *ngIf="selectedTab === 'companies'" class="tab-content companies-tab">
@@ -327,11 +410,9 @@
         <div class="stage-container" *ngFor="let group of stageGroups; trackBy: trackByStage">
           <div class="stage-header" (click)="toggleStageExpand(group.stage, $event)">
             <div class="stage-info">
+              <ion-icon class="collapse-chevron" [name]="isStageExpanded(group.stage) ? 'chevron-down' : 'chevron-forward'"></ion-icon>
               <h3 class="stage-name">{{ formatStageName(group.stage) }}</h3>
               <span class="stage-count">{{ group.companies.length }} {{ group.companies.length === 1 ? 'company' : 'companies' }}</span>
-            </div>
-            <div class="stage-expand-toggle">
-              <ion-icon [name]="isStageExpanded(group.stage) ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
             </div>
           </div>
 
@@ -342,6 +423,7 @@
                  [class.expanded]="isCompanyExpanded(company)">
 
               <div class="rollup-header" (click)="toggleCompanyExpand(company, $event)">
+                <ion-icon class="collapse-chevron" [name]="isCompanyExpanded(company) ? 'chevron-down' : 'chevron-forward'"></ion-icon>
                 <div class="company-info">
                   <h4 class="company-name">{{ company.CompanyName }}</h4>
                   <p class="company-location">{{ buildCompanyAddress(company) || 'No address' }}</p>
@@ -354,188 +436,146 @@
                     title="Filter all data to this company">
                     <ion-icon name="funnel-outline"></ion-icon>
                   </button>
-                  <button class="expand-toggle" (click)="toggleCompanyExpand(company, $event)">
-                    <ion-icon [name]="isCompanyExpanded(company) ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
+                  <button class="filter-toggle-btn" (click)="editCompany(company, $event)" title="Edit Company">
+                    <ion-icon name="create-outline"></ion-icon>
                   </button>
                 </div>
               </div>
 
-              <div class="rollup-content" *ngIf="isCompanyExpanded(company)">
-                <div class="detail-row">
-                  <div class="detail-col">
-                    <label>Onboarding Date</label>
-                    <p>{{ formatDate(company.DateOnboarded) || 'Not provided' }}</p>
-                  </div>
-                  <div class="detail-col">
-                    <label>Onboarding Stage</label>
-                    <p>{{ company['Onboarding Stage'] || 'Not provided' }}</p>
-                  </div>
-                  <div class="detail-col">
-                    <label>Software</label>
-                    <p>{{ company.SoftwareID || 'Not provided' }}</p>
-                  </div>
-                </div>
-                <div class="detail-row">
-                  <div class="detail-col">
-                    <label>Size</label>
-                    <p>{{ company.Size || 'Not provided' }}</p>
-                  </div>
-                  <div class="detail-col">
-                    <label>Franchise</label>
-                    <p>{{ company.Franchise ? 'Yes' : 'No' }}</p>
-                  </div>
-                  <div class="detail-col">
-                    <label>Lead Source</label>
-                    <p>{{ company.LeadSource || 'Not provided' }}</p>
+              <div class="rollup-content client-details-card" *ngIf="isCompanyExpanded(company)">
+                <!-- Meta Tags -->
+                <div class="client-details-header">
+                  <div class="company-meta-tags">
+                    <span class="meta-tag" *ngIf="resolveSoftwareName(company.SoftwareID)">
+                      <ion-icon name="desktop-outline"></ion-icon> {{ resolveSoftwareName(company.SoftwareID) }}
+                    </span>
+                    <span class="meta-tag" *ngIf="company.Size">
+                      <ion-icon name="people-outline"></ion-icon> {{ company.Size }}
+                    </span>
+                    <span class="meta-tag" *ngIf="company.Franchise">
+                      <ion-icon name="storefront-outline"></ion-icon> Franchise
+                    </span>
+                    <span class="meta-tag" *ngIf="company.LeadSource">
+                      <ion-icon name="trending-up-outline"></ion-icon> {{ company.LeadSource }}
+                    </span>
+                    <span class="meta-tag" *ngIf="company.DateOnboarded">
+                      <ion-icon name="calendar-outline"></ion-icon> {{ formatDate(company.DateOnboarded) }}
+                    </span>
                   </div>
                 </div>
-                <div class="detail-row">
-                  <div class="detail-col">
-                    <label>Company Phone</label>
-                    <p>
-                      <a *ngIf="company.Phone" [href]="'tel:' + company.Phone" class="phone-link">
-                        {{ formatPhone(company.Phone) }}
-                      </a>
-                      <span *ngIf="!company.Phone">Not provided</span>
-                    </p>
-                  </div>
-                  <div class="detail-col">
-                    <label>Company Email</label>
-                    <p class="wrap-text">{{ company.Email || 'Not provided' }}</p>
-                  </div>
-                  <div class="detail-col">
-                    <label>CC Email</label>
-                    <p class="wrap-text">{{ company.CC_Email || 'Not provided' }}</p>
-                  </div>
-                </div>
-                <div class="detail-row">
-                  <div class="detail-col">
-                    <label>Website</label>
-                    <p class="wrap-text" *ngIf="!company.Website">Not provided</p>
-                    <a *ngIf="company.Website" [href]="company.Website" target="_blank" rel="noopener noreferrer" class="website-link wrap-text">
-                      {{ company.Website }}
-                    </a>
-                  </div>
-                  <div class="detail-col">
-                    <label>Address</label>
-                    <p>{{ company.Address || 'Not provided' }}</p>
-                  </div>
-                  <div class="detail-col">
-                    <label>City</label>
-                    <p>{{ company.City || 'Not provided' }}</p>
-                  </div>
-                </div>
-                <div class="detail-row">
-                  <div class="detail-col">
-                    <label>State</label>
-                    <p>{{ company.State || 'Not provided' }}</p>
-                  </div>
-                  <div class="detail-col">
-                    <label>Zip</label>
-                    <p>{{ company.Zip || 'Not provided' }}</p>
-                  </div>
-                  <div class="detail-col">
-                    <label>Contract Document</label>
-                    <p>{{ company.Contract || 'Not provided' }}</p>
-                  </div>
-                </div>
-                <div class="detail-row">
-                  <div class="detail-col" style="grid-column: 1 / -1;">
-                    <label>Service Area(s)</label>
-                    <p class="wrap-text">{{ company.ServiceArea || 'Not provided' }}</p>
-                  </div>
-                </div>
-                <div class="detail-row">
-                  <div class="detail-col" style="grid-column: 1 / -1;">
-                    <label>Notes</label>
-                    <p class="wrap-text">{{ company.Notes || 'No notes' }}</p>
-                  </div>
-                </div>
-                <div class="detail-row autopay-status-row">
-                  <div class="detail-col">
-                    <label>Autopay Status</label>
-                    <p>
-                      <span *ngIf="company.AutopayEnabled" class="autopay-badge enabled">
-                        <ion-icon name="checkmark-circle"></ion-icon> Enabled
-                      </span>
-                      <span *ngIf="!company.AutopayEnabled" class="autopay-badge disabled">
-                        <ion-icon name="close-circle"></ion-icon> Disabled
-                      </span>
-                      <span *ngIf="company.AutopayReviewRequired" class="autopay-badge review">
-                        <ion-icon name="eye-outline"></ion-icon> Review Required
-                      </span>
-                    </p>
-                  </div>
-                  <div class="detail-col">
-                    <label>Saved Payment Method</label>
-                    <p>
-                      <!-- Stripe Bank Account -->
-                      <span *ngIf="company.StripePaymentMethodID" class="payment-method-tag stripe">
-                        <ion-icon name="business-outline" style="color: #635bff;"></ion-icon>
-                        {{ company.StripeBankName || 'Bank' }} ****{{ company.StripeBankLast4 }}
-                      </span>
-                      <!-- PayPal Account -->
-                      <span *ngIf="company.PayPalPayerEmail && !company.StripePaymentMethodID" class="payment-method-tag paypal">
-                        <ion-icon name="logo-paypal" style="color: #003087;"></ion-icon>
-                        {{ company.PayPalPayerEmail }}
-                      </span>
-                      <!-- No payment method -->
-                      <span *ngIf="!company.PayPalPayerEmail && !company.StripePaymentMethodID" class="no-payment-method">No payment method saved</span>
-                    </p>
-                  </div>
-                  <div class="detail-col">
-                    <label>Autopay Day</label>
-                    <select
-                      class="autopay-day-select"
-                      [ngModel]="company.AutopayDay || 1"
-                      (ngModelChange)="updateCompanyAutopayDay(company, $event)"
-                      [disabled]="!company.PayPalVaultToken && !company.StripePaymentMethodID">
-                      <option *ngFor="let day of getAutopayDayOptions()" [value]="day">
-                        {{ formatAutopayDay(day) }}
-                      </option>
-                    </select>
-                    <small *ngIf="!company.PayPalVaultToken && !company.StripePaymentMethodID" class="autopay-hint">Save payment method first</small>
-                  </div>
-                  <div class="detail-col">
-                    <label>Action</label>
-                    <div class="action-buttons">
-                      <button
-                        class="link-account-btn"
-                        (click)="openStripeAchModal(company)">
-                        <ion-icon name="link-outline"></ion-icon>
-                        Link Account
-                      </button>
-                      <button
-                        class="manual-run-btn"
-                        [class.approve-charge]="company.AutopayReviewRequired"
-                        (click)="triggerAutopay(company)"
-                        [disabled]="!company.AutopayEnabled || (!company.PayPalVaultToken && !company.StripePaymentMethodID) || getCompanyOutstandingData(company.CompanyID).balance === 0">
-                        {{ company.AutopayReviewRequired ? 'Approve & Charge' : 'Manual Run' }}
-                      </button>
+
+                <!-- Contact Information -->
+                <div class="client-details-grid">
+                  <div class="detail-section">
+                    <h4>Contact Information</h4>
+                    <div class="detail-row">
+                      <div class="detail-col">
+                        <label>Phone</label>
+                        <p>
+                          <a *ngIf="company.Phone" [href]="'tel:' + company.Phone" class="phone-link">{{ formatPhone(company.Phone) }}</a>
+                          <span *ngIf="!company.Phone" class="not-provided">Not provided</span>
+                        </p>
+                      </div>
+                      <div class="detail-col">
+                        <label>Email</label>
+                        <p>
+                          <a *ngIf="company.Email" [href]="'mailto:' + company.Email" class="email-link">{{ company.Email }}</a>
+                          <span *ngIf="!company.Email" class="not-provided">Not provided</span>
+                        </p>
+                      </div>
+                      <div class="detail-col">
+                        <label>CC Email</label>
+                        <p class="wrap-text">{{ company.CC_Email || 'Not provided' }}</p>
+                      </div>
+                    </div>
+                    <div class="detail-row">
+                      <div class="detail-col">
+                        <label>Website</label>
+                        <p *ngIf="!company.Website" class="not-provided">Not provided</p>
+                        <a *ngIf="company.Website" [href]="company.Website" target="_blank" rel="noopener noreferrer" class="website-link">{{ company.Website }}</a>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <!-- Outstanding Balance Section -->
-                <div class="outstanding-balance-section">
-                  <div class="balance-header-row">
-                    <div class="balance-label">
-                      <ion-icon name="wallet-outline"></ion-icon>
-                      <span>Outstanding Balance</span>
+
+                  <!-- Address -->
+                  <div class="detail-section">
+                    <h4>Address</h4>
+                    <div class="detail-row">
+                      <div class="detail-col">
+                        <label>Address</label>
+                        <p>{{ company.Address || 'Not provided' }}</p>
+                      </div>
+                      <div class="detail-col">
+                        <label>City</label>
+                        <p>{{ company.City || 'Not provided' }}</p>
+                      </div>
+                      <div class="detail-col-half">
+                        <label>State</label>
+                        <p>{{ company.State || 'Not provided' }}</p>
+                      </div>
+                      <div class="detail-col-half">
+                        <label>Zip</label>
+                        <p>{{ company.Zip || 'Not provided' }}</p>
+                      </div>
                     </div>
-                    <div class="balance-amount" [class.has-balance]="getCompanyOutstandingData(company.CompanyID).balance > 0">
+                  </div>
+
+                  <!-- Notes -->
+                  <div class="detail-section" *ngIf="company.Notes">
+                    <h4>Notes</h4>
+                    <p class="wrap-text">{{ company.Notes }}</p>
+                  </div>
+                </div>
+
+                <!-- Services Offered -->
+                <div class="rollup-flat-section">
+                  <h4>Services Offered</h4>
+                  <div *ngIf="getCompanyOffers(company.CompanyID).length > 0; else noPartnerOffers" class="list-table services-table">
+                    <div class="list-table-header">
+                      <span class="lt-col lt-col-property">Service</span>
+                      <span class="lt-col lt-col-amount">Fee</span>
+                      <span class="lt-col lt-col-amount">Partner</span>
+                    </div>
+                    <div class="list-table-row" *ngFor="let offer of getCompanyOffers(company.CompanyID)">
+                      <span class="lt-col lt-col-property">{{ offer.typeName }}</span>
+                      <span class="lt-col lt-col-amount">
+                        <span *ngIf="offer.ClientFee"><span class="currency-sign">$</span><span class="currency-value">{{ offer.ClientFee | number:'1.2-2' }}</span></span>
+                        <span *ngIf="!offer.ClientFee">—</span>
+                      </span>
+                      <span class="lt-col lt-col-amount">
+                        <span *ngIf="offer.ServiceFee"><span class="currency-sign">$</span><span class="currency-value">{{ offer.ServiceFee | number:'1.2-2' }}</span></span>
+                        <span *ngIf="!offer.ServiceFee">—</span>
+                      </span>
+                    </div>
+                  </div>
+                  <ng-template #noPartnerOffers>
+                    <p class="not-provided">No services configured</p>
+                  </ng-template>
+                </div>
+
+                <!-- Outstanding Balance -->
+                <div class="rollup-flat-section">
+                  <div class="flat-section-header">
+                    <h4>Outstanding Balance</h4>
+                    <span class="balance-total" [class.has-balance]="getCompanyOutstandingData(company.CompanyID).balance > 0">
                       <ion-spinner *ngIf="getCompanyOutstandingData(company.CompanyID).loading" name="crescent"></ion-spinner>
                       <span *ngIf="!getCompanyOutstandingData(company.CompanyID).loading">
                         {{ getCompanyOutstandingData(company.CompanyID).balance | currency:'USD':'symbol':'1.2-2' }}
                       </span>
-                    </div>
+                    </span>
                   </div>
-                  <div class="unpaid-invoices-list" *ngIf="getCompanyOutstandingData(company.CompanyID).invoices.length > 0">
-                    <div class="unpaid-invoice-item" *ngFor="let inv of getCompanyOutstandingData(company.CompanyID).invoices">
-                      <div class="invoice-details">
-                        <span class="invoice-address">{{ inv.projectAddress }}</span>
-                        <span class="invoice-service">{{ inv.serviceName }}</span>
-                      </div>
-                      <div class="invoice-amount">{{ inv.remaining | currency:'USD':'symbol':'1.2-2' }}</div>
+                  <div *ngIf="getCompanyOutstandingData(company.CompanyID).invoices.length > 0" class="list-table balance-table">
+                    <div class="list-table-header">
+                      <span class="lt-col lt-col-property">Property</span>
+                      <span class="lt-col lt-col-service">Service</span>
+                      <span class="lt-col lt-col-amount">Fee</span>
+                      <span class="lt-col lt-col-amount">Balance</span>
+                    </div>
+                    <div class="list-table-row" *ngFor="let inv of getCompanyOutstandingData(company.CompanyID).invoices">
+                      <span class="lt-col lt-col-property">{{ inv.projectAddress }}</span>
+                      <span class="lt-col lt-col-service">{{ inv.serviceShortNames }}</span>
+                      <span class="lt-col lt-col-amount"><span class="currency-sign">$</span><span class="currency-value">{{ inv.fee | number:'1.2-2' }}</span></span>
+                      <span class="lt-col lt-col-amount balance-due"><span class="currency-sign">$</span><span class="currency-value">{{ inv.balance | number:'1.2-2' }}</span></span>
                     </div>
                   </div>
                   <div class="no-balance-message" *ngIf="!getCompanyOutstandingData(company.CompanyID).loading && getCompanyOutstandingData(company.CompanyID).balance === 0">
@@ -543,62 +583,70 @@
                     <span>No outstanding balance</span>
                   </div>
                 </div>
-                <!-- Payment History Section -->
-                <div class="payment-history-section" *ngIf="getCompanyOutstandingData(company.CompanyID).paidInvoices.length > 0">
-                  <div class="section-title">
-                    <ion-icon name="card-outline"></ion-icon>
-                    <span>Payment History</span>
-                  </div>
-                  <div class="responsive-table dark-outline">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Date</th>
-                          <th>Property</th>
-                          <th>Amount</th>
-                          <th>Balance</th>
-                          <th></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr *ngFor="let payment of getCompanyOutstandingData(company.CompanyID).paidInvoices">
-                          <td>{{ payment.paidDate ? (payment.paidDate | date:'shortDate') : 'N/A' }}</td>
-                          <td class="truncate-text">{{ payment.projectAddress }}</td>
-                          <td class="payment-amount">{{ payment.paidAmount | currency:'USD':'symbol':'1.2-2' }}</td>
-                          <td [class.has-balance]="payment.balance > 0">{{ payment.balance | currency:'USD':'symbol':'1.2-2' }}</td>
-                          <td>
-                            <button class="download-btn" (click)="downloadInvoice(payment, company.CompanyName)" title="Download Invoice">
-                              <ion-icon name="download-outline"></ion-icon>
-                            </button>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-                <div class="detail-row">
-                  <div class="detail-col" style="grid-column: 1 / -1;">
-                    <label>Services Offered</label>
-                    <div *ngIf="getCompanyOffers(company.CompanyID).length > 0; else noCompanyOffers" class="services-list" style="margin-top: 8px;">
-                      <div class="services-list-header">
-                        <span class="sl-col-service">Service</span>
-                        <span class="sl-col-fee">Fee</span>
-                      </div>
-                      <div class="services-list-row" *ngFor="let offer of getCompanyOffers(company.CompanyID)">
-                        <span class="sl-col-service">{{ offer.typeName }}</span>
-                        <span class="sl-col-fee">{{ offer.ServiceFee ? ('$' + offer.ServiceFee) : '—' }}</span>
-                      </div>
+
+                <!-- Payment History -->
+                <div class="rollup-flat-section" *ngIf="getCompanyOutstandingData(company.CompanyID).paidInvoices.length > 0">
+                  <h4>Payment History</h4>
+                  <div class="list-table history-table">
+                    <div class="list-table-header">
+                      <span class="lt-col lt-col-date">Date</span>
+                      <span class="lt-col lt-col-property">Property</span>
+                      <span class="lt-col lt-col-amount">Amount</span>
+                      <span class="lt-col lt-col-amount">Balance</span>
+                      <span class="lt-col lt-col-action"></span>
                     </div>
-                    <ng-template #noCompanyOffers>
-                      <p class="no-data-text">No services configured</p>
-                    </ng-template>
+                    <div class="list-table-row" *ngFor="let payment of getCompanyOutstandingData(company.CompanyID).paidInvoices">
+                      <span class="lt-col lt-col-date">{{ payment.paidDate ? (payment.paidDate | date:'shortDate') : 'N/A' }}</span>
+                      <span class="lt-col lt-col-property truncate-cell">{{ payment.projectAddress }}</span>
+                      <span class="lt-col lt-col-amount"><span class="currency-sign">$</span><span class="currency-value">{{ payment.paidAmount | number:'1.2-2' }}</span></span>
+                      <span class="lt-col lt-col-amount" [class.balance-due]="payment.balance > 0"><span class="currency-sign">$</span><span class="currency-value">{{ payment.balance | number:'1.2-2' }}</span></span>
+                      <span class="lt-col lt-col-action">
+                        <button class="download-invoice-btn" (click)="downloadInvoice(payment, company.CompanyName)" title="Download Receipt">
+                          <ion-icon name="download-outline"></ion-icon>
+                        </button>
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <div class="rollup-actions">
-                  <button class="action-btn" (click)="editCompany(company, $event)">
-                    <ion-icon name="create-outline"></ion-icon>
-                    <span>Edit Company</span>
-                  </button>
+
+                <!-- Autopay -->
+                <div class="rollup-flat-section">
+                  <h4>Autopay</h4>
+                  <div class="autopay-inline">
+                    <div class="autopay-inline-item">
+                      <span *ngIf="company.AutopayEnabled" class="autopay-badge enabled">
+                        <ion-icon name="checkmark-circle"></ion-icon> Enabled
+                      </span>
+                      <span *ngIf="!company.AutopayEnabled" class="autopay-badge disabled">
+                        <ion-icon name="close-circle"></ion-icon> Disabled
+                      </span>
+                      <span *ngIf="company.AutopayReviewRequired" class="autopay-badge review">
+                        <ion-icon name="eye-outline"></ion-icon> Review
+                      </span>
+                    </div>
+                    <div class="autopay-inline-item">
+                      <span *ngIf="company.StripePaymentMethodID" class="payment-method-tag stripe">
+                        <ion-icon name="business-outline"></ion-icon>
+                        {{ company.StripeBankName || 'Bank' }} ****{{ company.StripeBankLast4 }}
+                      </span>
+                      <span *ngIf="company.PayPalPayerEmail && !company.StripePaymentMethodID" class="payment-method-tag paypal">
+                        <ion-icon name="logo-paypal"></ion-icon>
+                        {{ company.PayPalPayerEmail }}
+                      </span>
+                      <span *ngIf="!company.PayPalPayerEmail && !company.StripePaymentMethodID" class="not-provided">No payment method</span>
+                    </div>
+                    <div class="autopay-inline-actions">
+                      <button class="action-btn-sm" (click)="openStripeAchModal(company)">
+                        <ion-icon name="link-outline"></ion-icon> Link
+                      </button>
+                      <button
+                        class="action-btn-sm primary"
+                        (click)="triggerAutopay(company)"
+                        [disabled]="!company.AutopayEnabled || (!company.PayPalVaultToken && !company.StripePaymentMethodID) || getCompanyOutstandingData(company.CompanyID).balance === 0">
+                        {{ company.AutopayReviewRequired ? 'Approve' : 'Run' }}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -654,42 +702,36 @@
 
       <div class="contact-groups" *ngIf="!isLoading && paginatedContactGroups.length; else emptyContacts">
         <div class="contact-group" *ngFor="let group of paginatedContactGroups; trackBy: trackByContactGroup">
-          <div class="contact-group-header">
-            <h4>{{ group.companyName }}</h4>
-            <div class="metric-badge">
-              <ion-icon name="people-outline"></ion-icon>
-              <span>{{ group.contacts.length }}</span>
+          <div class="stage-header" (click)="toggleContactGroupExpand(group.companyName, $event)">
+            <div class="stage-info">
+              <ion-icon class="collapse-chevron" [name]="isContactGroupExpanded(group.companyName) ? 'chevron-down' : 'chevron-forward'"></ion-icon>
+              <h3 class="stage-name">{{ group.companyName }}</h3>
+              <span class="stage-count">{{ group.contacts.length }} {{ group.contacts.length === 1 ? 'contact' : 'contacts' }}</span>
             </div>
           </div>
-          <div class="responsive-table dark-outline">
-            <table>
-              <thead>
-                <tr>
-                  <th>Contact</th>
-                  <th>Title</th>
-                  <th>Phone</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let contact of group.contacts; trackBy: trackByContact">
-                  <td>
-                    <button type="button" class="contact-name-button" (click)="openEditContactModal(contact)">
-                      {{ contact.Name }}
-                    </button>
-                    <ion-chip *ngIf="contact.PrimaryContact" color="success" size="small">Primary</ion-chip>
-                  </td>
-                  <td>
-                    {{ contact.Title || '—' }}
-                  </td>
-                  <td>
-                    <a *ngIf="contact.Phone1" [href]="'tel:' + contact.Phone1" class="phone-link">
-                      {{ formatPhone(contact.Phone1) }}
-                    </a>
-                    <span *ngIf="!contact.Phone1">—</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="contact-group-body" *ngIf="isContactGroupExpanded(group.companyName)">
+            <div class="list-table contacts-table">
+              <div class="list-table-header">
+                <span class="lt-col lt-col-property">Contact</span>
+                <span class="lt-col lt-col-service">Title</span>
+                <span class="lt-col lt-col-amount">Phone</span>
+              </div>
+              <div class="list-table-row" *ngFor="let contact of group.contacts; trackBy: trackByContact">
+                <span class="lt-col lt-col-property">
+                  <button type="button" class="contact-name-button" (click)="openEditContactModal(contact)">
+                    {{ contact.Name }}
+                  </button>
+                  <ion-chip *ngIf="contact.PrimaryContact" color="success" size="small">Primary</ion-chip>
+                </span>
+                <span class="lt-col lt-col-service">{{ contact.Title || '—' }}</span>
+                <span class="lt-col lt-col-amount">
+                  <a *ngIf="contact.Phone1" [href]="'tel:' + contact.Phone1" class="phone-link">
+                    {{ formatPhone(contact.Phone1) }}
+                  </a>
+                  <span *ngIf="!contact.Phone1">—</span>
+                </span>
+              </div>
+            </div>
           </div>
         </div>
         <div class="pagination-controls" *ngIf="totalContactPages > 1">
@@ -727,7 +769,7 @@
             Add Task
           </ion-button>
         </div>
-        <div class="filter-row">
+        <div class="filter-row filter-row-centered">
           <div class="filter-group">
             <label for="status-filter">Status</label>
             <select
@@ -752,24 +794,20 @@
               <option *ngFor="let person of taskAssignees" [value]="person">{{ person }}</option>
             </select>
           </div>
-
-          <div class="filter-group">
-            <label>Timeline</label>
-            <div class="task-time-tabs">
-              <button class="time-tab" [class.active]="taskFilters.timeframe === 'overdue'" (click)="setTaskTimeframe('overdue')">
-                Overdue
-              </button>
-              <button class="time-tab" [class.active]="taskFilters.timeframe === 'past'" (click)="setTaskTimeframe('past')">
-                Past
-              </button>
-              <button class="time-tab" [class.active]="taskFilters.timeframe === '7day'" (click)="setTaskTimeframe('7day')">
-                7 Day
-              </button>
-              <button class="time-tab" [class.active]="taskFilters.timeframe === 'all'" (click)="setTaskTimeframe('all')">
-                All
-              </button>
-            </div>
-          </div>
+        </div>
+        <div class="invoice-tabs task-timeline-tabs">
+          <button class="invoice-tab" [class.active]="taskFilters.timeframe === 'overdue'" (click)="setTaskTimeframe('overdue')">
+            Overdue
+          </button>
+          <button class="invoice-tab" [class.active]="taskFilters.timeframe === 'past'" (click)="setTaskTimeframe('past')">
+            Past
+          </button>
+          <button class="invoice-tab" [class.active]="taskFilters.timeframe === '7day'" (click)="setTaskTimeframe('7day')">
+            7 Day
+          </button>
+          <button class="invoice-tab" [class.active]="taskFilters.timeframe === 'all'" (click)="setTaskTimeframe('all')">
+            All
+          </button>
         </div>
       </div>
 
@@ -992,143 +1030,11 @@
         </div>
       </ng-template>
     </div>
-    <div *ngIf="selectedTab === 'metrics'" class="tab-content metrics-tab">
-      <div class="section-header">
-        <div>
-          <h3>Metrics</h3>
-          <p>Business metrics and analytics</p>
-        </div>
-      </div>
-
-      <!-- Skeleton loaders for metrics -->
-      <div *ngIf="isLoading" class="skeleton-metrics-container">
-        <div class="skeleton-chart-container" *ngFor="let i of [1,2]">
-          <div class="skeleton-chart-header">
-            <div class="skeleton-chart-title"></div>
-            <div class="skeleton-chart-subtitle"></div>
-          </div>
-          <div class="skeleton-chart-wrapper">
-            <div class="skeleton-chart"></div>
-          </div>
-        </div>
-      </div>
-
-      <div *ngIf="!isLoading" class="chart-container">
-        <div class="chart-header">
-          <h4>Revenue Over Time</h4>
-          <p>Monthly invoice revenue</p>
-        </div>
-        <div class="chart-wrapper">
-          <canvas id="revenueChart"></canvas>
-        </div>
-      </div>
-
-      <div *ngIf="!isLoading" class="chart-container">
-        <div class="chart-header">
-          <h4>Projects by Service Type</h4>
-          <p>Completed projects and revenue by service category</p>
-        </div>
-        <div class="chart-wrapper">
-          <canvas id="projectsByTypeChart"></canvas>
-        </div>
-      </div>
-    </div>
-    <div *ngIf="selectedTab === 'users'" class="tab-content users-tab">
-      <div class="tab-header">
-        <div class="search-and-action">
-          <div class="search-wrapper">
-            <ion-searchbar
-              [(ngModel)]="usersSearchTerm"
-              (ionChange)="onUserSearchChange($event.detail.value)"
-              placeholder="Search users by name, email, or title"
-              animated="true"
-              class="modern-search">
-            </ion-searchbar>
-          </div>
-          <ion-button size="small" (click)="openAddUserModal()" class="add-button">
-            <ion-icon name="add-circle-outline" slot="start"></ion-icon>
-            Add User
-          </ion-button>
-        </div>
-      </div>
-
-      <!-- Skeleton loaders for users -->
-      <div *ngIf="isLoading" class="skeleton-users-grid">
-        <div class="skeleton-user-card" *ngFor="let i of [1,2,3,4,5,6]">
-          <div class="skeleton-user-header">
-            <div class="skeleton-user-avatar"></div>
-            <div class="skeleton-user-info">
-              <div class="skeleton-user-name"></div>
-              <div class="skeleton-user-role"></div>
-            </div>
-          </div>
-          <div class="skeleton-user-details">
-            <div class="skeleton-user-detail-item">
-              <div class="skeleton-icon"></div>
-              <div class="skeleton-detail-text"></div>
-            </div>
-            <div class="skeleton-user-detail-item">
-              <div class="skeleton-icon"></div>
-              <div class="skeleton-detail-text"></div>
-            </div>
-            <div class="skeleton-user-detail-item">
-              <div class="skeleton-icon"></div>
-              <div class="skeleton-detail-text"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div *ngIf="!isLoading && filteredUsers.length; else emptyUsers" class="users-grid">
-        <div class="user-card" *ngFor="let user of filteredUsers">
-          <div class="org-user-actions">
-            <ion-icon name="create-outline" class="action-edit" (click)="openEditUserModal(user)" title="Edit user"></ion-icon>
-            <ion-icon name="trash-outline" class="action-delete" (click)="deleteUser(user, $event)" title="Delete user"></ion-icon>
-          </div>
-          <div class="user-card-content">
-            <div class="user-header">
-              <div class="user-avatar">
-                <img *ngIf="getUserHeadshot(user)" [src]="getUserHeadshot(user)" [alt]="user.Name" class="headshot-image">
-                <div *ngIf="!getUserHeadshot(user)" class="headshot-placeholder">
-                  <ion-icon name="person"></ion-icon>
-                </div>
-              </div>
-              <div class="user-info">
-                <h4>{{ user.Name || 'Unnamed User' }}</h4>
-                <p class="user-role">{{ user.Title || 'No title assigned' }}</p>
-              </div>
-            </div>
-            <div class="user-details">
-              <div class="user-detail-item" *ngIf="user.Email">
-                <ion-icon name="mail-outline"></ion-icon>
-                <a [href]="'mailto:' + user.Email" (click)="$event.stopPropagation()">{{ user.Email }}</a>
-              </div>
-              <div class="user-detail-item" *ngIf="user.Phone">
-                <ion-icon name="call-outline"></ion-icon>
-                <a [href]="'tel:' + user.Phone" class="phone-link" (click)="$event.stopPropagation()">{{ formatPhone(user.Phone) }}</a>
-              </div>
-              <div class="user-detail-item">
-                <ion-icon name="business-outline"></ion-icon>
-                <span>{{ getCompanyName(user.CompanyID) }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <ng-template #emptyUsers>
-        <div *ngIf="!isLoading" class="empty-tab-state">
-          <ion-icon name="people-outline"></ion-icon>
-          <h3>No users found</h3>
-          <p>No users match your filters or company selection.</p>
-        </div>
-      </ng-template>
-    </div>
     <div *ngIf="selectedTab === 'invoices'" class="tab-content invoices-tab">
-      <!-- Autopay Due Today Banner -->
+      <!-- Autopay Ready Banner -->
       <div *ngIf="autopayDueCompanies.length > 0 && !autopayAutoCharge" class="autopay-due-banner">
         <ion-icon name="alert-circle"></ion-icon>
-        <span><strong>{{ autopayDueCompanies.length }}</strong> company(s) have autopay due today. Review each company and manually run their payment.</span>
+        <span><strong>{{ autopayDueCompanies.length }}</strong> company(s) have outstanding balances with autopay enabled. Review each company and manually run their payment.</span>
       </div>
 
       <!-- Global Autopay Auto-Charge Toggle -->
@@ -1137,7 +1043,7 @@
           <ion-icon name="flash-outline"></ion-icon>
           <div>
             <span class="setting-label">Auto-Charge</span>
-            <span class="setting-description">{{ autopayAutoCharge ? 'Payments auto-charge on schedule' : 'Manual trigger only — no auto-charging' }}</span>
+            <span class="setting-description">{{ autopayAutoCharge ? 'Payments auto-charge on project completion' : 'Manual trigger only — no auto-charging' }}</span>
           </div>
         </div>
         <ion-toggle [checked]="autopayAutoCharge" (ionChange)="toggleAutopaySystem($event)" mode="ios"></ion-toggle>
@@ -1196,45 +1102,33 @@
       </div>
 
       <div class="invoice-groups" *ngIf="!isLoading && paginatedInvoiceGroups.length; else emptyInvoices">
-        <div class="invoice-group" *ngFor="let group of paginatedInvoiceGroups; trackBy: trackByInvoiceGroup">
-          <div class="invoice-group-header">
-            <h4>{{ group.companyName }}</h4>
-            <div class="metric-badge">
-              <ion-icon name="receipt-outline"></ion-icon>
-              <span>{{ group.invoices.length }}</span>
+        <div class="invoice-group stage-container" *ngFor="let group of paginatedInvoiceGroups; trackBy: trackByInvoiceGroup">
+          <div class="stage-header" (click)="toggleInvoiceGroupExpand(group.companyName, $event)">
+            <div class="stage-info">
+              <ion-icon class="collapse-chevron" [name]="isInvoiceGroupExpanded(group.companyName) ? 'chevron-down' : 'chevron-forward'"></ion-icon>
+              <h3 class="stage-name">{{ group.companyName }}</h3>
+              <span class="stage-count">{{ group.invoices.length }} {{ group.invoices.length === 1 ? 'invoice' : 'invoices' }}</span>
             </div>
           </div>
-          <div class="invoices-list">
-            <div class="invoice-item" *ngFor="let invoice of group.invoices; trackBy: trackByInvoice">
-              <div class="invoice-headers">
-                <div class="invoice-header-cell">Address</div>
-                <div class="invoice-header-cell">Service</div>
-                <div class="invoice-header-cell invoice-header-right">
-                  <span class="desktop-label">Amount Due</span>
-                  <span class="mobile-label">Due</span>
-                </div>
+          <div class="invoice-group-body" *ngIf="isInvoiceGroupExpanded(group.companyName)">
+            <div class="list-table invoice-list-table">
+              <div class="list-table-header">
+                <span class="lt-col lt-col-property">Address</span>
+                <span class="lt-col lt-col-service">Service</span>
+                <span class="lt-col lt-col-amount">Amount Due</span>
+                <span class="lt-col lt-col-action"></span>
               </div>
-              <div class="invoice-content" (click)="openEditInvoiceModal(invoice)">
-                <div class="invoice-row">
-                  <div class="invoice-value">{{ invoice.positive.Address || '—' }}</div>
-                  <div class="invoice-value">{{ invoice.serviceName || '—' }}</div>
-                  <div class="invoice-value invoice-value-with-action">
-                    <span class="amount-value">{{ formatCurrency(invoice.netAmount) }}</span>
-                    <div class="invoice-actions">
-                      <button class="add-invoice-btn" 
-                              (click)="openAddInvoiceModal(invoice); $event.stopPropagation()">
-                        <ion-icon name="add-circle-outline"></ion-icon>
-                        Add Invoice
-                      </button>
-                      <button class="pay-invoice-btn" 
-                              (click)="openInvoicePaymentModal(invoice); $event.stopPropagation()" 
-                              *ngIf="invoice.netAmount > 0">
-                        <ion-icon name="card-outline"></ion-icon>
-                        Pay
-                      </button>
-                    </div>
-                  </div>
-                </div>
+              <div class="list-table-row clickable-row" *ngFor="let invoice of group.invoices; trackBy: trackByInvoice" (click)="openEditInvoiceModal(invoice)">
+                <span class="lt-col lt-col-property">{{ invoice.positive.Address || '—' }}</span>
+                <span class="lt-col lt-col-service">{{ invoice.serviceName || '—' }}</span>
+                <span class="lt-col lt-col-amount balance-due">
+                  <span class="currency-sign">$</span><span class="currency-value">{{ invoice.netAmount | number:'1.2-2' }}</span>
+                </span>
+                <span class="lt-col lt-col-action invoice-row-actions">
+                  <button class="action-btn-sm" (click)="openAddInvoiceModal(invoice); $event.stopPropagation()" title="Added Service">
+                    <ion-icon name="add-circle-outline"></ion-icon>
+                  </button>
+                </span>
               </div>
             </div>
           </div>
@@ -1370,6 +1264,42 @@
       </div>
     </div>
 
+    <!-- Metrics Main Tab Content -->
+    <div *ngIf="adminMainTab === 'metrics'" class="admin-tab-content metrics-tab">
+      <!-- Skeleton loaders for metrics -->
+      <div *ngIf="isLoading" class="skeleton-metrics-container">
+        <div class="skeleton-chart-container" *ngFor="let i of [1,2]">
+          <div class="skeleton-chart-header">
+            <div class="skeleton-chart-title"></div>
+            <div class="skeleton-chart-subtitle"></div>
+          </div>
+          <div class="skeleton-chart-wrapper">
+            <div class="skeleton-chart"></div>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="!isLoading" class="chart-container">
+        <div class="chart-header">
+          <h4>Revenue Over Time</h4>
+          <p>Monthly invoice revenue</p>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="revenueChart"></canvas>
+        </div>
+      </div>
+
+      <div *ngIf="!isLoading" class="chart-container">
+        <div class="chart-header">
+          <h4>Projects by Service Type</h4>
+          <p>Completed projects and revenue by service category</p>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="projectsByTypeChart"></canvas>
+        </div>
+      </div>
+    </div>
+
     <!-- Bottom spacer to ensure full scrolling on mobile -->
     <div class="bottom-spacer"></div>
   </div>
@@ -1410,15 +1340,26 @@
         <div class="collapsible-content" [class.expanded]="detailsExpanded">
           <div class="client-details-card">
             <div class="client-details-header">
-              <div class="company-logo-container" *ngIf="clientCompany.Logo">
-                <img [src]="clientCompany.Logo" [alt]="clientCompany.CompanyName" class="company-logo">
-              </div>
-              <div class="company-logo-container logo-placeholder" *ngIf="!clientCompany.Logo">
-                <ion-icon name="business"></ion-icon>
+              <div class="company-logo-container">
+                <img [src]="clientCompany.Logo && !clientLogoFailed ? clientCompany.Logo : 'assets/img/company-logo-placeholder.svg'"
+                     [alt]="clientCompany.CompanyName"
+                     class="company-logo"
+                     (error)="clientLogoFailed = true">
               </div>
               <div class="company-name-block">
                 <h2>{{ clientCompany.CompanyName }}</h2>
                 <p *ngIf="clientCompany.ServiceArea" class="service-area-text">{{ clientCompany.ServiceArea }}</p>
+                <div class="company-meta-tags">
+                  <span class="meta-tag" *ngIf="getClientSoftwareName()">
+                    <ion-icon name="desktop-outline"></ion-icon> {{ getClientSoftwareName() }}
+                  </span>
+                  <span class="meta-tag" *ngIf="clientCompany.Size">
+                    <ion-icon name="people-outline"></ion-icon> {{ clientCompany.Size }}
+                  </span>
+                  <span class="meta-tag" *ngIf="clientCompany.Franchise">
+                    <ion-icon name="storefront-outline"></ion-icon> Franchise
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -1586,11 +1527,17 @@
             <ion-icon [name]="outstandingBalanceExpanded ? 'chevron-down' : 'chevron-forward'" class="collapse-chevron"></ion-icon>
             <h3>Outstanding Balance</h3>
           </div>
-          <div class="balance-total" [class.has-balance]="getCompanyOutstandingData(currentUserCompanyId || 0).balance > 0">
-            <ion-spinner *ngIf="getCompanyOutstandingData(currentUserCompanyId || 0).loading" name="crescent"></ion-spinner>
-            <span *ngIf="!getCompanyOutstandingData(currentUserCompanyId || 0).loading">
-              {{ getCompanyOutstandingData(currentUserCompanyId || 0).balance | currency:'USD':'symbol':'1.2-2' }}
-            </span>
+          <div class="balance-actions">
+            <button class="pay-now-btn" (click)="openBalancePaymentModal($event)" *ngIf="getCompanyOutstandingData(currentUserCompanyId || 0).balance > 0 && !getCompanyOutstandingData(currentUserCompanyId || 0).loading">
+              <ion-icon name="card-outline"></ion-icon>
+              PAY
+            </button>
+            <div class="balance-total" [class.has-balance]="getCompanyOutstandingData(currentUserCompanyId || 0).balance > 0">
+              <ion-spinner *ngIf="getCompanyOutstandingData(currentUserCompanyId || 0).loading" name="crescent"></ion-spinner>
+              <span *ngIf="!getCompanyOutstandingData(currentUserCompanyId || 0).loading">
+                {{ getCompanyOutstandingData(currentUserCompanyId || 0).balance | currency:'USD':'symbol':'1.2-2' }}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -1605,9 +1552,9 @@
               </div>
               <div class="list-table-row" *ngFor="let inv of getCompanyOutstandingData(currentUserCompanyId || 0).invoices">
                 <span class="lt-col lt-col-property">{{ inv.projectAddress }}</span>
-                <span class="lt-col lt-col-service">{{ inv.serviceName }}</span>
+                <span class="lt-col lt-col-service">{{ inv.serviceShortNames }}</span>
                 <span class="lt-col lt-col-amount"><span class="currency-sign">$</span><span class="currency-value">{{ inv.fee | number:'1.2-2' }}</span></span>
-                <span class="lt-col lt-col-amount balance-due"><span class="currency-sign">$</span><span class="currency-value">{{ inv.remaining | number:'1.2-2' }}</span></span>
+                <span class="lt-col lt-col-amount balance-due"><span class="currency-sign">$</span><span class="currency-value">{{ inv.balance | number:'1.2-2' }}</span></span>
               </div>
             </div>
           </div>
@@ -1644,7 +1591,7 @@
                 <span class="lt-col lt-col-amount"><span class="currency-sign">$</span><span class="currency-value">{{ payment.paidAmount | number:'1.2-2' }}</span></span>
                 <span class="lt-col lt-col-amount" [class.balance-due]="payment.balance > 0"><span class="currency-sign">$</span><span class="currency-value">{{ payment.balance | number:'1.2-2' }}</span></span>
                 <span class="lt-col lt-col-action">
-                  <button class="download-invoice-btn" (click)="downloadInvoice(payment, clientCompany?.CompanyName || 'Company')" title="Download Invoice">
+                  <button class="download-invoice-btn" (click)="downloadInvoice(payment, clientCompany?.CompanyName || 'Company')" title="Download Receipt">
                     <ion-icon name="download-outline"></ion-icon>
                   </button>
                 </span>
@@ -1679,22 +1626,6 @@
               (ngModelChange)="toggleAutopay($event)"
               [disabled]="!clientCompany?.PayPalVaultToken && !clientCompany?.StripePaymentMethodID">
             </ion-toggle>
-          </div>
-
-          <div class="setting-row">
-            <div class="setting-info">
-              <span class="setting-label">Payment Day</span>
-              <span class="setting-description">Day of month to process payments</span>
-            </div>
-            <select
-              class="autopay-day-select"
-              [ngModel]="clientCompany?.AutopayDay || 1"
-              (ngModelChange)="updateAutopayDay($event)"
-              [disabled]="!clientCompany?.PayPalVaultToken && !clientCompany?.StripePaymentMethodID">
-              <option *ngFor="let day of getAutopayDayOptions()" [value]="day">
-                {{ formatAutopayDay(day) }}
-              </option>
-            </select>
           </div>
 
           <div class="setting-row">
@@ -1879,13 +1810,10 @@
         <div class="form-section edit-logo-section">
           <div class="edit-logo-row">
             <div class="edit-logo-container">
-              <img *ngIf="editingCompanyLogoPreview || editingCompany.Logo"
-                   [src]="editingCompanyLogoPreview || editingCompany.Logo"
+              <img [src]="editingCompanyLogoPreview ? editingCompanyLogoPreview : (editingCompany.Logo && !editLogoFailed ? editingCompany.Logo : 'assets/img/company-logo-placeholder.svg')"
                    alt="Company Logo"
-                   class="edit-logo-image">
-              <div *ngIf="!editingCompanyLogoPreview && !editingCompany.Logo" class="edit-logo-placeholder">
-                <ion-icon name="image-outline"></ion-icon>
-              </div>
+                   class="edit-logo-image"
+                   (error)="editLogoFailed = true">
               <label class="edit-logo-overlay" for="logoFileInput">
                 <ion-icon name="camera"></ion-icon>
               </label>
@@ -1935,8 +1863,6 @@
                 </option>
               </select>
             </div>
-          </div>
-          <div class="form-row">
             <div class="form-field">
               <label>Size</label>
               <select [(ngModel)]="editingCompany.Size" class="form-input">
@@ -1950,7 +1876,22 @@
               <label>Franchise</label>
               <ion-toggle [(ngModel)]="editingCompany.Franchise"></ion-toggle>
             </div>
-            <div class="form-field" *ngIf="isCompanyOne">
+          </div>
+          <div class="form-row" *ngIf="isCompanyOne">
+            <div class="form-field">
+              <label>Size</label>
+              <select [(ngModel)]="editingCompany.Size" class="form-input">
+                <option value="">-- Select --</option>
+                <option *ngFor="let size of uniqueCompanySizes" [value]="size">
+                  {{ size }}
+                </option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>Franchise</label>
+              <ion-toggle [(ngModel)]="editingCompany.Franchise"></ion-toggle>
+            </div>
+            <div class="form-field">
               <label>Lead Source</label>
               <input type="text" [(ngModel)]="editingCompany.LeadSource" class="form-input">
             </div>
@@ -2122,17 +2063,6 @@
                 <ion-icon name="link-outline"></ion-icon>
                 Link Bank Account
               </button>
-            </div>
-          </div>
-
-          <div class="form-row" *ngIf="editingCompany.AutopayEnabled">
-            <div class="form-field">
-              <label>Autopay Day of Month</label>
-              <select [(ngModel)]="editingCompany.AutopayDay" class="form-input">
-                <option *ngFor="let day of getAutopayDayOptions()" [value]="day">
-                  {{ formatAutopayDay(day) }}
-                </option>
-              </select>
             </div>
           </div>
 
@@ -2968,7 +2898,7 @@
             <ion-icon slot="icon-only" name="close"></ion-icon>
           </ion-button>
         </ion-buttons>
-        <ion-title>Edit Invoice</ion-title>
+        <ion-title>Invoice Detail</ion-title>
         <ion-buttons slot="end">
           <ion-button (click)="saveEditedInvoice()" [strong]="true">
             <ion-icon slot="icon-only" name="checkmark"></ion-icon>
@@ -2978,6 +2908,23 @@
     </ion-header>
     <ion-content class="edit-modal-content" *ngIf="editingInvoice">
       <div class="edit-form">
+        <div class="form-section">
+          <h4>Fee Breakdown</h4>
+          <div class="fee-breakdown-list">
+            <div class="fee-breakdown-item" *ngFor="let record of editingInvoice.allPositives">
+              <span class="fee-label">{{ getInvoiceLineLabel(record) }}</span>
+              <span class="fee-amount">{{ formatCurrency(record.Fee) }}</span>
+            </div>
+            <div class="fee-breakdown-item payment-item" *ngFor="let record of editingInvoice.allNegatives">
+              <span class="fee-label">Payment</span>
+              <span class="fee-amount payment-amount">{{ formatCurrency(record.Fee) }}</span>
+            </div>
+            <div class="fee-breakdown-total">
+              <span class="fee-label">Total Due</span>
+              <span class="fee-amount">{{ formatCurrency(editingInvoice.netAmount) }}</span>
+            </div>
+          </div>
+        </div>
         <div class="form-section">
           <h4>Invoice Information</h4>
           <div class="form-row">
@@ -3009,25 +2956,11 @@
               <label>Date</label>
               <input type="date" [(ngModel)]="editingInvoice.positive.Date" class="form-input">
             </div>
-            <div class="form-field">
-              <label>Amount</label>
-              <input type="number" [(ngModel)]="editingInvoice.positive.Fee" class="form-input" placeholder="0.00" step="0.01" min="0">
-            </div>
           </div>
           <div class="form-row">
             <div class="form-field full-width">
               <label>Notes</label>
               <textarea [(ngModel)]="editingInvoice.positive.InvoiceNotes" class="form-textarea" rows="3" placeholder="Invoice notes..."></textarea>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-field">
-              <label>Paid Amount</label>
-              <p class="read-only-field">{{ editingInvoice.negative ? formatCurrency(editingInvoice.negative.Fee) : '$0.00' }}</p>
-            </div>
-            <div class="form-field">
-              <label>Amount Due</label>
-              <p class="read-only-field">{{ formatCurrency(editingInvoice.netAmount) }}</p>
             </div>
           </div>
           <div class="form-row">
@@ -3053,7 +2986,7 @@
             <ion-icon slot="icon-only" name="close"></ion-icon>
           </ion-button>
         </ion-buttons>
-        <ion-title>Add Invoice</ion-title>
+        <ion-title>Added Service</ion-title>
         <ion-buttons slot="end">
           <ion-button (click)="saveNewInvoice()" [strong]="true">
             <ion-icon slot="icon-only" name="checkmark"></ion-icon>
@@ -3064,7 +2997,7 @@
     <ion-content class="edit-modal-content">
       <div class="edit-form">
         <div class="form-section">
-          <h4>Invoice Information</h4>
+          <h4>Added Service</h4>
           <div class="form-row">
             <div class="form-field full-width">
               <label>Project / Invoice Context</label>
@@ -3072,37 +3005,30 @@
             </div>
           </div>
           <div class="form-row">
-            <div class="form-field">
-              <label>Address</label>
-              <input type="text" [(ngModel)]="newInvoice.Address" class="form-input" placeholder="Address">
+            <div class="form-field full-width">
+              <label>Service Type</label>
+              <select [(ngModel)]="addedServiceType" class="form-input">
+                <option value="">-- Select --</option>
+                <option value="Rush Fee">Rush Fee</option>
+                <option value="Added Scope">Added Scope</option>
+                <option value="Other">Other</option>
+              </select>
             </div>
-            <div class="form-field">
-              <label>City</label>
-              <input type="text" [(ngModel)]="newInvoice.City" class="form-input" placeholder="City">
-            </div>
-            <div class="form-field">
-              <label>Zip</label>
-              <input type="text" [(ngModel)]="newInvoice.Zip" class="form-input" placeholder="Zip">
+          </div>
+          <div class="form-row" *ngIf="addedServiceType === 'Other'">
+            <div class="form-field full-width">
+              <label>Description</label>
+              <input type="text" [(ngModel)]="addedServiceCustomLabel" class="form-input" placeholder="Enter description...">
             </div>
           </div>
           <div class="form-row">
-            <div class="form-field">
-              <label>Date</label>
-              <input type="date" [(ngModel)]="newInvoice.Date" class="form-input">
-            </div>
             <div class="form-field">
               <label>Amount</label>
               <input type="number" [(ngModel)]="newInvoice.Fee" class="form-input" placeholder="0.00" step="0.01" min="0">
             </div>
-          </div>
-          <div class="form-row">
-            <div class="form-field full-width">
-              <label>Mode</label>
-              <select [(ngModel)]="newInvoice.Mode" class="form-input">
-                <option value="">-- Select --</option>
-                <option value="positive">Invoice (Charge)</option>
-                <option value="negative">Payment (Credit)</option>
-              </select>
+            <div class="form-field">
+              <label>Date</label>
+              <input type="date" [(ngModel)]="newInvoice.Date" class="form-input">
             </div>
           </div>
           <div class="form-row">

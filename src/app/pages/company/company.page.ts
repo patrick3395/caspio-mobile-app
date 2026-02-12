@@ -179,6 +179,7 @@ interface InvoiceRecord {
   InvoiceNotes: string;
   StateID: number | null;
   Mode: string;
+  AddedInvoice: string;
 }
 
 interface InvoiceViewModel extends InvoiceRecord {
@@ -207,6 +208,8 @@ interface InvoicePair {
   negative: InvoiceViewModel | null;
   projectDate: Date | null;
   netAmount: number;
+  allPositives: InvoiceViewModel[];
+  allNegatives: InvoiceViewModel[];
 }
 
 interface PaidInvoiceGroup {
@@ -239,12 +242,16 @@ export class CompanyPage implements OnInit, OnDestroy {
   organizationUsers: any[] = [];
 
   // Admin CRM main tab (Company vs Partners)
-  adminMainTab: 'company' | 'partners' = 'company';
+  adminMainTab: 'company' | 'partners' | 'metrics' = 'company';
   selectedTab: 'company' | 'companies' | 'contacts' | 'tasks' | 'meetings' | 'communications' | 'invoices' | 'metrics' | 'users' | 'notifications' = 'users';
+  adminDetailsExpanded = true;
+  adminUsersExpanded = true;
+  adminLogoFailed = false;
 
   // Client-only tabs (for non-CompanyID 1 users)
   clientTab: 'company' | 'payments' | 'metrics' = 'company';
   detailsExpanded = true;
+  clientLogoFailed = false;
   usersExpanded = true;
   servicesExpanded = true;
   deleteAccountExpanded = false;
@@ -274,11 +281,12 @@ export class CompanyPage implements OnInit, OnDestroy {
     loading: boolean;
     balance: number;
     invoices: Array<{
+      projectId: number;
       projectAddress: string;
-      serviceName: string;
+      serviceShortNames: string;
       fee: number;
-      paid: number;
-      remaining: number;
+      balance: number;
+      services: Array<{ name: string; fee: number }>;
     }>;
     paidInvoices: Array<{
       projectId: number;
@@ -422,6 +430,8 @@ export class CompanyPage implements OnInit, OnDestroy {
   uniqueLeadSources: string[] = [];
   softwareOptions: string[] = [];
   softwareNameToIdMap: Map<string, number> = new Map();
+  // Maps Size display label → Caspio List-String key (e.g. "Multi Inspector (2-5)" → "2")
+  sizeLabelToKeyMap: Map<string, string> = new Map();
 
   // Global company filter
   globalCompanyFilterId: number | null = null;
@@ -491,14 +501,18 @@ export class CompanyPage implements OnInit, OnDestroy {
     Date: '',
     Fee: 0,
     Mode: 'positive',
-    InvoiceNotes: ''
+    InvoiceNotes: '',
+    AddedInvoice: ''
   };
   newInvoiceContext: string = '';
+  addedServiceType: string = '';
+  addedServiceCustomLabel: string = '';
 
   editingCompany: any = null;
   isEditModalOpen = false;
   editingCompanyLogoFile: File | null = null;
   editingCompanyLogoPreview: string | null = null;
+  editLogoFailed = false;
 
   // Add company modal
   isAddCompanyModalOpen = false;
@@ -680,16 +694,52 @@ export class CompanyPage implements OnInit, OnDestroy {
       );
 
       if (response && response.Result && response.Result.length > 0) {
-        const company = response.Result[0];
-        this.currentUserCompanyName = company.CompanyName || company.Name || '';
-        // Store the full company record for client view (needed for Payment Settings)
+        const raw = response.Result[0];
+        this.currentUserCompanyName = raw.CompanyName || raw.Name || '';
+        // Normalize raw Caspio fields for client view
+        // SoftwareID may be text; Size may be string or Caspio ListBox object
+        const company = {
+          ...raw,
+          SoftwareID: typeof raw.SoftwareID === 'string' ? raw.SoftwareID : (raw.SoftwareID ?? ''),
+          Size: this.extractSizeLabel(raw.Size) || '',
+          CC_Email: raw.CC_Email ?? raw.CCEmail ?? '',
+          Franchise: raw.Franchise === true || raw.Franchise === 1 || raw.Franchise === 'Yes',
+        };
         this.companies = [company];
+
+        // Load software lookup for resolving numeric SoftwareID to name
+        this.loadSoftwareLookup();
 
         // Load outstanding invoices for the payment settings section
         this.loadOutstandingInvoices();
       }
     } catch (error) {
       console.error('Error loading company name:', error);
+    }
+  }
+
+  private async loadSoftwareLookup(): Promise<void> {
+    if (this.softwareNameToIdMap.size > 0) return;
+    try {
+      const response = await firstValueFrom(
+        this.caspioService.get<any>('/tables/LPS_Software/records?q.orderBy=Software&q.limit=500')
+      );
+      if (response?.Result) {
+        this.softwareNameToIdMap.clear();
+        this.softwareOptions = response.Result
+          .map((r: any) => {
+            const name = r.Software ?? r.Name ?? '';
+            const id = Number(r.SoftwareID ?? r.PK_ID ?? 0);
+            if (name.trim() !== '' && id > 0) {
+              this.softwareNameToIdMap.set(name, id);
+            }
+            return name;
+          })
+          .filter((name: string) => name.trim() !== '')
+          .sort();
+      }
+    } catch (e) {
+      console.error('Error loading software lookup:', e);
     }
   }
 
@@ -771,19 +821,17 @@ export class CompanyPage implements OnInit, OnDestroy {
     });
 
     try {
-      // Load projects, offers, and types in parallel
-      const [projectsResponse, offersResponse, typesResponse] = await Promise.all([
-        firstValueFrom(this.caspioService.get<any>(`/tables/LPS_Projects/records?q.where=CompanyID=${companyId}`)),
-        firstValueFrom(this.caspioService.get<any>(`/tables/LPS_Offers/records?q.where=CompanyID=${companyId}`)),
-        firstValueFrom(this.caspioService.get<any>('/tables/LPS_Type/records'))
-      ]);
+      // Load projects for this company
+      const projectsResponse = await firstValueFrom(
+        this.caspioService.get<any>(`/tables/LPS_Projects/records?q.where=CompanyID=${companyId}`)
+      );
 
       if (!projectsResponse?.Result?.length) {
         this.companyOutstandingData.set(companyId, { loading: false, balance: 0, invoices: [], paidInvoices: [] });
         return;
       }
 
-      // Build lookups
+      // Build project lookup
       const projectLookup = new Map<number, { address: string; projectId: number }>();
       projectsResponse.Result.forEach((p: any) => {
         const projectId = p.ProjectID || p.PK_ID;
@@ -791,135 +839,45 @@ export class CompanyPage implements OnInit, OnDestroy {
         projectLookup.set(projectId, { address, projectId });
       });
 
-      // Build offer fee lookup by TypeID
-      const offerFeeLookup = new Map<number, number>();
-      if (offersResponse?.Result) {
-        offersResponse.Result.forEach((offer: any) => {
-          const typeId = offer.TypeID;
-          const fee = parseFloat(offer.ServiceFee) || 0;
-          if (typeId && fee > 0) {
-            offerFeeLookup.set(typeId, fee);
-          }
-        });
-      }
-
-      // Build type name lookup
-      const typeNameLookup = new Map<number, string>();
-      if (typesResponse?.Result) {
-        typesResponse.Result.forEach((type: any) => {
-          const typeId = type.TypeID || type.PK_ID;
-          typeNameLookup.set(typeId, type.TypeName || type.TypeAbbr || `Service ${typeId}`);
-        });
-      }
-
       const projectIds = Array.from(projectLookup.keys());
 
-      // Load services and invoices for all projects
-      const [servicesResponses, invoiceResponses] = await Promise.all([
-        Promise.all(projectIds.map((projectId: number) =>
-          firstValueFrom(
-            this.caspioService.get<any>(`/tables/LPS_Services/records?q.where=ProjectID=${projectId}`)
-          ).catch(() => ({ Result: [] }))
-        )),
-        Promise.all(projectIds.map((projectId: number) =>
+      // Load invoices for all projects
+      const invoiceResponses = await Promise.all(
+        projectIds.map((projectId: number) =>
           firstValueFrom(
             this.caspioService.get<any>(`/tables/LPS_Invoices/records?q.where=ProjectID=${projectId}`)
           ).catch(() => ({ Result: [] }))
-        ))
-      ]);
+        )
+      );
 
-      // Build a map of paid amounts by project+service
-      // Payment records have negative Fee values (ledger model: positive = charge, negative = payment)
-      const paidAmountsMap = new Map<string, { paid: number; invoice: any }>();
-      invoiceResponses.forEach((response: any, index: number) => {
-        const projectId = projectIds[index];
-        if (response?.Result) {
-          response.Result.forEach((invoice: any) => {
-            const serviceId = invoice.ServiceID || invoice.TypeID || 'unknown';
-            const key = `${projectId}-${serviceId}`;
-            const fee = parseFloat(invoice.Fee) || 0;
-
-            // Negative Fee = payment, positive Fee = charge
-            // We track payments (negative fees) as paid amounts
-            if (fee < 0) {
-              const existingData = paidAmountsMap.get(key);
-              const existingPaid = existingData?.paid || 0;
-              // Add the absolute value of negative fee to paid amount
-              paidAmountsMap.set(key, {
-                paid: existingPaid + Math.abs(fee),
-                invoice
-              });
-            }
-          });
-        }
-      });
-
-      // Collect unpaid services
-      const unpaidServices: Array<{
-        projectAddress: string;
-        serviceName: string;
-        fee: number;
-        paid: number;
-        remaining: number;
-      }> = [];
-
-      // Track project-level service fee totals and service breakdown for invoices
+      // Balance = sum of all fees per project (positive = charge, negative = payment)
       const projectFeeTotals = new Map<number, number>();
       const projectServicesList = new Map<number, Array<{ name: string; fee: number }>>();
+      const projectShortNames = new Map<number, Set<string>>();
+      const projectPayments = new Map<number, { totalPaid: number; latestDate: string | null }>();
 
       let totalBalance = 0;
 
-      // Process services to calculate outstanding balance and accumulate fee totals per project
-      servicesResponses.forEach((response: any, index: number) => {
-        const projectId = projectIds[index];
-        const projectInfo = projectLookup.get(projectId);
-        const projectAddress = projectInfo?.address || 'Unknown';
-
-        if (response?.Result) {
-          response.Result.forEach((service: any) => {
-            const statusId = Number(service.StatusID);
-            const typeId = service.TypeID;
-            const serviceId = service.ServiceID || service.PK_ID;
-            const fee = offerFeeLookup.get(typeId) || 0;
-
-            if (fee > 0) {
-              // Accumulate total service fees and service list per project
-              projectFeeTotals.set(projectId, (projectFeeTotals.get(projectId) || 0) + fee);
-              const servicesList = projectServicesList.get(projectId) || [];
-              servicesList.push({ name: typeNameLookup.get(typeId) || `Service ${typeId}`, fee });
-              projectServicesList.set(projectId, servicesList);
-
-              // Check if this service has been paid
-              const paidKey = `${projectId}-${serviceId}`;
-              const paidInfo = paidAmountsMap.get(paidKey);
-              const paidAmount = paidInfo?.paid || 0;
-              const remaining = fee - paidAmount;
-
-              // Only add to balance if service is complete (StatusID = 5) and has remaining balance
-              if (statusId === 5 && remaining > 0) {
-                unpaidServices.push({
-                  projectAddress,
-                  serviceName: typeNameLookup.get(typeId) || `Service ${typeId}`,
-                  fee,
-                  paid: paidAmount,
-                  remaining
-                });
-                totalBalance += remaining;
-              }
-            }
-          });
-        }
-      });
-
-      // Build project-level payment history directly from ALL negative Fee invoice records
-      const projectPayments = new Map<number, { totalPaid: number; latestDate: string | null }>();
-
       invoiceResponses.forEach((response: any, index: number) => {
         const projectId = projectIds[index];
         if (response?.Result) {
           response.Result.forEach((invoice: any) => {
             const fee = parseFloat(invoice.Fee) || 0;
-            if (fee < 0) {
+            if (fee > 0) {
+              // Positive fee = charge
+              projectFeeTotals.set(projectId, (projectFeeTotals.get(projectId) || 0) + fee);
+              const servicesList = projectServicesList.get(projectId) || [];
+              const label = invoice.InvoiceNotes
+                ? invoice.InvoiceNotes.substring(0, 40)
+                : 'Fee';
+              servicesList.push({ name: label, fee });
+              projectServicesList.set(projectId, servicesList);
+
+              const shorts = projectShortNames.get(projectId) || new Set<string>();
+              shorts.add(invoice.InvoiceNotes?.substring(0, 15) || 'Fee');
+              projectShortNames.set(projectId, shorts);
+            } else if (fee < 0) {
+              // Negative fee = payment
               const existing = projectPayments.get(projectId) || { totalPaid: 0, latestDate: null };
               existing.totalPaid += Math.abs(fee);
               if (invoice.Date) {
@@ -930,6 +888,37 @@ export class CompanyPage implements OnInit, OnDestroy {
               projectPayments.set(projectId, existing);
             }
           });
+        }
+      });
+
+      // Build project-level outstanding invoices using actual invoice payments
+      const unpaidProjects: Array<{
+        projectId: number;
+        projectAddress: string;
+        serviceShortNames: string;
+        fee: number;
+        balance: number;
+        services: Array<{ name: string; fee: number }>;
+      }> = [];
+
+      projectFeeTotals.forEach((totalFee, projectId) => {
+        const paid = projectPayments.get(projectId)?.totalPaid || 0;
+        const balance = totalFee - paid;
+        if (balance > 0) {
+          const projectInfo = projectLookup.get(projectId);
+          const shorts = projectShortNames.get(projectId);
+          unpaidProjects.push({
+            projectId,
+            projectAddress: projectInfo?.address || 'Unknown',
+            serviceShortNames: shorts ? Array.from(shorts).join(', ') : '',
+            fee: totalFee,
+            balance,
+            services: projectServicesList.get(projectId) || []
+          });
+        }
+        // Accumulate total outstanding balance
+        if (balance > 0) {
+          totalBalance += balance;
         }
       });
 
@@ -966,7 +955,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       this.companyOutstandingData.set(companyId, {
         loading: false,
         balance: totalBalance,
-        invoices: unpaidServices,
+        invoices: unpaidProjects,
         paidInvoices
       });
     } catch (error) {
@@ -998,10 +987,11 @@ export class CompanyPage implements OnInit, OnDestroy {
       // Build header - logo left, title centered
       const headerContent: any[] = [];
       if (logoBase64) {
-        headerContent.push({ image: logoBase64, width: 25, margin: [0, 0, 0, 8] });
+        headerContent.push({ image: logoBase64, width: 25, margin: [0, 0, 0, 2] });
+        headerContent.push({ text: 'engineering@noble-pi.com  |  (832) 210-1397', fontSize: 8, color: '#888888', margin: [0, 0, 0, 10] });
       }
       headerContent.push({ text: 'Noble Engineering Services', style: 'companyName', alignment: 'center', margin: [0, 0, 0, 4] });
-      headerContent.push({ text: 'Payment Invoice', style: 'subtitle', alignment: 'center', margin: [0, 0, 0, 0] });
+      headerContent.push({ text: 'Payment Receipt', style: 'subtitle', alignment: 'center', margin: [0, 0, 0, 0] });
 
       // Build services table rows
       const serviceTableBody: any[][] = [
@@ -1110,10 +1100,10 @@ export class CompanyPage implements OnInit, OnDestroy {
         }
       };
 
-      const fileName = `Invoice_${payment.projectAddress.replace(/\s+/g, '_')}_${companyName.replace(/\s+/g, '_')}.pdf`;
+      const fileName = `Receipt_${payment.projectAddress.replace(/\s+/g, '_')}_${companyName.replace(/\s+/g, '_')}.pdf`;
       (pdfMake as any).createPdf(docDefinition).download(fileName);
 
-      await this.showToast('Invoice downloaded', 'success');
+      await this.showToast('Receipt downloaded', 'success');
     } catch (error) {
       console.error('Error generating invoice PDF:', error);
       await this.showToast('Failed to download invoice', 'danger');
@@ -1280,7 +1270,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       // Group 5: Offers (may need pagination)
       const offersTasks = [
         () => this.fetchTableRecords('Offers', {
-          'q.select': 'PK_ID,OffersID,TypeID,CompanyID',
+          'q.select': 'PK_ID,OffersID,TypeID,CompanyID,ServiceFee,ClientFee',
           'q.orderBy': 'OffersID',
           'q.limit': '1000'
         })
@@ -1313,7 +1303,7 @@ export class CompanyPage implements OnInit, OnDestroy {
             const maxId = currentMaxId + 1000;
 
             const additionalOffers = await this.fetchTableRecords('Offers', {
-              'q.select': 'PK_ID,OffersID,TypeID,CompanyID',
+              'q.select': 'PK_ID,OffersID,TypeID,CompanyID,ServiceFee,ClientFee',
               'q.where': `OffersID>=${minId} AND OffersID<=${maxId}`,
               'q.orderBy': 'OffersID',
               'q.limit': '1000'
@@ -1440,8 +1430,8 @@ export class CompanyPage implements OnInit, OnDestroy {
       this.applyUserFilters();
       this.updateSelectedCompanySnapshot();
 
-      // Check for companies with autopay due today and load global toggle
-      this.checkAutopayDueToday();
+      // Check for companies with autopay ready and load global toggle
+      this.checkAutopayDue();
     } catch (error: any) {
       console.error('Error loading company data:', error);
       await this.showToast(error?.message ?? 'Unable to load company data', 'danger');
@@ -1773,16 +1763,19 @@ export class CompanyPage implements OnInit, OnDestroy {
     // Pre-fill with context from the selected invoice
     this.newInvoice = {
       ProjectID: invoice.positive.ProjectID,
-      ServiceID: invoice.positive.ServiceID,
+      ServiceID: null,
       Address: invoice.positive.Address,
       City: invoice.positive.City,
       Zip: invoice.positive.Zip,
       Date: new Date().toISOString().split('T')[0],
       Fee: 0,
       Mode: 'positive',
-      InvoiceNotes: ''
+      InvoiceNotes: '',
+      AddedInvoice: ''
     };
 
+    this.addedServiceType = '';
+    this.addedServiceCustomLabel = '';
     this.newInvoiceContext = `${invoice.positive.Address || 'Unknown Address'} - ${invoice.serviceName || 'Unknown Service'}`;
     this.isAddInvoiceModalOpen = true;
   }
@@ -1792,13 +1785,18 @@ export class CompanyPage implements OnInit, OnDestroy {
   }
 
   async saveNewInvoice() {
-    if (!this.newInvoice.Fee || this.newInvoice.Fee <= 0) {
-      await this.showToast('Please enter a valid amount', 'warning');
+    if (!this.addedServiceType) {
+      await this.showToast('Please select a service type', 'warning');
       return;
     }
 
-    if (!this.newInvoice.Mode) {
-      await this.showToast('Please select a mode (Invoice or Payment)', 'warning');
+    if (this.addedServiceType === 'Other' && !this.addedServiceCustomLabel.trim()) {
+      await this.showToast('Please enter a description for Other', 'warning');
+      return;
+    }
+
+    if (!this.newInvoice.Fee || this.newInvoice.Fee <= 0) {
+      await this.showToast('Please enter a valid amount', 'warning');
       return;
     }
 
@@ -1808,10 +1806,12 @@ export class CompanyPage implements OnInit, OnDestroy {
     await loading.present();
 
     try {
-      // If mode is negative (payment), make the Fee negative
-      const fee = this.newInvoice.Mode === 'negative' 
-        ? -Math.abs(this.newInvoice.Fee) 
-        : Math.abs(this.newInvoice.Fee);
+      // Determine the AddedInvoice label
+      const addedInvoiceLabel = this.addedServiceType === 'Other'
+        ? this.addedServiceCustomLabel.trim()
+        : this.addedServiceType;
+
+      const fee = Math.abs(this.newInvoice.Fee);
 
       const payload: any = {
         ProjectID: this.newInvoice.ProjectID,
@@ -1821,8 +1821,8 @@ export class CompanyPage implements OnInit, OnDestroy {
         Zip: this.newInvoice.Zip,
         Date: this.newInvoice.Date,
         Fee: fee,
-        Mode: this.newInvoice.Mode,
-        InvoiceNotes: this.newInvoice.InvoiceNotes
+        InvoiceNotes: this.newInvoice.InvoiceNotes,
+        AddedInvoice: addedInvoiceLabel
       };
 
 
@@ -3501,41 +3501,40 @@ export class CompanyPage implements OnInit, OnDestroy {
   }
 
   /**
-   * Check if any companies have autopay due today and load the global system toggle
+   * Check for companies with autopay enabled and outstanding balances, load global toggle
    */
-  private async checkAutopayDueToday(): Promise<void> {
+  private async checkAutopayDue(): Promise<void> {
     try {
-      const today = new Date().getDate();
-
       // Load global auto-charge toggle from CompanyID=1
-      // AutopayReviewRequired=true means manual-only (auto-charge OFF)
       const adminCompany = this.companies.find(c => c.CompanyID === 1);
       if (adminCompany) {
         this.autopayAutoCharge = !adminCompany.AutopayReviewRequired;
       }
 
-      // Find companies with autopay enabled and due today
-      this.autopayDueCompanies = (this.companies as CompanyViewModel[]).filter(c =>
-        c.AutopayEnabled && c.AutopayDay === today && c.CompanyID !== 1 &&
-        (c.PayPalVaultToken || c.StripePaymentMethodID)
-      );
+      // Find companies with autopay enabled, a saved payment method, and outstanding balance
+      this.autopayDueCompanies = (this.companies as CompanyViewModel[]).filter(c => {
+        if (c.CompanyID === 1 || !c.AutopayEnabled) return false;
+        if (!c.PayPalVaultToken && !c.StripePaymentMethodID) return false;
+        const data = this.getCompanyOutstandingData(c.CompanyID);
+        return data.balance > 0;
+      });
 
-      // Show alert once if there are companies due and auto-charge is off
+      // Show alert once if there are companies ready and auto-charge is off
       if (this.autopayDueCompanies.length > 0 && !this.autopayAutoCharge) {
         const companyNames = this.autopayDueCompanies
           .map(c => c.CompanyName)
           .join(', ');
 
         const alert = await this.alertController.create({
-          header: 'Autopay Due Today',
-          message: `${this.autopayDueCompanies.length} company(s) have autopay scheduled for today: ${companyNames}. Go to each company profile to review and manually run their payment.`,
+          header: 'Autopay Ready',
+          message: `${this.autopayDueCompanies.length} company(s) have outstanding balances with autopay enabled: ${companyNames}. Go to each company profile to review and manually run their payment.`,
           buttons: ['OK'],
           cssClass: 'custom-document-alert'
         });
         await alert.present();
       }
     } catch (error) {
-      console.error('Error checking autopay due today:', error);
+      console.error('Error checking autopay due:', error);
     }
   }
 
@@ -3925,6 +3924,79 @@ export class CompanyPage implements OnInit, OnDestroy {
     }
   }
 
+  async openBalancePaymentModal(event: Event) {
+    event.stopPropagation(); // Prevent collapsing the section
+    const companyId = this.currentUserCompanyId;
+    if (!companyId) return;
+
+    const data = this.getCompanyOutstandingData(companyId);
+    const unpaidProjects = data.invoices.filter(inv => inv.balance > 0);
+
+    if (unpaidProjects.length === 0) {
+      await this.showToast('No outstanding balances', 'warning');
+      return;
+    }
+
+    // Show project selection alert
+    const inputs = unpaidProjects.map(proj => ({
+      type: 'radio' as const,
+      label: `${proj.projectAddress} — $${proj.balance.toFixed(2)}`,
+      value: String(proj.projectId)
+    }));
+
+    const alert = await this.alertController.create({
+      header: 'Select Project to Pay',
+      inputs,
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Continue',
+          handler: async (selectedProjectId: string) => {
+            if (!selectedProjectId) return false;
+            const project = unpaidProjects.find(p => String(p.projectId) === selectedProjectId);
+            if (!project) return false;
+
+            // Build services breakdown
+            const servicesBreakdown = project.services.map((s: { name: string; fee: number }) => ({
+              name: s.name,
+              price: s.fee
+            }));
+
+            const { PaypalPaymentModalComponent } = await import('../../modals/paypal-payment-modal/paypal-payment-modal.component');
+            const modal = await this.modalController.create({
+              component: PaypalPaymentModalComponent,
+              componentProps: {
+                invoice: {
+                  ProjectID: project.projectId,
+                  InvoiceID: project.projectId,
+                  Amount: project.balance.toFixed(2),
+                  Description: `Payment for ${project.projectAddress}`,
+                  Address: project.projectAddress,
+                  City: '',
+                  Services: servicesBreakdown
+                }
+              }
+            });
+
+            await modal.present();
+
+            const { data: modalData } = await modal.onDidDismiss();
+
+            if (modalData?.success) {
+              // Refresh outstanding data after successful payment
+              this.companyOutstandingData.delete(companyId);
+              this.loadCompanyOutstandingInvoices(companyId);
+            }
+            return true;
+          }
+        }
+      ],
+      cssClass: 'custom-document-alert'
+    });
+
+    await alert.present();
+  }
+
   async loadClientMetrics() {
     try {
       const companyId = this.currentUserCompanyId;
@@ -4142,11 +4214,19 @@ export class CompanyPage implements OnInit, OnDestroy {
     }
   }
 
-  selectAdminMainTab(tab: 'company' | 'partners') {
+  selectAdminMainTab(tab: 'company' | 'partners' | 'metrics') {
     this.adminMainTab = tab;
     // Auto-select first sub-tab when switching main tabs
     if (tab === 'company') {
+      // Load company details if not yet loaded
+      if (!this.tabDataLoaded['company']) {
+        this.loadTabData('company');
+        this.tabDataLoaded['company'] = true;
+      }
+      // Keep users tab selected for Partners sub-tab compatibility
       this.selectTab('users');
+    } else if (tab === 'metrics') {
+      this.selectTab('metrics');
     } else {
       this.selectTab('companies');
     }
@@ -4806,7 +4886,9 @@ export class CompanyPage implements OnInit, OnDestroy {
           positive: representative,
           negative: hasPayments ? bucket.negatives[0] : null,
           projectDate,
-          netAmount: projectNetAmount // Sum of all invoices for this ProjectID
+          netAmount: projectNetAmount, // Sum of all invoices for this ProjectID
+          allPositives: [...bucket.positives],
+          allNegatives: [...bucket.negatives]
         };
 
         // Get StatusID from project metadata
@@ -4907,6 +4989,15 @@ export class CompanyPage implements OnInit, OnDestroy {
     }
 
     return 'Service Not Specified';
+  }
+
+  getInvoiceLineLabel(record: InvoiceViewModel): string {
+    // If AddedInvoice field is filled, use that as the label
+    if (record.AddedInvoice && record.AddedInvoice.trim()) {
+      return record.AddedInvoice.trim();
+    }
+    // Otherwise resolve service name from ServiceID
+    return this.getServiceNameForInvoice(record);
   }
 
   getInvoiceStatus(invoice: InvoicePairWithService): string {
@@ -5607,6 +5698,40 @@ export class CompanyPage implements OnInit, OnDestroy {
   private expandedCompanies = new Set<number>();
   private expandedStages = new Set<number>();
   private stagesInitialized = false;
+  private expandedContactGroups = new Set<string>();
+  private expandedInvoiceGroups = new Set<string>();
+
+  isInvoiceGroupExpanded(companyName: string): boolean {
+    return this.expandedInvoiceGroups.has(companyName);
+  }
+
+  toggleInvoiceGroupExpand(companyName: string, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    if (this.expandedInvoiceGroups.has(companyName)) {
+      this.expandedInvoiceGroups.delete(companyName);
+    } else {
+      this.expandedInvoiceGroups.add(companyName);
+    }
+  }
+
+  isContactGroupExpanded(companyName: string): boolean {
+    return this.expandedContactGroups.has(companyName);
+  }
+
+  toggleContactGroupExpand(companyName: string, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    if (this.expandedContactGroups.has(companyName)) {
+      this.expandedContactGroups.delete(companyName);
+    } else {
+      this.expandedContactGroups.add(companyName);
+    }
+  }
 
   isStageExpanded(stage: StageDefinition): boolean {
     // Default to collapsed (false) instead of expanded
@@ -5701,45 +5826,104 @@ export class CompanyPage implements OnInit, OnDestroy {
     this.isEditModalOpen = true;
   }
 
-  async editClientCompanyDetails(): Promise<void> {
-    const company = this.clientCompany;
+  async editAdminCompanyDetails(): Promise<void> {
+    const company = this.currentCompany;
     if (!company) return;
+
+    // Ensure size options are always available (fixed Caspio field values)
+    if (this.uniqueCompanySizes.length === 0) {
+      this.uniqueCompanySizes = [
+        'One Person',
+        'Multi Inspector (2-5)',
+        'Multi Inspector (5-10)',
+        'Large Multi Inspector (10+)'
+      ];
+    }
+
+    // Load software options and build ID-to-name map before opening modal
+    await this.loadSoftwareLookup();
+
     this.editingCompany = { ...company };
+    this.editingCompany.Size = this.editingCompany.Size || '';
+
+    // Resolve numeric SoftwareID to software name for the dropdown
+    const rawSoftwareId = this.editingCompany.SoftwareID;
+    if (rawSoftwareId && !isNaN(Number(rawSoftwareId))) {
+      const numId = Number(rawSoftwareId);
+      let resolvedName = '';
+      for (const [name, id] of this.softwareNameToIdMap.entries()) {
+        if (id === numId) { resolvedName = name; break; }
+      }
+      this.editingCompany.SoftwareID = resolvedName;
+    }
+    this.editingCompany.SoftwareID = this.editingCompany.SoftwareID || '';
+
+    // Ensure current Size value appears in dropdown options
+    if (this.editingCompany.Size && !this.uniqueCompanySizes.includes(this.editingCompany.Size)) {
+      this.uniqueCompanySizes.push(this.editingCompany.Size);
+    }
+
     this.editingCompanyContractFile = null;
     this.editingCompanyLogoFile = null;
     this.editingCompanyLogoPreview = null;
     this.isEditModalOpen = true;
+  }
 
-    // Load lookup data for dropdowns if not already loaded (client users skip loadCompanyData)
-    if (this.softwareOptions.length === 0) {
-      try {
-        const response = await firstValueFrom(
-          this.caspioService.get<any>('/tables/LPS_Software/records?q.orderBy=Software&q.limit=500')
-        );
-        if (response?.Result) {
-          this.softwareOptions = response.Result
-            .map((r: any) => r.Software ?? r.Name ?? '')
-            .filter((name: string) => name.trim() !== '')
-            .sort();
-        }
-      } catch (e) {
-        console.error('Error loading software options:', e);
-      }
-    }
+  async editClientCompanyDetails(): Promise<void> {
+    const company = this.clientCompany;
+    if (!company) return;
+
+    // Ensure size options are always available (fixed Caspio field values)
     if (this.uniqueCompanySizes.length === 0) {
-      try {
-        const response = await firstValueFrom(
-          this.caspioService.get<any>('/tables/LPS_Companies/records?q.select=Size&q.limit=500')
-        );
-        if (response?.Result) {
-          this.uniqueCompanySizes = [...new Set(
-            response.Result.map((r: any) => r.Size).filter((s: string) => s && s.trim() !== '')
-          )].sort() as string[];
-        }
-      } catch (e) {
-        console.error('Error loading size options:', e);
-      }
+      this.uniqueCompanySizes = [
+        'One Person',
+        'Multi Inspector (2-5)',
+        'Multi Inspector (5-10)',
+        'Large Multi Inspector (10+)'
+      ];
     }
+
+    // Load software options and build ID-to-name map before opening modal
+    await this.loadSoftwareLookup();
+
+    this.editingCompany = { ...company };
+    this.editingCompany.Size = this.editingCompany.Size || '';
+
+    // Resolve numeric SoftwareID to software name for the dropdown
+    const rawSoftwareId = this.editingCompany.SoftwareID;
+    if (rawSoftwareId && !isNaN(Number(rawSoftwareId))) {
+      const numId = Number(rawSoftwareId);
+      let resolvedName = '';
+      for (const [name, id] of this.softwareNameToIdMap.entries()) {
+        if (id === numId) { resolvedName = name; break; }
+      }
+      this.editingCompany.SoftwareID = resolvedName;
+    }
+    this.editingCompany.SoftwareID = this.editingCompany.SoftwareID || '';
+
+    // Ensure current Size value appears in dropdown options
+    if (this.editingCompany.Size && !this.uniqueCompanySizes.includes(this.editingCompany.Size)) {
+      this.uniqueCompanySizes.push(this.editingCompany.Size);
+    }
+
+    this.editingCompanyContractFile = null;
+    this.editingCompanyLogoFile = null;
+    this.editingCompanyLogoPreview = null;
+    this.isEditModalOpen = true;
+  }
+
+  getClientSoftwareName(): string {
+    return this.resolveSoftwareName(this.clientCompany?.SoftwareID);
+  }
+
+  resolveSoftwareName(rawId: any): string {
+    if (!rawId) return '';
+    if (isNaN(Number(rawId))) return String(rawId); // already a name
+    const numId = Number(rawId);
+    for (const [name, id] of this.softwareNameToIdMap.entries()) {
+      if (id === numId) return name;
+    }
+    return '';
   }
 
   closeEditModal(): void {
@@ -5747,12 +5931,14 @@ export class CompanyPage implements OnInit, OnDestroy {
     this.editingCompany = null;
     this.editingCompanyLogoFile = null;
     this.editingCompanyLogoPreview = null;
+    this.editLogoFailed = false;
   }
 
   onLogoFileChange(event: any): void {
     const file = event.target?.files?.[0];
     if (!file) return;
     this.editingCompanyLogoFile = file;
+    this.editLogoFailed = false;
     const reader = new FileReader();
     reader.onload = () => {
       this.editingCompanyLogoPreview = reader.result as string;
@@ -5772,78 +5958,49 @@ export class CompanyPage implements OnInit, OnDestroy {
     await loading.present();
 
     try {
-      // Build payload with only valid database fields
-      // Only include fields that should be updated
+      // Build payload with only fields that have actual values (matches user-save pattern)
       const payload: any = {};
 
-      // Basic company fields - send as-is (allow empty strings for clearing fields)
-      if (this.editingCompany.CompanyName !== undefined && this.editingCompany.CompanyName !== null) {
-        payload.CompanyName = this.editingCompany.CompanyName;
+      // Helper: only include non-empty text fields
+      const addText = (key: string, val: any) => {
+        if (val !== undefined && val !== null && String(val).trim() !== '') {
+          payload[key] = String(val).trim();
+        }
+      };
+
+      // Text fields
+      addText('CompanyName', this.editingCompany.CompanyName);
+      addText('DateOnboarded', this.editingCompany.DateOnboarded);
+      addText('LeadSource', this.editingCompany.LeadSource);
+      addText('Phone', this.editingCompany.Phone);
+      addText('Email', this.editingCompany.Email);
+      addText('CC_Email', this.editingCompany.CC_Email);
+      addText('Website', this.editingCompany.Website);
+      addText('Address', this.editingCompany.Address);
+      addText('City', this.editingCompany.City);
+      addText('State', this.editingCompany.State);
+      addText('Zip', this.editingCompany.Zip);
+      addText('ServiceArea', this.editingCompany.ServiceArea);
+      addText('Notes', this.editingCompany.Notes);
+
+      // Size — Caspio List-String field, must be sent as object {"key":"label"}
+      if (this.editingCompany.Size) {
+        const sizeLabel = String(this.editingCompany.Size).trim();
+        const sizeKey = this.sizeLabelToKeyMap.get(sizeLabel);
+        if (sizeKey) {
+          payload.Size = { [sizeKey]: sizeLabel };
+        }
       }
 
-      if (this.editingCompany.DateOnboarded !== undefined && this.editingCompany.DateOnboarded !== null) {
-        payload.DateOnboarded = this.editingCompany.DateOnboarded;
+      // Yes/No field — only send if explicitly true
+      if (this.editingCompany.Franchise === true || this.editingCompany.Franchise === 1 || this.editingCompany.Franchise === 'Yes') {
+        payload.Franchise = true;
+      } else {
+        payload.Franchise = false;
       }
 
-      if (this.editingCompany.Size !== undefined && this.editingCompany.Size !== null) {
-        payload.Size = this.editingCompany.Size;
-      }
-
-      // IMPORTANT: Franchise must be a number (0 or 1) for Caspio boolean fields
-      if (this.editingCompany.Franchise !== undefined && this.editingCompany.Franchise !== null) {
-        payload.Franchise = (this.editingCompany.Franchise === true || this.editingCompany.Franchise === 1) ? 1 : 0;
-      }
-
-      if (this.editingCompany.LeadSource !== undefined && this.editingCompany.LeadSource !== null) {
-        payload.LeadSource = this.editingCompany.LeadSource;
-      }
-
-      // Contact fields
-      if (this.editingCompany.Phone !== undefined && this.editingCompany.Phone !== null) {
-        payload.Phone = this.editingCompany.Phone;
-      }
-
-      if (this.editingCompany.Email !== undefined && this.editingCompany.Email !== null) {
-        payload.Email = this.editingCompany.Email;
-      }
-
-      // CC_Email field
-      if (this.editingCompany.CC_Email !== undefined && this.editingCompany.CC_Email !== null) {
-        payload.CC_Email = this.editingCompany.CC_Email;
-      }
-
-      if (this.editingCompany.Website !== undefined && this.editingCompany.Website !== null) {
-        payload.Website = this.editingCompany.Website;
-      }
-
-      // Address fields
-      if (this.editingCompany.Address !== undefined && this.editingCompany.Address !== null) {
-        payload.Address = this.editingCompany.Address;
-      }
-
-      if (this.editingCompany.City !== undefined && this.editingCompany.City !== null) {
-        payload.City = this.editingCompany.City;
-      }
-
-      if (this.editingCompany.State !== undefined && this.editingCompany.State !== null) {
-        payload.State = this.editingCompany.State;
-      }
-
-      if (this.editingCompany.Zip !== undefined && this.editingCompany.Zip !== null) {
-        payload.Zip = this.editingCompany.Zip;
-      }
-
-      // Additional fields
-      if (this.editingCompany.ServiceArea !== undefined && this.editingCompany.ServiceArea !== null) {
-        payload.ServiceArea = this.editingCompany.ServiceArea;
-      }
-
-      if (this.editingCompany.Notes !== undefined && this.editingCompany.Notes !== null) {
-        payload.Notes = this.editingCompany.Notes;
-      }
-
+      // File fields — only if new file selected
       if (this.editingCompanyContractFile) {
-        // Convert file to base64 for Caspio file field
         const reader = new FileReader();
         await new Promise((resolve, reject) => {
           reader.onload = () => {
@@ -5867,6 +6024,7 @@ export class CompanyPage implements OnInit, OnDestroy {
         });
       }
 
+      // SoftwareID — resolve name to integer ID
       if (this.editingCompany.SoftwareID !== undefined && this.editingCompany.SoftwareID !== null) {
         const softwareName = String(this.editingCompany.SoftwareID).trim();
         const softwareId = this.softwareNameToIdMap.get(softwareName);
@@ -5875,6 +6033,7 @@ export class CompanyPage implements OnInit, OnDestroy {
         }
       }
 
+      // StageID — resolve stage name to integer ID
       if (this.editingCompany['Onboarding Stage'] !== undefined && this.editingCompany['Onboarding Stage'] !== null) {
         const stageName = String(this.editingCompany['Onboarding Stage']).trim();
         const stage = this.stages.find(s => s.name === stageName);
@@ -5883,17 +6042,7 @@ export class CompanyPage implements OnInit, OnDestroy {
         }
       }
 
-      // Autopay fields
-      if (this.editingCompany.AutopayEnabled !== undefined) {
-        payload.AutopayEnabled = this.editingCompany.AutopayEnabled ? 1 : 0;
-      }
-      if (this.editingCompany.AutopayDay !== undefined && this.editingCompany.AutopayDay !== null) {
-        payload.AutpayDay = this.editingCompany.AutopayDay;
-      }
-      if (this.editingCompany.AutopayReviewRequired !== undefined) {
-        payload.AutopayReviewRequired = this.editingCompany.AutopayReviewRequired ? 1 : 0;
-      }
-
+      console.log('Company update payload:', JSON.stringify(payload));
 
       // Update via Caspio API
       const response = await firstValueFrom(
@@ -5904,6 +6053,11 @@ export class CompanyPage implements OnInit, OnDestroy {
       );
 
 
+      // If a new logo was uploaded, use the local preview for immediate display (avoids browser cache of old Caspio URL)
+      if (this.editingCompanyLogoPreview) {
+        this.editingCompany.Logo = this.editingCompanyLogoPreview;
+      }
+
       // Update local data
       const index = this.companies.findIndex(c => c.CompanyID === this.editingCompany.CompanyID);
       if (index !== -1) {
@@ -5912,6 +6066,17 @@ export class CompanyPage implements OnInit, OnDestroy {
           ...this.companies[index],
           ...this.editingCompany
         };
+      }
+
+      // Also update currentCompany if editing own company
+      if (this.currentCompany && this.currentCompany.CompanyID === this.editingCompany.CompanyID) {
+        this.currentCompany = { ...this.currentCompany, ...this.editingCompany };
+        this.adminLogoFailed = false;
+      }
+
+      // Also update clientCompany (companies[0]) logo for client view
+      if (this.editingCompanyLogoPreview && this.companies.length > 0 && this.companies[0].CompanyID === this.editingCompany.CompanyID) {
+        this.clientLogoFailed = false;
       }
 
       // Update offers for this company
@@ -6568,7 +6733,8 @@ export class CompanyPage implements OnInit, OnDestroy {
       StageID: stageId,
       StageName: stageName,
       CompanyName: raw.CompanyName ?? 'Unnamed Company',
-      SizeLabel: this.extractListLabel(raw.Size),
+      SizeLabel: this.extractSizeLabel(raw.Size),
+      Size: this.extractSizeLabel(raw.Size),
       ServiceArea: raw.ServiceArea ?? '',
       LeadSource: raw.LeadSource ?? '',
       Phone: raw.Phone ?? '',
@@ -6742,6 +6908,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       InvoiceNotes: raw.InvoiceNotes ?? "",
       StateID: raw.StateID !== undefined && raw.StateID !== null ? Number(raw.StateID) : null,
       Mode: raw.Mode ?? "",
+      AddedInvoice: raw.AddedInvoice ?? "",
       CompanyID: companyId,
       CompanyName: this.getCompanyName(companyId),
       AmountLabel: this.formatCurrency(amount),
@@ -7055,6 +7222,22 @@ export class CompanyPage implements OnInit, OnDestroy {
       const entries = Object.values(value);
       if (entries.length > 0 && typeof entries[0] === 'string') {
         return entries[0];
+      }
+    }
+    return '';
+  }
+
+  /** Extract label from a Caspio List-String object and store label→key in sizeLabelToKeyMap */
+  private extractSizeLabel(value: any): string {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'object') {
+      const keys = Object.keys(value);
+      if (keys.length > 0 && typeof value[keys[0]] === 'string') {
+        const key = keys[0];
+        const label = value[key];
+        this.sizeLabelToKeyMap.set(label, key);
+        return label;
       }
     }
     return '';

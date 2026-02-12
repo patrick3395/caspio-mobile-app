@@ -844,8 +844,8 @@ body.dark-theme .project-image.loading::after {
 
 /* Dark theme: Search container */
 body.dark-theme .search-container {
-  background: var(--color-bg-card);
-  box-shadow: 0 2px 6px var(--color-shadow);
+  background: transparent;
+  box-shadow: none;
 }
 
 body.dark-theme .search-container .enhanced-search-bar {
@@ -854,9 +854,14 @@ body.dark-theme .search-container .enhanced-search-bar {
   --icon-color: var(--color-text-muted);
 }
 
+/* Dark theme: Toolbar */
+body.dark-theme ion-toolbar.action-toolbar {
+  --background: var(--ion-toolbar-background, #1E1E1E);
+}
+
 /* Dark theme: Toolbar buttons */
 body.dark-theme .toolbar-btn {
-  background: var(--ion-toolbar-background);
+  background: transparent;
 }
 
 /* Dark theme: Settings pane */
