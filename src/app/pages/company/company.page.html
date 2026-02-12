@@ -717,11 +717,11 @@
                 <span class="lt-col lt-col-amount">Phone</span>
               </div>
               <div class="list-table-row" *ngFor="let contact of group.contacts; trackBy: trackByContact">
-                <span class="lt-col lt-col-property">
+                <span class="lt-col lt-col-property contact-name-cell">
                   <button type="button" class="contact-name-button" (click)="openEditContactModal(contact)">
                     {{ contact.Name }}
                   </button>
-                  <ion-chip *ngIf="contact.PrimaryContact" color="success" size="small">Primary</ion-chip>
+                  <span *ngIf="contact.PrimaryContact" class="primary-indicator" title="Primary Contact">P</span>
                 </span>
                 <span class="lt-col lt-col-service">{{ contact.Title || '—' }}</span>
                 <span class="lt-col lt-col-amount">
@@ -1970,121 +1970,69 @@
 
         <div class="form-section" *ngIf="isCompanyOne">
           <h4>Services Offered</h4>
-          <div *ngIf="getCompanyOffers(editingCompany.CompanyID).length > 0; else noEditOffers">
-            <div class="offers-edit-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Service</th>
-                    <th>Fee</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let offer of getCompanyOffers(editingCompany.CompanyID)">
-                    <td>{{ offer.typeName }}</td>
-                    <td>
-                      <input type="number"
-                             [(ngModel)]="offer.ServiceFee"
-                             class="form-input fee-input"
-                             placeholder="0.00"
-                             step="0.01"
-                             min="0">
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+          <div class="offers-edit-list">
+            <div class="offers-edit-header">
+              <span class="offer-col-name">Service</span>
+              <span class="offer-col-fee">Fee</span>
+              <span class="offer-col-fee">Partner</span>
+              <span class="offer-col-action"></span>
             </div>
+            <div class="offers-edit-row" *ngFor="let offer of getCompanyOffers(editingCompany.CompanyID)">
+              <span class="offer-col-name">{{ offer.typeName }}</span>
+              <span class="offer-col-fee">
+                <input type="number" [(ngModel)]="offer.ClientFee" class="form-input fee-input" placeholder="0.00" step="0.01" min="0">
+              </span>
+              <span class="offer-col-fee">
+                <input type="number" [(ngModel)]="offer.ServiceFee" class="form-input fee-input" placeholder="0.00" step="0.01" min="0">
+              </span>
+              <span class="offer-col-action">
+                <button class="offer-delete-btn" (click)="removeOfferFromCompany(offer, editingCompany.CompanyID)" title="Remove service">
+                  <ion-icon name="trash-outline"></ion-icon>
+                </button>
+              </span>
+            </div>
+            <p *ngIf="getCompanyOffers(editingCompany.CompanyID).length === 0" class="no-data-text">No services configured</p>
           </div>
-          <ng-template #noEditOffers>
-            <p class="no-data-text">No services configured for this company</p>
-          </ng-template>
+          <div class="offers-add-row">
+            <select [(ngModel)]="editOfferTypeId" class="form-input">
+              <option [ngValue]="null">-- Add Service --</option>
+              <option *ngFor="let t of getAvailableTypesForCompany(editingCompany.CompanyID)" [ngValue]="t.typeId">{{ t.typeName }}</option>
+            </select>
+            <button class="action-btn-sm" (click)="addOfferToCompany(editingCompany.CompanyID)" [disabled]="!editOfferTypeId">
+              <ion-icon name="add-circle-outline"></ion-icon> Add
+            </button>
+          </div>
         </div>
 
         <div class="form-section" *ngIf="isCompanyOne">
-          <h4>Payment Settings</h4>
-
-          <div class="form-row">
-            <div class="form-field">
-              <label>Autopay</label>
-              <ion-toggle [(ngModel)]="editingCompany.AutopayEnabled"
-                          [disabled]="!editingCompany.PayPalVaultToken && !editingCompany.StripePaymentMethodID">
-              </ion-toggle>
-              <small *ngIf="!editingCompany.PayPalVaultToken && !editingCompany.StripePaymentMethodID" class="hint-text">
-                No payment method saved.
-              </small>
-            </div>
+          <div class="section-header-with-action">
+            <h4>Users</h4>
+            <button class="action-btn-sm" (click)="openAddUserModal(editingCompany.CompanyID)">
+              <ion-icon name="add-circle-outline"></ion-icon> Add User
+            </button>
           </div>
-
-          <div class="form-row" *ngIf="editingCompany.AutopayEnabled">
-            <div class="form-field">
-              <label>Require Review Before Charging</label>
-              <ion-toggle [(ngModel)]="editingCompany.AutopayReviewRequired"></ion-toggle>
-              <small class="hint-text">
-                When on, scheduled autopay skips this company. You must approve charges manually.
-              </small>
+          <div *ngIf="getCompanyUsers(editingCompany.CompanyID).length > 0" class="company-users-list">
+            <div class="company-users-header">
+              <span>Name</span>
+              <span>Title</span>
+              <span>Email</span>
+              <span>Phone</span>
+              <span></span>
             </div>
-          </div>
-
-          <!-- Stripe Bank Account Display -->
-          <div class="form-row" *ngIf="editingCompany.StripePaymentMethodID">
-            <div class="form-field full-width">
-              <label>Saved Payment Method</label>
-              <div class="payment-method-info stripe">
-                <ion-icon name="business-outline" class="stripe-icon"></ion-icon>
-                <span>{{ editingCompany.StripeBankName || 'Bank' }} ****{{ editingCompany.StripeBankLast4 }}</span>
-                <span class="method-badge">ACH</span>
-                <button class="remove-payment-btn" (click)="removePaymentMethod()">
-                  <ion-icon name="trash-outline"></ion-icon>
-                  Remove
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- PayPal Display -->
-          <div class="form-row" *ngIf="editingCompany.PayPalVaultToken && !editingCompany.StripePaymentMethodID">
-            <div class="form-field full-width">
-              <label>Saved Payment Method</label>
-              <div class="payment-method-info paypal">
-                <ion-icon name="logo-paypal" class="paypal-icon"></ion-icon>
-                <span>PayPal - {{ editingCompany.PayPalPayerEmail }}</span>
-                <button class="remove-payment-btn" (click)="removePaymentMethod()">
-                  <ion-icon name="trash-outline"></ion-icon>
-                  Remove
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Link Bank Account Button (when no payment method exists) -->
-          <div class="form-row" *ngIf="!editingCompany.PayPalVaultToken && !editingCompany.StripePaymentMethodID">
-            <div class="form-field full-width">
-              <button class="link-account-btn" (click)="openStripeAchModal(editingCompany)">
-                <ion-icon name="link-outline"></ion-icon>
-                Link Bank Account
-              </button>
-            </div>
-          </div>
-
-          <div class="form-row" *ngIf="editingCompany.AutopayLastRun">
-            <div class="form-field full-width">
-              <label>Last Autopay</label>
-              <span class="autopay-status" [class.success]="editingCompany.AutopayLastStatus === 'Success'"
-                    [class.failed]="editingCompany.AutopayLastStatus?.startsWith('Failed')">
-                {{ editingCompany.AutopayLastRun | date:'short' }} - {{ editingCompany.AutopayLastStatus }}
+            <div class="company-user-row" *ngFor="let user of getCompanyUsers(editingCompany.CompanyID)">
+              <span class="user-col-name">{{ user.Name || 'Unnamed' }}</span>
+              <span class="user-col-detail">{{ user.Title || '—' }}</span>
+              <span class="user-col-detail">{{ user.Email || '—' }}</span>
+              <span class="user-col-detail">{{ user.Phone ? formatPhone(user.Phone) : '—' }}</span>
+              <span class="user-col-actions">
+                <ion-icon name="create-outline" class="action-edit" (click)="openEditUserModal(user)" title="Edit user"></ion-icon>
+                <ion-icon name="trash-outline" class="action-delete" (click)="deleteUser(user, $event)" title="Delete user"></ion-icon>
               </span>
             </div>
           </div>
-
-          <div class="form-row" *ngIf="editingCompany.AutopayEnabled && (editingCompany.PayPalVaultToken || editingCompany.StripePaymentMethodID)">
-            <div class="form-field full-width">
-              <button class="run-autopay-btn" (click)="triggerAutopay(editingCompany)">
-                <ion-icon name="card-outline"></ion-icon>
-                {{ editingCompany.AutopayReviewRequired ? 'Approve & Charge Now' : 'Run Autopay Now' }}
-              </button>
-            </div>
-          </div>
+          <p *ngIf="getCompanyUsers(editingCompany.CompanyID).length === 0" class="no-data-text">No users</p>
         </div>
+
 
         <div class="form-section" *ngIf="isCompanyOne">
           <div class="form-row">
@@ -2424,14 +2372,28 @@
     </ion-header>
     <ion-content class="edit-modal-content">
       <div class="edit-form">
-        <div class="form-section">
-          <h4>Basic Information</h4>
-          <div class="form-row">
-            <div class="form-field full-width">
+        <!-- Logo + Company Name Header -->
+        <div class="form-section edit-logo-section">
+          <div class="edit-logo-row">
+            <div class="edit-logo-container">
+              <img [src]="newCompanyLogoPreview || 'assets/img/company-logo-placeholder.svg'"
+                   alt="Company Logo"
+                   class="edit-logo-image">
+              <label class="edit-logo-overlay" for="newCompanyLogoFileInput">
+                <ion-icon name="camera"></ion-icon>
+              </label>
+              <input type="file" id="newCompanyLogoFileInput" class="hidden-file-input"
+                     accept="image/*" (change)="onNewCompanyLogoChange($event)">
+            </div>
+            <div class="edit-logo-name">
               <label>Company Name</label>
               <input type="text" [(ngModel)]="newCompany.CompanyName" class="form-input" placeholder="Company name">
             </div>
           </div>
+        </div>
+
+        <div class="form-section">
+          <h4>Basic Information</h4>
           <div class="form-row">
             <div class="form-field">
               <label>Onboarding Date</label>
@@ -2545,6 +2507,45 @@
               <textarea [(ngModel)]="newCompany.Notes" class="form-textarea" rows="4" placeholder="Additional notes about this company..."></textarea>
             </div>
           </div>
+        </div>
+        <div class="form-section" *ngIf="isCompanyOne">
+          <h4>Services Offered</h4>
+          <div class="offers-edit-list">
+            <div class="offers-edit-header">
+              <span class="offer-col-name">Service</span>
+              <span class="offer-col-fee">Fee</span>
+              <span class="offer-col-fee">Partner</span>
+              <span class="offer-col-action"></span>
+            </div>
+            <div class="offers-edit-row" *ngFor="let offer of newCompanyOffers; let i = index">
+              <span class="offer-col-name">{{ offer.typeName }}</span>
+              <span class="offer-col-fee">
+                <input type="number" [(ngModel)]="offer.ClientFee" class="form-input fee-input" placeholder="0.00" step="0.01" min="0">
+              </span>
+              <span class="offer-col-fee">
+                <input type="number" [(ngModel)]="offer.ServiceFee" class="form-input fee-input" placeholder="0.00" step="0.01" min="0">
+              </span>
+              <span class="offer-col-action">
+                <button class="offer-delete-btn" (click)="removeOfferFromNewCompany(i)" title="Remove service">
+                  <ion-icon name="trash-outline"></ion-icon>
+                </button>
+              </span>
+            </div>
+            <p *ngIf="newCompanyOffers.length === 0" class="no-data-text">No services configured</p>
+          </div>
+          <div class="offers-add-row">
+            <select [(ngModel)]="newCompanyOfferTypeId" class="form-input">
+              <option [ngValue]="null">-- Add Service --</option>
+              <option *ngFor="let t of getAvailableTypesForNewCompany()" [ngValue]="t.typeId">{{ t.typeName }}</option>
+            </select>
+            <button class="action-btn-sm" (click)="addOfferToNewCompany()" [disabled]="!newCompanyOfferTypeId">
+              <ion-icon name="add-circle-outline"></ion-icon> Add
+            </button>
+          </div>
+        </div>
+        <div class="form-section" *ngIf="isCompanyOne">
+          <h4>Users</h4>
+          <p class="no-data-text">Save the company first, then edit it to add users.</p>
         </div>
       </div>
     </ion-content>
@@ -2671,7 +2672,7 @@
               <input type="datetime-local" [(ngModel)]="newCommunication.Date" class="form-input">
             </div>
             <div class="form-field">
-              <label>Communication Type</label>
+              <label style="white-space: nowrap">Communication Type</label>
               <select [(ngModel)]="newCommunication.CommunicationID" class="form-input">
                 <option [ngValue]="null">-- Select --</option>
                 <option *ngFor="let type of communicationTypes" [ngValue]="type.id">
@@ -2749,7 +2750,7 @@
               <input type="datetime-local" [(ngModel)]="editingCommunication.Date" class="form-input">
             </div>
             <div class="form-field">
-              <label>Communication Type</label>
+              <label style="white-space: nowrap">Communication Type</label>
               <select [(ngModel)]="editingCommunication.CommunicationID" class="form-input">
                 <option [ngValue]="null">-- Select --</option>
                 <option *ngFor="let type of communicationTypes" [ngValue]="type.id">
@@ -3085,7 +3086,7 @@
           <div class="form-row">
             <div class="form-field full-width">
               <label>Company</label>
-              <input type="text" class="form-input" [value]="currentUserCompanyName || getCompanyName(currentUserCompanyId)" disabled readonly>
+              <input type="text" class="form-input" [value]="getCompanyName(newUser.CompanyID) || currentUserCompanyName || getCompanyName(currentUserCompanyId)" disabled readonly>
             </div>
           </div>
           <div class="form-row">

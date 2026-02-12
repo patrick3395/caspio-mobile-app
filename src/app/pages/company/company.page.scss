@@ -147,9 +147,14 @@ ion-content {
   padding: 16px;
   max-width: 800px;
   margin: 0 auto;
+  overflow-x: hidden;
 
   &.full-width {
     max-width: 100%;
+  }
+
+  @media (max-width: 400px) {
+    padding: 8px;
   }
 }
 
@@ -211,10 +216,13 @@ ion-content {
   max-width: 800px;
   margin-left: auto;
   margin-right: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .admin-main-tab {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -228,6 +236,7 @@ ion-content {
   color: var(--color-text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 
   ion-icon {
     font-size: 22px;
@@ -242,6 +251,16 @@ ion-content {
     background: var(--color-bg-card);
     color: #f15a27;
     box-shadow: 0 2px 8px var(--color-shadow);
+  }
+
+  @media (max-width: 500px) {
+    padding: 10px 12px;
+    gap: 6px;
+    font-size: 0.85rem;
+
+    ion-icon {
+      font-size: 18px;
+    }
   }
 }
 
@@ -454,7 +473,7 @@ ion-content {
   }
 }
 
-// Main Tab Bar - 2 main tabs (Company, Metrics)
+// Main Tab Bar - 3 main tabs (Company, Payments, Metrics)
 .main-tab-bar {
   display: flex;
   gap: 0;
@@ -463,10 +482,13 @@ ion-content {
   padding: 4px;
   margin-bottom: 16px;
   box-shadow: 0 2px 8px var(--color-shadow);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .main-tab {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -480,6 +502,7 @@ ion-content {
   color: var(--color-text-muted);
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 
   ion-icon {
     font-size: 22px;
@@ -587,8 +610,9 @@ ion-content {
   }
 
   .main-tab {
-    padding: 12px 16px;
-    font-size: 0.9rem;
+    padding: 10px 12px;
+    gap: 6px;
+    font-size: 0.85rem;
 
     ion-icon {
       font-size: 20px;
@@ -1292,7 +1316,7 @@ ion-content {
 // Organization Users Grid
 .org-users-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
   gap: 20px;
 }
 
@@ -1547,22 +1571,24 @@ ion-content {
 
 @media (max-width: 768px) {
   .client-stats-row {
-    grid-template-columns: 1fr;
-    gap: 12px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
   }
 
   .client-stat-card {
-    padding: 16px;
+    padding: 8px;
+    border-radius: 12px;
 
     .stat-content {
-      padding: 12px;
+      padding: 8px;
+      border-radius: 8px;
 
       .stat-value {
-        font-size: 2rem;
+        font-size: 1.5rem;
       }
 
       .stat-label {
-        font-size: 0.85rem;
+        font-size: 0.7rem;
       }
     }
   }
@@ -1710,6 +1736,7 @@ ion-content {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  overflow-x: hidden;
 
   &.contacts-tab {
     gap: 4px; // Minimal gap for contacts tab
@@ -1724,6 +1751,11 @@ ion-content {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  overflow-x: hidden;
+
+  @media (max-width: 400px) {
+    padding: 12px;
+  }
 }
 
 .selected-company-header {
@@ -2300,6 +2332,11 @@ ion-segment.filter-segment {
 
 .invoice-group-body {
   padding: 12px 16px;
+  overflow-x: hidden;
+
+  @media (max-width: 400px) {
+    padding: 8px;
+  }
 
   .list-table {
     .list-table-header,
@@ -2348,6 +2385,10 @@ ion-segment.filter-segment {
 
   .invoice-list-table {
     .list-table-header, .list-table-row { grid-template-columns: 1.5fr 1.5fr 100px 60px; }
+
+    @media (max-width: 500px) {
+      .list-table-header, .list-table-row { grid-template-columns: 1fr 1.2fr 70px 36px; }
+    }
   }
 
   .invoice-row-actions {
@@ -2777,15 +2818,27 @@ ion-segment.filter-segment {
 
   // Grid column definitions
   .services-table {
-    .list-table-header, .list-table-row { grid-template-columns: 2fr 100px 100px; }
+    .list-table-header, .list-table-row { grid-template-columns: 2fr 80px 80px; }
+
+    @media (max-width: 400px) {
+      .list-table-header, .list-table-row { grid-template-columns: 1.5fr 65px 65px; }
+    }
   }
 
   .balance-table {
-    .list-table-header, .list-table-row { grid-template-columns: 1.2fr 1fr 100px 100px; }
+    .list-table-header, .list-table-row { grid-template-columns: 1.2fr 1fr 80px 80px; }
+
+    @media (max-width: 400px) {
+      .list-table-header, .list-table-row { grid-template-columns: 1fr 1fr 65px 65px; }
+    }
   }
 
   .history-table {
     .list-table-header, .list-table-row { grid-template-columns: 80px 1.5fr 100px 100px 40px; }
+
+    @media (max-width: 500px) {
+      .list-table-header, .list-table-row { grid-template-columns: 60px 1.5fr 70px 70px 32px; }
+    }
   }
 
   .truncate-cell {
@@ -2816,8 +2869,8 @@ ion-segment.filter-segment {
   .autopay-inline {
     display: flex;
     align-items: center;
+    gap: 8px;
     flex-wrap: wrap;
-    gap: 12px;
 
     .autopay-inline-item {
       display: flex;
@@ -2829,6 +2882,7 @@ ion-segment.filter-segment {
       margin-left: auto;
       display: flex;
       gap: 6px;
+      flex-shrink: 0;
     }
   }
 
@@ -3803,8 +3857,8 @@ ion-segment.filter-segment {
 
 .tasks-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 2px; // Minimal white space between task cards
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 16px;
 }
 
 .task-card {
@@ -3879,6 +3933,12 @@ ion-segment.filter-segment {
   }
 }
 
+.contact-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .contact-name-button {
   background: none;
   border: none;
@@ -3892,6 +3952,20 @@ ion-segment.filter-segment {
 .contact-name-button:hover,
 .contact-name-button:focus {
   text-decoration: underline;
+}
+
+.primary-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #28a745;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
 .phone-link {
@@ -4041,7 +4115,7 @@ ion-segment.filter-segment {
 
 .communications-timeline {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
   gap: 16px;
 }
 
@@ -4051,6 +4125,7 @@ ion-segment.filter-segment {
   padding: 12px;
   box-shadow: 0 18px 30px var(--color-shadow);
   display: flex;
+  overflow: hidden;
   flex-direction: column;
   gap: 6px;
 
@@ -4115,7 +4190,7 @@ ion-segment.filter-segment {
 
 .invoice-paid-groups {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
   gap: 16px;
 }
 
@@ -5074,7 +5149,7 @@ ion-alert.custom-alert {
 // Users Grid Styling
 .users-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
   gap: 16px;
   padding: 0;
 
@@ -5483,62 +5558,153 @@ ion-alert.custom-alert {
   margin: 0;
 }
 
-// Offers edit table styling
-.offers-edit-table {
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    background: var(--color-bg-card);
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 1px 3px var(--color-shadow);
+// Section header with action button (e.g. "Users" + "Add User")
+.section-header-with-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
 
-    thead {
-      background: var(--color-bg-elevated);
-      
-      th {
-        padding: 12px;
-        text-align: left;
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: var(--color-text-secondary);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        border-bottom: 2px solid var(--color-border-default);
-      }
-    }
-
-    tbody {
-      tr {
-        border-bottom: 1px solid var(--color-border-default);
-
-        &:last-child {
-          border-bottom: none;
-        }
-
-        &:hover {
-          background: var(--color-bg-elevated);
-        }
-      }
-
-      td {
-        padding: 12px;
-        font-size: 0.9rem;
-        color: var(--color-text-primary);
-
-        &:first-child {
-          font-weight: 500;
-        }
-      }
-    }
-  }
-
-  .fee-input {
-    max-width: 150px;
-    padding: 6px 10px;
-    font-size: 0.9rem;
+  h4 {
+    margin: 0;
   }
 }
+
+// Company users list in edit modal (grid layout matching offers-edit-list)
+.company-users-list {
+  margin-bottom: 12px;
+
+  .company-users-header {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1.3fr 100px 52px;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 2px solid var(--color-text-primary);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--color-text-secondary, #666);
+  }
+
+  .company-user-row {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1.3fr 100px 52px;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--ion-border-color, #E0E0E0);
+
+    .user-col-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--color-text-primary);
+    }
+
+    .user-col-detail {
+      font-size: 13px;
+      color: var(--color-text-secondary, #666);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .user-col-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+
+      ion-icon {
+        font-size: 18px;
+        cursor: pointer;
+
+        &.action-edit {
+          color: var(--color-text-secondary, #666);
+          &:hover { color: var(--color-primary, #F15A27); }
+        }
+
+        &.action-delete {
+          color: var(--color-text-secondary, #666);
+          &:hover { color: #dc3545; }
+        }
+      }
+    }
+  }
+}
+
+// Offers edit table styling
+.offers-edit-list {
+  margin-bottom: 12px;
+
+  .offers-edit-header {
+    display: grid;
+    grid-template-columns: 1.5fr 100px 100px 36px;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 2px solid var(--color-text-primary);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--color-text-secondary, #666);
+  }
+
+  .offers-edit-row {
+    display: grid;
+    grid-template-columns: 1.5fr 100px 100px 36px;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--ion-border-color, #E0E0E0);
+
+    .offer-col-name {
+      font-size: 14px;
+      color: var(--color-text-primary);
+    }
+
+    .offer-col-fee .fee-input {
+      width: 100%;
+      max-width: 90px;
+      padding: 4px 6px;
+      font-size: 13px;
+      text-align: right;
+    }
+
+    .offer-delete-btn {
+      background: none;
+      border: none;
+      color: #dc3545;
+      cursor: pointer;
+      padding: 4px;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      &:hover {
+        color: #a71d2a;
+      }
+    }
+  }
+}
+
+.offers-add-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+
+  select.form-input {
+    flex: 1;
+    max-width: 250px;
+  }
+
+  .action-btn-sm {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+  }
+}
+
 
 // Invoices list styling
 .invoices-list {
@@ -6115,7 +6281,7 @@ ion-alert.custom-alert {
 // Skeleton grid layouts
 .skeleton-users-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
   gap: 16px;
 
   @media (min-width: 768px) and (max-width: 1024px) {
@@ -6129,7 +6295,7 @@ ion-alert.custom-alert {
 
 .skeleton-tasks-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
   gap: 12px;
 }
 
@@ -6257,7 +6423,7 @@ ion-alert.custom-alert {
 
 .skeleton-timeline-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
   gap: 16px;
 }
 

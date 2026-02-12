@@ -537,7 +537,12 @@ export class CompanyPage implements OnInit, OnDestroy {
     Notes: ''
   };
   newCompanyContractFile: File | null = null;
+  newCompanyLogoFile: File | null = null;
+  newCompanyLogoPreview: string | null = null;
   editingCompanyContractFile: File | null = null;
+  newCompanyOffers: any[] = [];
+  newCompanyOfferTypeId: number | null = null;
+  editOfferTypeId: number | null = null;
 
   // Add meeting modal
   isAddMeetingModalOpen = false;
@@ -867,40 +872,9 @@ export class CompanyPage implements OnInit, OnDestroy {
               // Positive fee = charge
               projectFeeTotals.set(projectId, (projectFeeTotals.get(projectId) || 0) + fee);
               const servicesList = projectServicesList.get(projectId) || [];
-              // Determine label: AddedInvoice > ServiceID type name > project service > 'Fee'
-              let label = 'Fee';
-              if (invoice.AddedInvoice && String(invoice.AddedInvoice).trim()) {
-                label = String(invoice.AddedInvoice).trim();
-              } else if (invoice.ServiceID != null && invoice.ServiceID !== '') {
-                const sid = Number(invoice.ServiceID);
-                // Try direct TypeID lookup (ServiceID stores TypeID for newer records)
-                const directName = this.typeIdToNameLookup.get(sid);
-                if (directName) {
-                  label = directName;
-                } else {
-                  // Try as LPS_Services PK_ID -> TypeID -> TypeName (older records)
-                  const typeId = this.servicesLookup.get(sid);
-                  if (typeId != null) {
-                    const typeName = this.typeIdToNameLookup.get(typeId);
-                    if (typeName) {
-                      label = typeName;
-                    }
-                  }
-                }
-              }
-              // If still 'Fee', try project-level service lookup
-              if (label === 'Fee') {
-                const serviceIds = this.servicesByProjectLookup.get(projectId);
-                if (serviceIds && serviceIds.length > 0) {
-                  const typeId = this.servicesLookup.get(serviceIds[0]);
-                  if (typeId != null) {
-                    const typeName = this.typeIdToNameLookup.get(typeId);
-                    if (typeName) {
-                      label = typeName;
-                    }
-                  }
-                }
-              }
+              // Normalize the raw invoice and use the same label resolution as the Invoices tab
+              const normalized = this.normalizeInvoiceRecord(invoice);
+              const label = this.getInvoiceLineLabel(normalized);
               servicesList.push({ name: label, fee });
               projectServicesList.set(projectId, servicesList);
 
@@ -1955,6 +1929,10 @@ export class CompanyPage implements OnInit, OnDestroy {
       Notes: ''
     };
     this.newCompanyContractFile = null;
+    this.newCompanyLogoFile = null;
+    this.newCompanyLogoPreview = null;
+    this.newCompanyOffers = this.getDefaultServiceOffers();
+    this.newCompanyOfferTypeId = null;
 
     this.isAddCompanyModalOpen = true;
   }
@@ -1968,6 +1946,17 @@ export class CompanyPage implements OnInit, OnDestroy {
     if (file) {
       this.newCompanyContractFile = file;
     }
+  }
+
+  onNewCompanyLogoChange(event: any) {
+    const file = event.target?.files?.[0];
+    if (!file) return;
+    this.newCompanyLogoFile = file;
+    const reader = new FileReader();
+    reader.onload = () => {
+      this.newCompanyLogoPreview = reader.result as string;
+    };
+    reader.readAsDataURL(file);
   }
 
   onEditCompanyContractChange(event: any) {
@@ -1997,12 +1986,12 @@ export class CompanyPage implements OnInit, OnDestroy {
       // Build payload with required and optional fields
       const payload: any = {
         CompanyName: this.newCompany.CompanyName.trim(),
-        Franchise: this.newCompany.Franchise ? 1 : 0
+        Franchise: this.newCompany.Franchise ? true : false
       };
 
       // Add optional fields if provided
       if (this.newCompany.DateOnboarded && this.newCompany.DateOnboarded.trim() !== '') {
-        payload.DateOnboarded = new Date(this.newCompany.DateOnboarded).toISOString();
+        payload.DateOnboarded = this.newCompany.DateOnboarded.trim();
       }
 
       if (this.newCompany['Onboarding Stage'] && this.newCompany['Onboarding Stage'].trim() !== '') {
@@ -2022,7 +2011,11 @@ export class CompanyPage implements OnInit, OnDestroy {
       }
 
       if (this.newCompany.Size && this.newCompany.Size.trim() !== '') {
-        payload.Size = this.newCompany.Size.trim();
+        const sizeLabel = this.newCompany.Size.trim();
+        const sizeKey = this.sizeLabelToKeyMap.get(sizeLabel);
+        if (sizeKey) {
+          payload.Size = sizeKey;
+        }
       }
 
       if (this.newCompany.LeadSource && this.newCompany.LeadSource.trim() !== '') {
@@ -2078,6 +2071,18 @@ export class CompanyPage implements OnInit, OnDestroy {
         });
       }
 
+      if (this.newCompanyLogoFile) {
+        const reader = new FileReader();
+        await new Promise((resolve, reject) => {
+          reader.onload = () => {
+            payload.Logo = reader.result;
+            resolve(true);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(this.newCompanyLogoFile!);
+        });
+      }
+
       if (this.newCompany.Notes && this.newCompany.Notes.trim() !== '') {
         payload.Notes = this.newCompany.Notes.trim();
       }
@@ -2088,9 +2093,39 @@ export class CompanyPage implements OnInit, OnDestroy {
         this.caspioService.post('/tables/LPS_Companies/records', payload)
       );
 
+      // Create service offers for the new company
+      if (this.newCompanyOffers.length > 0) {
+        // Find the new company's ID by reloading and matching by name
+        const tempRecords = await this.fetchTableRecords('Companies', {
+          'q.where': `CompanyName='${this.newCompany.CompanyName.trim().replace(/'/g, "''")}'`,
+          'q.limit': '1'
+        });
+        const newCompanyId = tempRecords.length > 0 ? Number(tempRecords[0].CompanyID ?? tempRecords[0].PK_ID) : null;
 
-      // Reload companies data to include the new company
+        if (newCompanyId) {
+          const offerPromises = this.newCompanyOffers.map(offer =>
+            firstValueFrom(
+              this.caspioService.post('/tables/LPS_Offers/records', {
+                TypeID: Number(offer.TypeID),
+                CompanyID: newCompanyId,
+                ServiceFee: Number(offer.ServiceFee) || 0,
+                ClientFee: Number(offer.ClientFee) || 0
+              })
+            ).catch(err => console.error('Error creating offer:', err))
+          );
+          await Promise.all(offerPromises);
+        }
+      }
+
+      // Reload companies and offers so new company's data appears in UI
       const companyRecords = await this.fetchTableRecords('Companies', { 'q.orderBy': 'CompanyName', 'q.limit': '2000' });
+      const offersRecords = await this.fetchTableRecords('Offers', {
+        'q.select': 'PK_ID,OffersID,TypeID,CompanyID,ServiceFee,ClientFee',
+        'q.orderBy': 'OffersID',
+        'q.limit': '1000'
+      });
+      this.allOffers = offersRecords;
+      this.groupOffersByCompany();
       this.allCompaniesForNotif = companyRecords.map(r => ({
         CompanyID: Number(r.CompanyID ?? r.PK_ID ?? 0),
         CompanyName: r.CompanyName || r.Name || ''
@@ -2239,10 +2274,10 @@ export class CompanyPage implements OnInit, OnDestroy {
     }
   }
 
-  async openAddUserModal() {
-    // Reset the user with default values, pre-fill company with current user's company
+  async openAddUserModal(companyId?: number) {
+    // Reset the user with default values, pre-fill company with specified or current user's company
     this.newUser = {
-      CompanyID: this.currentUserCompanyId,
+      CompanyID: companyId ?? this.currentUserCompanyId,
       Name: '',
       Email: '',
       Phone: '',
@@ -2253,6 +2288,11 @@ export class CompanyPage implements OnInit, OnDestroy {
     this.newUserHeadshotPreview = null;
 
     this.isAddUserModalOpen = true;
+  }
+
+  getCompanyUsers(companyId: number | null): any[] {
+    if (companyId === null) return [];
+    return this.allUsers.filter(u => Number(u.CompanyID) === companyId);
   }
 
   closeAddUserModal() {
@@ -2582,12 +2622,12 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Create the communication via Caspio API
       const response = await firstValueFrom(
-        this.caspioService.post('/tables/LPS_Touch/records', payload)
+        this.caspioService.post('/tables/LPS_Touches/records', payload)
       );
 
 
       // Reload communications data to include the new communication
-      const touchRecords = await this.fetchTableRecords('Touch', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' });
+      const touchRecords = await this.fetchTableRecords('Touches', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' });
       this.communications = touchRecords
         .filter(record => (record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null) !== this.excludedCompanyId)
         .map(record => this.normalizeTouchRecord(record));
@@ -2730,12 +2770,12 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Update via Caspio API using PK_ID
       const response = await firstValueFrom(
-        this.caspioService.put(`/tables/LPS_Touch/records?q.where=PK_ID=${this.editingCommunication.PK_ID}`, payload)
+        this.caspioService.put(`/tables/LPS_Touches/records?q.where=PK_ID=${this.editingCommunication.PK_ID}`, payload)
       );
 
 
       // Reload communications data
-      const touchRecords = await this.fetchTableRecords('Touch', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' });
+      const touchRecords = await this.fetchTableRecords('Touches', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' });
       this.communications = touchRecords
         .filter(record => (record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null) !== this.excludedCompanyId)
         .map(record => this.normalizeTouchRecord(record));
@@ -2791,12 +2831,12 @@ export class CompanyPage implements OnInit, OnDestroy {
     try {
 
       await firstValueFrom(
-        this.caspioService.delete(`/tables/LPS_Touch/records?q.where=PK_ID=${communication.PK_ID}`)
+        this.caspioService.delete(`/tables/LPS_Touches/records?q.where=PK_ID=${communication.PK_ID}`)
       );
 
 
       // Reload communications data
-      const touchRecords = await this.fetchTableRecords('Touch', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' });
+      const touchRecords = await this.fetchTableRecords('Touches', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' });
       this.communications = touchRecords
         .filter(record => (record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null) !== this.excludedCompanyId)
         .map(record => this.normalizeTouchRecord(record));
@@ -2939,12 +2979,12 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       // Update via Caspio API using PK_ID
       const response = await firstValueFrom(
-        this.caspioService.put(`/tables/LPS_Meeting/records?q.where=PK_ID=${this.editingMeeting.PK_ID}`, payload)
+        this.caspioService.put(`/tables/LPS_Meetings/records?q.where=PK_ID=${this.editingMeeting.PK_ID}`, payload)
       );
 
 
       // Reload meetings data
-      const meetingRecords = await this.fetchTableRecords('Meeting', { 'q.orderBy': 'StartDate DESC', 'q.limit': '2000' });
+      const meetingRecords = await this.fetchTableRecords('Meetings', { 'q.orderBy': 'StartDate DESC', 'q.limit': '2000' });
       this.meetings = meetingRecords
         .filter(record => (record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null) !== this.excludedCompanyId)
         .map(record => this.normalizeMeetingRecord(record));
@@ -3000,12 +3040,12 @@ export class CompanyPage implements OnInit, OnDestroy {
     try {
 
       await firstValueFrom(
-        this.caspioService.delete(`/tables/LPS_Meeting/records?q.where=PK_ID=${meeting.PK_ID}`)
+        this.caspioService.delete(`/tables/LPS_Meetings/records?q.where=PK_ID=${meeting.PK_ID}`)
       );
 
 
       // Reload meetings data
-      const meetingRecords = await this.fetchTableRecords('Meeting', { 'q.orderBy': 'StartDate DESC', 'q.limit': '2000' });
+      const meetingRecords = await this.fetchTableRecords('Meetings', { 'q.orderBy': 'StartDate DESC', 'q.limit': '2000' });
       this.meetings = meetingRecords
         .filter(record => (record.CompanyID !== undefined && record.CompanyID !== null ? Number(record.CompanyID) : null) !== this.excludedCompanyId)
         .map(record => this.normalizeMeetingRecord(record));
@@ -3392,7 +3432,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     try {
       // Delete via Caspio API
       await firstValueFrom(
-        this.caspioService.delete(`/tables/LPS_Company/records?q.where=CompanyID=${company.CompanyID}`)
+        this.caspioService.delete(`/tables/LPS_Companies/records?q.where=CompanyID=${company.CompanyID}`)
       );
 
       // Remove from local companies array
@@ -5256,6 +5296,120 @@ export class CompanyPage implements OnInit, OnDestroy {
     return this.offersByCompany.get(companyId) || [];
   }
 
+  getAvailableTypesForCompany(companyId: number): { typeId: number; typeName: string }[] {
+    const existingTypeIds = new Set(
+      this.getCompanyOffers(companyId).map((o: any) => Number(o.TypeID))
+    );
+    const available: { typeId: number; typeName: string }[] = [];
+    this.typeIdToNameLookup.forEach((name, id) => {
+      if (!existingTypeIds.has(id)) {
+        available.push({ typeId: id, typeName: name });
+      }
+    });
+    return available.sort((a, b) => a.typeName.localeCompare(b.typeName));
+  }
+
+  getAvailableTypesForNewCompany(): { typeId: number; typeName: string }[] {
+    const existingTypeIds = new Set(this.newCompanyOffers.map((o: any) => Number(o.TypeID)));
+    const available: { typeId: number; typeName: string }[] = [];
+    this.typeIdToNameLookup.forEach((name, id) => {
+      if (!existingTypeIds.has(id)) {
+        available.push({ typeId: id, typeName: name });
+      }
+    });
+    return available.sort((a, b) => a.typeName.localeCompare(b.typeName));
+  }
+
+  async addOfferToCompany(companyId: number) {
+    if (!this.editOfferTypeId) return;
+    try {
+      await firstValueFrom(
+        this.caspioService.post('/tables/LPS_Offers/records', {
+          TypeID: this.editOfferTypeId,
+          CompanyID: companyId,
+          ServiceFee: 0,
+          ClientFee: 0
+        })
+      );
+      // Reload offers
+      const offersRecords = await this.fetchTableRecords('Offers', {
+        'q.select': 'PK_ID,OffersID,TypeID,CompanyID,ServiceFee,ClientFee',
+        'q.orderBy': 'OffersID',
+        'q.limit': '1000'
+      });
+      this.allOffers = offersRecords;
+      this.groupOffersByCompany();
+      this.editOfferTypeId = null;
+    } catch (error) {
+      console.error('Error adding offer:', error);
+      await this.showToast('Failed to add service', 'danger');
+    }
+  }
+
+  async removeOfferFromCompany(offer: any, companyId: number) {
+    const offerId = offer.OffersID || offer.PK_ID;
+    if (!offerId) return;
+    try {
+      await firstValueFrom(
+        this.caspioService.delete(`/tables/LPS_Offers/records?q.where=OffersID=${offerId}`)
+      );
+      // Reload offers
+      const offersRecords = await this.fetchTableRecords('Offers', {
+        'q.select': 'PK_ID,OffersID,TypeID,CompanyID,ServiceFee,ClientFee',
+        'q.orderBy': 'OffersID',
+        'q.limit': '1000'
+      });
+      this.allOffers = offersRecords;
+      this.groupOffersByCompany();
+    } catch (error) {
+      console.error('Error removing offer:', error);
+      await this.showToast('Failed to remove service', 'danger');
+    }
+  }
+
+  addOfferToNewCompany() {
+    if (!this.newCompanyOfferTypeId) return;
+    const typeName = this.typeIdToNameLookup.get(this.newCompanyOfferTypeId) || 'Unknown';
+    this.newCompanyOffers.push({
+      TypeID: this.newCompanyOfferTypeId,
+      typeName,
+      ServiceFee: 0,
+      ClientFee: 0
+    });
+    this.newCompanyOfferTypeId = null;
+  }
+
+  removeOfferFromNewCompany(index: number) {
+    this.newCompanyOffers.splice(index, 1);
+  }
+
+  getDefaultServiceOffers(): any[] {
+    // Collect all unique TypeIDs from existing offers
+    const typeIdCounts = new Map<number, number>();
+    this.allOffers.forEach(offer => {
+      const typeId = Number(offer.TypeID);
+      if (!isNaN(typeId)) {
+        typeIdCounts.set(typeId, (typeIdCounts.get(typeId) || 0) + 1);
+      }
+    });
+    // Use types that appear for at least 2 companies (common services)
+    const threshold = Math.min(2, this.companies.length);
+    const defaults: any[] = [];
+    typeIdCounts.forEach((count, typeId) => {
+      if (count >= threshold) {
+        const typeName = this.typeIdToNameLookup.get(typeId) || 'Unknown';
+        defaults.push({ TypeID: typeId, typeName, ServiceFee: 0, ClientFee: 0 });
+      }
+    });
+    // If no common services found, include all types
+    if (defaults.length === 0) {
+      this.typeIdToNameLookup.forEach((name, id) => {
+        defaults.push({ TypeID: id, typeName: name, ServiceFee: 0, ClientFee: 0 });
+      });
+    }
+    return defaults.sort((a, b) => a.typeName.localeCompare(b.typeName));
+  }
+
   getFirstName(fullName: string | null | undefined): string {
     if (!fullName) {
       return '';
@@ -6021,12 +6175,12 @@ export class CompanyPage implements OnInit, OnDestroy {
       addText('ServiceArea', this.editingCompany.ServiceArea);
       addText('Notes', this.editingCompany.Notes);
 
-      // Size — Caspio List-String field, must be sent as object {"key":"label"}
+      // Size — Caspio List-String field, send as key string (matches working POST pattern)
       if (this.editingCompany.Size) {
         const sizeLabel = String(this.editingCompany.Size).trim();
         const sizeKey = this.sizeLabelToKeyMap.get(sizeLabel);
         if (sizeKey) {
-          payload.Size = { [sizeKey]: sizeLabel };
+          payload.Size = sizeKey;
         }
       }
 
@@ -6170,18 +6324,21 @@ export class CompanyPage implements OnInit, OnDestroy {
         return;
       }
 
-      // Update each offer with the new ServiceFee
+      // Update each offer with the new ServiceFee and ClientFee
       const updatePromises = offers.map(offer => {
         const offerId = offer.OffersID || offer.PK_ID;
-        
+
         if (!offerId) {
           console.warn('Offer missing ID, skipping:', offer);
           return Promise.resolve();
         }
 
-        const payload = {
+        const payload: any = {
           ServiceFee: offer.ServiceFee
         };
+        if (offer.ClientFee !== undefined) {
+          payload.ClientFee = offer.ClientFee;
+        }
 
         return firstValueFrom(
           this.caspioService.put(`/tables/LPS_Offers/records?q.where=OffersID=${offerId}`, payload)
@@ -6196,12 +6353,13 @@ export class CompanyPage implements OnInit, OnDestroy {
       // Update the local allOffers array
       offers.forEach(offer => {
         const offerId = offer.OffersID || offer.PK_ID;
-        const offerIndex = this.allOffers.findIndex(o => 
+        const offerIndex = this.allOffers.findIndex(o =>
           (o.OffersID || o.PK_ID) === offerId
         );
-        
+
         if (offerIndex !== -1) {
           this.allOffers[offerIndex].ServiceFee = offer.ServiceFee;
+          this.allOffers[offerIndex].ClientFee = offer.ClientFee;
         }
       });
 
@@ -6770,6 +6928,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       CompanyID: Number(raw.CompanyID ?? raw.PK_ID ?? 0),
       StageID: stageId,
       StageName: stageName,
+      'Onboarding Stage': stageName !== 'No Stage' ? stageName : '',
       CompanyName: raw.CompanyName ?? 'Unnamed Company',
       SizeLabel: this.extractSizeLabel(raw.Size),
       Size: this.extractSizeLabel(raw.Size),
@@ -6777,6 +6936,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       LeadSource: raw.LeadSource ?? '',
       Phone: raw.Phone ?? '',
       Email: raw.Email ?? '',
+      CC_Email: raw.CC_Email ?? raw.CCEmail ?? '',
       Website: this.normalizeUrl(raw.Website ?? ''),
       Address: raw.Address ?? '',
       City: raw.City ?? '',
@@ -6786,6 +6946,8 @@ export class CompanyPage implements OnInit, OnDestroy {
       Franchise: Boolean(raw.Franchise),
       DateOnboarded: raw.DateOnboarded ?? '',
       CCEmail: raw.CC_Email ?? raw.CCEmail ?? '',
+      SoftwareID: raw.SoftwareID !== undefined && raw.SoftwareID !== null ? String(raw.SoftwareID) : undefined,
+      Logo: raw.Logo || undefined,
       // Autopay fields (Caspio Yes/No fields return "Yes"/"No" or 1/0)
       AutopayEnabled: raw.AutopayEnabled === true || raw.AutopayEnabled === 1 || raw.AutopayEnabled === 'Yes',
       AutopayReviewRequired: raw.AutopayReviewRequired === true || raw.AutopayReviewRequired === 1 || raw.AutopayReviewRequired === 'Yes',
