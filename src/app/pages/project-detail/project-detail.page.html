@@ -472,9 +472,6 @@
                             </div>
                           </td>
                           <td class="doc-actions-cell">
-                            <button class="doc-action-btn" *ngIf="doc.uploaded" (click)="viewDocument(doc)" title="View">
-                              <ion-icon name="eye-outline"></ion-icon>
-                            </button>
                             <button class="doc-action-btn" *ngIf="!isReadOnly"
                                     (click)="editLink(serviceDoc.serviceId, doc)" title="Edit Link">
                               <ion-icon name="create-outline"></ion-icon>

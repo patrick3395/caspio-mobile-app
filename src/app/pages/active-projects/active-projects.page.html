@@ -14,15 +14,6 @@
     <ion-buttons slot="end" [class.web-actions]="platform.isWeb()">
       <button
         type="button"
-        class="toolbar-btn"
-        (click)="refreshProjects()"
-        aria-label="Refresh projects"
-        *ngIf="!platform.isWeb()"
-      >
-        <ion-icon name="refresh-outline"></ion-icon>
-      </button>
-      <button
-        type="button"
         class="toolbar-btn primary"
         (click)="createNewProject()"
         aria-label="Add project"

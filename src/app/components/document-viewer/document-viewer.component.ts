@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, AfterViewInit, NgZone } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController, AlertController } from '@ionic/angular';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -9,9 +9,9 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
   standalone: true,
   imports: [CommonModule, IonicModule, NgxExtendedPdfViewerModule],
   template: `
-    <ion-header *ngIf="!isPDF">
-      <ion-toolbar style="--background: #2d3436;">
-        <ion-title style="color: white;">{{ fileName || 'Document Viewer' }}</ion-title>
+    <ion-header>
+      <ion-toolbar style="--background: #1a1a1a; --min-height: 44px;">
+        <ion-title style="color: white; font-size: 14px;">{{ fileName || 'Document Viewer' }}</ion-title>
         <ion-buttons slot="end">
           <ion-button (click)="dismiss()" style="color: white;">
             <ion-icon name="close" slot="icon-only"></ion-icon>
@@ -30,7 +30,7 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
           [src]="pdfSource"
           [height]="'100%'"
           [mobileFriendlyZoom]="'150%'"
-          [showToolbar]="true"
+          [showToolbar]="false"
           [showSidebarButton]="false"
           [sidebarVisible]="false"
           [showFindButton]="false"
@@ -77,38 +77,6 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
       align-items: center;
       justify-content: center;
       overflow: hidden;
-    }
-    /* Close button injected into toolbar */
-    ::ng-deep #pdfCloseBtn {
-      color: #fff !important;
-      cursor: pointer !important;
-      display: inline-flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      vertical-align: middle !important;
-      width: 32px !important;
-      height: 32px !important;
-      min-width: 32px !important;
-      margin: 2px 4px !important;
-      padding: 0 !important;
-      border: none !important;
-      background: rgba(255, 255, 255, 0.1) !important;
-      border-radius: 8px !important;
-      transition: all 0.2s ease !important;
-    }
-    ::ng-deep #pdfCloseBtn:hover {
-      background-color: rgba(241, 90, 39, 0.8) !important;
-    }
-    ::ng-deep #toolbarViewerRight {
-      display: flex !important;
-      align-items: center !important;
-    }
-    /* Stabilize toolbar on mobile */
-    ::ng-deep .toolbar {
-      position: sticky !important;
-      top: 0 !important;
-      z-index: 10 !important;
-      min-height: 40px !important;
     }
     .pdf-container {
       width: 100%;
@@ -354,7 +322,7 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
 
   `]
 })
-export class DocumentViewerComponent implements OnInit, AfterViewInit {
+export class DocumentViewerComponent implements OnInit {
   @Input() fileUrl!: string;
   @Input() fileName!: string;
   @Input() fileType!: string;
@@ -369,37 +337,9 @@ export class DocumentViewerComponent implements OnInit, AfterViewInit {
   constructor(
     private modalController: ModalController,
     private sanitizer: DomSanitizer,
-    private alertController: AlertController,
-    private ngZone: NgZone
+    private alertController: AlertController
   ) {}
 
-  ngAfterViewInit() {
-    if (this.isPDF) {
-      this.injectToolbarButtons();
-    }
-  }
-
-  private injectToolbarButtons() {
-    // Wait for the PDF viewer toolbar to render
-    const tryInject = (attempts = 0) => {
-      const toolbarRight = document.querySelector('#toolbarViewerRight');
-      if (toolbarRight) {
-        // Close button
-        const closeBtn = document.createElement('button');
-        closeBtn.id = 'pdfCloseBtn';
-        closeBtn.className = 'toolbarButton';
-        closeBtn.title = 'Close';
-        closeBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-        closeBtn.addEventListener('click', () => {
-          this.ngZone.run(() => this.dismiss());
-        });
-        toolbarRight.appendChild(closeBtn);
-      } else if (attempts < 20) {
-        setTimeout(() => tryInject(attempts + 1), 150);
-      }
-    };
-    tryInject();
-  }
 
   private printPdf() {
     const url = this.fileUrl;

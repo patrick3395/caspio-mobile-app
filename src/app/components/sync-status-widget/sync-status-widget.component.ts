@@ -185,7 +185,18 @@ export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
    * This ensures proper z-index handling and mobile compatibility
    */
   async showSyncDetails(): Promise<void> {
-    
+
+    // Only allow CompanyID 1 (admin) to open the sync details modal
+    try {
+      const currentUser = localStorage.getItem('currentUser');
+      if (currentUser) {
+        const user = JSON.parse(currentUser);
+        if (user.companyId && parseInt(user.companyId.toString(), 10) !== 1) {
+          return;
+        }
+      }
+    } catch {}
+
     // Prevent double-tap from opening multiple modals
     if (this.isModalOpen) {
       return;
