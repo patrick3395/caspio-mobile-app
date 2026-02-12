@@ -208,11 +208,29 @@ export class HelpGuidePage implements OnInit {
     const filePath = file.FileFile;
     if (!filePath) return;
 
-    const dataUrl = await this.getFileDataUrl(file);
-    if (!dataUrl) return;
-
     const filename = file.Description || this.getFileName(filePath);
     const isImage = this.isImageFile(filePath);
+    const isPdf = this.isPdfFile(filePath);
+
+    if (isPdf) {
+      // Pass direct URL to PDF viewer — avoids blob/dataURL conversion that corrupts binary on mobile
+      const DocumentViewerComponent = await this.loadDocumentViewer();
+      const modal = await this.modalController.create({
+        component: DocumentViewerComponent,
+        componentProps: {
+          fileUrl: this.getPdfUrl(file),
+          fileName: filename,
+          fileType: 'PDF',
+          filePath: filePath
+        },
+        cssClass: 'fullscreen-modal'
+      });
+      await modal.present();
+      return;
+    }
+
+    const dataUrl = await this.getFileDataUrl(file);
+    if (!dataUrl) return;
 
     if (isImage) {
       const modal = await this.modalController.create({
