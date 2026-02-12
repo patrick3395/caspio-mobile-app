@@ -867,14 +867,45 @@ export class CompanyPage implements OnInit, OnDestroy {
               // Positive fee = charge
               projectFeeTotals.set(projectId, (projectFeeTotals.get(projectId) || 0) + fee);
               const servicesList = projectServicesList.get(projectId) || [];
-              const label = invoice.InvoiceNotes
-                ? invoice.InvoiceNotes.substring(0, 40)
-                : 'Fee';
+              // Determine label: AddedInvoice > ServiceID type name > project service > 'Fee'
+              let label = 'Fee';
+              if (invoice.AddedInvoice && String(invoice.AddedInvoice).trim()) {
+                label = String(invoice.AddedInvoice).trim();
+              } else if (invoice.ServiceID != null && invoice.ServiceID !== '') {
+                const sid = Number(invoice.ServiceID);
+                // Try direct TypeID lookup (ServiceID stores TypeID for newer records)
+                const directName = this.typeIdToNameLookup.get(sid);
+                if (directName) {
+                  label = directName;
+                } else {
+                  // Try as LPS_Services PK_ID -> TypeID -> TypeName (older records)
+                  const typeId = this.servicesLookup.get(sid);
+                  if (typeId != null) {
+                    const typeName = this.typeIdToNameLookup.get(typeId);
+                    if (typeName) {
+                      label = typeName;
+                    }
+                  }
+                }
+              }
+              // If still 'Fee', try project-level service lookup
+              if (label === 'Fee') {
+                const serviceIds = this.servicesByProjectLookup.get(projectId);
+                if (serviceIds && serviceIds.length > 0) {
+                  const typeId = this.servicesLookup.get(serviceIds[0]);
+                  if (typeId != null) {
+                    const typeName = this.typeIdToNameLookup.get(typeId);
+                    if (typeName) {
+                      label = typeName;
+                    }
+                  }
+                }
+              }
               servicesList.push({ name: label, fee });
               projectServicesList.set(projectId, servicesList);
 
               const shorts = projectShortNames.get(projectId) || new Set<string>();
-              shorts.add(invoice.InvoiceNotes?.substring(0, 15) || 'Fee');
+              shorts.add(label.substring(0, 15));
               projectShortNames.set(projectId, shorts);
             } else if (fee < 0) {
               // Negative fee = payment
@@ -4996,7 +5027,14 @@ export class CompanyPage implements OnInit, OnDestroy {
     if (record.AddedInvoice && record.AddedInvoice.trim()) {
       return record.AddedInvoice.trim();
     }
-    // Otherwise resolve service name from ServiceID
+    // ServiceID in LPS_Invoices stores TypeID directly, so look up TypeID first
+    if (record.ServiceID !== null) {
+      const directName = this.typeIdToNameLookup.get(record.ServiceID);
+      if (directName) {
+        return directName;
+      }
+    }
+    // Fallback to standard resolution
     return this.getServiceNameForInvoice(record);
   }
 
