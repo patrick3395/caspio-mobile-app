@@ -11,6 +11,7 @@ import { ConfirmationDialogService } from '../../services/confirmation-dialog.se
 import { PageTitleService } from '../../services/page-title.service';
 import { environment } from '../../../environments/environment';
 import { ApiGatewayService } from '../../services/api-gateway.service';
+import { MemoryDiagnosticsService } from '../../services/memory-diagnostics.service';
 import { firstValueFrom } from 'rxjs';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 import { db } from '../../services/caspio-db';
@@ -623,7 +624,8 @@ export class CompanyPage implements OnInit, OnDestroy {
     private apiGateway: ApiGatewayService,
     private http: HttpClient,
     private router: Router,
-    private pageTitleService: PageTitleService
+    private pageTitleService: PageTitleService,
+    private memoryDiagnostics: MemoryDiagnosticsService
   ) {}
 
   ngOnInit() {
@@ -7579,6 +7581,44 @@ export class CompanyPage implements OnInit, OnDestroy {
     }
 
     return allRecords;
+  }
+
+  async clearSyncedDataTest() {
+    if (environment.isWeb) {
+      const alert = await this.alertController.create({
+        header: 'Not Available',
+        message: 'Clear Synced Data is only available on mobile devices.',
+        buttons: ['OK']
+      });
+      await alert.present();
+      return;
+    }
+
+    const alert = await this.alertController.create({
+      header: 'Clear Synced Data (Test)',
+      message: 'This clears ONLY synced/verified data (blobs + cached photos) and marks services as PURGED. Pending uploads are preserved. Services will rehydrate from server on next access.',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Clear',
+          cssClass: 'warning',
+          handler: async () => {
+            const loading = await this.loadingController.create({
+              message: 'Clearing synced data...'
+            });
+            await loading.present();
+            try {
+              await this.memoryDiagnostics.clearAllSyncedData();
+            } catch (err) {
+              console.error('[Company] clearSyncedDataTest failed:', err);
+            } finally {
+              await loading.dismiss();
+            }
+          }
+        }
+      ]
+    });
+    await alert.present();
   }
 
   async resetAppMemory() {

@@ -434,8 +434,13 @@
                       <div class="template-content">
                         <div class="template-name">
                           <span class="service-title">
-                            <span *ngIf="service.typeShort" class="type-short">{{ service.typeShort }}</span>
-                            <span *ngIf="service.typeShort"> - </span>{{ service.typeName }}
+                            <ng-container *ngIf="!isWeb && service.typeShort; else fullName">
+                              <span class="type-short">{{ service.typeShort }}</span>
+                            </ng-container>
+                            <ng-template #fullName>
+                              <span *ngIf="service.typeShort" class="type-short">{{ service.typeShort }}</span>
+                              <span *ngIf="service.typeShort"> - </span>{{ service.typeName }}
+                            </ng-template>
                             <span *ngIf="getServiceCount(service.offersId) > 1"> #{{ getServiceInstanceNumber(service) }}</span>
                           </span>
                         </div>

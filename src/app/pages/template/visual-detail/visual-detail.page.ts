@@ -1047,13 +1047,27 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         }
       }
 
-      // Use remote URL if available (no await needed)
-      if (displayUrl === 'assets/img/photo-placeholder.svg' && img.remoteUrl) {
-        displayUrl = img.remoteUrl;
+      // REHYDRATION FIX: Generate fresh signed S3 URL from remoteS3Key
+      // After rehydration, remoteUrl may be null (new records) or expired (existing records).
+      // remoteS3Key is always valid — use it to generate a fresh signed URL.
+      if (displayUrl === 'assets/img/photo-placeholder.svg') {
+        if (img.remoteS3Key) {
+          try {
+            const freshUrl = await this.localImageService.getSignedS3Url(img.remoteS3Key);
+            displayUrl = freshUrl;
+          } catch (e) {
+            // Fall back to stored remoteUrl as last resort
+            if (img.remoteUrl) displayUrl = img.remoteUrl;
+          }
+        } else if (img.remoteUrl) {
+          displayUrl = img.remoteUrl;
+        }
       }
 
       // CRITICAL: originalUrl must ALWAYS be the non-annotated original
-      const originalUrl = img.remoteUrl || 'assets/img/photo-placeholder.svg';
+      let originalUrl = displayUrl !== 'assets/img/photo-placeholder.svg'
+        ? displayUrl
+        : 'assets/img/photo-placeholder.svg';
 
       // Check if this photo already exists in the array
       const existingIndex = existingById.get(img.imageId) ??
@@ -1140,6 +1154,27 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           }
         } catch (e) {
           console.warn('[GenericVisualDetail] Failed to load blob:', e);
+        }
+      }
+
+      // REHYDRATION FIX: If no local blob (cleared during purge), generate fresh S3 URL
+      // This is the critical fallback that was missing — after rehydration, localBlobId is null
+      // and remoteUrl may be expired. remoteS3Key is always valid.
+      if (!needsUpdate && img.remoteS3Key &&
+          (originalUrl === 'assets/img/photo-placeholder.svg' || displayUrl === 'assets/img/photo-placeholder.svg')) {
+        try {
+          const freshUrl = await this.localImageService.getSignedS3Url(img.remoteS3Key);
+          if (freshUrl && !this.isDestroyed) {
+            if (originalUrl === 'assets/img/photo-placeholder.svg') {
+              originalUrl = freshUrl;
+            }
+            if (displayUrl === 'assets/img/photo-placeholder.svg') {
+              displayUrl = freshUrl;
+            }
+            needsUpdate = true;
+          }
+        } catch (e) {
+          console.warn('[GenericVisualDetail] S3 URL generation failed:', e);
         }
       }
 

@@ -360,10 +360,10 @@ export class TemplateRehydrationService {
 
     const allAttachments: any[] = [];
 
-    try {
-      // Fetch attachments for each record ID
-      // Note: Some APIs support batch fetching, others require individual calls
-      for (const recordId of recordIds) {
+    // Fetch attachments for each record ID
+    // Per-record try/catch so one failure doesn't abort all remaining records
+    for (const recordId of recordIds) {
+      try {
         let attachments: any[] = [];
 
         switch (config.id) {
@@ -392,9 +392,9 @@ export class TemplateRehydrationService {
         if (attachments && attachments.length > 0) {
           allAttachments.push(...attachments);
         }
+      } catch (error) {
+        console.warn(`[TemplateRehydration] Failed to fetch attachments for record ${recordId}:`, error);
       }
-    } catch (error) {
-      console.error(`[TemplateRehydration] Failed to fetch attachments:`, error);
     }
 
     return allAttachments;
