@@ -328,7 +328,7 @@
       <!-- Unified expandable services list -->
       <div *ngIf="!loadingServices" class="services-list">
         <!-- Empty state for Active tab -->
-        <div *ngIf="servicesTab === 'active' && getFilteredOffers().length === 0" class="services-empty-state">
+        <div *ngIf="servicesTab === 'active' && getSortedServices().length === 0" class="services-empty-state">
           <ion-icon name="clipboard-outline"></ion-icon>
           <p>No active services</p>
           <span>Switch to <strong>Add Services</strong> to get started</span>
@@ -340,43 +340,22 @@
           <p>No services available</p>
         </div>
 
-        <div *ngFor="let offer of getFilteredOffers(); trackBy: trackByOfferId"
-             class="service-list-item"
-             [class.has-selection]="isServiceSelected(offer.OffersID)">
-          <!-- Service header row (always visible) -->
-          <div class="service-header-row" 
-               (click)="toggleServiceExpanded(offer)"
-               [class.selected]="isServiceSelected(offer.OffersID)">
-            <img *ngIf="offer.TypeIconUrl" [src]="offer.TypeIconUrl" class="service-header-icon" alt="">
-            <ion-icon *ngIf="!offer.TypeIconUrl" name="document-text" class="service-header-icon-fallback"></ion-icon>
-            <div class="service-name">
-              {{ offer.TypeShort ? offer.TypeShort + ' - ' + offer.TypeName : (offer.TypeName || offer.Service_Name || offer.Description) }}
-            </div>
-            <!-- Add Services tab: -/count/+ controls for selected, + icon for unselected -->
-            <ng-container *ngIf="servicesTab === 'add'">
-              <div class="service-counter" *ngIf="isServiceSelected(offer.OffersID)" (click)="$event.stopPropagation()">
-                <button class="counter-btn" (click)="removeOneServiceInstance(offer.OffersID, $event)" [disabled]="updatingServices">
-                  <ion-icon name="remove-circle-outline"></ion-icon>
-                </button>
-                <span class="counter-value">{{ getServiceCount(offer.OffersID) }}</span>
-                <button class="counter-btn" (click)="duplicateService(offer.OffersID, offer.TypeName, $event)" [disabled]="updatingServices">
-                  <ion-icon name="add-circle-outline"></ion-icon>
-                </button>
+        <!-- Active tab: each service instance in its own container -->
+        <ng-container *ngIf="servicesTab === 'active'">
+          <div *ngFor="let service of getSortedServices(); trackBy: trackByInstanceId"
+               class="service-list-item has-selection">
+            <div class="service-header-row selected">
+              <img *ngIf="service.typeIconUrl" [src]="service.typeIconUrl" class="service-header-icon" alt="">
+              <ion-icon *ngIf="!service.typeIconUrl" name="document-text" class="service-header-icon-fallback"></ion-icon>
+              <div class="service-name">
+                {{ service.typeShort ? service.typeShort + ' - ' + service.typeName : service.typeName }}
+                <span *ngIf="getServiceCount(service.offersId) > 1"> #{{ getServiceInstanceNumber(service) }}</span>
               </div>
-              <div class="service-toggle" *ngIf="!isServiceSelected(offer.OffersID)">
-                <ion-icon name="add-circle-outline"></ion-icon>
+              <div class="service-toggle">
+                <ion-icon name="chevron-down"></ion-icon>
               </div>
-            </ng-container>
-            <!-- Active tab: chevron only -->
-            <div class="service-toggle" *ngIf="servicesTab === 'active'">
-              <ion-icon [name]="isServiceSelected(offer.OffersID) ? 'chevron-down' : 'add-circle-outline'"></ion-icon>
             </div>
-          </div>
-          
-          <!-- Expanded details (only when selected, Active tab only) -->
-          <div *ngIf="servicesTab === 'active' && isServiceSelected(offer.OffersID)" class="service-details">
-            <ng-container *ngFor="let service of getServiceInstances(offer.OffersID); let i = index">
-                <div class="service-number-header" *ngIf="getServiceInstances(offer.OffersID).length > 1">#{{ i + 1 }}</div>
+            <div class="service-details">
                 <div class="instance-fields">
                   <div class="field-group">
                     <label>Inspection Date</label>
@@ -530,9 +509,38 @@
                     Submitted {{ service.StatusDateTime | date:'short' }}
                   </div>
                 </div>
-            </ng-container>
+            </div>
           </div>
-        </div>
+        </ng-container>
+
+        <!-- Add Services tab: grouped by offer -->
+        <ng-container *ngIf="servicesTab === 'add'">
+          <div *ngFor="let offer of getFilteredOffers(); trackBy: trackByOfferId"
+               class="service-list-item"
+               [class.has-selection]="isServiceSelected(offer.OffersID)">
+            <div class="service-header-row"
+                 (click)="toggleServiceExpanded(offer)"
+                 [class.selected]="isServiceSelected(offer.OffersID)">
+              <img *ngIf="offer.TypeIconUrl" [src]="offer.TypeIconUrl" class="service-header-icon" alt="">
+              <ion-icon *ngIf="!offer.TypeIconUrl" name="document-text" class="service-header-icon-fallback"></ion-icon>
+              <div class="service-name">
+                {{ offer.TypeShort ? offer.TypeShort + ' - ' + offer.TypeName : (offer.TypeName || offer.Service_Name || offer.Description) }}
+              </div>
+              <div class="service-counter" *ngIf="isServiceSelected(offer.OffersID)" (click)="$event.stopPropagation()">
+                <button class="counter-btn" (click)="removeOneServiceInstance(offer.OffersID, $event)" [disabled]="updatingServices">
+                  <ion-icon name="remove-circle-outline"></ion-icon>
+                </button>
+                <span class="counter-value">{{ getServiceCount(offer.OffersID) }}</span>
+                <button class="counter-btn" (click)="duplicateService(offer.OffersID, offer.TypeName, $event)" [disabled]="updatingServices">
+                  <ion-icon name="add-circle-outline"></ion-icon>
+                </button>
+              </div>
+              <div class="service-toggle" *ngIf="!isServiceSelected(offer.OffersID)">
+                <ion-icon name="add-circle-outline"></ion-icon>
+              </div>
+            </div>
+          </div>
+        </ng-container>
       </div>
     </div>
 

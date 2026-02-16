@@ -25,6 +25,7 @@ import { ServiceMetadataService } from '../service-metadata.service';
 import { IndexedDbService, ImageEntityType } from '../indexed-db.service';
 import { TemplateConfig } from './template-config.interface';
 import { environment } from '../../../environments/environment';
+import { renderAnnotationsOnPhoto } from '../../utils/annotation-utils';
 
 export interface RehydrationResult {
   success: boolean;
@@ -168,7 +169,11 @@ export class TemplateRehydrationService {
       // Step 6: Create LocalImage records for attachments
       imagesRestored = await this.restoreImageReferences(config, serviceId, serverRecords);
 
-      // Step 7: Set purgeState to ACTIVE
+      // Step 7: Pre-cache image data from S3 for offline access
+      // Without this, images show broken links when the user goes offline after rehydration
+      await this.preCacheImages(serviceId, config.entityType);
+
+      // Step 8: Set purgeState to ACTIVE
       await this.serviceMetadata.setPurgeState(serviceId, 'ACTIVE');
 
 
@@ -350,6 +355,98 @@ export class TemplateRehydrationService {
     }
 
     return imagesRestored;
+  }
+
+  /**
+   * Pre-cache image data from S3 for offline access
+   * Fetches actual image bytes and stores them in localBlobs + cachedPhotos
+   * so getDisplayUrl() can serve them without network.
+   * Also renders and caches annotated thumbnails.
+   */
+  private async preCacheImages(serviceId: string, entityType: string): Promise<void> {
+    const localImages = await db.localImages
+      .where('serviceId')
+      .equals(serviceId)
+      .toArray();
+
+    const imagesToCache = localImages.filter(img =>
+      img.remoteS3Key && !img.localBlobId && img.status === 'verified'
+    );
+
+    if (imagesToCache.length === 0) return;
+
+    // Process in parallel batches of 3 to avoid overwhelming the network
+    const BATCH_SIZE = 3;
+    let cached = 0;
+
+    for (let i = 0; i < imagesToCache.length; i += BATCH_SIZE) {
+      const batch = imagesToCache.slice(i, i + BATCH_SIZE);
+
+      await Promise.all(batch.map(async (img) => {
+        try {
+          // Get signed S3 URL
+          const signedUrl = await this.caspioService.getS3FileUrl(img.remoteS3Key!);
+
+          // Fetch actual image data
+          const response = await fetch(signedUrl);
+          if (!response.ok) return;
+
+          const blob = await response.blob();
+          if (!blob || blob.size === 0) return;
+
+          // Store in localBlobs
+          const arrayBuffer = await blob.arrayBuffer();
+          const blobId = crypto.randomUUID();
+          await db.localBlobs.add({
+            blobId,
+            data: arrayBuffer,
+            sizeBytes: arrayBuffer.byteLength,
+            contentType: blob.type || 'image/jpeg',
+            createdAt: Date.now()
+          });
+
+          // Update LocalImage to point to the new blob
+          await db.localImages.update(img.imageId, { localBlobId: blobId });
+
+          // Create cachedPhotos pointer for offline access via getCachedPhoto()
+          if (img.attachId) {
+            await this.indexedDb.cachePhotoPointer(
+              String(img.attachId),
+              serviceId,
+              blobId,
+              img.remoteS3Key || undefined
+            );
+          }
+
+          // If image has annotations, render and cache annotated thumbnail
+          if (img.drawings && img.drawings.length > 10) {
+            try {
+              const blobUrl = URL.createObjectURL(new Blob([arrayBuffer], { type: blob.type || 'image/jpeg' }));
+              const annotatedDataUrl = await renderAnnotationsOnPhoto(blobUrl, img.drawings);
+              URL.revokeObjectURL(blobUrl);
+
+              if (annotatedDataUrl) {
+                // Convert annotated data URL to blob and store
+                const annotatedResponse = await fetch(annotatedDataUrl);
+                const annotatedBlob = await annotatedResponse.blob();
+                const cacheKey = img.attachId || img.imageId;
+                await this.indexedDb.cacheAnnotatedImage(cacheKey, annotatedBlob);
+              }
+            } catch (annotErr) {
+              // Annotation rendering is non-critical — original photo is still cached
+              console.warn(`[TemplateRehydration] Annotation render failed for ${img.imageId}:`, annotErr);
+            }
+          }
+
+          cached++;
+        } catch (err) {
+          console.warn(`[TemplateRehydration] Failed to pre-cache image ${img.imageId}:`, err);
+        }
+      }));
+    }
+
+    if (cached > 0) {
+    }
   }
 
   /**

@@ -1758,9 +1758,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     });
   }
 
-  // TrackBy function to prevent DOM re-creation on change detection
+  // TrackBy functions to prevent DOM re-creation on change detection
   trackByOfferId(index: number, offer: any): string {
     return offer.OffersID;
+  }
+
+  trackByInstanceId(index: number, service: ServiceSelection): string {
+    return service.instanceId;
   }
 
   getSortedOffers(): any[] {
