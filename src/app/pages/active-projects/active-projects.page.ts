@@ -9,6 +9,8 @@ import { PlatformDetectionService } from '../../services/platform-detection.serv
 import { MutationTrackingService, EntityType, Mutation } from '../../services/mutation-tracking.service';
 import { PageTitleService } from '../../services/page-title.service';
 import { ThemeService } from '../../services/theme.service';
+import { NotificationStoreService } from '../../services/notification-store.service';
+import { StoredNotification } from '../../services/caspio-db';
 import { forkJoin, Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
 
@@ -62,6 +64,12 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
   notifAdminMessages = true;
   private themeSubscription?: Subscription;
 
+  // Notification inbox
+  notifications: StoredNotification[] = [];
+  unreadCount = 0;
+  private notifSubscription?: Subscription;
+  private unreadSubscription?: Subscription;
+
   // Force update timestamp
   getCurrentTimestamp(): string {
     return new Date().toLocaleString();
@@ -87,7 +95,8 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private mutationTracker: MutationTrackingService,
     private pageTitleService: PageTitleService,
-    private themeService: ThemeService
+    private themeService: ThemeService,
+    private notificationStore: NotificationStoreService
   ) {}
 
   ngOnInit() {
@@ -107,6 +116,18 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
       this.isDarkMode = isDark;
       this.cdr.markForCheck();
     });
+
+    // Subscribe to notification inbox (mobile only)
+    if (!this.platform.isWeb()) {
+      this.notifSubscription = this.notificationStore.getAll$().subscribe(notifs => {
+        this.notifications = notifs;
+        this.cdr.markForCheck();
+      });
+      this.unreadSubscription = this.notificationStore.getUnreadCount$().subscribe(count => {
+        this.unreadCount = count;
+        this.cdr.markForCheck();
+      });
+    }
 
     // Load current user info
     const userStr = localStorage.getItem('currentUser');
@@ -161,6 +182,12 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     if (this.themeSubscription) {
       this.themeSubscription.unsubscribe();
     }
+    if (this.notifSubscription) {
+      this.notifSubscription.unsubscribe();
+    }
+    if (this.unreadSubscription) {
+      this.unreadSubscription.unsubscribe();
+    }
   }
 
   toggleSettingsPane() {
@@ -189,6 +216,46 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
   toggleNotifAdminMessages() {
     this.notifAdminMessages = !this.notifAdminMessages;
     localStorage.setItem('notif-admin-messages', String(this.notifAdminMessages));
+  }
+
+  // Notification inbox methods
+  tapNotification(n: StoredNotification) {
+    if (n.read === 0) {
+      this.notificationStore.markAsRead(n.id);
+    }
+    const route = n.data?.route;
+    if (route) {
+      this.settingsPaneOpen = false;
+      this.router.navigateByUrl(route);
+    }
+  }
+
+  clearAllNotifications() {
+    this.notificationStore.clearAll();
+  }
+
+  trackByNotifId(index: number, n: StoredNotification): string {
+    return n.id;
+  }
+
+  getNotifIcon(type?: string): string {
+    switch (type) {
+      case 'service_completed': return 'checkmark-done-outline';
+      case 'payment_received': return 'card-outline';
+      case 'admin_message': return 'megaphone-outline';
+      default: return 'notifications-outline';
+    }
+  }
+
+  formatTimeAgo(timestamp: number): string {
+    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+    if (seconds < 60) return 'Just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
   }
 
   // Track last load time for smart caching

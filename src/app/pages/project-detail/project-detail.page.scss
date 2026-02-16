@@ -791,6 +791,11 @@ h3 {
           height: 44px;
           box-sizing: border-box;
           overflow: hidden;
+          transition: border-color 0.2s ease;
+
+          &:focus-within {
+            border-color: $orange;
+          }
 
           .price-prefix {
             padding-left: 12px;

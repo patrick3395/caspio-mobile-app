@@ -71,6 +71,37 @@
     </div>
     <div class="settings-group" *ngIf="!platform.isWeb()">
       <div class="settings-group-title">
+        <ion-icon name="mail-outline"></ion-icon>
+        <span>Inbox</span>
+        <span class="notif-badge" *ngIf="unreadCount > 0">{{ unreadCount }}</span>
+      </div>
+      <div class="notif-list" *ngIf="notifications.length > 0">
+        <div
+          class="notif-item"
+          [class.unread]="n.read === 0"
+          *ngFor="let n of notifications; trackBy: trackByNotifId"
+          (click)="tapNotification(n)">
+          <ion-icon
+            [name]="getNotifIcon(n.type)"
+            class="notif-type-icon">
+          </ion-icon>
+          <div class="notif-content">
+            <span class="notif-title">{{ n.title }}</span>
+            <span class="notif-body">{{ n.body }}</span>
+            <span class="notif-time">{{ formatTimeAgo(n.receivedAt) }}</span>
+          </div>
+        </div>
+        <button class="notif-clear-btn" (click)="clearAllNotifications()">
+          <ion-icon name="trash-outline"></ion-icon>
+          Clear All
+        </button>
+      </div>
+      <div class="notif-empty" *ngIf="notifications.length === 0">
+        No notifications
+      </div>
+    </div>
+    <div class="settings-group" *ngIf="!platform.isWeb()">
+      <div class="settings-group-title">
         <ion-icon name="notifications-outline"></ion-icon>
         <span>Notifications</span>
       </div>

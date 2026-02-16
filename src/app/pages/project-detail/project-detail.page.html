@@ -379,10 +379,10 @@
                     <div *ngIf="isCompanyOne && !isReadOnly" class="price-input-wrapper">
                       <span class="price-prefix">$</span>
                       <input
-                        type="number"
+                        type="text"
+                        inputmode="decimal"
                         class="date-input"
-                        step="0.01"
-                        [value]="getServicePrice(service)"
+                        [value]="formatServicePrice(service)"
                         (blur)="updateServicePrice(service, $event)">
                     </div>
                     <div *ngIf="!isCompanyOne || isReadOnly" class="price-display">

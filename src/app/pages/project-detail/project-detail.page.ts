@@ -1194,9 +1194,17 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     return 0;
   }
 
+  formatServicePrice(service: ServiceSelection): string {
+    const price = this.getServicePrice(service);
+    if (price === 0) return '';
+    return price.toFixed(2);
+  }
+
   async updateServicePrice(service: ServiceSelection, event: Event) {
     const input = event.target as HTMLInputElement;
-    const newFee = parseFloat(input.value) || 0;
+    const cleaned = input.value.replace(/[^0-9.]/g, '');
+    const newFee = Math.round((parseFloat(cleaned) || 0) * 100) / 100;
+    input.value = newFee > 0 ? newFee.toFixed(2) : '';
     service.serviceFee = newFee;
 
     if (!service.serviceId) return;
@@ -1734,10 +1742,19 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // If already selected on Active tab, the expansion is handled by the template's *ngIf
   }
 
+  private sortedServicesCacheKey = '';
+  private sortedServicesCache: ServiceSelection[] = [];
+
   getSortedServices(): ServiceSelection[] {
+    // Cache to prevent new array on every change detection cycle (avoids NG0103)
+    const cacheKey = this.selectedServices.map(s => s.instanceId).join(',');
+    if (cacheKey === this.sortedServicesCacheKey && this.sortedServicesCache.length > 0) {
+      return this.sortedServicesCache;
+    }
+
     const order = ['EIR', 'EFE', 'DCR', 'HUD', 'ELBW', 'ECSA', 'EWPI', 'EDTE', 'OTHER'];
 
-    return [...this.selectedServices].sort((a, b) => {
+    this.sortedServicesCache = [...this.selectedServices].sort((a, b) => {
       // Use typeShort field directly
       const typeA = a.typeShort || 'OTHER';
       const typeB = b.typeShort || 'OTHER';
@@ -1759,6 +1776,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // If neither is in order, sort alphabetically by typeName
       return a.typeName.localeCompare(b.typeName);
     });
+
+    this.sortedServicesCacheKey = cacheKey;
+    return this.sortedServicesCache;
   }
 
   // TrackBy functions to prevent DOM re-creation on change detection

@@ -5330,12 +5330,12 @@ export class CompanyPage implements OnInit, OnDestroy {
           ClientFee: 0
         })
       );
-      // Reload offers
+      // Reload offers (skip cache to get fresh data after mutation)
       const offersRecords = await this.fetchTableRecords('Offers', {
         'q.select': 'PK_ID,OffersID,TypeID,CompanyID,ServiceFee,ClientFee',
         'q.orderBy': 'OffersID',
         'q.limit': '1000'
-      });
+      }, true);
       this.allOffers = offersRecords;
       this.groupOffersByCompany();
       this.editOfferTypeId = null;
@@ -5352,12 +5352,12 @@ export class CompanyPage implements OnInit, OnDestroy {
       await firstValueFrom(
         this.caspioService.delete(`/tables/LPS_Offers/records?q.where=OffersID=${offerId}`)
       );
-      // Reload offers
+      // Reload offers (skip cache to get fresh data after mutation)
       const offersRecords = await this.fetchTableRecords('Offers', {
         'q.select': 'PK_ID,OffersID,TypeID,CompanyID,ServiceFee,ClientFee',
         'q.orderBy': 'OffersID',
         'q.limit': '1000'
-      });
+      }, true);
       this.allOffers = offersRecords;
       this.groupOffersByCompany();
     } catch (error) {
@@ -5380,6 +5380,21 @@ export class CompanyPage implements OnInit, OnDestroy {
 
   removeOfferFromNewCompany(index: number) {
     this.newCompanyOffers.splice(index, 1);
+  }
+
+  formatFee(value: any): string {
+    const num = parseFloat(value);
+    if (isNaN(num) || num === 0) return '';
+    return num.toFixed(2);
+  }
+
+  parseFee(event: Event): number {
+    const input = event.target as HTMLInputElement;
+    const cleaned = input.value.replace(/[^0-9.]/g, '');
+    const num = parseFloat(cleaned);
+    const result = isNaN(num) ? 0 : Math.round(num * 100) / 100;
+    input.value = result > 0 ? result.toFixed(2) : '';
+    return result;
   }
 
   getDefaultServiceOffers(): any[] {
@@ -7494,7 +7509,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     await toast.present();
   }
 
-  private async fetchTableRecords(tableName: string, params: Record<string, string> = {}): Promise<any[]> {
+  private async fetchTableRecords(tableName: string, params: Record<string, string> = {}, skipCache: boolean = false): Promise<any[]> {
     // Normalize table name to include LPS_ prefix if not already present
     const normalizedTableName = tableName.startsWith('LPS_') ? tableName : `LPS_${tableName}`;
 
@@ -7503,7 +7518,8 @@ export class CompanyPage implements OnInit, OnDestroy {
     const endpoint = `/tables/${normalizedTableName}/records${query ? `?${query}` : ''}`;
 
     // Use caspioService.get() which routes through AWS when useApiGateway is true
-    const response = await firstValueFrom(this.caspioService.get<any>(endpoint));
+    // skipCache=true bypasses mobile cache after mutations (add/delete/update)
+    const response = await firstValueFrom(this.caspioService.get<any>(endpoint, !skipCache));
     return response?.Result ?? [];
   }
 

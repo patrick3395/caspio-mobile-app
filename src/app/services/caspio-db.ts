@@ -63,6 +63,16 @@ export interface ServiceMetadata {
   updatedAt: number;              // Last metadata update
 }
 
+export interface StoredNotification {
+  id: string;              // UUID
+  title: string;
+  body: string;
+  type?: string;           // 'service_completed' | 'payment_received' | 'admin_message'
+  data?: any;              // Original notification data (route, projectId, etc.)
+  read: number;            // 0 = unread, 1 = read (number for Dexie indexing)
+  receivedAt: number;      // Date.now()
+}
+
 export type OperationType = 'CREATE_ROOM' | 'CREATE_POINT' | 'UPLOAD_PHOTO' | 'UPDATE_ROOM' | 'DELETE_ROOM' |
                             'CREATE_VISUAL' | 'UPDATE_VISUAL' | 'DELETE_VISUAL' | 'UPLOAD_VISUAL_PHOTO' |
                             'UPLOAD_VISUAL_PHOTO_UPDATE' | 'UPLOAD_ROOM_POINT_PHOTO_UPDATE' | 'UPLOAD_FDF_PHOTO' |
@@ -313,6 +323,7 @@ export class CaspioDB extends Dexie {
   dteFields!: Table<DteField, number>;
   csaFields!: Table<CsaField, number>;
   serviceMetadata!: Table<ServiceMetadata, string>;
+  notifications!: Table<StoredNotification, string>;
 
   // MOBILE FIX: Cache last known good results for liveQueries
   // When IndexedDB has temporary connection issues during photo transactions,
@@ -683,6 +694,55 @@ export class CaspioDB extends Dexie {
 
       // CSA fields - with tempCsaId index for sync lookups
       csaFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt, tempCsaId'
+    });
+
+    // Version 15: Add notifications table for push notification inbox
+    this.version(15).stores({
+      // Local-first image system
+      localImages: 'imageId, entityType, entityId, serviceId, status, attachId, createdAt, [entityType+entityId], [serviceId+entityType]',
+      localBlobs: 'blobId, createdAt',
+      uploadOutbox: 'opId, imageId, nextRetryAt, createdAt',
+
+      // Core sync system
+      pendingRequests: 'requestId, timestamp, status, priority, tempId',
+      tempIdMappings: 'tempId, realId, type',
+
+      // Caching
+      cachedServiceData: 'cacheKey, serviceId, dataType, lastUpdated',
+      cachedTemplates: 'cacheKey, type, lastUpdated',
+      cachedPhotos: 'photoKey, attachId, serviceId, cachedAt',
+
+      // Pending data
+      pendingCaptions: 'captionId, attachId, attachType, status, serviceId, createdAt',
+      pendingEFEData: 'tempId, serviceId, type, parentId',
+      pendingImages: 'imageId, requestId, status, serviceId, visualId',
+
+      // Operations queue
+      operationsQueue: 'id, type, status, createdAt, dedupeKey',
+
+      // Visual fields - EFE visuals
+      visualFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt',
+
+      // EFE fields - elevation plot rooms
+      efeFields: '++id, key, serviceId, roomName, [serviceId+roomName], efeId, tempEfeId, dirty, updatedAt',
+
+      // Service metadata
+      serviceMetadata: 'serviceId, lastTouchedAt, purgeState, [purgeState+lastTouchedAt]',
+
+      // HUD fields - HUD visuals
+      hudFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt',
+
+      // LBW fields - with tempLbwId index for sync lookups
+      lbwFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt, tempLbwId',
+
+      // DTE fields - with tempDteId index for sync lookups
+      dteFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt, tempDteId',
+
+      // CSA fields - with tempCsaId index for sync lookups
+      csaFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt, tempCsaId',
+
+      // Push notification inbox (v15)
+      notifications: 'id, type, read, receivedAt'
     });
 
     // Log successful database open

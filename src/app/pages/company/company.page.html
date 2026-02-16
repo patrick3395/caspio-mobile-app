@@ -529,12 +529,12 @@
                     <div class="list-table-row" *ngFor="let offer of getCompanyOffers(company.CompanyID)">
                       <span class="lt-col lt-col-property">{{ offer.typeName }}</span>
                       <span class="lt-col lt-col-amount">
-                        <span *ngIf="offer.ClientFee"><span class="currency-sign">$</span><span class="currency-value">{{ offer.ClientFee | number:'1.2-2' }}</span></span>
-                        <span *ngIf="!offer.ClientFee">—</span>
-                      </span>
-                      <span class="lt-col lt-col-amount">
                         <span *ngIf="offer.ServiceFee"><span class="currency-sign">$</span><span class="currency-value">{{ offer.ServiceFee | number:'1.2-2' }}</span></span>
                         <span *ngIf="!offer.ServiceFee">—</span>
+                      </span>
+                      <span class="lt-col lt-col-amount">
+                        <span *ngIf="offer.ClientFee"><span class="currency-sign">$</span><span class="currency-value">{{ offer.ClientFee | number:'1.2-2' }}</span></span>
+                        <span *ngIf="!offer.ClientFee">—</span>
                       </span>
                     </div>
                   </div>
@@ -1969,10 +1969,10 @@
             <div class="offers-edit-row" *ngFor="let offer of getCompanyOffers(editingCompany.CompanyID)">
               <span class="offer-col-name">{{ offer.typeName }}</span>
               <span class="offer-col-fee">
-                <input type="number" [(ngModel)]="offer.ClientFee" class="form-input fee-input" placeholder="0.00" step="0.01" min="0">
+                <div class="fee-field"><span class="fee-dollar">$</span><input type="text" inputmode="decimal" [value]="formatFee(offer.ClientFee)" (blur)="offer.ClientFee = parseFee($event)" class="form-input fee-input" placeholder="0.00"></div>
               </span>
               <span class="offer-col-fee">
-                <input type="number" [(ngModel)]="offer.ServiceFee" class="form-input fee-input" placeholder="0.00" step="0.01" min="0">
+                <div class="fee-field"><span class="fee-dollar">$</span><input type="text" inputmode="decimal" [value]="formatFee(offer.ServiceFee)" (blur)="offer.ServiceFee = parseFee($event)" class="form-input fee-input" placeholder="0.00"></div>
               </span>
               <span class="offer-col-action">
                 <button class="offer-delete-btn" (click)="removeOfferFromCompany(offer, editingCompany.CompanyID)" title="Remove service">
@@ -1983,12 +1983,12 @@
             <p *ngIf="getCompanyOffers(editingCompany.CompanyID).length === 0" class="no-data-text">No services configured</p>
           </div>
           <div class="offers-add-row">
-            <select [(ngModel)]="editOfferTypeId" class="form-input">
-              <option [ngValue]="null">-- Add Service --</option>
+            <select [(ngModel)]="editOfferTypeId" class="form-select-styled">
+              <option [ngValue]="null">-- Select --</option>
               <option *ngFor="let t of getAvailableTypesForCompany(editingCompany.CompanyID)" [ngValue]="t.typeId">{{ t.typeName }}</option>
             </select>
-            <button class="action-btn-sm" (click)="addOfferToCompany(editingCompany.CompanyID)" [disabled]="!editOfferTypeId">
-              <ion-icon name="add-circle-outline"></ion-icon> Add
+            <button class="offer-add-btn" (click)="addOfferToCompany(editingCompany.CompanyID)" [disabled]="!editOfferTypeId">
+              <ion-icon name="add-circle-outline"></ion-icon>
             </button>
           </div>
         </div>
@@ -2509,10 +2509,10 @@
             <div class="offers-edit-row" *ngFor="let offer of newCompanyOffers; let i = index">
               <span class="offer-col-name">{{ offer.typeName }}</span>
               <span class="offer-col-fee">
-                <input type="number" [(ngModel)]="offer.ClientFee" class="form-input fee-input" placeholder="0.00" step="0.01" min="0">
+                <div class="fee-field"><span class="fee-dollar">$</span><input type="text" inputmode="decimal" [value]="formatFee(offer.ClientFee)" (blur)="offer.ClientFee = parseFee($event)" class="form-input fee-input" placeholder="0.00"></div>
               </span>
               <span class="offer-col-fee">
-                <input type="number" [(ngModel)]="offer.ServiceFee" class="form-input fee-input" placeholder="0.00" step="0.01" min="0">
+                <div class="fee-field"><span class="fee-dollar">$</span><input type="text" inputmode="decimal" [value]="formatFee(offer.ServiceFee)" (blur)="offer.ServiceFee = parseFee($event)" class="form-input fee-input" placeholder="0.00"></div>
               </span>
               <span class="offer-col-action">
                 <button class="offer-delete-btn" (click)="removeOfferFromNewCompany(i)" title="Remove service">
@@ -2523,12 +2523,12 @@
             <p *ngIf="newCompanyOffers.length === 0" class="no-data-text">No services configured</p>
           </div>
           <div class="offers-add-row">
-            <select [(ngModel)]="newCompanyOfferTypeId" class="form-input">
-              <option [ngValue]="null">-- Add Service --</option>
+            <select [(ngModel)]="newCompanyOfferTypeId" class="form-select-styled">
+              <option [ngValue]="null">-- Select --</option>
               <option *ngFor="let t of getAvailableTypesForNewCompany()" [ngValue]="t.typeId">{{ t.typeName }}</option>
             </select>
-            <button class="action-btn-sm" (click)="addOfferToNewCompany()" [disabled]="!newCompanyOfferTypeId">
-              <ion-icon name="add-circle-outline"></ion-icon> Add
+            <button class="offer-add-btn" (click)="addOfferToNewCompany()" [disabled]="!newCompanyOfferTypeId">
+              <ion-icon name="add-circle-outline"></ion-icon>
             </button>
           </div>
         </div>

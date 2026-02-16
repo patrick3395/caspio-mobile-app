@@ -5681,18 +5681,40 @@ ion-alert.custom-alert {
       color: var(--color-text-primary);
     }
 
-    .offer-col-fee .fee-input {
-      width: 100%;
-      max-width: 90px;
-      padding: 4px 6px;
-      font-size: 13px;
-      text-align: right;
+    .offer-col-fee .fee-field {
+      display: flex;
+      align-items: center;
+      border: 1px solid var(--color-border-default);
+      border-radius: 6px;
+      max-width: 100px;
+      overflow: hidden;
+
+      .fee-dollar {
+        padding-left: 6px;
+        font-size: 13px;
+        color: #999;
+        flex-shrink: 0;
+      }
+
+      .fee-input {
+        width: 100%;
+        padding: 4px 6px 4px 2px;
+        font-size: 13px;
+        text-align: right;
+        border: none;
+        outline: none;
+        background: transparent;
+      }
+
+      &:focus-within {
+        border-color: #F15A27;
+      }
     }
 
     .offer-delete-btn {
       background: none;
       border: none;
-      color: #dc3545;
+      color: #999;
       cursor: pointer;
       padding: 4px;
       font-size: 16px;
@@ -5713,16 +5735,46 @@ ion-alert.custom-alert {
   align-items: center;
   margin-top: 8px;
 
-  select.form-input {
+  .form-select-styled {
     flex: 1;
     max-width: 250px;
+    padding: 6px 28px 6px 10px;
+    font-size: 13px;
+    border: 1px solid var(--color-border-default);
+    border-radius: 6px;
+    background-color: var(--color-bg-default, #fff);
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23F15A27' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 12px;
+    cursor: pointer;
+
+    &:focus {
+      outline: none;
+      border-color: #F15A27;
+    }
   }
 
-  .action-btn-sm {
-    display: inline-flex;
+  .offer-add-btn {
+    display: flex;
     align-items: center;
-    gap: 4px;
-    white-space: nowrap;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+
+    ion-icon {
+      font-size: 22px;
+      color: #F15A27;
+    }
+
+    &:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
   }
 }
 

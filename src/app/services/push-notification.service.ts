@@ -6,6 +6,7 @@ import { PushNotifications, PushNotificationSchema, ActionPerformed, Token } fro
 import { ToastController } from '@ionic/angular';
 import { PlatformDetectionService } from './platform-detection.service';
 import { ApiGatewayService } from './api-gateway.service';
+import { NotificationStoreService } from './notification-store.service';
 
 export interface PushNotificationData {
   type?: string;
@@ -36,7 +37,8 @@ export class PushNotificationService {
     private platformDetection: PlatformDetectionService,
     private apiGateway: ApiGatewayService,
     private toastController: ToastController,
-    private router: Router
+    private router: Router,
+    private notificationStore: NotificationStoreService
   ) {}
 
   /**
@@ -65,11 +67,13 @@ export class PushNotificationService {
     PushNotifications.addListener('pushNotificationReceived', (notification: PushNotificationSchema) => {
       console.log('[PushNotification] Foreground notification:', notification.title);
       this.notificationReceivedSubject.next(notification);
+      this.persistNotification(notification);
       this.showForegroundToast(notification);
     });
 
     PushNotifications.addListener('pushNotificationActionPerformed', (action: ActionPerformed) => {
       console.log('[PushNotification] Notification tapped:', action.notification.title);
+      this.persistNotification(action.notification);
       this.handleNotificationTap(action.notification.data as PushNotificationData);
     });
 
@@ -178,6 +182,16 @@ export class PushNotificationService {
       ]
     });
     await toast.present();
+  }
+
+  private persistNotification(notification: PushNotificationSchema): void {
+    const data = (notification.data || {}) as PushNotificationData;
+    this.notificationStore.addNotification(
+      notification.title || 'Notification',
+      notification.body || '',
+      data.type,
+      data
+    ).catch(err => console.error('[PushNotification] Failed to persist notification:', err));
   }
 
   private handleNotificationTap(data: PushNotificationData): void {
