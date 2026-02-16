@@ -6,25 +6,6 @@
       <button
         type="button"
         class="toolbar-btn"
-        (click)="clearSyncedDataTest()"
-        aria-label="Clear Synced Data"
-        title="Clear synced data for rehydration testing"
-      >
-        <ion-icon name="flask-outline"></ion-icon>
-      </button>
-      <button
-        *ngIf="!isWeb && isCompanyOne"
-        type="button"
-        class="toolbar-btn"
-        (click)="resetAppMemory()"
-        aria-label="Reset App Memory"
-        title="Clear all cached data"
-      >
-        <ion-icon name="trash-outline"></ion-icon>
-      </button>
-      <button
-        type="button"
-        class="toolbar-btn"
         (click)="logout()"
         aria-label="Log out"
       >

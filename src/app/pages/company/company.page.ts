@@ -11,10 +11,8 @@ import { ConfirmationDialogService } from '../../services/confirmation-dialog.se
 import { PageTitleService } from '../../services/page-title.service';
 import { environment } from '../../../environments/environment';
 import { ApiGatewayService } from '../../services/api-gateway.service';
-import { MemoryDiagnosticsService } from '../../services/memory-diagnostics.service';
 import { firstValueFrom } from 'rxjs';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
-import { db } from '../../services/caspio-db';
 import { getLogoBase64 } from '../../services/pdf/pdf-logo';
 
 interface StageDefinition {
@@ -624,8 +622,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     private apiGateway: ApiGatewayService,
     private http: HttpClient,
     private router: Router,
-    private pageTitleService: PageTitleService,
-    private memoryDiagnostics: MemoryDiagnosticsService
+    private pageTitleService: PageTitleService
   ) {}
 
   ngOnInit() {
@@ -7581,111 +7578,6 @@ export class CompanyPage implements OnInit, OnDestroy {
     }
 
     return allRecords;
-  }
-
-  async clearSyncedDataTest() {
-    const alert = await this.alertController.create({
-      header: 'Clear Synced Data (Test)',
-      message: 'This clears ONLY synced/verified data (blobs + cached photos) and marks services as PURGED. Pending uploads are preserved. Services will rehydrate from server on next access.',
-      buttons: [
-        { text: 'Cancel', role: 'cancel' },
-        {
-          text: 'Clear',
-          cssClass: 'warning',
-          handler: async () => {
-            const loading = await this.loadingController.create({
-              message: 'Clearing synced data...'
-            });
-            await loading.present();
-            try {
-              await this.memoryDiagnostics.clearAllSyncedData();
-            } catch (err) {
-              console.error('[Company] clearSyncedDataTest failed:', err);
-            } finally {
-              await loading.dismiss();
-            }
-          }
-        }
-      ]
-    });
-    await alert.present();
-  }
-
-  async resetAppMemory() {
-    // Skip on web - only relevant for mobile with IndexedDB storage
-    if (environment.isWeb) {
-      const alert = await this.alertController.create({
-        header: 'Not Available',
-        message: 'Reset App Memory is only available on mobile devices.',
-        buttons: ['OK']
-      });
-      await alert.present();
-      return;
-    }
-
-    const alert = await this.alertController.create({
-      header: 'Reset App Memory',
-      message: 'This will clear ALL cached data including photos, offline data, and service records. You will need to re-download data when you next access a service. Continue?',
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
-          text: 'Reset',
-          cssClass: 'danger',
-          handler: async () => {
-            const loading = await this.loadingController.create({
-              message: 'Clearing app memory...'
-            });
-            await loading.present();
-
-            try {
-              // Clear all Dexie data tables
-              await db.localImages.clear();
-              await db.localBlobs.clear();
-              await db.efeFields.clear();
-              await db.visualFields.clear();
-              await db.cachedPhotos.clear();
-              await db.cachedServiceData.clear();
-              await db.uploadOutbox.clear();
-
-              // Mark ALL services as PURGED so rehydration triggers when re-entering
-              // Don't clear serviceMetadata - update purgeState instead
-              const allMetadata = await db.serviceMetadata.toArray();
-              for (const metadata of allMetadata) {
-                await db.serviceMetadata.update(metadata.serviceId, {
-                  purgeState: 'PURGED',
-                  updatedAt: Date.now()
-                });
-              }
-
-              await loading.dismiss();
-
-              const successAlert = await this.alertController.create({
-                header: 'Memory Cleared',
-                message: 'All cached data has been cleared. Data will be re-downloaded when you access services.',
-                buttons: ['OK']
-              });
-              await successAlert.present();
-
-            } catch (err) {
-              await loading.dismiss();
-              console.error('[Company] Reset app memory failed:', err);
-
-              const errorAlert = await this.alertController.create({
-                header: 'Error',
-                message: 'Failed to clear app memory. Please try again.',
-                buttons: ['OK']
-              });
-              await errorAlert.present();
-            }
-          }
-        }
-      ]
-    });
-
-    await alert.present();
   }
 
   async requestAccountDeletion() {
