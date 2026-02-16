@@ -3,7 +3,7 @@ import { Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
 import { IonicDeployService } from '../../services/ionic-deploy.service';
-import { AlertController } from '@ionic/angular';
+import { AlertController, ToastController } from '@ionic/angular';
 import { environment } from '../../../environments/environment';
 import { PlatformDetectionService } from '../../services/platform-detection.service';
 import { MutationTrackingService, EntityType, Mutation } from '../../services/mutation-tracking.service';
@@ -67,6 +67,8 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
   // Notification inbox
   notifications: StoredNotification[] = [];
   unreadCount = 0;
+  notifPaneOpen = false;
+  selectedNotification: StoredNotification | null = null;
   private notifSubscription?: Subscription;
   private unreadSubscription?: Subscription;
 
@@ -96,7 +98,8 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     private mutationTracker: MutationTrackingService,
     private pageTitleService: PageTitleService,
     private themeService: ThemeService,
-    private notificationStore: NotificationStoreService
+    private notificationStore: NotificationStoreService,
+    private toastController: ToastController
   ) {}
 
   ngOnInit() {
@@ -218,14 +221,38 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     localStorage.setItem('notif-admin-messages', String(this.notifAdminMessages));
   }
 
-  // Notification inbox methods
-  tapNotification(n: StoredNotification) {
+  // Notification panel methods
+  async toggleNotifPane() {
+    this.notifPaneOpen = !this.notifPaneOpen;
+    // Dismiss any stuck toast banners when opening
+    if (this.notifPaneOpen) {
+      try {
+        const toast = await this.toastController.getTop();
+        if (toast) {
+          await toast.dismiss();
+        }
+      } catch (_) {}
+    }
+  }
+
+  openNotification(n: StoredNotification) {
     if (n.read === 0) {
       this.notificationStore.markAsRead(n.id);
     }
+    this.selectedNotification = n;
+    this.cdr.markForCheck();
+  }
+
+  closeNotificationModal() {
+    this.selectedNotification = null;
+    this.cdr.markForCheck();
+  }
+
+  navigateToNotification(n: StoredNotification) {
     const route = n.data?.route;
     if (route) {
-      this.settingsPaneOpen = false;
+      this.selectedNotification = null;
+      this.notifPaneOpen = false;
       this.router.navigateByUrl(route);
     }
   }

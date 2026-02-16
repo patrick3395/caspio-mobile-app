@@ -13,6 +13,16 @@
     <ion-title>Active Projects</ion-title>
     <ion-buttons slot="end" [class.web-actions]="platform.isWeb()">
       <button
+        *ngIf="!platform.isWeb()"
+        type="button"
+        class="toolbar-btn notif-bell-btn"
+        (click)="toggleNotifPane()"
+        aria-label="Notifications"
+      >
+        <ion-icon name="notifications-outline"></ion-icon>
+        <span class="notif-bell-badge" *ngIf="unreadCount > 0">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
+      </button>
+      <button
         type="button"
         class="toolbar-btn primary"
         (click)="createNewProject()"
@@ -71,37 +81,6 @@
     </div>
     <div class="settings-group" *ngIf="!platform.isWeb()">
       <div class="settings-group-title">
-        <ion-icon name="mail-outline"></ion-icon>
-        <span>Inbox</span>
-        <span class="notif-badge" *ngIf="unreadCount > 0">{{ unreadCount }}</span>
-      </div>
-      <div class="notif-list" *ngIf="notifications.length > 0">
-        <div
-          class="notif-item"
-          [class.unread]="n.read === 0"
-          *ngFor="let n of notifications; trackBy: trackByNotifId"
-          (click)="tapNotification(n)">
-          <ion-icon
-            [name]="getNotifIcon(n.type)"
-            class="notif-type-icon">
-          </ion-icon>
-          <div class="notif-content">
-            <span class="notif-title">{{ n.title }}</span>
-            <span class="notif-body">{{ n.body }}</span>
-            <span class="notif-time">{{ formatTimeAgo(n.receivedAt) }}</span>
-          </div>
-        </div>
-        <button class="notif-clear-btn" (click)="clearAllNotifications()">
-          <ion-icon name="trash-outline"></ion-icon>
-          Clear All
-        </button>
-      </div>
-      <div class="notif-empty" *ngIf="notifications.length === 0">
-        No notifications
-      </div>
-    </div>
-    <div class="settings-group" *ngIf="!platform.isWeb()">
-      <div class="settings-group-title">
         <ion-icon name="notifications-outline"></ion-icon>
         <span>Notifications</span>
       </div>
@@ -147,6 +126,71 @@
           mode="ios">
         </ion-toggle>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Notification Side Panel (slides from right) -->
+<div class="notif-overlay" [class.open]="notifPaneOpen" (click)="toggleNotifPane()"></div>
+<div class="notif-pane" [class.open]="notifPaneOpen">
+  <div class="notif-pane-header">
+    <h3>Notifications</h3>
+    <button
+      *ngIf="notifications.length > 0"
+      class="notif-clear-btn"
+      (click)="clearAllNotifications()"
+      aria-label="Clear all notifications">
+      <ion-icon name="trash-outline"></ion-icon>
+      Clear
+    </button>
+  </div>
+  <div class="notif-pane-body">
+    <div class="notif-list" *ngIf="notifications.length > 0">
+      <div
+        class="notif-item"
+        [class.unread]="n.read === 0"
+        *ngFor="let n of notifications; trackBy: trackByNotifId"
+        (click)="openNotification(n)">
+        <ion-icon
+          [name]="getNotifIcon(n.type)"
+          class="notif-type-icon">
+        </ion-icon>
+        <div class="notif-content">
+          <span class="notif-title">{{ n.title }}</span>
+          <span class="notif-body">{{ n.body }}</span>
+          <span class="notif-time">{{ formatTimeAgo(n.receivedAt) }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="notif-empty" *ngIf="notifications.length === 0">
+      <ion-icon name="notifications-off-outline"></ion-icon>
+      <span>No notifications</span>
+    </div>
+  </div>
+</div>
+
+<!-- Notification Detail Modal -->
+<div class="notif-modal-overlay" *ngIf="selectedNotification" (click)="closeNotificationModal()">
+  <div class="notif-modal" (click)="$event.stopPropagation()">
+    <div class="notif-modal-header">
+      <ion-icon [name]="getNotifIcon(selectedNotification.type)" class="notif-modal-icon"></ion-icon>
+      <h3>{{ selectedNotification.title }}</h3>
+      <button class="notif-modal-close" (click)="closeNotificationModal()" aria-label="Close">
+        <ion-icon name="close-outline"></ion-icon>
+      </button>
+    </div>
+    <div class="notif-modal-body">
+      <p>{{ selectedNotification.body }}</p>
+    </div>
+    <div class="notif-modal-footer">
+      <span class="notif-modal-time">{{ formatTimeAgo(selectedNotification.receivedAt) }}</span>
+      <button
+        *ngIf="selectedNotification.data?.route"
+        class="notif-modal-action"
+        (click)="navigateToNotification(selectedNotification)">
+        View Details
+        <ion-icon name="arrow-forward-outline"></ion-icon>
+      </button>
     </div>
   </div>
 </div>
