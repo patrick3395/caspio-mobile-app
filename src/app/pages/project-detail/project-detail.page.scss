@@ -599,56 +599,18 @@ h3 {
       }
     }
     
-    .service-controls-inline {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    .count-display {
+      font-size: 18px;
+      font-weight: 600;
+      color: $dark;
+      min-width: 24px;
+      text-align: center;
       margin-right: 12px;
-      
-      ion-button {
-        --padding-start: 4px;
-        --padding-end: 4px;
-        height: 32px;
-        width: 32px;
-        
-        ion-icon {
-          font-size: 24px;
-          color: $orange;
-        }
-        
-        &:disabled {
-          opacity: 0.4;
-        }
-      }
-      
-      .count-display {
-        font-size: 18px;
-        font-weight: 600;
-        color: $dark;
-        min-width: 24px;
-        text-align: center;
-      }
-      
-      // Mobile-only: Make controls smaller for more space
+
       @media (max-width: 768px) {
-        gap: 4px;
+        font-size: 13px;
+        min-width: 18px;
         margin-right: 8px;
-        
-        ion-button {
-          height: 24px;
-          width: 24px;
-          --padding-start: 2px;
-          --padding-end: 2px;
-          
-          ion-icon {
-            font-size: 18px;
-          }
-        }
-        
-        .count-display {
-          font-size: 13px;
-          min-width: 18px;
-        }
       }
     }
     
@@ -1463,7 +1425,7 @@ ion-modal {
 // Mobile-only: Better vertical padding for wrapped text
 @media (max-width: 768px) {
   padding:12px;padding-right:14px;
-  min-height:auto;flex-wrap:wrap;gap:8px;
+  flex-wrap:wrap;gap:8px;
 }}
 
 .template-name{font-size:18px;font-weight:600;color:$dark;display:flex;align-items:center;gap:14px;flex:1;min-width:0;

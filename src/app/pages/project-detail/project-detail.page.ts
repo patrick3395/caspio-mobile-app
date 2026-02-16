@@ -1686,14 +1686,17 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     if (this.isReadOnly) {
       return;
     }
-    
+
     const isSelected = this.isServiceSelected(offer.OffersID);
-    
+
     if (!isSelected) {
       // Add first instance of this service
       await this.addService(offer);
+    } else if (this.servicesTab === 'add') {
+      // On Add Services tab, clicking an already-selected service adds another instance
+      await this.duplicateService(offer.OffersID, offer.TypeName);
     }
-    // If already selected, the expansion is handled by the template's *ngIf
+    // If already selected on Active tab, the expansion is handled by the template's *ngIf
   }
 
   getSortedServices(): ServiceSelection[] {
@@ -1775,7 +1778,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     if (this.servicesTab === 'active') {
       return sorted.filter(offer => this.isServiceSelected(offer.OffersID));
     }
-    return sorted.filter(offer => !this.isServiceSelected(offer.OffersID));
+    // Add Services tab shows ALL offers (even already-selected ones)
+    return sorted;
   }
 
   getServicesForTemplates(): ServiceSelection[] {

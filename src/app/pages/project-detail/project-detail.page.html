@@ -336,8 +336,8 @@
 
         <!-- Empty state for Add Services tab -->
         <div *ngIf="servicesTab === 'add' && getFilteredOffers().length === 0" class="services-empty-state">
-          <ion-icon name="checkmark-circle-outline"></ion-icon>
-          <p>All available services have been added</p>
+          <ion-icon name="clipboard-outline"></ion-icon>
+          <p>No services available</p>
         </div>
 
         <div *ngFor="let offer of getFilteredOffers(); trackBy: trackByOfferId"
@@ -352,28 +352,16 @@
             <div class="service-name">
               {{ offer.TypeShort ? offer.TypeShort + ' - ' + offer.TypeName : (offer.TypeName || offer.Service_Name || offer.Description) }}
             </div>
-            <div class="service-controls-inline" *ngIf="isServiceSelected(offer.OffersID) && !isReadOnly">
-              <ion-button size="small" 
-                          fill="clear"
-                          (click)="removeOneServiceInstance(offer.OffersID, $event)"
-                          [disabled]="updatingServices || getServiceCount(offer.OffersID) <= 0">
-                <ion-icon name="remove-circle-outline"></ion-icon>
-              </ion-button>
-              <span class="count-display">{{ getServiceCount(offer.OffersID) }}</span>
-              <ion-button size="small" 
-                          fill="clear"
-                          (click)="duplicateService(offer.OffersID, offer.TypeName, $event)"
-                          [disabled]="updatingServices">
-                <ion-icon name="add-circle-outline"></ion-icon>
-              </ion-button>
-            </div>
+            <span class="count-display" *ngIf="servicesTab === 'add' && isServiceSelected(offer.OffersID)">
+              {{ getServiceCount(offer.OffersID) }}
+            </span>
             <div class="service-toggle">
-              <ion-icon [name]="isServiceSelected(offer.OffersID) ? 'chevron-down' : 'add-circle-outline'"></ion-icon>
+              <ion-icon [name]="servicesTab === 'add' ? 'add-circle-outline' : (isServiceSelected(offer.OffersID) ? 'chevron-down' : 'add-circle-outline')"></ion-icon>
             </div>
           </div>
           
-          <!-- Expanded details (only when selected) -->
-          <div *ngIf="isServiceSelected(offer.OffersID)" class="service-details">
+          <!-- Expanded details (only when selected, Active tab only) -->
+          <div *ngIf="servicesTab === 'active' && isServiceSelected(offer.OffersID)" class="service-details">
             <ng-container *ngFor="let service of getServiceInstances(offer.OffersID); let i = index">
                 <div class="service-number-header" *ngIf="getServiceInstances(offer.OffersID).length > 1">#{{ i + 1 }}</div>
                 <div class="instance-fields">

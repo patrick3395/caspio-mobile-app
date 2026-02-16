@@ -7584,16 +7584,6 @@ export class CompanyPage implements OnInit, OnDestroy {
   }
 
   async clearSyncedDataTest() {
-    if (environment.isWeb) {
-      const alert = await this.alertController.create({
-        header: 'Not Available',
-        message: 'Clear Synced Data is only available on mobile devices.',
-        buttons: ['OK']
-      });
-      await alert.present();
-      return;
-    }
-
     const alert = await this.alertController.create({
       header: 'Clear Synced Data (Test)',
       message: 'This clears ONLY synced/verified data (blobs + cached photos) and marks services as PURGED. Pending uploads are preserved. Services will rehydrate from server on next access.',
