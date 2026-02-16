@@ -97,6 +97,7 @@ interface ProjectDetailCacheState {
   projectCompanyId: string;
   projectTotalPaid: number;
   projectInvoiceBalance: number;
+  statusOptions: any[];
   timestamp: number;
 }
 
@@ -223,6 +224,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.projectCompanyId = cached.projectCompanyId || '1';
       this.projectTotalPaid = cached.projectTotalPaid || 0;
       this.projectInvoiceBalance = cached.projectInvoiceBalance || 0;
+      this.statusOptions = ProjectDetailPage.deepClone(cached.statusOptions || []);
 
       // Apply pending finalized service flag if present (from cache restoration)
       if (this.pendingFinalizedServiceId) {
@@ -279,6 +281,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         projectCompanyId: this.projectCompanyId,
         projectTotalPaid: this.projectTotalPaid,
         projectInvoiceBalance: this.projectInvoiceBalance,
+        statusOptions: ProjectDetailPage.deepClone(this.statusOptions),
         timestamp: Date.now()
       };
 
