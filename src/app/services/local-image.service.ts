@@ -161,11 +161,11 @@ export class LocalImageService {
     }
 
     // Rule 1: ALWAYS prefer local blob if it exists
-    // This is the key to preventing disappearing photos
+    // Uses data: URLs (base64) instead of blob: URLs for reliable display on mobile WebViews
     if (image.localBlobId) {
-      const blobUrl = await this.getBlobUrl(image.localBlobId);
-      if (blobUrl) {
-        return cacheAndReturn(blobUrl);
+      const dataUrl = await this.indexedDb.getLocalBlobAsDataUrl(image.localBlobId);
+      if (dataUrl) {
+        return cacheAndReturn(dataUrl);
       }
       // Blob was referenced but not found (deleted during purge).
       // Clear the stale reference in DB so preCacheImages can re-download it.
@@ -175,9 +175,9 @@ export class LocalImageService {
     // Rule 1.5: Try thumbnail blob if full-res was soft-purged (Phase 2 storage bloat prevention)
     // Thumbnail survives soft purge and provides fast local fallback before hitting S3
     if (image.thumbBlobId) {
-      const thumbUrl = await this.getBlobUrl(image.thumbBlobId);
-      if (thumbUrl) {
-        return cacheAndReturn(thumbUrl);
+      const dataUrl = await this.indexedDb.getLocalBlobAsDataUrl(image.thumbBlobId);
+      if (dataUrl) {
+        return cacheAndReturn(dataUrl);
       }
     }
 

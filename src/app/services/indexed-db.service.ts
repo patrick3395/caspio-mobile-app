@@ -3089,6 +3089,19 @@ export class IndexedDbService {
   }
 
   /**
+   * Get local blob as a data: URL (base64)
+   * More reliable than blob: URLs on mobile Capacitor WebViews
+   */
+  async getLocalBlobAsDataUrl(blobId: string): Promise<string | null> {
+    if (!blobId) return null;
+
+    const blob = await this.getLocalBlob(blobId);
+    if (!blob || !blob.data) return null;
+
+    return this.arrayBufferToDataUrl(blob.data, blob.contentType || 'image/jpeg');
+  }
+
+  /**
    * Delete a local blob
    */
   async deleteLocalBlob(blobId: string): Promise<void> {
