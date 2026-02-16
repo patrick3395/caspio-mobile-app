@@ -352,11 +352,24 @@
             <div class="service-name">
               {{ offer.TypeShort ? offer.TypeShort + ' - ' + offer.TypeName : (offer.TypeName || offer.Service_Name || offer.Description) }}
             </div>
-            <span class="count-display" *ngIf="servicesTab === 'add' && isServiceSelected(offer.OffersID)">
-              {{ getServiceCount(offer.OffersID) }}
-            </span>
-            <div class="service-toggle">
-              <ion-icon [name]="servicesTab === 'add' ? 'add-circle-outline' : (isServiceSelected(offer.OffersID) ? 'chevron-down' : 'add-circle-outline')"></ion-icon>
+            <!-- Add Services tab: -/count/+ controls for selected, + icon for unselected -->
+            <ng-container *ngIf="servicesTab === 'add'">
+              <div class="service-counter" *ngIf="isServiceSelected(offer.OffersID)" (click)="$event.stopPropagation()">
+                <button class="counter-btn" (click)="removeOneServiceInstance(offer.OffersID, $event)" [disabled]="updatingServices">
+                  <ion-icon name="remove-circle-outline"></ion-icon>
+                </button>
+                <span class="counter-value">{{ getServiceCount(offer.OffersID) }}</span>
+                <button class="counter-btn" (click)="duplicateService(offer.OffersID, offer.TypeName, $event)" [disabled]="updatingServices">
+                  <ion-icon name="add-circle-outline"></ion-icon>
+                </button>
+              </div>
+              <div class="service-toggle" *ngIf="!isServiceSelected(offer.OffersID)">
+                <ion-icon name="add-circle-outline"></ion-icon>
+              </div>
+            </ng-container>
+            <!-- Active tab: chevron only -->
+            <div class="service-toggle" *ngIf="servicesTab === 'active'">
+              <ion-icon [name]="isServiceSelected(offer.OffersID) ? 'chevron-down' : 'add-circle-outline'"></ion-icon>
             </div>
           </div>
           

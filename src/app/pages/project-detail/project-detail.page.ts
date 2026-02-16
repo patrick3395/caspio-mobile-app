@@ -1248,7 +1248,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     if (isChecked) {
       await this.addService(offer);
     } else {
-      await this.removeAllServiceInstances(offer.OffersID);
+      await this.removeAllServiceInstances(offer.OffersID, offer.TypeName || offer.Service_Name || '');
     }
   }
 
@@ -1258,7 +1258,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
     const isSelected = this.isServiceSelected(offer.OffersID);
     if (isSelected) {
-      await this.removeAllServiceInstances(offer.OffersID);
+      await this.removeAllServiceInstances(offer.OffersID, offer.TypeName || offer.Service_Name || '');
     } else {
       await this.addService(offer);
     }
@@ -1538,16 +1538,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // Service removed from UI instantly - no need to wait for API
   }
 
-  async removeAllServiceInstances(offersId: string) {
-    if (this.isReadOnly) {
-      return;
-    }
-    const services = this.selectedServices.filter(s => s.offersId === offersId);
-    for (const service of services) {
-      await this.performRemoveService(service);
-    }
-  }
-
   async duplicateService(offersId: string, typeName: string, event?: Event) {
     if (event) {
       event.stopPropagation(); // Prevent row expansion toggle
@@ -1568,13 +1558,55 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     if (this.isReadOnly) {
       return;
     }
-    
+
     const services = this.selectedServices.filter(s => s.offersId === offersId);
     if (services.length > 0) {
       // Remove the last instance
       const lastService = services[services.length - 1];
       await this.removeServiceInstance(lastService);
     }
+  }
+
+  async removeAllServiceInstances(offersId: string, typeName: string, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    if (this.isReadOnly) {
+      return;
+    }
+
+    const services = this.selectedServices.filter(s => s.offersId === offersId);
+    if (services.length === 0) return;
+
+    const count = services.length;
+    const msg = count === 1
+      ? `Are you sure you want to remove ${typeName}?`
+      : `Are you sure you want to remove all ${count} instances of ${typeName}?`;
+
+    const alert = await this.alertController.create({
+      header: 'Remove Service',
+      message: msg,
+      cssClass: 'custom-document-alert',
+      buttons: [
+        {
+          text: 'REMOVE',
+          cssClass: 'alert-button-save',
+          handler: async () => {
+            // Remove all instances in reverse order
+            for (let i = services.length - 1; i >= 0; i--) {
+              await this.performRemoveService(services[i]);
+            }
+          }
+        },
+        {
+          text: 'CANCEL',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
+        }
+      ]
+    });
+
+    await alert.present();
   }
 
   async addAdditionalService() {

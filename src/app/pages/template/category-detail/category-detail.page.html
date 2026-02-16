@@ -1,12 +1,5 @@
 <div class="page-container">
   <div class="content-section">
-    <!-- Rehydrating State - When restoring data from server after storage clear -->
-    <div *ngIf="isRehydrating && !isWeb" class="loading-container rehydrating-container">
-      <ion-spinner name="crescent"></ion-spinner>
-      <p>Restoring data from server...</p>
-      <p class="rehydrating-subtitle">This may take a moment</p>
-    </div>
-
     <!-- WEBAPP: Skeleton loaders -->
     <div *ngIf="loading && isWeb" class="skeleton-category-container">
       <div class="skeleton-search-bar"></div>

@@ -102,7 +102,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   loading: boolean = true;
   isInitialDataLoaded: boolean = false;  // True after first liveQuery emission - prevents "No Items" flash
   isRefreshing: boolean = false;
-  isRehydrating: boolean = false;  // True when restoring data from server after storage clear
   searchTerm: string = '';
   isWeb = environment.isWeb;
 
@@ -331,9 +330,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     this.logDebug('ROUTE', `Loaded params: projectId=${this.projectId}, serviceId=${this.serviceId}, category=${this.categoryName}`);
 
     if (this.serviceId && this.categoryName) {
-      // Check if service needs rehydration (after storage clear)
-      // This restores data from the server when local storage was cleared
-      await this.checkAndPerformRehydration();
+      // Rehydration is handled by the main template page (main.page.ts) on entry.
+      // By the time category-detail loads, data is already restored.
 
       // DEXIE-FIRST: Use different loading strategies based on platform
       if (environment.isWeb) {
@@ -350,46 +348,6 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     } else {
       this.logDebug('ERROR', `Missing required params - serviceId: ${this.serviceId}, category: ${this.categoryName}`);
       this.loading = false;
-    }
-  }
-
-  /**
-   * Check if this service needs rehydration and perform it if necessary
-   * Rehydration restores data from the server after local storage was cleared
-   */
-  private async checkAndPerformRehydration(): Promise<void> {
-    if (!this.config || environment.isWeb) {
-      return;  // Only needed on mobile
-    }
-
-    try {
-      const needsRehydration = await this.templateRehydration.needsRehydration(this.serviceId);
-
-      if (needsRehydration) {
-        this.logDebug('REHYDRATE', `Service ${this.serviceId} needs rehydration, starting...`);
-        this.isRehydrating = true;
-        this.safeDetectChanges();
-
-        const result = await this.templateRehydration.rehydrateServiceForTemplate(
-          this.config,
-          this.serviceId
-        );
-
-        this.isRehydrating = false;
-        this.safeDetectChanges();
-
-        if (result.success) {
-          this.logDebug('REHYDRATE', `Rehydration complete: ${result.recordsRestored} records, ${result.imagesRestored} images`);
-          await this.showToast(`Data restored from server`, 'success');
-        } else {
-          this.logDebug('ERROR', `Rehydration failed: ${result.error}`);
-          await this.showToast('Failed to restore data. Please try again.', 'warning');
-        }
-      }
-    } catch (err: any) {
-      this.logDebug('ERROR', `Rehydration check failed: ${err?.message}`);
-      this.isRehydrating = false;
-      this.safeDetectChanges();
     }
   }
 

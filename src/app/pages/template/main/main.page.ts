@@ -160,26 +160,18 @@ export class GenericMainPage implements OnInit, OnDestroy {
       const needsRehydration = await this.templateRehydration.needsRehydration(this.serviceId);
 
       if (needsRehydration) {
-        this.isRehydrating = true;
-        this.changeDetectorRef.detectChanges();
-
+        // Silent rehydration — no UI indicator, feels seamless to user
         const result = await this.templateRehydration.rehydrateServiceForTemplate(
           this.config,
           this.serviceId
         );
 
-        this.isRehydrating = false;
-        this.changeDetectorRef.detectChanges();
-
-        if (result.success) {
-        } else {
+        if (!result.success) {
           console.error(`[GenericMain] Rehydration failed: ${result.error}`);
         }
       }
     } catch (err: any) {
       console.error(`[GenericMain] Rehydration check failed:`, err);
-      this.isRehydrating = false;
-      this.changeDetectorRef.detectChanges();
     }
   }
 
