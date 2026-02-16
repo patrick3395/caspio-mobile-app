@@ -39,6 +39,7 @@ export class GenericMainPage implements OnInit, OnDestroy {
   hasChangesAfterFinalization: boolean = false;
   isRehydrating: boolean = false;  // True when restoring data from server after storage clear
 
+  private pendingNavigation: DisplayCard | null = null;
   private isFinalizationInProgress = false;
   private readonly SYNC_TIMEOUT_MS = 45000;
 
@@ -160,7 +161,10 @@ export class GenericMainPage implements OnInit, OnDestroy {
       const needsRehydration = await this.templateRehydration.needsRehydration(this.serviceId);
 
       if (needsRehydration) {
-        // Silent rehydration — no UI indicator, feels seamless to user
+        // Block card navigation while pre-caching images for offline access.
+        // Without this, user can navigate or go offline before images are cached.
+        this.isRehydrating = true;
+
         const result = await this.templateRehydration.rehydrateServiceForTemplate(
           this.config,
           this.serviceId
@@ -172,6 +176,14 @@ export class GenericMainPage implements OnInit, OnDestroy {
       }
     } catch (err: any) {
       console.error(`[GenericMain] Rehydration check failed:`, err);
+    } finally {
+      this.isRehydrating = false;
+      // If user tapped a card during rehydration, navigate now
+      if (this.pendingNavigation) {
+        const card = this.pendingNavigation;
+        this.pendingNavigation = null;
+        this.performNavigation(card);
+      }
     }
   }
 
@@ -235,6 +247,18 @@ export class GenericMainPage implements OnInit, OnDestroy {
   navigateTo(card: DisplayCard) {
     if (!this.config) return;
 
+    // During rehydration, queue the tap and navigate after pre-caching completes.
+    // This prevents broken images when user goes offline before caching finishes.
+    if (this.isRehydrating) {
+      this.pendingNavigation = card;
+      return;
+    }
+
+    this.performNavigation(card);
+  }
+
+  private performNavigation(card: DisplayCard) {
+    if (!this.config) return;
 
     // Split route into segments if it contains '/' (e.g., 'category/hud' -> ['category', 'hud'])
     const routeSegments = card.route.split('/');

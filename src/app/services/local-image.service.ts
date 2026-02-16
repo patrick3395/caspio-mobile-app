@@ -167,8 +167,9 @@ export class LocalImageService {
       if (blobUrl) {
         return cacheAndReturn(blobUrl);
       }
-      // Blob was referenced but not found - this is expected after pruning
-      // Clear the stale reference in memory to avoid repeated lookups
+      // Blob was referenced but not found (deleted during purge).
+      // Clear the stale reference in DB so preCacheImages can re-download it.
+      this.indexedDb.updateLocalImage(image.imageId, { localBlobId: null }).catch(() => {});
     }
 
     // Rule 1.5: Try thumbnail blob if full-res was soft-purged (Phase 2 storage bloat prevention)

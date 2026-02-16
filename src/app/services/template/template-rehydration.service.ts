@@ -369,9 +369,22 @@ export class TemplateRehydrationService {
       .equals(serviceId)
       .toArray();
 
-    const imagesToCache = localImages.filter(img =>
-      img.remoteS3Key && !img.localBlobId && img.status === 'verified'
-    );
+    // Filter images that need caching: no blob OR stale blob reference (deleted during purge)
+    const imagesToCache: typeof localImages = [];
+    for (const img of localImages) {
+      if (!img.remoteS3Key || img.status !== 'verified') continue;
+      if (!img.localBlobId) {
+        imagesToCache.push(img);
+        continue;
+      }
+      // Verify the referenced blob actually exists (may have been deleted by clearAllSyncedData)
+      const blobExists = await db.localBlobs.get(img.localBlobId);
+      if (!blobExists) {
+        // Clear stale reference so getDisplayUrl doesn't waste time on it
+        await db.localImages.update(img.imageId, { localBlobId: null });
+        imagesToCache.push(img);
+      }
+    }
 
     if (imagesToCache.length === 0) return;
 
