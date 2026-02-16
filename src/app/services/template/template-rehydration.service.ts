@@ -421,14 +421,25 @@ export class TemplateRehydrationService {
           // Update LocalImage to point to the new blob
           await db.localImages.update(img.imageId, { localBlobId: blobId });
 
-          // Create cachedPhotos pointer for offline access via getCachedPhoto()
+          // Store base64 directly in cachedPhotos for reliable offline access.
+          // Using imageData (not blobKey pointer) matches the pattern that works
+          // for annotated images via cacheAnnotatedImage.
           if (img.attachId) {
-            await this.indexedDb.cachePhotoPointer(
-              String(img.attachId),
-              serviceId,
-              blobId,
-              img.remoteS3Key || undefined
-            );
+            const contentType = blob.type || 'image/jpeg';
+            const base64 = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = () => reject(reader.error);
+              reader.readAsDataURL(new Blob([arrayBuffer], { type: contentType }));
+            });
+            await db.cachedPhotos.put({
+              photoKey: `photo_${img.attachId}`,
+              attachId: String(img.attachId),
+              serviceId: serviceId,
+              imageData: base64,
+              s3Key: img.remoteS3Key || '',
+              cachedAt: Date.now()
+            });
           }
 
           // If image has annotations, render and cache annotated thumbnail
