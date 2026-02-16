@@ -4501,15 +4501,11 @@ Troubleshooting:
   private static iconCache: Map<string, string> = new Map();
 
   async loadIconImages() {
-    // Get unique type IDs from selected services (normalize to strings for comparison)
-    const selectedTypeIds = new Set(this.selectedServices.map(s => String(s.typeId)));
-
-    // Filter for offers that: 1) have icons, 2) are actually used by selected services
+    // Load icons for ALL available offers (not just selected ones)
     const offersWithIcons = this.availableOffers
       .filter(offer =>
         offer.TypeIcon &&
-        offer.TypeIcon.trim() !== '' &&
-        selectedTypeIds.has(String(offer.TypeID))
+        offer.TypeIcon.trim() !== ''
       );
 
     if (offersWithIcons.length === 0) {
