@@ -421,35 +421,19 @@ export class TemplateRehydrationService {
           // Update LocalImage to point to the new blob
           await db.localImages.update(img.imageId, { localBlobId: blobId });
 
-          // Store base64 directly in cachedPhotos for reliable offline access.
-          // Using imageData (not blobKey pointer) matches the pattern that works
-          // for annotated images via cacheAnnotatedImage.
-          if (img.attachId) {
-            const contentType = blob.type || 'image/jpeg';
-            const base64 = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.onerror = () => reject(reader.error);
-              reader.readAsDataURL(new Blob([arrayBuffer], { type: contentType }));
-            });
-            await db.cachedPhotos.put({
-              photoKey: `photo_${img.attachId}`,
-              attachId: String(img.attachId),
-              serviceId: serviceId,
-              imageData: base64,
-              s3Key: img.remoteS3Key || '',
-              cachedAt: Date.now()
-            });
-          }
+          // Create a single blob URL from the original fetch blob (NOT from arrayBuffer,
+          // which may be neutered/detached after IndexedDB structured clone).
+          // This URL is used for both annotation rendering and base64 conversion.
+          const contentType = blob.type || 'image/jpeg';
+          const reusableBlobUrl = URL.createObjectURL(blob);
 
-          // If image has annotations, render and cache annotated thumbnail
+          // If image has annotations, render and cache annotated thumbnail FIRST.
+          // Must happen before base64 conversion to ensure blob URL is still valid.
           if (img.drawings && img.drawings.length > 10) {
             try {
-              const blobUrl = URL.createObjectURL(new Blob([arrayBuffer], { type: blob.type || 'image/jpeg' }));
-              const annotatedDataUrl = await renderAnnotationsOnPhoto(blobUrl, img.drawings);
-              URL.revokeObjectURL(blobUrl);
+              const annotatedDataUrl = await renderAnnotationsOnPhoto(reusableBlobUrl, img.drawings);
 
-              if (annotatedDataUrl) {
+              if (annotatedDataUrl && annotatedDataUrl !== reusableBlobUrl) {
                 // Convert annotated data URL to blob and store
                 const annotatedResponse = await fetch(annotatedDataUrl);
                 const annotatedBlob = await annotatedResponse.blob();
@@ -461,6 +445,35 @@ export class TemplateRehydrationService {
               console.warn(`[TemplateRehydration] Annotation render failed for ${img.imageId}:`, annotErr);
             }
           }
+
+          // Store base64 directly in cachedPhotos for reliable offline access (non-annotated).
+          // Using imageData (not blobKey pointer) matches the pattern that works for
+          // annotated images via cacheAnnotatedImage. Done AFTER annotation rendering
+          // to avoid consuming the blob before annotations can use it.
+          if (img.attachId) {
+            try {
+              const base64 = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.onerror = () => reject(reader.error);
+                reader.readAsDataURL(blob);
+              });
+              await db.cachedPhotos.put({
+                photoKey: `photo_${img.attachId}`,
+                attachId: String(img.attachId),
+                serviceId: serviceId,
+                imageData: base64,
+                s3Key: img.remoteS3Key || '',
+                cachedAt: Date.now()
+              });
+            } catch (cacheErr) {
+              // Non-critical — local blob is already stored for Rule 1 fallback
+              console.warn(`[TemplateRehydration] Failed to cache base64 for ${img.imageId}:`, cacheErr);
+            }
+          }
+
+          // Clean up the reusable blob URL
+          URL.revokeObjectURL(reusableBlobUrl);
 
           cached++;
         } catch (err) {
