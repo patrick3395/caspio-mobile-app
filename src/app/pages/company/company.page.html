@@ -716,6 +716,7 @@
               <div class="list-table-header">
                 <span class="lt-col lt-col-property">Contact</span>
                 <span class="lt-col lt-col-service">Title</span>
+                <span class="lt-col lt-col-email">Email</span>
                 <span class="lt-col lt-col-amount">Phone</span>
               </div>
               <div class="list-table-row" *ngFor="let contact of group.contacts; trackBy: trackByContact">
@@ -726,6 +727,10 @@
                   <ion-icon *ngIf="contact.PrimaryContact" name="star" class="primary-indicator" title="Primary Contact"></ion-icon>
                 </span>
                 <span class="lt-col lt-col-service">{{ contact.Title || '—' }}</span>
+                <span class="lt-col lt-col-email">
+                  <a *ngIf="contact.Email" [href]="'mailto:' + contact.Email" class="email-link">{{ contact.Email }}</a>
+                  <span *ngIf="!contact.Email">—</span>
+                </span>
                 <span class="lt-col lt-col-amount">
                   <a *ngIf="contact.Phone1" [href]="'tel:' + contact.Phone1" class="phone-link">
                     {{ formatPhone(contact.Phone1) }}

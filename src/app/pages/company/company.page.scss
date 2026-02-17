@@ -272,12 +272,9 @@ ion-content {
 
 .sub-tab-bar {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   padding: 4px 0;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  &::-webkit-scrollbar { display: none; }
 }
 
 .sub-tab {
@@ -300,17 +297,16 @@ ion-content {
   }
 
   &:hover {
-    border-color: var(--color-border-heavy);
-    color: var(--color-text-primary);
+    color: #f15a27;
+    border-color: #f15a27;
   }
 
   &.active {
-    background: #f15a27;
+    color: #f15a27;
     border-color: #f15a27;
-    color: #ffffff;
 
     ion-icon {
-      color: #ffffff;
+      color: #f15a27;
     }
   }
 }
@@ -2473,7 +2469,18 @@ ion-segment.filter-segment {
 }
 
 .contact-group .contacts-table {
-  .list-table-header, .list-table-row { grid-template-columns: 1.5fr 1.5fr 140px; }
+  .list-table-header, .list-table-row { grid-template-columns: 1.2fr 1fr 1.5fr 130px; }
+
+  .lt-col-email {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 600px) {
+    .list-table-header, .list-table-row { grid-template-columns: 1fr 1fr; }
+    .lt-col-email, .lt-col-service { display: none; }
+  }
 }
 
 .responsive-table.dark-outline {
@@ -4184,7 +4191,8 @@ ion-segment.filter-segment {
   flex-shrink: 0;
 }
 
-.phone-link {
+.phone-link,
+.email-link {
   color: #f15a27;
   text-decoration: none;
   font-weight: 500;
@@ -7074,14 +7082,13 @@ ion-alert.custom-alert {
     border-color: #444;
 
     &:hover {
-      border-color: #666;
-      color: #eee;
+      color: #f15a27;
+      border-color: #f15a27;
     }
 
     &.active {
-      background: #f15a27;
+      color: #f15a27;
       border-color: #f15a27;
-      color: #ffffff;
     }
   }
 
