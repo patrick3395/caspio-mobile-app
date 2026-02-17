@@ -77,8 +77,8 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
       display: flex;
       align-items: center;
       background: #1a1a1a;
-      padding: 0 8px;
-      min-height: 48px;
+      padding: env(safe-area-inset-top, 0px) 8px 0 8px;
+      min-height: calc(48px + env(safe-area-inset-top, 0px));
       gap: 4px;
     }
     app-document-viewer .header-btn {

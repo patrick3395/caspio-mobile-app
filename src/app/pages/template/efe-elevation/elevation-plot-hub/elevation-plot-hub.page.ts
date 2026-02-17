@@ -16,7 +16,6 @@ import { SmartSyncService } from '../../../../services/smart-sync.service';
 import { EfeFieldRepoService } from '../../../../services/efe-field-repo.service';
 import { EfeField, EfePoint, db } from '../../../../services/caspio-db';
 import { ServiceMetadataService } from '../../../../services/service-metadata.service';
-import { StorageDebugComponent } from '../../../../components/storage-debug/storage-debug.component';
 import { environment } from '../../../../../environments/environment';
 
 interface RoomTemplate {
@@ -39,7 +38,7 @@ interface RoomDisplayData extends RoomTemplate {
   templateUrl: './elevation-plot-hub.page.html',
   styleUrls: ['./elevation-plot-hub.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, StorageDebugComponent]
+  imports: [CommonModule, IonicModule]
 })
 export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
   // Debug flag - set to true for verbose logging
@@ -60,7 +59,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
   isWeb = environment.isWeb;
 
   // Storage debug panel toggle
-  showStorageDebug = false;
 
   allRoomTemplates: RoomTemplate[] = [];
 
