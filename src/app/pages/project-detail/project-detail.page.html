@@ -111,7 +111,7 @@
               <div class="service-header-content">
                 <div class="service-name-section">
                   <ion-icon [name]="isDeliverableExpanded(service) ? 'chevron-down' : 'chevron-forward'" class="expand-icon"></ion-icon>
-                  <span *ngIf="service.typeShort">{{ service.typeShort }} - </span>{{ service.typeName }}
+                  <span *ngIf="service.typeShort && isWeb">{{ service.typeShort }} - </span>{{ service.typeName }}
                   <span *ngIf="getServiceCount(service.offersId) > 1" class="instance-number">
                     #{{ getServiceInstanceNumber(service) }}
                   </span>
@@ -213,7 +213,7 @@
               <div class="service-header-content">
                 <div class="service-name-section">
                   <ion-icon [name]="isDeliverableExpanded(service) ? 'chevron-down' : 'chevron-forward'" class="expand-icon"></ion-icon>
-                  <span *ngIf="service.typeShort">{{ service.typeShort }} - </span>{{ service.typeName }}
+                  <span *ngIf="service.typeShort && isWeb">{{ service.typeShort }} - </span>{{ service.typeName }}
                   <span *ngIf="getServiceCount(service.offersId) > 1" class="instance-number">
                     #{{ getServiceInstanceNumber(service) }}
                   </span>

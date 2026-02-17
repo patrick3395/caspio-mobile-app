@@ -153,7 +153,7 @@
                 <h4>Address</h4>
                 <div class="detail-row">
                   <div class="detail-col">
-                    <label>Address</label>
+                    <label>Street</label>
                     <p>{{ currentCompany.Address || 'Not provided' }}</p>
                   </div>
                   <div class="detail-col">
@@ -174,6 +174,13 @@
               <div class="detail-section" *ngIf="currentCompany.Notes">
                 <h4>Notes</h4>
                 <p class="wrap-text">{{ currentCompany.Notes }}</p>
+              </div>
+
+              <div class="detail-section" *ngIf="currentCompany.Contract">
+                <h4>Contract Document</h4>
+                <button class="contract-view-btn" (click)="openContract(currentCompany.PK_ID, currentCompany.Contract)">
+                  <ion-icon name="document-text-outline"></ion-icon> View Contract
+                </button>
               </div>
             </div>
           </div>
@@ -492,7 +499,7 @@
                     <h4>Address</h4>
                     <div class="detail-row">
                       <div class="detail-col">
-                        <label>Address</label>
+                        <label>Street</label>
                         <p>{{ company.Address || 'Not provided' }}</p>
                       </div>
                       <div class="detail-col">
@@ -514,6 +521,14 @@
                   <div class="detail-section" *ngIf="company.Notes">
                     <h4>Notes</h4>
                     <p class="wrap-text">{{ company.Notes }}</p>
+                  </div>
+
+                  <!-- Contract -->
+                  <div class="detail-section" *ngIf="company.Contract">
+                    <h4>Contract Document</h4>
+                    <button class="contract-view-btn" (click)="openContract(company.PK_ID, company.Contract)">
+                      <ion-icon name="document-text-outline"></ion-icon> View Contract
+                    </button>
                   </div>
                 </div>
 
@@ -568,10 +583,7 @@
                       <span class="lt-col lt-col-amount balance-due"><span class="currency-sign">$</span><span class="currency-value">{{ inv.balance | number:'1.2-2' }}</span></span>
                     </div>
                   </div>
-                  <div class="no-balance-message" *ngIf="!getCompanyOutstandingData(company.CompanyID).loading && getCompanyOutstandingData(company.CompanyID).balance === 0">
-                    <ion-icon name="checkmark-circle-outline"></ion-icon>
-                    <span>No outstanding balance</span>
-                  </div>
+                  <!-- Balance is $0.00 shown in header; no extra message needed -->
                 </div>
 
                 <!-- Payment History -->
@@ -711,7 +723,7 @@
                   <button type="button" class="contact-name-button" (click)="openEditContactModal(contact)">
                     {{ contact.Name }}
                   </button>
-                  <span *ngIf="contact.PrimaryContact" class="primary-indicator" title="Primary Contact">P</span>
+                  <ion-icon *ngIf="contact.PrimaryContact" name="star" class="primary-indicator" title="Primary Contact"></ion-icon>
                 </span>
                 <span class="lt-col lt-col-service">{{ contact.Title || '—' }}</span>
                 <span class="lt-col lt-col-amount">
@@ -1116,7 +1128,7 @@
                 </span>
                 <span class="lt-col lt-col-action invoice-row-actions">
                   <button class="action-btn-sm" (click)="openAddInvoiceModal(invoice); $event.stopPropagation()" title="Added Service">
-                    <ion-icon name="add-circle-outline"></ion-icon>
+                    <ion-icon name="add"></ion-icon>
                   </button>
                 </span>
               </div>
@@ -1387,7 +1399,7 @@
                 <h4>Address</h4>
                 <div class="detail-row">
                   <div class="detail-col">
-                    <label>Address</label>
+                    <label>Street</label>
                     <p>{{ clientCompany.Address || 'Not provided' }}</p>
                   </div>
                   <div class="detail-col">
@@ -1946,6 +1958,14 @@
           <div class="form-row" *ngIf="isCompanyOne">
             <div class="form-field full-width">
               <label>Contract Document</label>
+              <div *ngIf="editingCompany.Contract && !editingCompanyContractFile" class="existing-contract">
+                <button class="contract-view-btn" (click)="openContract(editingCompany.PK_ID, editingCompany.Contract)">
+                  <ion-icon name="document-text-outline"></ion-icon> View Current Contract
+                </button>
+              </div>
+              <div *ngIf="editingCompanyContractFile" class="existing-contract">
+                <span class="contract-pending-name"><ion-icon name="document-attach-outline"></ion-icon> {{ editingCompanyContractFile.name }}</span>
+              </div>
               <input type="file" (change)="onEditCompanyContractChange($event)" class="form-input" accept=".pdf,.doc,.docx">
             </div>
           </div>
@@ -1996,26 +2016,24 @@
         <div class="form-section" *ngIf="isCompanyOne">
           <div class="section-header-with-action">
             <h4>Users</h4>
-            <button class="action-btn-sm" (click)="openAddUserModal(editingCompany.CompanyID)">
-              <ion-icon name="add-circle-outline"></ion-icon> Add User
+            <button class="section-add-btn" (click)="openAddUserModal(editingCompany.CompanyID)">
+              <ion-icon name="add"></ion-icon> Add
             </button>
           </div>
           <div *ngIf="getCompanyUsers(editingCompany.CompanyID).length > 0" class="company-users-list">
-            <div class="company-users-header">
-              <span>Name</span>
-              <span>Title</span>
-              <span>Email</span>
-              <span>Phone</span>
-              <span></span>
-            </div>
             <div class="company-user-row" *ngFor="let user of getCompanyUsers(editingCompany.CompanyID)">
-              <span class="user-col-name">{{ user.Name || 'Unnamed' }}</span>
-              <span class="user-col-detail">{{ user.Title || '—' }}</span>
-              <span class="user-col-detail">{{ user.Email || '—' }}</span>
-              <span class="user-col-detail">{{ user.Phone ? formatPhone(user.Phone) : '—' }}</span>
+              <div class="user-info">
+                <span class="user-col-name">{{ user.Name || 'Unnamed' }}</span>
+                <span class="user-col-meta">{{ user.Title || '' }}{{ user.Title && user.Email ? ' · ' : '' }}{{ user.Email || '' }}</span>
+                <span class="user-col-phone" *ngIf="user.Phone">{{ formatPhone(user.Phone) }}</span>
+              </div>
               <span class="user-col-actions">
-                <ion-icon name="create-outline" class="action-edit" (click)="openEditUserModal(user)" title="Edit user"></ion-icon>
-                <ion-icon name="trash-outline" class="action-delete" (click)="deleteUser(user, $event)" title="Delete user"></ion-icon>
+                <button class="user-action-btn" (click)="openEditUserModal(user)" title="Edit user">
+                  <ion-icon name="create-outline"></ion-icon>
+                </button>
+                <button class="user-action-btn delete" (click)="deleteUser(user, $event)" title="Delete user">
+                  <ion-icon name="trash-outline"></ion-icon>
+                </button>
               </span>
             </div>
           </div>
@@ -2903,11 +2921,21 @@
           <div class="fee-breakdown-list">
             <div class="fee-breakdown-item" *ngFor="let record of editingInvoice.allPositives">
               <span class="fee-label">{{ getInvoiceLineLabel(record) }}</span>
-              <span class="fee-amount">{{ formatCurrency(record.Fee) }}</span>
+              <div class="fee-actions">
+                <span class="fee-amount">{{ formatCurrency(record.Fee) }}</span>
+                <button class="fee-delete-btn" (click)="deleteInvoiceLine(record, $event)" title="Delete this line item">
+                  <ion-icon name="trash-outline"></ion-icon>
+                </button>
+              </div>
             </div>
             <div class="fee-breakdown-item payment-item" *ngFor="let record of editingInvoice.allNegatives">
               <span class="fee-label">Payment</span>
-              <span class="fee-amount payment-amount">{{ formatCurrency(record.Fee) }}</span>
+              <div class="fee-actions">
+                <span class="fee-amount payment-amount">{{ formatCurrency(record.Fee) }}</span>
+                <button class="fee-delete-btn" (click)="deleteInvoiceLine(record, $event)" title="Delete this line item">
+                  <ion-icon name="trash-outline"></ion-icon>
+                </button>
+              </div>
             </div>
             <div class="fee-breakdown-total">
               <span class="fee-label">Total Due</span>

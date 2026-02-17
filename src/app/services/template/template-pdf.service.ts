@@ -261,57 +261,48 @@ export class TemplatePdfService {
 
       if (cancelRequested) return;
 
-      // On web, open PDF directly in a new browser tab
-      if (environment.isWeb) {
-        updateProgress(95, 'Opening PDF...');
-        const blobUrl = URL.createObjectURL(pdfBlob);
-        window.open(blobUrl, '_blank');
+      // Use blob URL on web (avoids expensive base64 conversion), base64 on mobile
+      const fileUrl = environment.isWeb
+        ? URL.createObjectURL(pdfBlob)
+        : await this.blobToBase64(pdfBlob);
 
+      updateProgress(90, 'Loading viewer...');
+      const DocumentViewerComponent = await this.loadDocumentViewer();
+
+      const pdfProjectId = projectInfo?.projectId || 'draft';
+      const clientName = (projectInfo?.clientName || 'Client').replace(/[^a-z0-9]/gi, '_');
+      const date = new Date().toISOString().split('T')[0];
+      const fileName = `EFE_Report_${clientName}_${pdfProjectId}_${date}.pdf`;
+
+      updateProgress(95, 'Opening PDF...');
+      const modal = await this.modalController.create({
+        component: DocumentViewerComponent,
+        componentProps: {
+          fileUrl,
+          fileName,
+          fileType: 'pdf'
+        },
+        cssClass: 'fullscreen-modal',
+        animated: this.pdfGenerationAttempts > 1,
+        backdropDismiss: false
+      });
+
+      if (cancelRequested) return;
+
+      await modal.present();
+
+      setTimeout(async () => {
         try {
           if (loading) await loading.dismiss();
         } catch { /* ignore */ }
+      }, 100);
 
+      modal.onDidDismiss().then(() => {
         this.isPDFGenerating = false;
-        this.retryNotification.resumeNotifications();
-      } else {
-        // On mobile, use the modal PDF viewer
-        const pdfDataUrl = await this.blobToBase64(pdfBlob);
-
-        updateProgress(90, 'Loading viewer...');
-        const DocumentViewerComponent = await this.loadDocumentViewer();
-
-        const pdfProjectId = projectInfo?.projectId || 'draft';
-        const clientName = (projectInfo?.clientName || 'Client').replace(/[^a-z0-9]/gi, '_');
-        const date = new Date().toISOString().split('T')[0];
-        const fileName = `EFE_Report_${clientName}_${pdfProjectId}_${date}.pdf`;
-
-        updateProgress(95, 'Opening PDF...');
-        const modal = await this.modalController.create({
-          component: DocumentViewerComponent,
-          componentProps: {
-            fileUrl: pdfDataUrl,
-            fileName: fileName,
-            fileType: 'pdf'
-          },
-          cssClass: 'fullscreen-modal',
-          animated: this.pdfGenerationAttempts > 1,
-          backdropDismiss: false
-        });
-
-        if (cancelRequested) return;
-
-        await modal.present();
-
-        setTimeout(async () => {
-          try {
-            if (loading) await loading.dismiss();
-          } catch { /* ignore */ }
-        }, 100);
-
-        modal.onDidDismiss().then(() => {
-          this.isPDFGenerating = false;
-        });
-      }
+        if (environment.isWeb) {
+          this.retryNotification.resumeNotifications();
+        }
+      });
 
     } catch (error) {
       console.error(`${logTag} Error generating PDF:`, error);

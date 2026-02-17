@@ -15,6 +15,8 @@ import { firstValueFrom } from 'rxjs';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 import { getLogoBase64 } from '../../services/pdf/pdf-logo';
 
+type DocumentViewerCtor = typeof import('../../components/document-viewer/document-viewer.component')['DocumentViewerComponent'];
+
 interface StageDefinition {
   id: number;
   name: string;
@@ -241,7 +243,7 @@ export class CompanyPage implements OnInit, OnDestroy {
   organizationUsers: any[] = [];
 
   // Admin CRM main tab (Company vs Partners)
-  adminMainTab: 'company' | 'partners' | 'metrics' = 'company';
+  adminMainTab: 'company' | 'partners' | 'metrics' = 'partners';
   selectedTab: 'company' | 'companies' | 'contacts' | 'tasks' | 'meetings' | 'communications' | 'invoices' | 'metrics' | 'users' | 'notifications' = 'users';
   adminDetailsExpanded = true;
   adminUsersExpanded = true;
@@ -611,6 +613,16 @@ export class CompanyPage implements OnInit, OnDestroy {
   notifBody = '';
   notifSending = false;
   notifHistory: Array<{title: string, body: string, targetLabel: string, time: Date, success: boolean, sent: number}> = [];
+
+  private documentViewerComponent?: DocumentViewerCtor;
+
+  private async loadDocumentViewer(): Promise<DocumentViewerCtor> {
+    if (!this.documentViewerComponent) {
+      const module = await import('../../components/document-viewer/document-viewer.component');
+      this.documentViewerComponent = module.DocumentViewerComponent;
+    }
+    return this.documentViewerComponent;
+  }
 
   constructor(
     private caspioService: CaspioService,
@@ -1763,6 +1775,59 @@ export class CompanyPage implements OnInit, OnDestroy {
     }
   }
 
+  async deleteInvoiceLine(record: InvoiceViewModel, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+
+    const result = await this.confirmationDialog.confirmDeleteItem('Invoice Line');
+    if (!result.confirmed) {
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Deleting line item...'
+    });
+    await loading.present();
+
+    try {
+      if (!record.PK_ID) {
+        throw new Error('Record PK_ID not found');
+      }
+
+      await firstValueFrom(
+        this.caspioService.delete(`/tables/LPS_Invoices/records?q.where=PK_ID=${record.PK_ID}`)
+      );
+
+      // Remove from the editing invoice's arrays in-place
+      if (this.editingInvoice) {
+        this.editingInvoice.allPositives = this.editingInvoice.allPositives.filter(r => r.PK_ID !== record.PK_ID);
+        this.editingInvoice.allNegatives = this.editingInvoice.allNegatives.filter(r => r.PK_ID !== record.PK_ID);
+
+        // Recalculate net amount
+        const posSum = this.editingInvoice.allPositives.reduce((sum, r) => sum + (r.Fee || 0), 0);
+        const negSum = this.editingInvoice.allNegatives.reduce((sum, r) => sum + (r.Fee || 0), 0);
+        this.editingInvoice.netAmount = posSum + negSum;
+      }
+
+      // Reload invoices data
+      const invoiceRecords = await this.fetchTableRecords('Invoices', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' });
+      this.invoices = invoiceRecords
+        .map(record => this.normalizeInvoiceRecord(record))
+        .filter(invoice => invoice.CompanyID !== this.excludedCompanyId);
+
+      this.recalculateCompanyAggregates();
+      this.categorizeInvoices();
+
+      await this.showToast('Line item deleted', 'success');
+    } catch (error: any) {
+      console.error('Error deleting invoice line:', error);
+      await this.showToast('Failed to delete line item', 'danger');
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
   openAddInvoiceModal(invoice: InvoicePairWithService) {
     // Pre-fill with context from the selected invoice
     this.newInvoice = {
@@ -1963,6 +2028,74 @@ export class CompanyPage implements OnInit, OnDestroy {
     if (file) {
       this.editingCompanyContractFile = file;
     }
+  }
+
+  async openContract(pkId: number, contractValue?: string) {
+    if (!pkId) return;
+
+    const fileName = contractValue
+      ? contractValue.split('/').pop() || 'Contract.pdf'
+      : 'Contract.pdf';
+
+    const openInViewer = async (blobUrl: string) => {
+      const DocumentViewerComponent = await this.loadDocumentViewer();
+      const modal = await this.modalController.create({
+        component: DocumentViewerComponent,
+        componentProps: {
+          fileUrl: blobUrl,
+          fileName,
+          fileType: 'pdf'
+        },
+        cssClass: 'fullscreen-modal'
+      });
+      await modal.present();
+    };
+
+    // If the value is a base64 data URL (from frontend upload), open directly
+    if (contractValue && contractValue.startsWith('data:')) {
+      const parts = contractValue.split(',');
+      const mime = parts[0].match(/:(.*?);/)?.[1] || 'application/pdf';
+      const byteString = atob(parts[1]);
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+      }
+      const blob = new Blob([ab], { type: mime });
+      await openInViewer(URL.createObjectURL(blob));
+      return;
+    }
+
+    // Try 1: Table file attachment endpoint
+    try {
+      const tableFileUrl = `${environment.apiGatewayUrl}/api/caspio-files/table-file?table=LPS_Companies&recordId=${pkId}&fieldName=Contract`;
+      const response = await fetch(tableFileUrl, { method: 'GET', headers: { 'Accept': 'application/octet-stream' } });
+      if (response.ok) {
+        const blob = await response.blob();
+        await openInViewer(URL.createObjectURL(blob));
+        return;
+      }
+    } catch (e) {
+      console.warn('[openContract] table-file failed, trying Files API fallback', e);
+    }
+
+    // Try 2: Files API download using the filename
+    if (contractValue) {
+      try {
+        const cleanPath = contractValue.startsWith('/') ? contractValue : `/${contractValue}`;
+        const downloadUrl = `${environment.apiGatewayUrl}/api/caspio-files/download?filePath=${encodeURIComponent(cleanPath)}`;
+        const response = await fetch(downloadUrl, { method: 'GET' });
+        if (response.ok) {
+          const blob = await response.blob();
+          await openInViewer(URL.createObjectURL(blob));
+          return;
+        }
+      } catch (e) {
+        console.warn('[openContract] Files API download failed', e);
+      }
+    }
+
+    await this.showToast('Unable to load contract document', 'warning');
   }
 
   async saveNewCompany() {
@@ -5988,8 +6121,22 @@ export class CompanyPage implements OnInit, OnDestroy {
     event.stopPropagation();
   }
 
-  editCompany(company: CompanyViewModel, event: Event): void {
+  async editCompany(company: CompanyViewModel, event: Event): Promise<void> {
     event.stopPropagation();
+
+    // Ensure size options are always available (fixed Caspio field values)
+    if (this.uniqueCompanySizes.length === 0) {
+      this.uniqueCompanySizes = [
+        'One Person',
+        'Multi Inspector (2-5)',
+        'Multi Inspector (5-10)',
+        'Large Multi Inspector (10+)'
+      ];
+    }
+
+    // Load software options and build ID-to-name map before opening modal
+    await this.loadSoftwareLookup();
+
     // Create a clean copy with only database fields (exclude computed view model fields)
     this.editingCompany = {
       PK_ID: company.PK_ID,
@@ -5998,7 +6145,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       StageName: company.StageName,
       CompanyName: company.CompanyName,
       SizeLabel: company.SizeLabel,
-      Size: company.Size,
+      Size: company.Size || '',
       ServiceArea: company.ServiceArea,
       LeadSource: company.LeadSource,
       Phone: company.Phone,
@@ -6026,6 +6173,32 @@ export class CompanyPage implements OnInit, OnDestroy {
       AutopayLastStatus: company.AutopayLastStatus || null,
       AutopayReviewRequired: company.AutopayReviewRequired || false
     };
+
+    // Format DateOnboarded for <input type="date"> (requires yyyy-MM-dd)
+    if (this.editingCompany.DateOnboarded) {
+      const d = new Date(this.editingCompany.DateOnboarded);
+      if (!isNaN(d.getTime())) {
+        this.editingCompany.DateOnboarded = this.formatDateForInput(d);
+      }
+    }
+
+    // Resolve numeric SoftwareID to software name for the dropdown
+    const rawSoftwareId = this.editingCompany.SoftwareID;
+    if (rawSoftwareId && !isNaN(Number(rawSoftwareId))) {
+      const numId = Number(rawSoftwareId);
+      let resolvedName = '';
+      for (const [name, id] of this.softwareNameToIdMap.entries()) {
+        if (id === numId) { resolvedName = name; break; }
+      }
+      this.editingCompany.SoftwareID = resolvedName;
+    }
+    this.editingCompany.SoftwareID = this.editingCompany.SoftwareID || '';
+
+    // Ensure current Size value appears in dropdown options
+    if (this.editingCompany.Size && !this.uniqueCompanySizes.includes(this.editingCompany.Size)) {
+      this.uniqueCompanySizes.push(this.editingCompany.Size);
+    }
+
     this.editingCompanyContractFile = null;
     this.editingCompanyLogoFile = null;
     this.editingCompanyLogoPreview = null;
@@ -6051,6 +6224,14 @@ export class CompanyPage implements OnInit, OnDestroy {
 
     this.editingCompany = { ...company };
     this.editingCompany.Size = this.editingCompany.Size || '';
+
+    // Format DateOnboarded for <input type="date"> (requires yyyy-MM-dd)
+    if (this.editingCompany.DateOnboarded) {
+      const d = new Date(this.editingCompany.DateOnboarded);
+      if (!isNaN(d.getTime())) {
+        this.editingCompany.DateOnboarded = this.formatDateForInput(d);
+      }
+    }
 
     // Resolve numeric SoftwareID to software name for the dropdown
     const rawSoftwareId = this.editingCompany.SoftwareID;
@@ -6094,6 +6275,14 @@ export class CompanyPage implements OnInit, OnDestroy {
 
     this.editingCompany = { ...company };
     this.editingCompany.Size = this.editingCompany.Size || '';
+
+    // Format DateOnboarded for <input type="date"> (requires yyyy-MM-dd)
+    if (this.editingCompany.DateOnboarded) {
+      const d = new Date(this.editingCompany.DateOnboarded);
+      if (!isNaN(d.getTime())) {
+        this.editingCompany.DateOnboarded = this.formatDateForInput(d);
+      }
+    }
 
     // Resolve numeric SoftwareID to software name for the dropdown
     const rawSoftwareId = this.editingCompany.SoftwareID;
@@ -6262,6 +6451,11 @@ export class CompanyPage implements OnInit, OnDestroy {
       // If a new logo was uploaded, use the local preview for immediate display (avoids browser cache of old Caspio URL)
       if (this.editingCompanyLogoPreview) {
         this.editingCompany.Logo = this.editingCompanyLogoPreview;
+      }
+
+      // If a new contract was uploaded, update local data with the base64 for immediate display
+      if (payload.Contract) {
+        this.editingCompany.Contract = payload.Contract;
       }
 
       // Update local data
@@ -6962,6 +7156,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       CCEmail: raw.CC_Email ?? raw.CCEmail ?? '',
       SoftwareID: raw.SoftwareID !== undefined && raw.SoftwareID !== null ? String(raw.SoftwareID) : undefined,
       Logo: raw.Logo || undefined,
+      Contract: raw.Contract || undefined,
       // Autopay fields (Caspio Yes/No fields return "Yes"/"No" or 1/0)
       AutopayEnabled: raw.AutopayEnabled === true || raw.AutopayEnabled === 1 || raw.AutopayEnabled === 'Yes',
       AutopayReviewRequired: raw.AutopayReviewRequired === true || raw.AutopayReviewRequired === 1 || raw.AutopayReviewRequired === 'Yes',

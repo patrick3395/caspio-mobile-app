@@ -156,9 +156,9 @@ export class HelpGuidePage implements OnInit {
         dataUrl = await this.caspioService.getImageFromFilesAPI(filePath).toPromise() || '';
       } else {
         dataUrl = await this.caspioService.getFileFromPath(filePath).toPromise() || '';
-        // getFileFromPath returns {blob, dataUrl} or object URL string
-        if (typeof dataUrl === 'object' && (dataUrl as any).dataUrl) {
-          dataUrl = (dataUrl as any).dataUrl;
+        // getFileFromPath returns {url, type, blob} object
+        if (typeof dataUrl === 'object' && (dataUrl as any).url) {
+          dataUrl = (dataUrl as any).url;
         }
       }
 
@@ -229,10 +229,9 @@ export class HelpGuidePage implements OnInit {
       return;
     }
 
-    const dataUrl = await this.getFileDataUrl(file);
-    if (!dataUrl) return;
-
     if (isImage) {
+      const dataUrl = await this.getFileDataUrl(file);
+      if (!dataUrl) return;
       const modal = await this.modalController.create({
         component: ImageViewerComponent,
         componentProps: {
@@ -246,18 +245,56 @@ export class HelpGuidePage implements OnInit {
       });
       await modal.present();
     } else {
-      const DocumentViewerComponent = await this.loadDocumentViewer();
-      const modal = await this.modalController.create({
-        component: DocumentViewerComponent,
-        componentProps: {
-          fileUrl: dataUrl,
-          fileName: filename,
-          fileType: this.getFileExtension(filePath),
-          filePath: filePath
-        },
-        cssClass: 'fullscreen-modal'
-      });
-      await modal.present();
+      // For unknown file types, fetch the raw blob to detect if it's actually a PDF
+      const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
+      const probeUrl = `${environment.apiGatewayUrl}/api/caspio-files/download?filePath=${encodeURIComponent(cleanPath)}&_t=${Date.now()}`;
+      let pdfBlobUrl: string | null = null;
+
+      try {
+        const response = await fetch(probeUrl, { method: 'GET', headers: { 'Accept': 'application/octet-stream' } });
+        if (response.ok) {
+          const blob = await response.blob();
+          // Check PDF magic bytes (%PDF)
+          const header = await blob.slice(0, 5).text();
+          if (header.startsWith('%PDF')) {
+            pdfBlobUrl = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+          }
+        }
+      } catch (e) {
+        console.warn('[HelpGuide] PDF probe failed:', e);
+      }
+
+      if (pdfBlobUrl) {
+        // Detected PDF by magic bytes — route to PDF viewer
+        const DocumentViewerComponent = await this.loadDocumentViewer();
+        const modal = await this.modalController.create({
+          component: DocumentViewerComponent,
+          componentProps: {
+            fileUrl: pdfBlobUrl,
+            fileName: filename,
+            fileType: 'PDF',
+            filePath: filePath
+          },
+          cssClass: 'fullscreen-modal'
+        });
+        await modal.present();
+      } else {
+        const dataUrl = await this.getFileDataUrl(file);
+        if (!dataUrl) return;
+
+        const DocumentViewerComponent = await this.loadDocumentViewer();
+        const modal = await this.modalController.create({
+          component: DocumentViewerComponent,
+          componentProps: {
+            fileUrl: dataUrl,
+            fileName: filename,
+            fileType: this.getFileExtension(filePath),
+            filePath: filePath
+          },
+          cssClass: 'fullscreen-modal'
+        });
+        await modal.present();
+      }
     }
   }
 

@@ -1623,18 +1623,20 @@ ion-modal {
 ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:none}
 
 // Fullscreen modal for document viewer
-::ng-deep .fullscreen-modal {
-  --width: 100%;
-  --height: 100%;
-  --max-width: 100%;
-  --max-height: 100%;
+::ng-deep ion-modal.fullscreen-modal {
+  --width: 100% !important;
+  --height: 100% !important;
+  --max-width: 100% !important;
+  --max-height: 100% !important;
+  --border-radius: 0 !important;
+}
 
-  .modal-wrapper {
-    width: 100%;
-    height: 100%;
-    max-width: 100%;
-    max-height: 100%;
-  }
+::ng-deep ion-modal.fullscreen-modal::part(content) {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  border-radius: 0 !important;
 }
 
 // Notes section
