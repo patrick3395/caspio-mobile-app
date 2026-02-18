@@ -560,6 +560,39 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
   // ==================== Raw Visual Operations ====================
 
   async getRawVisuals(config: TemplateConfig, serviceId: string): Promise<any[]> {
+    // Read from Dexie-first tables (local data) and map to API-like field names
+    // so validation can check user input before sync completes
+    if (config.features.offlineFirst) {
+      let fields: any[] = [];
+      switch (config.id) {
+        case 'efe':
+          fields = await db.visualFields.where('serviceId').equals(serviceId).toArray();
+          break;
+        case 'hud':
+          fields = await db.hudFields.where('serviceId').equals(serviceId).toArray();
+          break;
+        case 'lbw':
+          fields = await db.lbwFields.where('serviceId').equals(serviceId).toArray();
+          break;
+        case 'dte':
+          fields = await db.dteFields.where('serviceId').equals(serviceId).toArray();
+          break;
+        case 'csa':
+          fields = await db.csaFields.where('serviceId').equals(serviceId).toArray();
+          break;
+      }
+      // Map Dexie field records to API-like records for validation
+      return fields.map(f => ({
+        [config.templateIdFieldName]: f.templateId,
+        TemplateID: f.templateId,
+        Answers: f.answer || '',
+        Notes: f.isSelected ? (f.notes || '') : 'HIDDEN',
+        Category: f.category,
+        ServiceID: f.serviceId
+      }));
+    }
+
+    // Fallback: read from offlineTemplate cached API data
     switch (config.id) {
       case 'efe':
         return this.offlineTemplate.getVisualsByService(serviceId);

@@ -306,7 +306,7 @@ export class GenericMainPage implements OnInit, OnDestroy {
         buttons: [{
           text: 'OK',
           handler: () => {
-            this.navController.back();
+            this.router.navigate(['/project', this.projectId]);
           }
         }]
       });
