@@ -78,10 +78,10 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit, OnDes
         if (el.tagName.startsWith('ION-')) continue;
 
         // Apply safe-area offset if not already applied
-        if (!el.dataset.safeAreaFixed) {
+        if (!el.dataset['safeAreaFixed']) {
           el.style.setProperty('top', 'env(safe-area-inset-top, 0px)', 'important');
           el.style.setProperty('height', 'calc(100% - env(safe-area-inset-top, 0px))', 'important');
-          el.dataset.safeAreaFixed = '1';
+          el.dataset['safeAreaFixed'] = '1';
         }
       }
     }, 300);
