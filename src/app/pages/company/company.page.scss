@@ -272,41 +272,60 @@ ion-content {
 
 .sub-tab-bar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 4px 0;
+  gap: 6px;
+  padding: 6px;
+  background: var(--color-bg-elevated);
+  border-radius: 10px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
 }
 
 .sub-tab {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 14px;
+  gap: 6px;
+  padding: 8px 14px;
   background: transparent;
-  color: var(--color-text-secondary);
-  border: 1px solid var(--color-border-default);
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
+  color: var(--color-text-muted);
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
+  flex-shrink: 0;
 
   ion-icon {
-    font-size: 14px;
+    font-size: 16px;
   }
 
   &:hover {
-    color: #f15a27;
-    border-color: #f15a27;
+    background: var(--color-bg-card);
+    color: var(--color-text-primary);
   }
 
   &.active {
-    color: #f15a27;
-    border-color: #f15a27;
+    background: var(--color-bg-card);
+    color: var(--color-text-primary);
+    box-shadow: 0 1px 3px var(--color-shadow);
 
     ion-icon {
-      color: #f15a27;
+      color: var(--noble-orange, #F15A27);
+    }
+  }
+}
+
+@media (max-width: 500px) {
+  .sub-tab {
+    padding: 7px 10px;
+    font-size: 12px;
+    gap: 4px;
+
+    ion-icon {
+      font-size: 15px;
     }
   }
 }
@@ -3050,53 +3069,88 @@ ion-segment.filter-segment {
   .autopay-inline {
     display: flex;
     align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
+    gap: 10px;
+
+    @media (max-width: 500px) {
+      flex-wrap: wrap;
+    }
 
     .autopay-inline-item {
       display: flex;
       align-items: center;
       gap: 6px;
+      flex-shrink: 0;
     }
 
     .autopay-inline-actions {
       margin-left: auto;
       display: flex;
-      gap: 6px;
+      gap: 8px;
       flex-shrink: 0;
+
+      @media (max-width: 500px) {
+        margin-left: 0;
+        width: 100%;
+      }
+    }
+
+    .not-provided {
+      font-size: 0.85rem;
+      font-weight: 400;
+      font-style: italic;
+      color: var(--color-text-muted);
+      background: none;
+    }
+
+    .payment-method-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      background: var(--color-bg-inset);
+      color: var(--color-text-secondary);
+      white-space: nowrap;
+
+      &.paypal { background: #0070ba; color: white; }
+      &.stripe { background: #635bff; color: white; }
+      ion-icon { font-size: 1rem; flex-shrink: 0; }
     }
   }
 
   .action-btn-sm {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    padding: 5px 12px;
-    font-size: 12px;
+    gap: 6px;
+    padding: 8px 20px;
+    font-size: 14px;
     font-weight: 600;
-    border: 1px solid var(--color-border-default);
-    border-radius: 6px;
-    background: transparent;
-    color: var(--color-text-secondary);
+    letter-spacing: 0.03em;
+    border: 2px solid var(--noble-orange, #F15A27);
+    border-radius: 8px;
+    background: #f5f5f5;
+    color: #333;
     cursor: pointer;
     transition: all 0.2s ease;
     white-space: nowrap;
 
-    ion-icon { font-size: 13px; }
+    ion-icon { font-size: 16px; }
 
     &:hover {
-      border-color: #F15A27;
-      color: #F15A27;
+      background: #f5f5f5;
+      color: #333;
     }
 
     &.primary {
-      background: transparent;
-      border-color: var(--color-border-default);
-      color: var(--color-text-secondary);
+      background: var(--noble-orange, #F15A27);
+      color: white;
+      border-color: var(--noble-orange, #F15A27);
 
-      &:hover { border-color: #F15A27; color: #F15A27; }
-      &:disabled { opacity: 0.4; cursor: not-allowed; }
+      &:hover { background: #d94d1a; border-color: #d94d1a; }
+      &:disabled { opacity: 0.35; cursor: not-allowed; }
     }
   }
 }
@@ -7076,19 +7130,26 @@ ion-alert.custom-alert {
     background: rgba(255, 255, 255, 0.08);
   }
 
+  .sub-tab-bar {
+    background: #1e1e1e;
+  }
+
   .sub-tab {
-    background: transparent;
-    color: #bbb;
-    border-color: #444;
+    color: #999;
 
     &:hover {
-      color: #f15a27;
-      border-color: #f15a27;
+      background: #2a2a2a;
+      color: #ddd;
     }
 
     &.active {
-      color: #f15a27;
-      border-color: #f15a27;
+      background: #2a2a2a;
+      color: #eee;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+
+      ion-icon {
+        color: #f15a27;
+      }
     }
   }
 

@@ -131,6 +131,23 @@ export class TemplateValidationService {
   }
 
   /**
+   * Resolve the actual ServiceID for querying visual records.
+   * For HUD/EFE, the route serviceId is PK_ID from LPS_Services, but visual records
+   * store ServiceID (a different field). We must resolve the actual ServiceID.
+   */
+  private async resolveServiceId(serviceId: string): Promise<string> {
+    try {
+      const serviceData = await this.dataProvider.getService(serviceId);
+      if (serviceData?.ServiceID) {
+        return String(serviceData.ServiceID);
+      }
+    } catch (error) {
+      console.error('[TemplateValidation] Error resolving ServiceID:', error);
+    }
+    return serviceId;
+  }
+
+  /**
    * Validate category/template required fields
    */
   private async validateCategoryFields(
@@ -156,17 +173,23 @@ export class TemplateValidationService {
         item.Required === 'Yes' || item.Required === 1 || item.Required === true || item.Required === '1'
       );
 
-      // Get raw user answers for this service
-      const userAnswers = await this.dataProvider.getRawVisuals(config, serviceId);
+      // Resolve actual ServiceID — route serviceId may be PK_ID, but visual records
+      // are stored with the ServiceID field from LPS_Services (can differ from PK_ID)
+      const actualServiceId = await this.resolveServiceId(serviceId);
+
+      // Get raw user answers for this service using the resolved ServiceID
+      const userAnswers = await this.dataProvider.getRawVisuals(config, actualServiceId);
 
       // Check each required item
       for (const templateItem of requiredItems) {
         const templatePkId = String(templateItem.PK_ID);
-        const userAnswer = userAnswers?.find((answer: any) =>
-          String(answer.TemplateID) === templatePkId ||
-          String(answer.FK_Template) === templatePkId ||
-          String(answer[config.templateIdFieldName]) === templatePkId
-        );
+        // Match by both PK_ID and TemplateID — category-detail uses
+        // template.TemplateID || template.PK_ID when saving visual records
+        const templateAltId = templateItem.TemplateID ? String(templateItem.TemplateID) : null;
+        const userAnswer = userAnswers?.find((answer: any) => {
+          const answerId = String(answer[config.templateIdFieldName] || answer.TemplateID || answer.FK_Template);
+          return answerId === templatePkId || (templateAltId && answerId === templateAltId);
+        });
 
         let isComplete = false;
 
@@ -188,7 +211,9 @@ export class TemplateValidationService {
             isComplete = hasAnswers || hasSelectedOptions;
           } else {
             // Selection-based (AnswerType 0 or undefined)
-            isComplete = userAnswer.Selected === true || userAnswer.Selected === 'Yes';
+            // Raw API records don't have a 'Selected' field — record existence
+            // with Notes !== 'HIDDEN' means the item is selected
+            isComplete = userAnswer.Notes !== 'HIDDEN';
           }
         }
 

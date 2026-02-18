@@ -185,22 +185,11 @@
   margin-top: 40px;
   text-align: center;
 
-  ion-button {
+  ion-button.finalize-btn {
     --border-radius: 8px;
-    --background: #e0e0e0;
-    --color: #999;
+    --color: var(--ion-color-primary);
     font-weight: 600;
     margin-bottom: 12px;
-
-    &.can-finalize {
-      --color: var(--ion-color-primary);
-    }
-  }
-
-  .footer-note {
-    font-size: 14px;
-    color: var(--color-text-muted);
-    margin: 0;
   }
 }
 

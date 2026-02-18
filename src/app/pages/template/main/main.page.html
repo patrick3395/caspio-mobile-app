@@ -37,13 +37,10 @@
     <ion-button
       expand="block"
       size="large"
-      [class.can-finalize]="canFinalize"
+      class="finalize-btn"
       (click)="finalizeReport()">
       <ion-icon slot="start" name="checkmark-done-outline"></ion-icon>
-      {{ isReportFinalized ? 'Update' : 'Finalize Report' }}
+      Finalize Report
     </ion-button>
-    <p class="footer-note" *ngIf="canFinalize">
-      All required fields complete
-    </p>
   </div>
 </div>

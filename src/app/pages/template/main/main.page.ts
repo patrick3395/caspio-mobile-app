@@ -33,15 +33,11 @@ export class GenericMainPage implements OnInit, OnDestroy {
   cards: DisplayCard[] = [];
   projectId: string = '';
   serviceId: string = '';
-  canFinalize: boolean = false;
   statusOptions: any[] = [];
-  isReportFinalized: boolean = false;
-  hasChangesAfterFinalization: boolean = false;
-  isRehydrating: boolean = false;  // True when restoring data from server after storage clear
+  isRehydrating: boolean = false;
 
   private pendingNavigation: DisplayCard | null = null;
   private isFinalizationInProgress = false;
-  private readonly SYNC_TIMEOUT_MS = 45000;
 
   constructor(
     private router: Router,
@@ -89,12 +85,6 @@ export class GenericMainPage implements OnInit, OnDestroy {
       this.projectId = params['projectId'];
       this.serviceId = params['serviceId'];
 
-      // Check if report is already finalized (non-blocking)
-      this.checkIfFinalized();
-
-      // Check if report can be finalized (non-blocking)
-      this.checkCanFinalize();
-
       // Load counts if applicable
       if (this.config?.features.hasCountIndicators) {
         this.loadCounts();
@@ -127,24 +117,8 @@ export class GenericMainPage implements OnInit, OnDestroy {
 
   async ionViewWillEnter() {
     // Check if service needs rehydration (after storage clear)
-    // This restores data from the server when local storage was cleared
     if (this.serviceId && this.config && !environment.isWeb) {
       await this.checkAndPerformRehydration();
-    }
-
-    // Refresh finalization status when returning to this page
-    if (this.projectId && this.serviceId) {
-      // Mark that changes may have been made
-      if (this.isReportFinalized) {
-        this.hasChangesAfterFinalization = true;
-      }
-      // Non-blocking - fail silently offline
-      this.checkCanFinalize();
-
-      // Refresh counts if applicable
-      if (this.config?.features.hasCountIndicators) {
-        this.loadCounts();
-      }
     }
   }
 
@@ -162,7 +136,6 @@ export class GenericMainPage implements OnInit, OnDestroy {
 
       if (needsRehydration) {
         // Block card navigation while pre-caching images for offline access.
-        // Without this, user can navigate or go offline before images are cached.
         this.isRehydrating = true;
 
         const result = await this.templateRehydration.rehydrateServiceForTemplate(
@@ -178,7 +151,6 @@ export class GenericMainPage implements OnInit, OnDestroy {
       console.error(`[GenericMain] Rehydration check failed:`, err);
     } finally {
       this.isRehydrating = false;
-      // If user tapped a card during rehydration, navigate now
       if (this.pendingNavigation) {
         const card = this.pendingNavigation;
         this.pendingNavigation = null;
@@ -187,56 +159,8 @@ export class GenericMainPage implements OnInit, OnDestroy {
     }
   }
 
-  private async checkIfFinalized() {
-    if (!this.serviceId) return;
-
-    try {
-      // Use unified dataProvider - handles webapp/mobile differences internally
-      const serviceData = await this.dataProvider.getService(this.serviceId);
-      const status = serviceData?.Status || '';
-
-      this.isReportFinalized = status === 'Finalized' ||
-                                status === 'Report Finalized' ||
-                                status === 'Updated' ||
-                                status === 'Under Review';
-
-    } catch (error) {
-      console.error('[GenericMain] Error checking finalized status:', error);
-    }
-  }
-
-  private async checkCanFinalize() {
-    if (!this.projectId || !this.serviceId || !this.config) {
-      this.canFinalize = false;
-      return;
-    }
-
-    try {
-      const validationResult = await this.validationService.validateAllRequiredFields(
-        this.config,
-        this.projectId,
-        this.serviceId
-      );
-
-      if (this.isReportFinalized) {
-        this.canFinalize = this.hasChangesAfterFinalization && validationResult.isComplete;
-      } else {
-        this.canFinalize = validationResult.isComplete;
-      }
-      this.changeDetectorRef.detectChanges();
-    } catch (error) {
-      console.error('[GenericMain] Error checking finalize status:', error);
-      this.canFinalize = false;
-    }
-  }
-
   private async loadCounts() {
-    // Load counts for templates that support count indicators (e.g., HUD)
-    // This can be extended based on template type
     if (!this.config || !this.serviceId) return;
-
-    // Counts loading logic would go here
-    // For now, counts remain at 0 until template-specific logic is added
     this.changeDetectorRef.detectChanges();
   }
 
@@ -247,8 +171,6 @@ export class GenericMainPage implements OnInit, OnDestroy {
   navigateTo(card: DisplayCard) {
     if (!this.config) return;
 
-    // During rehydration, queue the tap and navigate after pre-caching completes.
-    // This prevents broken images when user goes offline before caching finishes.
     if (this.isRehydrating) {
       this.pendingNavigation = card;
       return;
@@ -260,32 +182,16 @@ export class GenericMainPage implements OnInit, OnDestroy {
   private performNavigation(card: DisplayCard) {
     if (!this.config) return;
 
-    // Split route into segments if it contains '/' (e.g., 'category/hud' -> ['category', 'hud'])
     const routeSegments = card.route.split('/');
 
-    // Use absolute navigation to ensure it works even if parent route isn't ready
     if (this.projectId && this.serviceId) {
       this.router.navigate(['/' + this.config.routePrefix, this.projectId, this.serviceId, ...routeSegments]);
     } else {
-      // Fallback to relative navigation
       this.router.navigate(routeSegments, { relativeTo: this.route.parent });
     }
   }
 
   async finalizeReport() {
-
-    // If report is finalized but no changes made, show message
-    if (this.isReportFinalized && !this.hasChangesAfterFinalization) {
-      const alert = await this.alertController.create({
-        header: 'No Changes to Update',
-        message: 'There are no changes to update. Make changes to the report to enable the Update button.',
-        cssClass: 'custom-document-alert',
-        buttons: ['OK']
-      });
-      await alert.present();
-      return;
-    }
-
     if (!this.config) return;
 
     // Show loading while validating
@@ -309,32 +215,23 @@ export class GenericMainPage implements OnInit, OnDestroy {
           .map(field => field.label)
           .join('\n\n');
 
-        const message = `Please complete the following required fields:\n\n${fieldsList}`;
-
         const alert = await this.alertController.create({
           header: 'Incomplete Required Fields',
-          message: message,
+          message: `Please complete the following required fields:\n\n${fieldsList}`,
           cssClass: 'custom-document-alert incomplete-fields-alert',
           buttons: ['OK']
         });
         await alert.present();
       } else {
-        // All fields complete - show confirmation dialog
-        const isUpdate = this.isReportFinalized;
-        const buttonText = isUpdate ? 'Update' : 'Finalize';
-        const headerText = isUpdate ? 'Report Ready to Update' : 'Report Complete';
-        const messageText = isUpdate
-          ? 'All required fields have been completed. Your report is ready to be updated.'
-          : 'All required fields have been completed. Ready to finalize?';
-
+        // All fields complete - show confirmation
         const alert = await this.alertController.create({
-          header: headerText,
-          message: messageText,
+          header: 'Report Complete',
+          message: 'All required fields have been completed. Are you sure you want to finalize?',
           cssClass: 'custom-document-alert',
           buttons: [
             { text: 'Cancel', role: 'cancel' },
             {
-              text: buttonText,
+              text: 'Finalize',
               handler: () => this.markReportAsFinalized()
             }
           ]
@@ -354,46 +251,31 @@ export class GenericMainPage implements OnInit, OnDestroy {
   }
 
   async markReportAsFinalized() {
-    // Prevent double-click
-    if (this.isFinalizationInProgress) {
-      return;
-    }
+    if (this.isFinalizationInProgress) return;
     this.isFinalizationInProgress = true;
 
-    const isUpdate = this.isReportFinalized;
-
     const loading = await this.loadingController.create({
-      message: isUpdate ? 'Updating report...' : 'Finalizing report...',
+      message: 'Finalizing report...',
       backdropDismiss: false
     });
     await loading.present();
 
     try {
-      // Update the Services table status
       const currentDateTime = new Date().toISOString();
-      const statusClientValue = isUpdate ? 'Updated' : 'Finalized';
-      const statusAdminValue = this.getStatusAdminByClient(statusClientValue);
+      const statusAdminValue = this.getStatusAdminByClient('Finalized');
 
-      const updateData = {
+      const updateData: any = {
         StatusDateTime: currentDateTime,
-        Status: statusClientValue,
-        Status_Admin: statusAdminValue
+        Status: statusAdminValue,
+        StatusID: 8
       };
 
-      // Use unified dataProvider - handles webapp/mobile differences internally
       await this.dataProvider.updateService(this.serviceId, updateData);
-
       await loading.dismiss();
 
-      // Update local state
-      this.isReportFinalized = true;
-      this.hasChangesAfterFinalization = false;
-      this.canFinalize = false;
-
-      // Show success message
       const successAlert = await this.alertController.create({
         header: 'Success',
-        message: isUpdate ? 'Report has been updated.' : 'Report has been finalized.',
+        message: 'Report has been finalized.',
         cssClass: 'custom-document-alert',
         buttons: ['OK']
       });
