@@ -297,6 +297,19 @@ export class GenericMainPage implements OnInit, OnDestroy {
       };
 
       await this.dataProvider.updateService(this.serviceId, updateData);
+
+      // Signal project-detail that this service was finalized
+      const navigationData = {
+        finalizedServiceId: this.serviceId,
+        finalizedDate: currentDateTime,
+        projectId: this.projectId,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('pendingFinalizedService', JSON.stringify(navigationData));
+
+      // Trigger sync so local data is pushed to the backend
+      this.dataProvider.forceSyncNow();
+
       await loading.dismiss();
 
       const successAlert = await this.alertController.create({

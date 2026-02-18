@@ -621,8 +621,7 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
   }
 
   async forceSyncNow(): Promise<void> {
-    // Trigger background sync - the backgroundSync service handles this internally
-    // No direct method available, sync runs automatically
+    await this.backgroundSync.triggerSync();
   }
 
   // ==================== Cache Operations ====================
