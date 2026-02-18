@@ -5618,15 +5618,18 @@ Time: ${debugInfo.timestamp}
         updateData
       ).toPromise();
 
-      // Update local service object
+      // Update local service object so UI reflects immediately
       service.Status = 'Under Review';
       service.StatusEng = 'Submitted';
       service.StatusDateTime = submittedDateTime;
+      service.StatusID = 8;
 
       // Reset change tracking - button should be grayed out until next change
       if (service.serviceId) {
         this.changesAfterSubmission[service.serviceId] = false;
       }
+
+      this.changeDetectorRef.markForCheck();
 
       await loading.dismiss();
       await this.showToast(`${service.typeName} report submitted successfully`, 'success');

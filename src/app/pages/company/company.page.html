@@ -589,11 +589,11 @@
                 <!-- Payment History -->
                 <div class="rollup-flat-section" *ngIf="getCompanyOutstandingData(company.CompanyID).paidInvoices.length > 0">
                   <h4>Payment History</h4>
-                  <div class="list-table history-table">
+                  <div class="list-table history-table" [class.has-action-col]="isWeb">
                     <div class="list-table-header">
                       <span class="lt-col lt-col-date">Date</span>
                       <span class="lt-col lt-col-property">Property</span>
-                      <span class="lt-col lt-col-amount">Amount</span>
+                      <span class="lt-col lt-col-amount">Paid</span>
                       <span class="lt-col lt-col-amount">Balance</span>
                       <span class="lt-col lt-col-action" *ngIf="isWeb"></span>
                     </div>
@@ -1583,11 +1583,11 @@
 
         <div *ngIf="paymentHistoryExpanded">
           <div class="payment-history-list" *ngIf="getCompanyOutstandingData(currentUserCompanyId || 0).paidInvoices.length > 0">
-            <div class="list-table">
+            <div class="list-table" [class.has-action-col]="isWeb">
               <div class="list-table-header">
                 <span class="lt-col lt-col-date">Date</span>
                 <span class="lt-col lt-col-property">Property</span>
-                <span class="lt-col lt-col-amount">Amount</span>
+                <span class="lt-col lt-col-amount">Paid</span>
                 <span class="lt-col lt-col-amount">Balance</span>
                 <span class="lt-col lt-col-action" *ngIf="isWeb"></span>
               </div>

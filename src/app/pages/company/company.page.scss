@@ -3034,10 +3034,18 @@ ion-segment.filter-segment {
   }
 
   .history-table {
-    .list-table-header, .list-table-row { grid-template-columns: 80px 1.5fr 100px 100px 40px; }
+    .list-table-header, .list-table-row { grid-template-columns: 80px 1fr 90px 90px; }
+
+    &.has-action-col {
+      .list-table-header, .list-table-row { grid-template-columns: 80px 1.5fr 100px 100px 40px; }
+    }
 
     @media (max-width: 500px) {
-      .list-table-header, .list-table-row { grid-template-columns: 60px 1.5fr 70px 70px 32px; }
+      .list-table-header, .list-table-row { grid-template-columns: 60px 1fr 70px 70px; }
+
+      &.has-action-col {
+        .list-table-header, .list-table-row { grid-template-columns: 60px 1.5fr 70px 70px 32px; }
+      }
     }
   }
 
@@ -3882,17 +3890,31 @@ ion-segment.filter-segment {
     }
   }
 
-  // Payment History: 5 columns
+  // Payment History: 4 columns (5 with download action on web)
   .payment-history-list .list-table {
     .list-table-header,
     .list-table-row {
-      grid-template-columns: 80px 1.5fr 1fr 80px 40px;
+      grid-template-columns: 80px 1fr 80px 80px;
+    }
+
+    &.has-action-col {
+      .list-table-header,
+      .list-table-row {
+        grid-template-columns: 80px 1.5fr 1fr 80px 40px;
+      }
     }
 
     @media (max-width: 400px) {
       .list-table-header,
       .list-table-row {
-        grid-template-columns: 60px 1.5fr 1fr 65px 32px;
+        grid-template-columns: 60px 1fr 65px 65px;
+      }
+
+      &.has-action-col {
+        .list-table-header,
+        .list-table-row {
+          grid-template-columns: 60px 1.5fr 1fr 65px 32px;
+        }
       }
     }
   }
