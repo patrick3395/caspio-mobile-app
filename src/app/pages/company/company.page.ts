@@ -4,14 +4,14 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, LoadingController, ToastController, AlertController, ModalController } from '@ionic/angular';
 import { HttpClient, HttpClientModule, HttpHeaders } from '@angular/common/http';
-import { Router } from '@angular/router';
+import { Router, NavigationEnd } from '@angular/router';
+import { Subscription, firstValueFrom, filter } from 'rxjs';
 import { CaspioService } from '../../services/caspio.service';
 import { PaypalPaymentModalComponent } from '../../modals/paypal-payment-modal/paypal-payment-modal.component';
 import { ConfirmationDialogService } from '../../services/confirmation-dialog.service';
 import { PageTitleService } from '../../services/page-title.service';
 import { environment } from '../../../environments/environment';
 import { ApiGatewayService } from '../../services/api-gateway.service';
-import { firstValueFrom } from 'rxjs';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 import { getLogoBase64 } from '../../services/pdf/pdf-logo';
 
@@ -294,6 +294,8 @@ export class CompanyPage implements OnInit, OnDestroy {
       services: Array<{ name: string; fee: number }>;
     }>;
   }> = new Map();
+
+  private routerSubscription?: Subscription;
 
   clientProjectsChart: Chart | null = null;
   clientServicesChart: Chart | null = null;
@@ -661,6 +663,29 @@ export class CompanyPage implements OnInit, OnDestroy {
       this.loadCompanyData();
     } else {
       this.loadOrganizationUsers();
+    }
+
+    // Refresh outstanding balance data when returning to this tab from other pages
+    this.routerSubscription = this.router.events.pipe(
+      filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+      filter(event => event.urlAfterRedirects?.includes('/tabs/company'))
+    ).subscribe(() => {
+      if (this.isCompanyOne) {
+        // CRM view: reload balances for any previously loaded companies
+        this.refreshExpandedCompanyBalances();
+      } else if (this.currentUserCompanyId) {
+        // Client view: reload own company balance
+        this.companyOutstandingData.delete(this.currentUserCompanyId);
+        this.loadCompanyOutstandingInvoices(this.currentUserCompanyId);
+      }
+    });
+  }
+
+  private refreshExpandedCompanyBalances() {
+    const companyIds = Array.from(this.companyOutstandingData.keys());
+    this.companyOutstandingData.clear();
+    for (const companyId of companyIds) {
+      this.loadCompanyOutstandingInvoices(companyId);
     }
   }
 
@@ -6932,6 +6957,9 @@ export class CompanyPage implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.routerSubscription) {
+      this.routerSubscription.unsubscribe();
+    }
     if (this.contactSearchDebounce) {
       clearTimeout(this.contactSearchDebounce);
       this.contactSearchDebounce = null;
