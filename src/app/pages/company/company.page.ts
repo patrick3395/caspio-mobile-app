@@ -815,18 +815,19 @@ export class CompanyPage implements OnInit, OnDestroy {
       const projectIds = Array.from(projectLookup.keys());
 
       // Load invoices and services for all projects in parallel
+      // Invoice queries bypass cache (false) to ensure fresh balance data, and use q.limit to get all records
       const [invoiceResponses, serviceResponses] = await Promise.all([
         Promise.all(
           projectIds.map((projectId: number) =>
             firstValueFrom(
-              this.caspioService.get<any>(`/tables/LPS_Invoices/records?q.where=ProjectID=${projectId}`)
+              this.caspioService.get<any>(`/tables/LPS_Invoices/records?q.where=ProjectID=${projectId}&q.limit=1000`, false)
             ).catch(() => ({ Result: [] }))
           )
         ),
         Promise.all(
           projectIds.map((projectId: number) =>
             firstValueFrom(
-              this.caspioService.get<any>(`/tables/LPS_Services/records?q.where=ProjectID=${projectId}`)
+              this.caspioService.get<any>(`/tables/LPS_Services/records?q.where=ProjectID=${projectId}&q.limit=1000`)
             ).catch(() => ({ Result: [] }))
           )
         )
@@ -981,7 +982,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       this.companyOutstandingData.set(companyId, {
         loading: false,
-        balance: totalBalance,
+        balance: Math.round(totalBalance * 100) / 100,
         invoices: unpaidProjects,
         paidInvoices
       });
