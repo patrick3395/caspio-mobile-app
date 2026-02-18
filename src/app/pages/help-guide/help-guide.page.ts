@@ -150,10 +150,16 @@ export class HelpGuidePage implements OnInit {
       const isImage = this.isImageFile(filePath);
 
       let dataUrl: string;
-      if (isPDF) {
-        dataUrl = await this.caspioService.getPDFFromFilesAPI(filePath).toPromise() || '';
-      } else if (isImage) {
-        dataUrl = await this.caspioService.getImageFromFilesAPI(filePath).toPromise() || '';
+      if (isPDF || isImage) {
+        // Fetch via backend proxy which resolves filename to ExternalKey
+        const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
+        const downloadUrl = `${environment.apiGatewayUrl}/api/caspio-files/download?filePath=${encodeURIComponent(cleanPath)}&_t=${Date.now()}`;
+        const response = await fetch(downloadUrl, { method: 'GET', cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const blob = await response.blob();
+        const mimeType = isPDF ? 'application/pdf' : blob.type;
+        const typedBlob = new Blob([blob], { type: mimeType });
+        dataUrl = URL.createObjectURL(typedBlob);
       } else {
         dataUrl = await this.caspioService.getFileFromPath(filePath).toPromise() || '';
         // getFileFromPath returns {url, type, blob} object
@@ -213,19 +219,28 @@ export class HelpGuidePage implements OnInit {
     const isPdf = this.isPdfFile(filePath);
 
     if (isPdf) {
-      // Pass direct URL to PDF viewer — avoids blob/dataURL conversion that corrupts binary on mobile
-      const DocumentViewerComponent = await this.loadDocumentViewer();
-      const modal = await this.modalController.create({
-        component: DocumentViewerComponent,
-        componentProps: {
-          fileUrl: this.getPdfUrl(file),
-          fileName: filename,
-          fileType: 'PDF',
-          filePath: filePath
-        },
-        cssClass: 'fullscreen-modal'
-      });
-      await modal.present();
+      // Fetch PDF via backend proxy (resolves filename to ExternalKey), then create blob URL for pdf.js
+      const tableFileUrl = `${this.getPdfUrl(file)}&_t=${Date.now()}`;
+      try {
+        const response = await fetch(tableFileUrl, { method: 'GET', cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const blob = await response.blob();
+        const pdfBlobUrl = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+        const DocumentViewerComponent = await this.loadDocumentViewer();
+        const modal = await this.modalController.create({
+          component: DocumentViewerComponent,
+          componentProps: {
+            fileUrl: pdfBlobUrl,
+            fileName: filename,
+            fileType: 'PDF',
+            filePath: filePath
+          },
+          cssClass: 'fullscreen-modal'
+        });
+        await modal.present();
+      } catch (e) {
+        console.error('[HelpGuide] PDF fetch failed:', e);
+      }
       return;
     }
 
@@ -246,8 +261,7 @@ export class HelpGuidePage implements OnInit {
       await modal.present();
     } else {
       // For unknown file types, fetch the raw blob to detect if it's actually a PDF
-      const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
-      const probeUrl = `${environment.apiGatewayUrl}/api/caspio-files/download?filePath=${encodeURIComponent(cleanPath)}&_t=${Date.now()}`;
+      const probeUrl = `${this.getPdfUrl(file)}&_t=${Date.now()}`;
       let pdfBlobUrl: string | null = null;
 
       try {

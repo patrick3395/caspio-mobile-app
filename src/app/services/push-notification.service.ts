@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { BehaviorSubject, Subject, filter, first, timeout } from 'rxjs';
 import { Capacitor } from '@capacitor/core';
-import { PushNotifications, PushNotificationSchema, ActionPerformed, Token } from '@capacitor/push-notifications';
+import { PushNotifications, PushNotificationSchema, ActionPerformed, Token, Channel } from '@capacitor/push-notifications';
 import { ToastController } from '@ionic/angular';
 import { PlatformDetectionService } from './platform-detection.service';
 import { ApiGatewayService } from './api-gateway.service';
@@ -76,6 +76,25 @@ export class PushNotificationService {
       this.persistNotification(action.notification);
       this.handleNotificationTap(action.notification.data as PushNotificationData);
     });
+
+    // Create the Android notification channel (must exist before notifications arrive).
+    // On iOS this is a no-op.
+    if (Capacitor.getPlatform() === 'android') {
+      try {
+        const channel: Channel = {
+          id: 'partnership_notifications',
+          name: 'Partnership Notifications',
+          description: 'Service completions, payments, and admin messages',
+          importance: 5, // IMPORTANCE_HIGH
+          sound: 'default',
+          vibration: true,
+        };
+        await PushNotifications.createChannel(channel);
+        console.log('[PushNotification] Android notification channel created');
+      } catch (err) {
+        console.warn('[PushNotification] Failed to create Android channel:', err);
+      }
+    }
 
     // Request permission
     const permResult = await PushNotifications.requestPermissions();
