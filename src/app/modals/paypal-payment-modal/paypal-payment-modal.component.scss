@@ -3,6 +3,7 @@ ion-header {
   ion-toolbar {
     --background: #333333;
     --color: white;
+    padding-top: env(safe-area-inset-top, 0px);
 
     ion-title {
       text-align: center;
