@@ -504,6 +504,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.loadingDocuments = false;
         // G2-NAV-002: Update breadcrumbs from cached state (web only)
         this.updateBreadcrumbs();
+        // Always refresh financial data in the background — cached balances can be stale
+        this.refreshInvoiceBalance();
       }
     } else {
       console.error('❌ DEBUG: No projectId provided!');
@@ -1233,6 +1235,36 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     return this.projectInvoiceBalance;
   }
 
+  /**
+   * Fetch fresh invoice data and recalculate balance.
+   * Always bypasses cache to ensure financial accuracy.
+   */
+  async refreshInvoiceBalance(): Promise<void> {
+    const projectId = this.project?.ProjectID;
+    if (!projectId) return;
+
+    try {
+      const invoicesData = await this.caspioService.get<any>(
+        `/tables/LPS_Invoices/records?q.where=ProjectID=${projectId}`, false
+      ).toPromise();
+
+      this.projectTotalPaid = 0;
+      this.projectInvoiceBalance = 0;
+      if (invoicesData?.Result) {
+        invoicesData.Result.forEach((invoice: any) => {
+          const fee = parseFloat(invoice.Fee) || 0;
+          this.projectInvoiceBalance += fee;
+          if (fee < 0) {
+            this.projectTotalPaid += Math.abs(fee);
+          }
+        });
+      }
+      this.changeDetectorRef.markForCheck();
+    } catch (err) {
+      console.error('[ProjectDetail] Failed to refresh invoice balance:', err);
+    }
+  }
+
   // Check if all required documents are uploaded for a service
   areAllRequiredDocsUploaded(serviceDoc: any): boolean {
     if (!serviceDoc || !serviceDoc.documents) return false;
@@ -1429,6 +1461,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // Clear the CaspioService cache for Services table
       this.caspioService.clearServicesCache(actualProjectId);
+
+      // Switch to Active tab so user sees the newly added service
+      this.servicesTab = 'active';
 
       // CRITICAL: Trigger change detection for OnPush strategy (webapp)
       this.changeDetectorRef.markForCheck();
@@ -5621,14 +5656,17 @@ Time: ${debugInfo.timestamp}
       return;
     }
 
-    const totalAmount = this.calculateServicesTotal();
+    // Always fetch fresh invoice data before opening payment modal to prevent overpayment
+    await this.refreshInvoiceBalance();
 
-    if (totalAmount <= 0) {
+    const outstandingBalance = this.projectInvoiceBalance;
+
+    if (outstandingBalance <= 0) {
       await this.showToast('No amount due for this project', 'warning');
       return;
     }
 
-    // Build services breakdown
+    // Build services breakdown (for display only — amount charged is the outstanding balance)
     const servicesBreakdown = this.selectedServices.map(service => ({
       name: service.typeName,
       price: this.getServicePrice(service)
@@ -5640,7 +5678,7 @@ Time: ${debugInfo.timestamp}
         invoice: {
           ProjectID: this.project.ProjectID,
           InvoiceID: this.project.PK_ID,
-          Amount: totalAmount.toFixed(2),
+          Amount: outstandingBalance.toFixed(2),
           Description: `Payment for ${this.project.Address || 'Project'}, ${this.project.City || ''}`,
           Address: this.project.Address,
           City: this.project.City,
@@ -5660,8 +5698,8 @@ Time: ${debugInfo.timestamp}
   }
 
   /**
-   * Process payment and create invoice records (matches autopay ledger model)
-   * Creates one negative-fee record per service paid
+   * Process payment and create invoice record (matches autopay ledger model)
+   * Creates a single negative-fee record for the actual payment amount
    */
   async processPayment(paymentData: any) {
     const loading = await this.loadingController.create({
@@ -5676,29 +5714,42 @@ Time: ${debugInfo.timestamp}
                           `Processed: ${new Date(paymentData.createTime).toLocaleString()}\n` +
                           `Status: ${paymentData.status}`;
 
-      // Create a negative-fee invoice record per service (matches autopay ledger model)
-      for (const service of this.selectedServices) {
-        const fee = this.getServicePrice(service);
-        if (fee <= 0) continue;
-
-        await firstValueFrom(
-          this.caspioService.post<any>('/tables/LPS_Invoices/records', {
-            ProjectID: Number(this.project?.ProjectID),
-            ServiceID: Number(service.serviceId),
-            Fee: Number((-fee).toFixed(2)),
-            Date: new Date().toISOString().split('T')[0],
-            Address: String(this.project?.Address || ''),
-            InvoiceNotes: String(paymentNotes),
-            Mode: 'negative',
-            PaymentProcessor: 'PayPal'
-          })
-        );
-      }
+      // Create a single negative-fee invoice record for the actual payment amount
+      const paidAmount = parseFloat(paymentData.amount);
+      await firstValueFrom(
+        this.caspioService.post<any>('/tables/LPS_Invoices/records', {
+          ProjectID: Number(this.project?.ProjectID),
+          Fee: Number((-paidAmount).toFixed(2)),
+          Date: new Date().toISOString().split('T')[0],
+          Address: String(this.project?.Address || ''),
+          InvoiceNotes: String(paymentNotes),
+          Mode: 'negative',
+          PaymentProcessor: 'PayPal'
+        })
+      );
 
       this.caspioService.clearInvoicesCache();
 
-      // Update paid total so balance reflects immediately
-      this.projectTotalPaid += this.calculateServicesTotal();
+      // Update local state so balance reflects immediately
+      this.projectTotalPaid += paidAmount;
+      this.projectInvoiceBalance -= paidAmount;
+
+      // Send push notification for payment received (fire-and-forget)
+      try {
+        const companyId = this.project?.CompanyID;
+        if (companyId) {
+          fetch(`${environment.apiGatewayUrl}/api/notifications/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              companyId: String(companyId),
+              title: 'Payment Received',
+              body: `$${paymentData.amount} payment received for ${this.project?.Address || 'Project'}`,
+              data: { type: 'payment_received', route: `/project/${this.project?.ProjectID}` }
+            })
+          });
+        }
+      } catch { /* push notification is non-critical */ }
 
       await loading.dismiss();
 

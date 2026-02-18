@@ -1944,6 +1944,23 @@ export class CompanyPage implements OnInit, OnDestroy {
     const { data } = await modal.onDidDismiss();
 
     if (data && data.success) {
+      // Send push notification for payment received (fire-and-forget)
+      try {
+        const companyId = invoice.positive.CompanyID;
+        if (companyId) {
+          fetch(`${environment.apiGatewayUrl}/api/notifications/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              companyId: String(companyId),
+              title: 'Payment Received',
+              body: `$${invoice.netAmount.toFixed(2)} payment received for ${invoice.positive.Address || 'Project'}`,
+              data: { type: 'payment_received', route: `/project/${invoice.positive.ProjectID}` }
+            })
+          });
+        }
+      } catch { /* push notification is non-critical */ }
+
       // Refresh invoices after successful payment
       await this.categorizeInvoices();
     }
@@ -4186,6 +4203,20 @@ export class CompanyPage implements OnInit, OnDestroy {
             const { data: modalData } = await modal.onDidDismiss();
 
             if (modalData?.success) {
+              // Send push notification for payment received (fire-and-forget)
+              try {
+                fetch(`${environment.apiGatewayUrl}/api/notifications/send`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    companyId: String(companyId),
+                    title: 'Payment Received',
+                    body: `$${project.balance.toFixed(2)} payment received for ${project.projectAddress || 'Project'}`,
+                    data: { type: 'payment_received', route: `/project/${project.projectId}` }
+                  })
+                });
+              } catch { /* push notification is non-critical */ }
+
               // Refresh outstanding data after successful payment
               this.companyOutstandingData.delete(companyId);
               this.loadCompanyOutstandingInvoices(companyId);
