@@ -1,21 +1,12 @@
-// Match Active Projects charcoal header
 ion-header {
-  background: #333333;
-  padding-top: env(safe-area-inset-top, 0px);
-
   ion-toolbar {
-    --background: #333333;
-    --color: white;
+    --min-height: 44px;
+    padding-top: env(safe-area-inset-top, 0px);
 
     ion-title {
       text-align: center;
-      color: white;
-      padding-inline-start: 48px;
-      padding-inline-end: 48px;
-    }
-
-    ion-button {
-      --color: white;
+      font-size: 1.1rem;
+      font-weight: 600;
     }
   }
 }

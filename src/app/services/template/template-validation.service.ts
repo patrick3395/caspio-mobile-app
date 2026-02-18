@@ -173,12 +173,15 @@ export class TemplateValidationService {
         item.Required === 'Yes' || item.Required === 1 || item.Required === true || item.Required === '1'
       );
 
-      // Resolve actual ServiceID — route serviceId may be PK_ID, but visual records
-      // are stored with the ServiceID field from LPS_Services (can differ from PK_ID)
-      const actualServiceId = await this.resolveServiceId(serviceId);
+      // Resolve actual ServiceID only for templates that use it (e.g. HUD).
+      // For others (EFE, LBW, DTE, CSA), category-detail stores records with
+      // the route serviceId (PK_ID) as ServiceID, so we must query with that.
+      const queryServiceId = config.categoryDetailFeatures?.hasActualServiceId
+        ? await this.resolveServiceId(serviceId)
+        : serviceId;
 
-      // Get raw user answers for this service using the resolved ServiceID
-      const userAnswers = await this.dataProvider.getRawVisuals(config, actualServiceId);
+      // Get raw user answers for this service
+      const userAnswers = await this.dataProvider.getRawVisuals(config, queryServiceId);
 
       // Check each required item
       for (const templateItem of requiredItems) {

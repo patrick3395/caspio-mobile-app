@@ -2869,8 +2869,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       // Save to backend - dataAdapter handles temp IDs by updating pending request
       if (visualId) {
         await this.dataAdapter.updateVisualWithConfig(this.config!, visualId, {
-          Answers: item.answer || '',
-          Answer: item.answer || ''
+          Answers: item.answer || ''
         });
         this.logDebug('ANSWER', `Saved answer to backend (visualId: ${visualId})`);
       }

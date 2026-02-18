@@ -1728,13 +1728,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const isEIR = typeShort === 'EIR' || typeName.includes('engineers inspection review') || typeName.includes("engineer's inspection review");
     const isENG = typeShort === 'ENG';
 
-    // If already submitted (Status = "Under Review"), only enable if changes have been made
-    if (this.hasBeenSubmitted(service)) {
-      const hasChanges = this.changesAfterSubmission[service.serviceId || ''] === true;
-      return hasChanges;
-    }
-
-    // For EFE reports, enable if ReportFinalized is true (works for both initial submission and updates)
+    // For EFE reports, enable if ReportFinalized is true
     if (service.ReportFinalized) {
       return true;
     }
@@ -5573,13 +5567,6 @@ Time: ${debugInfo.timestamp}
       return;
     }
 
-    // This check is now redundant since handleSubmitClick already checks
-    // But keeping it as a safety check
-    if (!this.isSubmitButtonEnabled(service)) {
-      await this.showToast('Report must be finalized or required documents uploaded before submission', 'warning');
-      return;
-    }
-
     // Show confirmation alert
     const alert = await this.alertController.create({
       cssClass: 'custom-document-alert',
@@ -5621,7 +5608,8 @@ Time: ${debugInfo.timestamp}
       const updateData = {
         Status: 'Under Review',
         StatusEng: 'Submitted',
-        StatusDateTime: submittedDateTime
+        StatusDateTime: submittedDateTime,
+        StatusID: 8
       };
 
 

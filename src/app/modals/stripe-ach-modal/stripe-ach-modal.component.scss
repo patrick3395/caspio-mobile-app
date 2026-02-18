@@ -1,8 +1,12 @@
-// Center the header title
 ion-header {
   ion-toolbar {
+    --min-height: 44px;
+    padding-top: env(safe-area-inset-top, 0px);
+
     ion-title {
       text-align: center;
+      font-size: 1.1rem;
+      font-weight: 600;
     }
   }
 }

@@ -595,14 +595,14 @@
                       <span class="lt-col lt-col-property">Property</span>
                       <span class="lt-col lt-col-amount">Amount</span>
                       <span class="lt-col lt-col-amount">Balance</span>
-                      <span class="lt-col lt-col-action"></span>
+                      <span class="lt-col lt-col-action" *ngIf="isWeb"></span>
                     </div>
                     <div class="list-table-row" *ngFor="let payment of getCompanyOutstandingData(company.CompanyID).paidInvoices">
                       <span class="lt-col lt-col-date">{{ payment.paidDate ? (payment.paidDate | date:'shortDate') : 'N/A' }}</span>
                       <span class="lt-col lt-col-property truncate-cell">{{ payment.projectAddress }}</span>
                       <span class="lt-col lt-col-amount"><span class="currency-sign">$</span><span class="currency-value">{{ payment.paidAmount | number:'1.2-2' }}</span></span>
                       <span class="lt-col lt-col-amount" [class.balance-due]="payment.balance > 0"><span class="currency-sign">$</span><span class="currency-value">{{ payment.balance | number:'1.2-2' }}</span></span>
-                      <span class="lt-col lt-col-action">
+                      <span class="lt-col lt-col-action" *ngIf="isWeb">
                         <button class="download-invoice-btn" (click)="downloadInvoice(payment, company.CompanyName)" title="Download Receipt">
                           <ion-icon name="download-outline"></ion-icon>
                         </button>
@@ -1589,14 +1589,14 @@
                 <span class="lt-col lt-col-property">Property</span>
                 <span class="lt-col lt-col-amount">Amount</span>
                 <span class="lt-col lt-col-amount">Balance</span>
-                <span class="lt-col lt-col-action"></span>
+                <span class="lt-col lt-col-action" *ngIf="isWeb"></span>
               </div>
               <div class="list-table-row" *ngFor="let payment of getCompanyOutstandingData(currentUserCompanyId || 0).paidInvoices">
                 <span class="lt-col lt-col-date">{{ payment.paidDate ? (payment.paidDate | date:'shortDate') : 'N/A' }}</span>
                 <span class="lt-col lt-col-property truncate-cell">{{ payment.projectAddress }}</span>
                 <span class="lt-col lt-col-amount"><span class="currency-sign">$</span><span class="currency-value">{{ payment.paidAmount | number:'1.2-2' }}</span></span>
                 <span class="lt-col lt-col-amount" [class.balance-due]="payment.balance > 0"><span class="currency-sign">$</span><span class="currency-value">{{ payment.balance | number:'1.2-2' }}</span></span>
-                <span class="lt-col lt-col-action">
+                <span class="lt-col lt-col-action" *ngIf="isWeb">
                   <button class="download-invoice-btn" (click)="downloadInvoice(payment, clientCompany?.CompanyName || 'Company')" title="Download Receipt">
                     <ion-icon name="download-outline"></ion-icon>
                   </button>

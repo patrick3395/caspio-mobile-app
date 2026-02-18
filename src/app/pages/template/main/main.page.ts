@@ -35,6 +35,7 @@ export class GenericMainPage implements OnInit, OnDestroy {
   serviceId: string = '';
   statusOptions: any[] = [];
   isRehydrating: boolean = false;
+  isReadyToFinalize: boolean = false;
 
   private pendingNavigation: DisplayCard | null = null;
   private isFinalizationInProgress = false;
@@ -89,6 +90,9 @@ export class GenericMainPage implements OnInit, OnDestroy {
       if (this.config?.features.hasCountIndicators) {
         this.loadCounts();
       }
+
+      // Check if report is ready to finalize
+      this.checkFinalizationReadiness();
     });
   }
 
@@ -120,6 +124,9 @@ export class GenericMainPage implements OnInit, OnDestroy {
     if (this.serviceId && this.config && !environment.isWeb) {
       await this.checkAndPerformRehydration();
     }
+
+    // Re-check finalization readiness when returning to this page
+    this.checkFinalizationReadiness();
   }
 
   /**
@@ -157,6 +164,26 @@ export class GenericMainPage implements OnInit, OnDestroy {
         this.performNavigation(card);
       }
     }
+  }
+
+  /**
+   * Silently check if the report passes all validation (no loading spinner).
+   * Updates isReadyToFinalize which controls button styling.
+   */
+  private async checkFinalizationReadiness() {
+    if (!this.config || !this.projectId || !this.serviceId) return;
+
+    try {
+      const result = await this.validationService.validateAllRequiredFields(
+        this.config,
+        this.projectId,
+        this.serviceId
+      );
+      this.isReadyToFinalize = result.isComplete;
+    } catch {
+      this.isReadyToFinalize = false;
+    }
+    this.changeDetectorRef.detectChanges();
   }
 
   private async loadCounts() {
@@ -229,11 +256,11 @@ export class GenericMainPage implements OnInit, OnDestroy {
           message: 'All required fields have been completed. Are you sure you want to finalize?',
           cssClass: 'custom-document-alert',
           buttons: [
-            { text: 'Cancel', role: 'cancel' },
             {
               text: 'Finalize',
               handler: () => this.markReportAsFinalized()
-            }
+            },
+            { text: 'Cancel', role: 'cancel' }
           ]
         });
         await alert.present();
@@ -266,8 +293,7 @@ export class GenericMainPage implements OnInit, OnDestroy {
 
       const updateData: any = {
         StatusDateTime: currentDateTime,
-        Status: statusAdminValue,
-        StatusID: 8
+        Status: statusAdminValue
       };
 
       await this.dataProvider.updateService(this.serviceId, updateData);
@@ -277,7 +303,12 @@ export class GenericMainPage implements OnInit, OnDestroy {
         header: 'Success',
         message: 'Report has been finalized.',
         cssClass: 'custom-document-alert',
-        buttons: ['OK']
+        buttons: [{
+          text: 'OK',
+          handler: () => {
+            this.navController.back();
+          }
+        }]
       });
       await successAlert.present();
 
