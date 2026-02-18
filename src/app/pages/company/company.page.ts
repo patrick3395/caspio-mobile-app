@@ -272,10 +272,6 @@ export class CompanyPage implements OnInit, OnDestroy {
     return this.companies.length > 0 ? this.companies[0] : null;
   }
 
-  // Outstanding invoices tracking for client view
-  outstandingBalance: number = 0;
-  outstandingInvoiceCount: number = 0;
-  outstandingInvoicesLoading: boolean = false;
 
   // Outstanding invoices tracking for CRM company rollups
   companyOutstandingData: Map<number, {
@@ -726,8 +722,8 @@ export class CompanyPage implements OnInit, OnDestroy {
         // Load software lookup for resolving numeric SoftwareID to name
         this.loadSoftwareLookup();
 
-        // Load outstanding invoices for the payment settings section
-        this.loadOutstandingInvoices();
+        // Preload outstanding balance data for the payments tab
+        this.loadCompanyOutstandingInvoices(this.currentUserCompanyId!);
       }
     } catch (error) {
       console.error('Error loading company name:', error);
@@ -756,70 +752,6 @@ export class CompanyPage implements OnInit, OnDestroy {
       }
     } catch (e) {
       console.error('Error loading software lookup:', e);
-    }
-  }
-
-  /**
-   * Load outstanding (unpaid) invoices for the current user's company
-   */
-  async loadOutstandingInvoices() {
-    if (!this.currentUserCompanyId) return;
-
-    this.outstandingInvoicesLoading = true;
-
-    try {
-      // Get all projects for this company first
-      const projectsResponse = await firstValueFrom(
-        this.caspioService.get<any>(`/tables/LPS_Projects/records?q.where=CompanyID=${this.currentUserCompanyId}`)
-      );
-
-      if (!projectsResponse?.Result?.length) {
-        this.outstandingBalance = 0;
-        this.outstandingInvoiceCount = 0;
-        this.outstandingInvoicesLoading = false;
-        return;
-      }
-
-      // Get project IDs
-      const projectIds = projectsResponse.Result.map((p: any) => p.ProjectID || p.PK_ID);
-
-      // Load invoices for all projects
-      const invoicePromises = projectIds.map((projectId: number) =>
-        firstValueFrom(
-          this.caspioService.get<any>(`/tables/LPS_Invoices/records?q.where=ProjectID=${projectId}`)
-        ).catch(() => ({ Result: [] }))
-      );
-
-      const invoiceResponses = await Promise.all(invoicePromises);
-
-      // Calculate outstanding balance from unpaid invoices
-      let totalOutstanding = 0;
-      let unpaidCount = 0;
-
-      invoiceResponses.forEach((response: any) => {
-        if (response?.Result) {
-          response.Result.forEach((invoice: any) => {
-            const fee = parseFloat(invoice.Fee) || 0;
-            const paid = parseFloat(invoice.Paid) || 0;
-            const remaining = fee - paid;
-
-            // Count as unpaid if there's remaining balance
-            if (remaining > 0) {
-              totalOutstanding += remaining;
-              unpaidCount++;
-            }
-          });
-        }
-      });
-
-      this.outstandingBalance = totalOutstanding;
-      this.outstandingInvoiceCount = unpaidCount;
-    } catch (error) {
-      console.error('Error loading outstanding invoices:', error);
-      this.outstandingBalance = 0;
-      this.outstandingInvoiceCount = 0;
-    } finally {
-      this.outstandingInvoicesLoading = false;
     }
   }
 
@@ -857,16 +789,56 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       const projectIds = Array.from(projectLookup.keys());
 
-      // Load invoices for all projects
-      const invoiceResponses = await Promise.all(
-        projectIds.map((projectId: number) =>
-          firstValueFrom(
-            this.caspioService.get<any>(`/tables/LPS_Invoices/records?q.where=ProjectID=${projectId}`)
-          ).catch(() => ({ Result: [] }))
+      // Load invoices and services for all projects in parallel
+      const [invoiceResponses, serviceResponses] = await Promise.all([
+        Promise.all(
+          projectIds.map((projectId: number) =>
+            firstValueFrom(
+              this.caspioService.get<any>(`/tables/LPS_Invoices/records?q.where=ProjectID=${projectId}`)
+            ).catch(() => ({ Result: [] }))
+          )
+        ),
+        Promise.all(
+          projectIds.map((projectId: number) =>
+            firstValueFrom(
+              this.caspioService.get<any>(`/tables/LPS_Services/records?q.where=ProjectID=${projectId}`)
+            ).catch(() => ({ Result: [] }))
+          )
         )
-      );
+      ]);
 
-      // Balance = sum of all fees per project (positive = charge, negative = payment)
+      // Build a local service name lookup for these projects (TypeID → name may already exist, ServiceID → TypeID may not)
+      const localProjectServices = new Map<number, Set<string>>();
+      // Also load Type table if typeIdToNameLookup is empty (client view)
+      if (this.typeIdToNameLookup.size === 0) {
+        try {
+          const typeResponse = await firstValueFrom(
+            this.caspioService.get<any>('/tables/LPS_Type/records?q.limit=1000')
+          );
+          if (typeResponse?.Result) {
+            this.populateTypeLookup(typeResponse.Result);
+          }
+        } catch { /* non-critical */ }
+      }
+
+      serviceResponses.forEach((response: any, index: number) => {
+        const projectId = projectIds[index];
+        if (response?.Result) {
+          const names = new Set<string>();
+          response.Result.forEach((svc: any) => {
+            const typeId = svc.TypeID != null ? Number(svc.TypeID) : null;
+            if (typeId != null) {
+              const name = this.typeIdToNameLookup.get(typeId);
+              if (name) names.add(name);
+            }
+          });
+          if (names.size > 0) localProjectServices.set(projectId, names);
+        }
+      });
+
+      // Net balance per project: sum ALL fees (positive = charge, negative = payment)
+      // This mirrors the project-detail calculation exactly
+      const projectNetBalance = new Map<number, number>();
       const projectFeeTotals = new Map<number, number>();
       const projectServicesList = new Map<number, Array<{ name: string; fee: number }>>();
       const projectShortNames = new Map<number, Set<string>>();
@@ -879,6 +851,9 @@ export class CompanyPage implements OnInit, OnDestroy {
         if (response?.Result) {
           response.Result.forEach((invoice: any) => {
             const fee = parseFloat(invoice.Fee) || 0;
+            // Accumulate net balance (same as project-detail: sum ALL fees)
+            projectNetBalance.set(projectId, (projectNetBalance.get(projectId) || 0) + fee);
+
             if (fee > 0) {
               // Positive fee = charge
               projectFeeTotals.set(projectId, (projectFeeTotals.get(projectId) || 0) + fee);
@@ -907,7 +882,7 @@ export class CompanyPage implements OnInit, OnDestroy {
         }
       });
 
-      // Build project-level outstanding invoices using actual invoice payments
+      // Build project-level outstanding invoices using net balance
       const unpaidProjects: Array<{
         projectId: number;
         projectAddress: string;
@@ -917,23 +892,34 @@ export class CompanyPage implements OnInit, OnDestroy {
         services: Array<{ name: string; fee: number }>;
       }> = [];
 
-      projectFeeTotals.forEach((totalFee, projectId) => {
-        const paid = projectPayments.get(projectId)?.totalPaid || 0;
-        const balance = totalFee - paid;
+      // Iterate all projects that have ANY invoice records (not just positive fees)
+      projectNetBalance.forEach((rawBalance, projectId) => {
+        // Round to 2 decimal places to avoid floating point precision issues
+        const balance = Math.round(rawBalance * 100) / 100;
         if (balance > 0) {
           const projectInfo = projectLookup.get(projectId);
-          const shorts = projectShortNames.get(projectId);
+          const totalFee = projectFeeTotals.get(projectId) || 0;
+          let shorts = projectShortNames.get(projectId);
+
+          // If invoice-level labels didn't resolve, fall back to project's assigned services
+          if (!shorts || shorts.size === 0 || (shorts.size === 1 && Array.from(shorts)[0].startsWith('Service Not'))) {
+            const svcNames = localProjectServices.get(projectId);
+            if (svcNames && svcNames.size > 0) {
+              shorts = new Set<string>();
+              for (const name of svcNames) {
+                shorts.add(name.substring(0, 15));
+              }
+            }
+          }
+
           unpaidProjects.push({
             projectId,
             projectAddress: projectInfo?.address || 'Unknown',
-            serviceShortNames: shorts ? Array.from(shorts).join(', ') : '',
+            serviceShortNames: shorts && shorts.size > 0 ? Array.from(shorts).join(', ') : '',
             fee: totalFee,
             balance,
             services: projectServicesList.get(projectId) || []
           });
-        }
-        // Accumulate total outstanding balance
-        if (balance > 0) {
           totalBalance += balance;
         }
       });
@@ -949,13 +935,13 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       projectPayments.forEach((payments, projectId) => {
         const projectInfo = projectLookup.get(projectId);
-        const totalFees = projectFeeTotals.get(projectId) || 0;
+        const netBal = projectNetBalance.get(projectId) || 0;
         paidInvoices.push({
           projectId,
           projectAddress: projectInfo?.address || 'Unknown',
           paidAmount: payments.totalPaid,
           paidDate: payments.latestDate,
-          balance: totalFees - payments.totalPaid,
+          balance: Math.round(netBal * 100) / 100,
           services: projectServicesList.get(projectId) || []
         });
       });

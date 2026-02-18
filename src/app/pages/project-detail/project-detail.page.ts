@@ -1232,7 +1232,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   calculateProjectBalance(): number {
-    return this.projectInvoiceBalance;
+    // Round to 2 decimal places to avoid floating point issues (e.g. 1e-17 instead of 0)
+    return Math.round(this.projectInvoiceBalance * 100) / 100;
   }
 
   /**
@@ -1258,6 +1259,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             this.projectTotalPaid += Math.abs(fee);
           }
         });
+        // Round to 2 decimal places to avoid floating point precision issues (e.g. 0.0000000001 instead of 0)
+        this.projectInvoiceBalance = Math.round(this.projectInvoiceBalance * 100) / 100;
+        this.projectTotalPaid = Math.round(this.projectTotalPaid * 100) / 100;
       }
       this.changeDetectorRef.markForCheck();
     } catch (err) {
