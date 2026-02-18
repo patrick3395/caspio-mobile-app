@@ -5119,18 +5119,6 @@ body.dark-theme {
   }
 }
 
-/* PayPal SDK checkout overlay — push down from safe area on notched devices */
-div[id^="zoid-paypal-checkout"],
-div[id^="zoid-paypal-buttons"] > div[style*="position: fixed"] {
-  top: env(safe-area-inset-top, 0px) !important;
-  height: calc(100% - env(safe-area-inset-top, 0px)) !important;
-}
-
-iframe[name*="__zoid__paypal_checkout__"] {
-  top: env(safe-area-inset-top, 0px) !important;
-  height: calc(100% - env(safe-area-inset-top, 0px)) !important;
-}
-
 /* ============================================================================
  * G2-RESP-001: Tablet Breakpoint Optimizations (Web Only)
  * Ensures layouts work well on tablet-sized screens (768px-1024px) with:

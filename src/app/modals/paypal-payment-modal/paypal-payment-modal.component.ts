@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, AfterViewInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, Input, OnInit, AfterViewInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { ModalController, AlertController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
@@ -17,7 +17,7 @@ declare const paypal: any;
   standalone: true,
   imports: [CommonModule, IonicModule, FormsModule]
 })
-export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
+export class PaypalPaymentModalComponent implements OnInit, AfterViewInit, OnDestroy {
   @Input() invoice: any;
   @Input() companyId: number | null = null;
   @Input() companyName: string = '';
@@ -29,6 +29,7 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
   paymentCompleted = false;
   sdkLoading = true; // Track SDK loading state
   saveForAutopay = false; // Whether to save payment method for autopay
+  private overlayObserver: MutationObserver | null = null;
 
   constructor(
     private modalController: ModalController,
@@ -46,6 +47,52 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit {
   ngAfterViewInit() {
     // Wait for PayPal SDK to load before rendering button
     this.waitForPayPalSDK();
+    this.observePayPalOverlay();
+  }
+
+  ngOnDestroy() {
+    this.overlayObserver?.disconnect();
+  }
+
+  /**
+   * Watch for PayPal SDK overlay iframes injected into the body and
+   * push them below the device safe-area so the X button isn't hidden.
+   */
+  private observePayPalOverlay() {
+    const safeTop = getComputedStyle(document.documentElement).getPropertyValue('--sal-safe-area-top')
+      || getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-top)');
+
+    this.overlayObserver = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const node of Array.from(m.addedNodes)) {
+          if (!(node instanceof HTMLElement)) continue;
+
+          // PayPal's zoid creates fixed-position divs containing checkout iframes
+          const isFixed = node.style?.position === 'fixed' || node.style?.cssText?.includes('position: fixed');
+          const hasPayPalIframe = node.querySelector('iframe[name*="paypal"]') ||
+                                  node.tagName === 'IFRAME' && node.getAttribute('name')?.includes('paypal');
+
+          if (isFixed && (hasPayPalIframe || node.querySelector('iframe[name*="zoid"]'))) {
+            node.style.top = 'env(safe-area-inset-top, 0px)';
+            node.style.height = 'calc(100% - env(safe-area-inset-top, 0px))';
+          }
+
+          // Also check if the node itself is a PayPal iframe
+          if (node.tagName === 'IFRAME') {
+            const name = node.getAttribute('name') || '';
+            if (name.includes('paypal') || name.includes('zoid')) {
+              const parent = node.parentElement;
+              if (parent && (parent.style?.position === 'fixed' || parent.style?.cssText?.includes('position: fixed'))) {
+                parent.style.top = 'env(safe-area-inset-top, 0px)';
+                parent.style.height = 'calc(100% - env(safe-area-inset-top, 0px))';
+              }
+            }
+          }
+        }
+      }
+    });
+
+    this.overlayObserver.observe(document.body, { childList: true, subtree: true });
   }
 
   private waitForPayPalSDK(retries = 0, maxRetries = 20) {

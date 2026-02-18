@@ -173,10 +173,10 @@ export class TemplateValidationService {
         item.Required === 'Yes' || item.Required === 1 || item.Required === true || item.Required === '1'
       );
 
-      // Resolve actual ServiceID only for templates that use it (e.g. HUD).
-      // For others (EFE, LBW, DTE, CSA), category-detail stores records with
-      // the route serviceId (PK_ID) as ServiceID, so we must query with that.
-      const queryServiceId = config.categoryDetailFeatures?.hasActualServiceId
+      // Resolve actual ServiceID only on web for HUD (API queries need the real ServiceID).
+      // On mobile, Dexie fields are always stored with the route PK_ID regardless of
+      // hasActualServiceId, so we must query with the original route serviceId.
+      const queryServiceId = (environment.isWeb && config.categoryDetailFeatures?.hasActualServiceId)
         ? await this.resolveServiceId(serviceId)
         : serviceId;
 
