@@ -29,7 +29,7 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit, OnDes
   paymentCompleted = false;
   sdkLoading = true; // Track SDK loading state
   saveForAutopay = false; // Whether to save payment method for autopay
-  private overlayObserver: MutationObserver | null = null;
+  private overlayFixInterval: any = null;
 
   constructor(
     private modalController: ModalController,
@@ -47,52 +47,51 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit, OnDes
   ngAfterViewInit() {
     // Wait for PayPal SDK to load before rendering button
     this.waitForPayPalSDK();
-    this.observePayPalOverlay();
+    this.startOverlayFix();
   }
 
   ngOnDestroy() {
-    this.overlayObserver?.disconnect();
+    this.stopOverlayFix();
   }
 
   /**
-   * Watch for PayPal SDK overlay iframes injected into the body and
-   * push them below the device safe-area so the X button isn't hidden.
+   * Poll for PayPal SDK overlays and push them below the safe area.
+   * PayPal's zoid creates fixed-position divs with iframes at the body level.
+   * We can't predict their exact selectors, so we scan all body children.
    */
-  private observePayPalOverlay() {
-    const safeTop = getComputedStyle(document.documentElement).getPropertyValue('--sal-safe-area-top')
-      || getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-top)');
+  private startOverlayFix() {
+    this.overlayFixInterval = setInterval(() => {
+      // Scan all direct children of body for fixed-position overlay containers
+      const bodyChildren = document.body.children;
+      for (let i = 0; i < bodyChildren.length; i++) {
+        const el = bodyChildren[i] as HTMLElement;
+        if (!el.style) continue;
 
-    this.overlayObserver = new MutationObserver((mutations) => {
-      for (const m of mutations) {
-        for (const node of Array.from(m.addedNodes)) {
-          if (!(node instanceof HTMLElement)) continue;
+        const cs = getComputedStyle(el);
+        if (cs.position !== 'fixed') continue;
 
-          // PayPal's zoid creates fixed-position divs containing checkout iframes
-          const isFixed = node.style?.position === 'fixed' || node.style?.cssText?.includes('position: fixed');
-          const hasPayPalIframe = node.querySelector('iframe[name*="paypal"]') ||
-                                  node.tagName === 'IFRAME' && node.getAttribute('name')?.includes('paypal');
+        // Check if this fixed element contains any iframe (PayPal checkout)
+        const iframes = el.querySelectorAll('iframe');
+        if (iframes.length === 0) continue;
 
-          if (isFixed && (hasPayPalIframe || node.querySelector('iframe[name*="zoid"]'))) {
-            node.style.top = 'env(safe-area-inset-top, 0px)';
-            node.style.height = 'calc(100% - env(safe-area-inset-top, 0px))';
-          }
+        // Skip Ionic overlays (they handle safe area themselves)
+        if (el.tagName.startsWith('ION-')) continue;
 
-          // Also check if the node itself is a PayPal iframe
-          if (node.tagName === 'IFRAME') {
-            const name = node.getAttribute('name') || '';
-            if (name.includes('paypal') || name.includes('zoid')) {
-              const parent = node.parentElement;
-              if (parent && (parent.style?.position === 'fixed' || parent.style?.cssText?.includes('position: fixed'))) {
-                parent.style.top = 'env(safe-area-inset-top, 0px)';
-                parent.style.height = 'calc(100% - env(safe-area-inset-top, 0px))';
-              }
-            }
-          }
+        // Apply safe-area offset if not already applied
+        if (!el.dataset.safeAreaFixed) {
+          el.style.setProperty('top', 'env(safe-area-inset-top, 0px)', 'important');
+          el.style.setProperty('height', 'calc(100% - env(safe-area-inset-top, 0px))', 'important');
+          el.dataset.safeAreaFixed = '1';
         }
       }
-    });
+    }, 300);
+  }
 
-    this.overlayObserver.observe(document.body, { childList: true, subtree: true });
+  private stopOverlayFix() {
+    if (this.overlayFixInterval) {
+      clearInterval(this.overlayFixInterval);
+      this.overlayFixInterval = null;
+    }
   }
 
   private waitForPayPalSDK(retries = 0, maxRetries = 20) {

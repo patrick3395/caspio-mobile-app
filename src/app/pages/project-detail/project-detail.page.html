@@ -194,10 +194,9 @@
               <textarea
                 class="deliverable-textarea"
                 [value]="service.InspectorNotes || ''"
-                (blur)="updateDeliverableField(service, 'InspectorNotes', $any($event.target).value)"
-                [disabled]="isReadOnly"
-                [readonly]="isReadOnly"
-                placeholder="Enter notes"
+                disabled
+                readonly
+                placeholder=""
                 rows="2"></textarea>
             </td>
           </tr>
@@ -241,24 +240,8 @@
                     <ion-icon name="document-outline"></ion-icon>
                     {{ getDeliverableFilename(service) }}
                   </a>
-                  <ion-button size="small" fill="clear" class="orange-icon" *ngIf="!isReadOnly" (click)="deleteDeliverableFile(service)" title="Delete">
-                    <ion-icon name="trash-outline"></ion-icon>
-                  </ion-button>
                 </div>
-
-                <!-- Upload button -->
-                <div *ngIf="!isReadOnly">
-                  <input
-                    #deliverableFileInput2
-                    type="file"
-                    style="display: none"
-                    (change)="uploadDeliverableFile(service, $event)"
-                    accept="*/*">
-                  <ion-button size="small" fill="clear" class="orange-icon" (click)="deliverableFileInput2.click()" title="Upload">
-                    <ion-icon name="cloud-upload-outline" slot="start"></ion-icon>
-                    Upload
-                  </ion-button>
-                </div>
+                <span *ngIf="!hasDeliverable(service)" class="no-file-label">No file uploaded</span>
               </div>
             </td>
           </tr>
@@ -270,10 +253,9 @@
               <textarea
                 class="deliverable-textarea"
                 [value]="service.InspectorNotes || ''"
-                (blur)="updateDeliverableField(service, 'InspectorNotes', $any($event.target).value)"
-                [disabled]="isReadOnly"
-                [readonly]="isReadOnly"
-                placeholder="Enter notes"
+                disabled
+                readonly
+                placeholder=""
                 rows="2"></textarea>
             </td>
           </tr>
@@ -289,9 +271,13 @@
           <div class="header-total" *ngIf="calculateProjectBalance() > 0">
             ${{ calculateProjectBalance() | number:'1.2-2' }}
           </div>
-          <div class="paid-badge" *ngIf="calculateProjectBalance() <= 0 && calculateServicesTotal() > 0">
+          <div class="paid-badge" *ngIf="calculateProjectBalance() === 0 && calculateServicesTotal() > 0">
             <ion-icon name="checkmark-circle-outline"></ion-icon>
             PAID
+          </div>
+          <div class="paid-badge overpaid" *ngIf="calculateProjectBalance() < 0 && calculateServicesTotal() > 0">
+            <ion-icon name="checkmark-circle-outline"></ion-icon>
+            +${{ (calculateProjectBalance() * -1) | number:'1.2-2' }}
           </div>
 
           <button class="pay-now-btn" (click)="openPaymentModal()" *ngIf="calculateProjectBalance() > 0 && !isReadOnly">
