@@ -3603,11 +3603,13 @@ export class CompanyPage implements OnInit, OnDestroy {
     const alert = await this.alertController.create({
       header: 'Remove Payment Method',
       message: 'Are you sure you want to remove the saved payment method? Autopay will be disabled.',
+      cssClass: 'custom-document-alert',
       buttons: [
-        { text: 'Cancel', role: 'cancel' },
+        { text: 'Cancel', role: 'cancel', cssClass: 'alert-button-cancel' },
         {
           text: 'Remove',
           role: 'destructive',
+          cssClass: 'alert-button-confirm',
           handler: async () => {
             const loading = await this.loadingController.create({
               message: 'Removing payment method...',
@@ -3779,12 +3781,14 @@ export class CompanyPage implements OnInit, OnDestroy {
         ? `Review complete for ${company.CompanyName}? This will approve and charge their saved payment method for all unpaid invoices.`
         : `Run autopay now for ${company.CompanyName}? This will charge their saved payment method for all unpaid invoices.`,
       buttons: [
-        { text: 'Cancel', role: 'cancel' },
+        { text: 'Cancel', role: 'cancel', cssClass: 'alert-button-cancel' },
         {
           text: isReview ? 'Approve & Charge' : 'Run Autopay',
+          cssClass: 'alert-button-confirm',
           handler: () => this.executeAutopay(company.CompanyID)
         }
-      ]
+      ],
+      cssClass: 'custom-document-alert'
     });
     await alert.present();
   }

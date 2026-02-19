@@ -638,6 +638,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       }
       this.isCompanyOne = userCompanyId === 1;
 
+      // Admin (CompanyID=1) can always edit completed projects
+      if (this.isCompanyOne && this.isReadOnly) {
+        this.isReadOnly = false;
+      }
+
       const parallelStartTime = performance.now();
 
       // If we have a pending finalized service, force fresh data for Services table
@@ -900,6 +905,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           }
         }
         this.isCompanyOne = userCompanyId === 1;
+
+        // Admin (CompanyID=1) can always edit completed projects
+        if (this.isCompanyOne && this.isReadOnly) {
+          this.isReadOnly = false;
+        }
 
         // Load company name for admin view
         const projectCompanyId = Number(project.CompanyID || project.Company_ID);
@@ -2141,7 +2151,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         if (projectPkId) {
           await this.projectsService.updateProjectStatus(projectPkId, 5).toPromise();
           this.project!.StatusID = 5;
-          this.isReadOnly = true;
+          this.isReadOnly = !this.isCompanyOne;
           this.changeDetectorRef.markForCheck();
         }
       }

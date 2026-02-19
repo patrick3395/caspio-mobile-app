@@ -140,8 +140,8 @@ export class AllProjectsPage implements OnInit, OnDestroy {
       }
     }
 
-    // Load all projects and filter out StatusID: 7 (Active)
-    this.projectsService.getAllProjects(companyId).subscribe({
+    // Admin (CompanyID=1) sees all companies' projects; others see only their own
+    this.projectsService.getAllProjects(this.isAdminView ? undefined : companyId).subscribe({
       next: (allProjects) => {
         // Filter out projects with StatusID: 7 (Active projects)
         this.projects = allProjects.filter(p =>
