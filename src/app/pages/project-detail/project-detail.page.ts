@@ -5711,25 +5711,44 @@ Time: ${debugInfo.timestamp}
                           `Processed: ${new Date(paymentData.createTime).toLocaleString()}\n` +
                           `Status: ${paymentData.status}`;
 
-      // Use originalAmount (service amount) for the ledger, not the grossed-up PayPal charge
-      const paidAmount = parseFloat(paymentData.originalAmount || paymentData.amount);
+      // Calculate gross (actual PayPal charge) and the processing fee
+      const grossAmount = parseFloat(paymentData.amount);
+      const originalAmount = parseFloat(paymentData.originalAmount || paymentData.amount);
+      const paypalFee = Math.round((grossAmount - originalAmount) * 100) / 100;
+
+      // If there's a PayPal processing fee, record it as a positive line item
+      // so the ledger balances: +service +fee -grossPayment = $0
+      if (paypalFee > 0) {
+        await firstValueFrom(
+          this.caspioService.post<any>('/tables/LPS_Invoices/records', {
+            ProjectID: Number(this.project?.ProjectID),
+            Fee: Number(paypalFee.toFixed(2)),
+            Date: new Date().toISOString().split('T')[0],
+            Address: String(this.project?.Address || ''),
+            InvoiceNotes: 'PayPal Processing Fee',
+            PaymentProcessor: 'PayPal'
+          })
+        );
+      }
+
+      // Record the full gross amount as the negative payment record
       await firstValueFrom(
         this.caspioService.post<any>('/tables/LPS_Invoices/records', {
           ProjectID: Number(this.project?.ProjectID),
-          Fee: Number((-paidAmount).toFixed(2)),
+          Fee: Number((-grossAmount).toFixed(2)),
           Date: new Date().toISOString().split('T')[0],
           Address: String(this.project?.Address || ''),
           InvoiceNotes: String(paymentNotes),
-          Mode: 'negative',
           PaymentProcessor: 'PayPal'
         })
       );
 
       this.caspioService.clearInvoicesCache();
 
-      // Update local state so balance reflects immediately
-      this.projectTotalPaid += paidAmount;
-      this.projectInvoiceBalance -= paidAmount;
+      // Update local state: +fee -grossPayment (net effect = -originalAmount)
+      this.projectTotalPaid += grossAmount;
+      this.projectInvoiceBalance += paypalFee;
+      this.projectInvoiceBalance -= grossAmount;
 
       // Send push notification for payment received (fire-and-forget)
       try {

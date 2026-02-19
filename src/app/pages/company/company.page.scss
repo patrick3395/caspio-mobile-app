@@ -319,10 +319,19 @@ ion-content {
 }
 
 @media (max-width: 500px) {
+  .sub-tab-bar {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    justify-content: center;
+  }
+
   .sub-tab {
     padding: 7px 10px;
     font-size: 12px;
     gap: 4px;
+    flex: 0 0 calc(25% - 5px);
+    justify-content: center;
+    white-space: nowrap;
 
     ion-icon {
       font-size: 15px;

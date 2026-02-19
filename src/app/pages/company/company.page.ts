@@ -1874,7 +1874,44 @@ export class CompanyPage implements OnInit, OnDestroy {
 
     const { data } = await modal.onDidDismiss();
 
-    if (data && data.success) {
+    if (data && data.success && data.paymentData) {
+      const pd = data.paymentData;
+      const grossAmount = parseFloat(pd.amount);
+      const originalAmount = parseFloat(pd.originalAmount || pd.amount);
+      const paypalFee = Math.round((grossAmount - originalAmount) * 100) / 100;
+      const projectId = invoice.positive.ProjectID;
+
+      // Record PayPal processing fee as a positive line item
+      if (paypalFee > 0) {
+        try {
+          await firstValueFrom(
+            this.caspioService.post<any>('/tables/LPS_Invoices/records', {
+              ProjectID: Number(projectId),
+              Fee: Number(paypalFee.toFixed(2)),
+              Date: new Date().toISOString().split('T')[0],
+              Address: String(invoice.positive.Address || ''),
+              InvoiceNotes: 'PayPal Processing Fee',
+              PaymentProcessor: 'PayPal'
+            })
+          );
+        } catch (e) { console.error('Failed to record PayPal fee:', e); }
+      }
+
+      // Record the full gross payment as a negative record
+      try {
+        const paymentNotes = `PayPal Payment - Order: ${pd.orderID}\nPayer: ${pd.payerName} (${pd.payerEmail})\nStatus: ${pd.status}`;
+        await firstValueFrom(
+          this.caspioService.post<any>('/tables/LPS_Invoices/records', {
+            ProjectID: Number(projectId),
+            Fee: Number((-grossAmount).toFixed(2)),
+            Date: new Date().toISOString().split('T')[0],
+            Address: String(invoice.positive.Address || ''),
+            InvoiceNotes: String(paymentNotes),
+            PaymentProcessor: 'PayPal'
+          })
+        );
+      } catch (e) { console.error('Failed to record payment:', e); }
+
       // Send push notification for payment received (fire-and-forget)
       try {
         const companyId = invoice.positive.CompanyID;
@@ -1885,13 +1922,14 @@ export class CompanyPage implements OnInit, OnDestroy {
             body: JSON.stringify({
               companyId: String(companyId),
               title: 'Payment Received',
-              body: `$${invoice.netAmount.toFixed(2)} payment received for ${invoice.positive.Address || 'Project'}`,
-              data: { type: 'payment_received', route: `/project/${invoice.positive.ProjectID}` }
+              body: `$${pd.amount} payment received for ${invoice.positive.Address || 'Project'}`,
+              data: { type: 'payment_received', route: `/project/${projectId}` }
             })
           });
         }
       } catch { /* push notification is non-critical */ }
 
+      this.caspioService.clearInvoicesCache();
       // Refresh invoices after successful payment
       await this.categorizeInvoices();
     }
@@ -4145,7 +4183,43 @@ export class CompanyPage implements OnInit, OnDestroy {
 
             const { data: modalData } = await modal.onDidDismiss();
 
-            if (modalData?.success) {
+            if (modalData?.success && modalData.paymentData) {
+              const pd = modalData.paymentData;
+              const grossAmount = parseFloat(pd.amount);
+              const originalAmount = parseFloat(pd.originalAmount || pd.amount);
+              const paypalFee = Math.round((grossAmount - originalAmount) * 100) / 100;
+
+              // Record PayPal processing fee as a positive line item
+              if (paypalFee > 0) {
+                try {
+                  await firstValueFrom(
+                    this.caspioService.post<any>('/tables/LPS_Invoices/records', {
+                      ProjectID: Number(project.projectId),
+                      Fee: Number(paypalFee.toFixed(2)),
+                      Date: new Date().toISOString().split('T')[0],
+                      Address: String(project.projectAddress || ''),
+                      InvoiceNotes: 'PayPal Processing Fee',
+                      PaymentProcessor: 'PayPal'
+                    })
+                  );
+                } catch (e) { console.error('Failed to record PayPal fee:', e); }
+              }
+
+              // Record the full gross payment as a negative record
+              try {
+                const paymentNotes = `PayPal Payment - Order: ${pd.orderID}\nPayer: ${pd.payerName} (${pd.payerEmail})\nStatus: ${pd.status}`;
+                await firstValueFrom(
+                  this.caspioService.post<any>('/tables/LPS_Invoices/records', {
+                    ProjectID: Number(project.projectId),
+                    Fee: Number((-grossAmount).toFixed(2)),
+                    Date: new Date().toISOString().split('T')[0],
+                    Address: String(project.projectAddress || ''),
+                    InvoiceNotes: String(paymentNotes),
+                    PaymentProcessor: 'PayPal'
+                  })
+                );
+              } catch (e) { console.error('Failed to record payment:', e); }
+
               // Send push notification for payment received (fire-and-forget)
               try {
                 fetch(`${environment.apiGatewayUrl}/api/notifications/send`, {
@@ -4154,12 +4228,13 @@ export class CompanyPage implements OnInit, OnDestroy {
                   body: JSON.stringify({
                     companyId: String(companyId),
                     title: 'Payment Received',
-                    body: `$${project.balance.toFixed(2)} payment received for ${project.projectAddress || 'Project'}`,
+                    body: `$${pd.amount} payment received for ${project.projectAddress || 'Project'}`,
                     data: { type: 'payment_received', route: `/project/${project.projectId}` }
                   })
                 });
               } catch { /* push notification is non-critical */ }
 
+              this.caspioService.clearInvoicesCache();
               // Refresh outstanding data after successful payment
               this.companyOutstandingData.delete(companyId);
               this.loadCompanyOutstandingInvoices(companyId);
