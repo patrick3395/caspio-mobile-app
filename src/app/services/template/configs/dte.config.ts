@@ -71,7 +71,7 @@ export const DTE_CONFIG: TemplateConfig = {
   // Category Detail Features
   categoryDetailFeatures: {
     hasDexieFirstWithMutex: true,  // Dexie-first with mutex for concurrent access
-    hasActualServiceId: false,
+    hasActualServiceId: true,
     supportsAddCustomVisual: true,
     hasLazyPhotoLoading: false,
     hasDebugPanel: false,
