@@ -1080,6 +1080,9 @@ ion-content {
       &.has-balance {
         color: #f15a27;
       }
+      &.overpaid {
+        color: #28a745;
+      }
     }
   }
 
@@ -2955,6 +2958,7 @@ ion-segment.filter-segment {
       color: #28a745;
 
       &.has-balance { color: #dc3545; }
+      &.overpaid { color: #28a745; }
       ion-spinner { width: 20px; height: 20px; }
     }
 

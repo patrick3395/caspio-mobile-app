@@ -49,10 +49,22 @@
             </div>
           </ion-label>
         </ion-item>
-        <ion-item>
+        <ion-item class="fee-breakdown-item">
           <ion-label>
-            <h3>Total Amount Due</h3>
-            <p class="amount">${{ invoice?.Amount || '0.00' }}</p>
+            <div class="fee-breakdown">
+              <div class="fee-line">
+                <span>Subtotal</span>
+                <span>${{ originalAmount | number:'1.2-2' }}</span>
+              </div>
+              <div class="fee-line fee-line-muted">
+                <span>PayPal Processing Fee</span>
+                <span>${{ paypalFee | number:'1.2-2' }}</span>
+              </div>
+              <div class="fee-line fee-line-total">
+                <span>Total Charge</span>
+                <span>${{ grossAmount | number:'1.2-2' }}</span>
+              </div>
+            </div>
           </ion-label>
         </ion-item>
       </ion-list>

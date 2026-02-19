@@ -814,175 +814,94 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       const projectIds = Array.from(projectLookup.keys());
 
-      // Load invoices and services for all projects in parallel
-      // Invoice queries bypass cache (false) to ensure fresh balance data, and use q.limit to get all records
-      const [invoiceResponses, serviceResponses] = await Promise.all([
-        Promise.all(
-          projectIds.map((projectId: number) =>
-            firstValueFrom(
-              this.caspioService.get<any>(`/tables/LPS_Invoices/records?q.where=ProjectID=${projectId}&q.limit=1000`, false)
-            ).catch(() => ({ Result: [] }))
-          )
-        ),
-        Promise.all(
-          projectIds.map((projectId: number) =>
-            firstValueFrom(
-              this.caspioService.get<any>(`/tables/LPS_Services/records?q.where=ProjectID=${projectId}&q.limit=1000`)
-            ).catch(() => ({ Result: [] }))
-          )
+      // Load invoices for all projects in parallel
+      // Uses the SAME query format as project-detail's refreshInvoiceBalance
+      const invoiceResponses = await Promise.all(
+        projectIds.map((projectId: any) =>
+          firstValueFrom(
+            this.caspioService.get<any>(`/tables/LPS_Invoices/records?q.where=ProjectID=${projectId}`, false)
+          ).catch(() => ({ Result: [] }))
         )
-      ]);
+      );
 
-      // Build a local service name lookup for these projects (TypeID → name may already exist, ServiceID → TypeID may not)
-      const localProjectServices = new Map<number, Set<string>>();
-      // Also load Type table if typeIdToNameLookup is empty (client view)
-      if (this.typeIdToNameLookup.size === 0) {
-        try {
-          const typeResponse = await firstValueFrom(
-            this.caspioService.get<any>('/tables/LPS_Type/records?q.limit=1000')
-          );
-          if (typeResponse?.Result) {
-            this.populateTypeLookup(typeResponse.Result);
-          }
-        } catch { /* non-critical */ }
-      }
-
-      serviceResponses.forEach((response: any, index: number) => {
-        const projectId = projectIds[index];
-        if (response?.Result) {
-          const names = new Set<string>();
-          response.Result.forEach((svc: any) => {
-            const typeId = svc.TypeID != null ? Number(svc.TypeID) : null;
-            if (typeId != null) {
-              const name = this.typeIdToNameLookup.get(typeId);
-              if (name) names.add(name);
-            }
-          });
-          if (names.size > 0) localProjectServices.set(projectId, names);
-        }
-      });
-
-      // Net balance per project: sum ALL fees (positive = charge, negative = payment)
-      // This mirrors the project-detail calculation exactly
-      const projectNetBalance = new Map<number, number>();
-      const projectFeeTotals = new Map<number, number>();
-      const projectServicesList = new Map<number, Array<{ name: string; fee: number }>>();
-      const projectShortNames = new Map<number, Set<string>>();
-      const projectPayments = new Map<number, { totalPaid: number; latestDate: string | null }>();
-
+      // Calculate balance per project using the SAME process as project-detail:
+      // Sum ALL Fee values (positive = charge, negative = payment), round to 2 decimals
       let totalBalance = 0;
+      const unpaidProjects: any[] = [];
+      const paidInvoices: any[] = [];
 
       invoiceResponses.forEach((response: any, index: number) => {
         const projectId = projectIds[index];
-        if (response?.Result) {
-          response.Result.forEach((invoice: any) => {
-            const fee = parseFloat(invoice.Fee) || 0;
-            // Accumulate net balance (same as project-detail: sum ALL fees)
-            projectNetBalance.set(projectId, (projectNetBalance.get(projectId) || 0) + fee);
+        const projectInfo = projectLookup.get(projectId);
+        if (!response?.Result?.length) return;
 
-            if (fee > 0) {
-              // Positive fee = charge
-              projectFeeTotals.set(projectId, (projectFeeTotals.get(projectId) || 0) + fee);
-              const servicesList = projectServicesList.get(projectId) || [];
-              // Normalize the raw invoice and use the same label resolution as the Invoices tab
-              const normalized = this.normalizeInvoiceRecord(invoice);
-              const label = this.getInvoiceLineLabel(normalized);
-              servicesList.push({ name: label, fee });
-              projectServicesList.set(projectId, servicesList);
+        // Sum ALL fees — identical to project-detail's refreshInvoiceBalance
+        let projectBalance = 0;
+        let totalCharges = 0;
+        let totalPaid = 0;
+        let latestPaymentDate: string | null = null;
+        const services: Array<{ name: string; fee: number }> = [];
 
-              const shorts = projectShortNames.get(projectId) || new Set<string>();
-              shorts.add(label.substring(0, 15));
-              projectShortNames.set(projectId, shorts);
-            } else if (fee < 0) {
-              // Negative fee = payment
-              const existing = projectPayments.get(projectId) || { totalPaid: 0, latestDate: null };
-              existing.totalPaid += Math.abs(fee);
-              if (invoice.Date) {
-                if (!existing.latestDate || new Date(invoice.Date) > new Date(existing.latestDate)) {
-                  existing.latestDate = invoice.Date;
-                }
-              }
-              projectPayments.set(projectId, existing);
-            }
-          });
-        }
-      });
-
-      // Build project-level outstanding invoices using net balance
-      const unpaidProjects: Array<{
-        projectId: number;
-        projectAddress: string;
-        serviceShortNames: string;
-        fee: number;
-        balance: number;
-        services: Array<{ name: string; fee: number }>;
-      }> = [];
-
-      // Iterate all projects that have ANY invoice records (not just positive fees)
-      projectNetBalance.forEach((rawBalance, projectId) => {
-        // Round to 2 decimal places to avoid floating point precision issues
-        const balance = Math.round(rawBalance * 100) / 100;
-        if (balance > 0) {
-          const projectInfo = projectLookup.get(projectId);
-          const totalFee = projectFeeTotals.get(projectId) || 0;
-          let shorts = projectShortNames.get(projectId);
-
-          // If invoice-level labels didn't resolve, fall back to project's assigned services
-          if (!shorts || shorts.size === 0 || (shorts.size === 1 && Array.from(shorts)[0].startsWith('Service Not'))) {
-            const svcNames = localProjectServices.get(projectId);
-            if (svcNames && svcNames.size > 0) {
-              shorts = new Set<string>();
-              for (const name of svcNames) {
-                shorts.add(name.substring(0, 15));
-              }
+        response.Result.forEach((invoice: any) => {
+          const fee = parseFloat(invoice.Fee) || 0;
+          projectBalance += fee;
+          if (fee > 0) {
+            totalCharges += fee;
+            const normalized = this.normalizeInvoiceRecord(invoice);
+            const label = this.getInvoiceLineLabel(normalized);
+            services.push({ name: label, fee });
+          } else if (fee < 0) {
+            totalPaid += Math.abs(fee);
+            if (invoice.Date && (!latestPaymentDate || new Date(invoice.Date) > new Date(latestPaymentDate))) {
+              latestPaymentDate = invoice.Date;
             }
           }
+        });
 
+        // Round to 2 decimal places (same as project-detail)
+        projectBalance = Math.round(projectBalance * 100) / 100;
+        totalCharges = Math.round(totalCharges * 100) / 100;
+        totalPaid = Math.round(totalPaid * 100) / 100;
+
+        // Include ALL projects with invoices (positive balance = owed, negative = overpaid)
+        // This matches how project-detail shows the balance
+        if (projectBalance !== 0 || totalCharges > 0) {
+          const shortNames = [...new Set(services.map(s => s.name.substring(0, 15)))].join(', ');
           unpaidProjects.push({
             projectId,
             projectAddress: projectInfo?.address || 'Unknown',
-            serviceShortNames: shorts && shorts.size > 0 ? Array.from(shorts).join(', ') : '',
-            fee: totalFee,
-            balance,
-            services: projectServicesList.get(projectId) || []
+            serviceShortNames: shortNames,
+            fee: totalCharges,
+            balance: projectBalance,
+            services
           });
-          totalBalance += balance;
+        }
+        totalBalance += projectBalance;
+
+        if (totalPaid > 0) {
+          paidInvoices.push({
+            projectId,
+            projectAddress: projectInfo?.address || 'Unknown',
+            paidAmount: totalPaid,
+            paidDate: latestPaymentDate,
+            balance: projectBalance,
+            services
+          });
         }
       });
 
-      const paidInvoices: Array<{
-        projectId: number;
-        projectAddress: string;
-        paidAmount: number;
-        paidDate: string | null;
-        balance: number;
-        services: Array<{ name: string; fee: number }>;
-      }> = [];
-
-      projectPayments.forEach((payments, projectId) => {
-        const projectInfo = projectLookup.get(projectId);
-        const netBal = projectNetBalance.get(projectId) || 0;
-        paidInvoices.push({
-          projectId,
-          projectAddress: projectInfo?.address || 'Unknown',
-          paidAmount: payments.totalPaid,
-          paidDate: payments.latestDate,
-          balance: Math.round(netBal * 100) / 100,
-          services: projectServicesList.get(projectId) || []
-        });
-      });
-
       // Sort paid invoices by date (most recent first)
-      paidInvoices.sort((a, b) => {
+      paidInvoices.sort((a: any, b: any) => {
         if (!a.paidDate && !b.paidDate) return 0;
         if (!a.paidDate) return 1;
         if (!b.paidDate) return -1;
         return new Date(b.paidDate).getTime() - new Date(a.paidDate).getTime();
       });
 
+      const finalBalance = Math.round(totalBalance * 100) / 100;
       this.companyOutstandingData.set(companyId, {
         loading: false,
-        balance: Math.round(totalBalance * 100) / 100,
+        balance: finalBalance,
         invoices: unpaidProjects,
         paidInvoices
       });
@@ -3833,6 +3752,18 @@ export class CompanyPage implements OnInit, OnDestroy {
   }
 
   async executeAutopay(companyId: number): Promise<void> {
+    // Guard: don't charge if balance is zero or overpaid (negative)
+    const data = this.getCompanyOutstandingData(companyId);
+    if (data.balance <= 0) {
+      await this.showToast(
+        data.balance < 0
+          ? 'This company is overpaid — no charge needed'
+          : 'No outstanding balance — no charge needed',
+        'warning'
+      );
+      return;
+    }
+
     const loading = await this.loadingController.create({
       message: 'Processing autopay...',
       spinner: 'lines'

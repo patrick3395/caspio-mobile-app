@@ -12,6 +12,38 @@ ion-header {
   color: var(--ion-color-primary);
 }
 
+.fee-breakdown-item {
+  --inner-padding-end: 0;
+}
+
+.fee-breakdown {
+  width: 100%;
+  margin-top: 0.5rem;
+
+  .fee-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.4rem 0;
+    font-size: 1rem;
+    color: var(--ion-color-dark);
+
+    &.fee-line-muted {
+      font-size: 0.875rem;
+      color: #888;
+      border-bottom: 1px solid #e8e8e8;
+      padding-bottom: 0.5rem;
+    }
+
+    &.fee-line-total {
+      font-weight: 700;
+      font-size: 1.15rem;
+      color: var(--ion-color-primary);
+      padding-top: 0.5rem;
+    }
+  }
+}
+
 .services-list {
   margin-top: 0.75rem;
   background: #fafafa;

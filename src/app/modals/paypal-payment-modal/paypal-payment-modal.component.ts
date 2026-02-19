@@ -29,6 +29,9 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit, OnDes
   paymentCompleted = false;
   sdkLoading = true; // Track SDK loading state
   saveForAutopay = false; // Whether to save payment method for autopay
+  originalAmount = 0;
+  grossAmount = 0;
+  paypalFee = 0;
   private overlayFixInterval: any = null;
 
   constructor(
@@ -41,6 +44,14 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit, OnDes
     // If in save-only mode, automatically check the save for autopay checkbox
     if (this.saveForAutopayOnly) {
       this.saveForAutopay = true;
+    }
+
+    // Calculate PayPal processing fee gross-up (skip for vault-only mode)
+    if (!this.saveForAutopayOnly) {
+      const amt = parseFloat(this.invoice?.Amount) || 0;
+      this.originalAmount = amt;
+      this.grossAmount = Math.ceil((amt + 0.49) / (1 - 0.0349) * 100) / 100;
+      this.paypalFee = Math.round((this.grossAmount - amt) * 100) / 100;
     }
   }
 
@@ -236,7 +247,7 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit, OnDes
    * Render PayPal button for normal payment mode
    */
   private renderPaymentButton() {
-    const amount = this.invoice?.Amount || '0.00';
+    const amount = this.grossAmount.toFixed(2);
 
     paypal.Buttons({
       style: {
@@ -330,6 +341,7 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit, OnDes
               payerEmail: order.payer.email_address,
               payerName: order.payer.name.given_name + ' ' + order.payer.name.surname,
               amount: order.purchase_units[0].amount.value,
+              originalAmount: this.originalAmount.toFixed(2),
               currency: order.purchase_units[0].amount.currency_code,
               status: order.status,
               createTime: order.create_time,
@@ -422,7 +434,7 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit, OnDes
       
       if (messageElement) {
         messageElement.innerHTML = `
-          <div class="zelle-details">We prefer Zelle payments to avoid transaction fees (we choose not to pass on transaction fees to our partners).</div>
+          <div class="zelle-details">We prefer Zelle payments to avoid transaction fees.</div>
           <div class="zelle-pay-to">Pay To</div>
           <div class="zelle-recipient">
             <div class="zelle-name">Name: Patrick Bullock</div>

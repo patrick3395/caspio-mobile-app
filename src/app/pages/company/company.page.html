@@ -562,11 +562,17 @@
                 <div class="rollup-flat-section">
                   <div class="flat-section-header">
                     <h4>Outstanding Balance</h4>
-                    <span class="balance-total" [class.has-balance]="getCompanyOutstandingData(company.CompanyID).balance > 0">
+                    <span class="balance-total" [class.has-balance]="getCompanyOutstandingData(company.CompanyID).balance > 0" [class.overpaid]="getCompanyOutstandingData(company.CompanyID).balance < 0">
                       <ion-spinner *ngIf="getCompanyOutstandingData(company.CompanyID).loading" name="crescent"></ion-spinner>
-                      <span *ngIf="!getCompanyOutstandingData(company.CompanyID).loading">
-                        {{ getCompanyOutstandingData(company.CompanyID).balance | currency:'USD':'symbol':'1.2-2' }}
-                      </span>
+                      <ng-container *ngIf="!getCompanyOutstandingData(company.CompanyID).loading">
+                        <span *ngIf="getCompanyOutstandingData(company.CompanyID).balance > 0">
+                          {{ getCompanyOutstandingData(company.CompanyID).balance | currency:'USD':'symbol':'1.2-2' }}
+                        </span>
+                        <span *ngIf="getCompanyOutstandingData(company.CompanyID).balance === 0">$0.00</span>
+                        <span *ngIf="getCompanyOutstandingData(company.CompanyID).balance < 0">
+                          +{{ (getCompanyOutstandingData(company.CompanyID).balance * -1) | currency:'USD':'symbol':'1.2-2' }}
+                        </span>
+                      </ng-container>
                     </span>
                   </div>
                   <div *ngIf="getCompanyOutstandingData(company.CompanyID).invoices.length > 0" class="list-table balance-table">
@@ -644,7 +650,7 @@
                       <button
                         class="action-btn-sm primary"
                         (click)="triggerAutopay(company)"
-                        [disabled]="!company.AutopayEnabled || (!company.PayPalVaultToken && !company.StripePaymentMethodID) || getCompanyOutstandingData(company.CompanyID).balance === 0">
+                        [disabled]="!company.AutopayEnabled || (!company.PayPalVaultToken && !company.StripePaymentMethodID) || getCompanyOutstandingData(company.CompanyID).balance <= 0">
                         {{ company.AutopayReviewRequired ? 'Approve' : 'Run' }}
                       </button>
                     </div>
@@ -1535,11 +1541,17 @@
             <h3>Outstanding Balance</h3>
           </div>
           <div class="balance-actions">
-            <div class="balance-total" [class.has-balance]="getCompanyOutstandingData(currentUserCompanyId || 0).balance > 0">
+            <div class="balance-total" [class.has-balance]="getCompanyOutstandingData(currentUserCompanyId || 0).balance > 0" [class.overpaid]="getCompanyOutstandingData(currentUserCompanyId || 0).balance < 0">
               <ion-spinner *ngIf="getCompanyOutstandingData(currentUserCompanyId || 0).loading" name="crescent"></ion-spinner>
-              <span *ngIf="!getCompanyOutstandingData(currentUserCompanyId || 0).loading">
-                {{ getCompanyOutstandingData(currentUserCompanyId || 0).balance | currency:'USD':'symbol':'1.2-2' }}
-              </span>
+              <ng-container *ngIf="!getCompanyOutstandingData(currentUserCompanyId || 0).loading">
+                <span *ngIf="getCompanyOutstandingData(currentUserCompanyId || 0).balance > 0">
+                  {{ getCompanyOutstandingData(currentUserCompanyId || 0).balance | currency:'USD':'symbol':'1.2-2' }}
+                </span>
+                <span *ngIf="getCompanyOutstandingData(currentUserCompanyId || 0).balance === 0">$0.00</span>
+                <span *ngIf="getCompanyOutstandingData(currentUserCompanyId || 0).balance < 0">
+                  +{{ (getCompanyOutstandingData(currentUserCompanyId || 0).balance * -1) | currency:'USD':'symbol':'1.2-2' }}
+                </span>
+              </ng-container>
             </div>
             <button class="pay-now-btn" (click)="openBalancePaymentModal($event)" *ngIf="getCompanyOutstandingData(currentUserCompanyId || 0).balance > 0 && !getCompanyOutstandingData(currentUserCompanyId || 0).loading">
               <ion-icon name="card-outline"></ion-icon>

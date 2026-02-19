@@ -577,6 +577,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         localStorage.removeItem('pendingFinalizedService');
       }
     } else {
+      // Always refresh invoice balance from database to stay in sync
+      this.refreshInvoiceBalance();
     }
 
   }
@@ -5709,8 +5711,8 @@ Time: ${debugInfo.timestamp}
                           `Processed: ${new Date(paymentData.createTime).toLocaleString()}\n` +
                           `Status: ${paymentData.status}`;
 
-      // Create a single negative-fee invoice record for the actual payment amount
-      const paidAmount = parseFloat(paymentData.amount);
+      // Use originalAmount (service amount) for the ledger, not the grossed-up PayPal charge
+      const paidAmount = parseFloat(paymentData.originalAmount || paymentData.amount);
       await firstValueFrom(
         this.caspioService.post<any>('/tables/LPS_Invoices/records', {
           ProjectID: Number(this.project?.ProjectID),
