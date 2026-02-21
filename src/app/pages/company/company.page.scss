@@ -3174,6 +3174,45 @@ ion-segment.filter-segment {
       &:disabled { opacity: 0.35; cursor: not-allowed; }
     }
   }
+
+  .autopay-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    border: 2px solid var(--noble-orange, #F15A27);
+    border-radius: 8px;
+    background: #f5f5f5;
+    color: #333;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+
+    ion-icon { font-size: 16px; }
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        background: #f5f5f5;
+        color: #333;
+        border-color: var(--noble-orange, #F15A27);
+      }
+    }
+
+    &.primary {
+      background: var(--noble-orange, #F15A27);
+      color: white;
+      border-color: var(--noble-orange, #F15A27);
+
+      @media (hover: hover) and (pointer: fine) {
+        &:hover { background: #d94d1a; border-color: #d94d1a; }
+      }
+      &:disabled { opacity: 0.35; cursor: not-allowed; }
+    }
+  }
 }
 
 // Top-level action button (e.g. add/plus in invoice rows)
