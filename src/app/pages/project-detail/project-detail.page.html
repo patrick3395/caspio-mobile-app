@@ -194,9 +194,10 @@
               <textarea
                 class="deliverable-textarea"
                 [value]="service.InspectorNotes || ''"
-                disabled
-                readonly
-                placeholder=""
+                (blur)="updateDeliverableField(service, 'InspectorNotes', $any($event.target).value)"
+                [disabled]="isReadOnly"
+                [readonly]="isReadOnly"
+                placeholder="Enter notes"
                 rows="2"></textarea>
             </td>
           </tr>
@@ -280,7 +281,7 @@
             +${{ (calculateProjectBalance() * -1) | number:'1.2-2' }}
           </div>
 
-          <button class="pay-now-btn" (click)="openPaymentModal()" *ngIf="calculateProjectBalance() > 0 && !isReadOnly">
+          <button class="pay-now-btn" (click)="openPaymentModal()" *ngIf="calculateProjectBalance() > 0">
             <ion-icon name="card-outline"></ion-icon>
             PAY
           </button>

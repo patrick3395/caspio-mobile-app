@@ -47,6 +47,8 @@ interface ServiceSelection {
   saving?: boolean;
   saved?: boolean;
   serviceFee?: number; // Per-instance fee (editable by admin)
+  invoicePkId?: number; // PK_ID of the positive LPS_Invoices record
+  invoiceFee?: number; // Fee from LPS_Invoices (source of truth for price)
   // Deliverables fields (for CompanyID = 1)
   StatusEng?: string;
   Deliverable?: string; // File URL
@@ -826,6 +828,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Load icon images AFTER selectedServices is populated (don't await - let it run async)
       this.loadIconImages();
 
+      // Map invoice records to services (needs selectedServices populated first)
+      this.refreshInvoiceBalance();
+
       // Process attach templates
       this.attachTemplates = attachTemplatesData || [];
 
@@ -1145,6 +1150,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       }
 
       this.updateDocumentsList();
+
+      // Map invoice records to services (needs selectedServices populated first)
+      this.refreshInvoiceBalance();
     } catch (error) {
       console.error('Error loading existing services:', error);
     }
@@ -1198,6 +1206,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
 
   getServicePrice(service: ServiceSelection): number {
+    // Invoice fee is the source of truth (from LPS_Invoices)
+    if (service.invoiceFee != null) {
+      return service.invoiceFee;
+    }
     if (service.serviceFee != null) {
       return service.serviceFee;
     }
@@ -1219,17 +1231,24 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const cleaned = input.value.replace(/[^0-9.]/g, '');
     const newFee = Math.round((parseFloat(cleaned) || 0) * 100) / 100;
     input.value = newFee > 0 ? newFee.toFixed(2) : '';
-    service.serviceFee = newFee;
 
-    if (!service.serviceId) return;
+    if (!service.invoicePkId) return;
+
+    const oldFee = service.invoiceFee || 0;
 
     try {
-      await this.caspioService.put(
-        `/tables/LPS_Services/records?q.where=PK_ID='${service.serviceId}'`,
-        { ServiceFee: newFee }
-      ).toPromise();
+      await firstValueFrom(
+        this.caspioService.put<any>(
+          `/tables/LPS_Invoices/records?q.where=PK_ID=${service.invoicePkId}`,
+          { Fee: newFee }
+        )
+      );
+
+      service.invoiceFee = newFee;
+      this.projectInvoiceBalance += (newFee - oldFee);
+      this.caspioService.clearInvoicesCache();
     } catch (error) {
-      console.error('[ProjectDetail] Error updating service fee:', error);
+      console.error('[ProjectDetail] Error updating invoice fee:', error);
     }
 
     this.changeDetectorRef.markForCheck();
@@ -1269,6 +1288,14 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           this.projectInvoiceBalance += fee;
           if (fee < 0) {
             this.projectTotalPaid += Math.abs(fee);
+          }
+          // Map positive invoice records to their services by ServiceID
+          if (fee > 0 && invoice.ServiceID) {
+            const svc = this.selectedServices.find(s => Number(s.typeId) === Number(invoice.ServiceID));
+            if (svc) {
+              svc.invoicePkId = invoice.PK_ID;
+              svc.invoiceFee = fee;
+            }
           }
         });
         // Round to 2 decimal places to avoid floating point precision issues (e.g. 0.0000000001 instead of 0)

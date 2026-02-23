@@ -794,6 +794,20 @@ export class CompanyPage implements OnInit, OnDestroy {
     });
 
     try {
+      // Ensure type lookup is populated for service name resolution
+      if (this.typeIdToNameLookup.size === 0) {
+        try {
+          const typeResponse = await firstValueFrom(
+            this.caspioService.get<any>('/tables/LPS_Type/records')
+          );
+          if (typeResponse?.Result) {
+            this.populateTypeLookup(typeResponse.Result);
+          }
+        } catch (e) {
+          console.error('Error loading type lookup for outstanding invoices:', e);
+        }
+      }
+
       // Load projects for this company
       const projectsResponse = await firstValueFrom(
         this.caspioService.get<any>(`/tables/LPS_Projects/records?q.where=CompanyID=${companyId}`)
@@ -863,9 +877,8 @@ export class CompanyPage implements OnInit, OnDestroy {
         totalCharges = Math.round(totalCharges * 100) / 100;
         totalPaid = Math.round(totalPaid * 100) / 100;
 
-        // Include ALL projects with invoices (positive balance = owed, negative = overpaid)
-        // This matches how project-detail shows the balance
-        if (projectBalance !== 0 || totalCharges > 0) {
+        // Only include projects with non-zero balance (positive = owed, negative = overpaid)
+        if (projectBalance !== 0) {
           const shortNames = [...new Set(services.map(s => s.name.substring(0, 15)))].join(', ');
           unpaidProjects.push({
             projectId,
@@ -3605,7 +3618,6 @@ export class CompanyPage implements OnInit, OnDestroy {
       message: 'Are you sure you want to remove the saved payment method? Autopay will be disabled.',
       cssClass: 'custom-document-alert',
       buttons: [
-        { text: 'Cancel', role: 'cancel', cssClass: 'alert-button-cancel' },
         {
           text: 'Remove',
           role: 'destructive',
@@ -3685,7 +3697,8 @@ export class CompanyPage implements OnInit, OnDestroy {
               await loading.dismiss();
             }
           }
-        }
+        },
+        { text: 'Cancel', role: 'cancel', cssClass: 'alert-button-cancel' }
       ]
     });
     await alert.present();
@@ -3781,12 +3794,12 @@ export class CompanyPage implements OnInit, OnDestroy {
         ? `Review complete for ${company.CompanyName}? This will approve and charge their saved payment method for all unpaid invoices.`
         : `Run autopay now for ${company.CompanyName}? This will charge their saved payment method for all unpaid invoices.`,
       buttons: [
-        { text: 'Cancel', role: 'cancel', cssClass: 'alert-button-cancel' },
         {
           text: isReview ? 'Approve & Charge' : 'Run Autopay',
           cssClass: 'alert-button-confirm',
           handler: () => this.executeAutopay(company.CompanyID)
-        }
+        },
+        { text: 'Cancel', role: 'cancel', cssClass: 'alert-button-cancel' }
       ],
       cssClass: 'custom-document-alert'
     });
@@ -5206,8 +5219,13 @@ export class CompanyPage implements OnInit, OnDestroy {
   }
 
   private getServiceNameForInvoice(invoice: InvoiceViewModel): string {
-    // First, try to get service name from invoice's ServiceID
+    // ServiceID in LPS_Invoices stores TypeID directly, so try direct lookup first
     if (invoice.ServiceID !== null) {
+      const directName = this.typeIdToNameLookup.get(invoice.ServiceID);
+      if (directName) {
+        return directName;
+      }
+      // Fallback: try as LPS_Services PK_ID -> TypeID -> TypeName
       const typeId = this.servicesLookup.get(invoice.ServiceID);
       if (typeId !== null && typeId !== undefined) {
         const typeName = this.typeIdToNameLookup.get(typeId);
@@ -5242,6 +5260,11 @@ export class CompanyPage implements OnInit, OnDestroy {
           }
         }
       }
+    }
+
+    // Fallback: use InvoiceNotes if available (e.g., "PayPal Processing Fee")
+    if (invoice.InvoiceNotes && invoice.InvoiceNotes.trim()) {
+      return invoice.InvoiceNotes.trim();
     }
 
     return 'Service Not Specified';
