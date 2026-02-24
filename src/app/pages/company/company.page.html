@@ -644,11 +644,8 @@
                       <span *ngIf="!company.PayPalPayerEmail && !company.StripePaymentMethodID" class="not-provided">No payment method</span>
                     </div>
                     <div class="autopay-inline-actions">
-                      <button class="autopay-action-btn" (click)="openStripeAchModal(company)">
-                        <ion-icon name="link-outline"></ion-icon> Link
-                      </button>
                       <button
-                        class="autopay-action-btn primary"
+                        class="autopay-action-btn"
                         (click)="triggerAutopay(company)"
                         [disabled]="!company.AutopayEnabled || (!company.PayPalVaultToken && !company.StripePaymentMethodID) || getCompanyOutstandingData(company.CompanyID).balance <= 0">
                         {{ company.AutopayReviewRequired ? 'Approve' : 'Run' }}
