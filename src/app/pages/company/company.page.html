@@ -1511,6 +1511,51 @@
         </div>
       </div>
 
+      <!-- Services Collapsible Section -->
+      <div class="collapsible-section">
+        <div class="collapsible-header" (click)="servicesExpanded = !servicesExpanded">
+          <div class="collapsible-title">
+            <ion-icon [name]="servicesExpanded ? 'chevron-down' : 'chevron-forward'"></ion-icon>
+            <h3>Services</h3>
+            <span class="collapsible-count" *ngIf="clientOffers.length">({{ clientOffers.length }})</span>
+          </div>
+          <button *ngIf="clientOffers.length > 0" class="minimal-edit-btn" [class.editing]="editingAllFees" (click)="toggleEditAllFees(); $event.stopPropagation()" [disabled]="savingFees" title="Edit Partner Fees">
+            <ion-spinner *ngIf="savingFees" name="crescent"></ion-spinner>
+            <ion-icon *ngIf="!savingFees" [name]="editingAllFees ? 'checkmark' : 'create-outline'"></ion-icon>
+          </button>
+        </div>
+
+        <div class="collapsible-content" [class.expanded]="servicesExpanded">
+          <div *ngIf="clientOffers.length > 0; else noClientOffers" class="list-table services-table">
+            <div class="list-table-header">
+              <span class="lt-col lt-col-property">Service</span>
+              <span class="lt-col lt-col-amount">Fee</span>
+              <span class="lt-col lt-col-amount">Partner</span>
+            </div>
+            <div class="list-table-row" *ngFor="let offer of clientOffers">
+              <span class="lt-col lt-col-property">{{ offer.typeName }}</span>
+              <span class="lt-col lt-col-amount">
+                <span *ngIf="offer.ServiceFee"><span class="currency-sign">$</span><span class="currency-value">{{ offer.ServiceFee | number:'1.2-2' }}</span></span>
+                <span *ngIf="!offer.ServiceFee">—</span>
+              </span>
+              <span class="lt-col lt-col-amount">
+                <ng-container *ngIf="!editingAllFees">
+                  <span *ngIf="offer.ClientFee"><span class="currency-sign">$</span><span class="currency-value">{{ offer.ClientFee | number:'1.2-2' }}</span></span>
+                  <span *ngIf="!offer.ClientFee">—</span>
+                </ng-container>
+                <div *ngIf="editingAllFees" class="fee-field">
+                  <span class="fee-dollar">$</span>
+                  <input type="text" inputmode="decimal" [value]="formatFee(offer.ClientFee)" (blur)="offer.ClientFee = parseFee($event)" class="form-input fee-input" placeholder="0.00">
+                </div>
+              </span>
+            </div>
+          </div>
+          <ng-template #noClientOffers>
+            <p class="not-provided">No services configured</p>
+          </ng-template>
+        </div>
+      </div>
+
       <!-- Delete Account Section -->
       <div class="collapsible-section delete-account-section">
         <div class="collapsible-header" (click)="deleteAccountExpanded = !deleteAccountExpanded">
@@ -2007,10 +2052,10 @@
             <div class="offers-edit-row" *ngFor="let offer of getCompanyOffers(editingCompany.CompanyID)">
               <span class="offer-col-name">{{ offer.typeName }}</span>
               <span class="offer-col-fee">
-                <div class="fee-field"><span class="fee-dollar">$</span><input type="text" inputmode="decimal" [value]="formatFee(offer.ClientFee)" (blur)="offer.ClientFee = parseFee($event)" class="form-input fee-input" placeholder="0.00"></div>
+                <div class="fee-field"><span class="fee-dollar">$</span><input type="text" inputmode="decimal" [value]="formatFee(offer.ServiceFee)" (blur)="offer.ServiceFee = parseFee($event)" class="form-input fee-input" placeholder="0.00"></div>
               </span>
               <span class="offer-col-fee">
-                <div class="fee-field"><span class="fee-dollar">$</span><input type="text" inputmode="decimal" [value]="formatFee(offer.ServiceFee)" (blur)="offer.ServiceFee = parseFee($event)" class="form-input fee-input" placeholder="0.00"></div>
+                <div class="fee-field"><span class="fee-dollar">$</span><input type="text" inputmode="decimal" [value]="formatFee(offer.ClientFee)" (blur)="offer.ClientFee = parseFee($event)" class="form-input fee-input" placeholder="0.00"></div>
               </span>
               <span class="offer-col-action">
                 <button class="offer-delete-btn" (click)="removeOfferFromCompany(offer, editingCompany.CompanyID)" title="Remove service">
@@ -2545,10 +2590,10 @@
             <div class="offers-edit-row" *ngFor="let offer of newCompanyOffers; let i = index">
               <span class="offer-col-name">{{ offer.typeName }}</span>
               <span class="offer-col-fee">
-                <div class="fee-field"><span class="fee-dollar">$</span><input type="text" inputmode="decimal" [value]="formatFee(offer.ClientFee)" (blur)="offer.ClientFee = parseFee($event)" class="form-input fee-input" placeholder="0.00"></div>
+                <div class="fee-field"><span class="fee-dollar">$</span><input type="text" inputmode="decimal" [value]="formatFee(offer.ServiceFee)" (blur)="offer.ServiceFee = parseFee($event)" class="form-input fee-input" placeholder="0.00"></div>
               </span>
               <span class="offer-col-fee">
-                <div class="fee-field"><span class="fee-dollar">$</span><input type="text" inputmode="decimal" [value]="formatFee(offer.ServiceFee)" (blur)="offer.ServiceFee = parseFee($event)" class="form-input fee-input" placeholder="0.00"></div>
+                <div class="fee-field"><span class="fee-dollar">$</span><input type="text" inputmode="decimal" [value]="formatFee(offer.ClientFee)" (blur)="offer.ClientFee = parseFee($event)" class="form-input fee-input" placeholder="0.00"></div>
               </span>
               <span class="offer-col-action">
                 <button class="offer-delete-btn" (click)="removeOfferFromNewCompany(i)" title="Remove service">
@@ -2569,8 +2614,27 @@
           </div>
         </div>
         <div class="form-section" *ngIf="isCompanyOne">
-          <h4>Users</h4>
-          <p class="no-data-text">Save the company first, then edit it to add users.</p>
+          <div class="section-header-with-action">
+            <h4>Users</h4>
+            <button class="section-add-btn" (click)="openAddUserForNewCompany()">
+              <ion-icon name="add"></ion-icon> Add
+            </button>
+          </div>
+          <div *ngIf="newCompanyUsers.length > 0" class="company-users-list">
+            <div class="company-user-row" *ngFor="let user of newCompanyUsers; let i = index">
+              <div class="user-info">
+                <span class="user-col-name">{{ user.Name }}</span>
+                <span class="user-col-meta">{{ user.Title || '' }}{{ user.Title && user.Email ? ' · ' : '' }}{{ user.Email || '' }}</span>
+                <span class="user-col-phone" *ngIf="user.Phone">{{ formatPhone(user.Phone) }}</span>
+              </div>
+              <span class="user-col-actions">
+                <button class="user-action-btn delete" (click)="removeNewCompanyUser(i)" title="Remove user">
+                  <ion-icon name="trash-outline"></ion-icon>
+                </button>
+              </span>
+            </div>
+          </div>
+          <p *ngIf="newCompanyUsers.length === 0" class="no-data-text">No users</p>
         </div>
       </div>
     </ion-content>
@@ -3121,7 +3185,7 @@
           <div class="form-row">
             <div class="form-field full-width">
               <label>Company</label>
-              <input type="text" class="form-input" [value]="getCompanyName(newUser.CompanyID) || currentUserCompanyName || getCompanyName(currentUserCompanyId)" disabled readonly>
+              <input type="text" class="form-input" [value]="isAddingUserForNewCompany ? (newCompany?.CompanyName || 'New Company') : (getCompanyName(newUser.CompanyID) || currentUserCompanyName || getCompanyName(currentUserCompanyId))" disabled readonly>
             </div>
           </div>
           <div class="form-row">
