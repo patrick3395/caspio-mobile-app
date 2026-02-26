@@ -2458,6 +2458,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
     const alert = await this.alertController.create({
       header: `FDF for ${roomName}`,
       message: 'Please enter a custom FDF value:',
+      cssClass: 'custom-document-alert',
       inputs: [
         {
           name: 'customValue',
@@ -2469,6 +2470,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
       buttons: [
         {
           text: 'Save',
+          cssClass: 'alert-button-confirm',
           handler: async (data) => {
             const customValue = data.customValue?.trim();
 
@@ -2558,6 +2560,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
       {
         text: 'Cancel',
         role: 'cancel',
+        cssClass: 'alert-button-cancel',
         handler: () => {
           // Revert dropdown to previous value if they cancel
           this.roomElevationData[roomName].fdf = previousValue || '';
@@ -3260,6 +3263,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
       buttons: [
         {
           text: 'Save',
+          cssClass: 'alert-button-confirm',
           handler: async (data) => {
             const newName = data.pointName?.trim();
 
@@ -3312,7 +3316,8 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
         },
         {
           text: 'Cancel',
-          role: 'cancel'
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ],
       cssClass: 'custom-document-alert'
@@ -3330,6 +3335,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
         {
           text: 'Delete',
           role: 'destructive',
+          cssClass: 'alert-button-confirm',
           handler: async () => {
             try {
               const pointKey = `${roomName}_${point.name}`;
@@ -3375,7 +3381,8 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
         },
         {
           text: 'Cancel',
-          role: 'cancel'
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ],
       cssClass: 'custom-document-alert'
@@ -4511,10 +4518,11 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
             ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Check network/API connection
           </div>
         `,
-        buttons: ['OK']
+        cssClass: 'custom-document-alert',
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
       });
       await errorAlert.present();
-      
+
       throw error;
     }
   }
@@ -4548,6 +4556,16 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
         cssClass: 'custom-document-alert',
         buttons: [
           {
+            text: 'REMOVE',
+            cssClass: 'alert-button-confirm',
+            handler: async () => {
+              // User confirmed - proceed with deletion
+              event.target.checked = false; // Keep unchecked
+              await this.removeRoom(roomName);
+              return true;
+            }
+          },
+          {
             text: 'CANCEL',
             role: 'cancel',
             cssClass: 'alert-button-cancel',
@@ -4555,16 +4573,6 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
               // User cancelled - revert the checkbox state
               event.target.checked = true; // Revert the checkbox visually
               this.selectedRooms[roomName] = true; // Keep it selected in our model
-              return true;
-            }
-          },
-          {
-            text: 'REMOVE',
-            cssClass: 'alert-button-save',
-            handler: async () => {
-              // User confirmed - proceed with deletion
-              event.target.checked = false; // Keep unchecked
-              await this.removeRoom(roomName);
               return true;
             }
           }
@@ -5290,36 +5298,38 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
       ],
       buttons: [
         {
-          text: 'CANCEL',
-          role: 'cancel'
-        },
-        {
           text: 'SAVE',
+          cssClass: 'alert-button-confirm',
           handler: (data) => {
             const newRoomName = data.newRoomName?.trim();
-            
+
             if (!newRoomName) {
               return false; // Keep alert open
             }
-            
+
             if (newRoomName === oldRoomName) {
               return true; // No change needed
             }
-            
+
             // Check if new name already exists
             const existingRoom = this.roomTemplates.find(r => r.RoomName === newRoomName);
             if (existingRoom) {
               return false; // Keep alert open
             }
-            
+
             // CRITICAL: Verify this room can be renamed
             if (!canRename) {
               return false; // Keep alert open
             }
-            
+
             // Return the data for processing after dismiss
             return { values: { newRoomName } };
           }
+        },
+        {
+          text: 'CANCEL',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ]
     });
@@ -6078,11 +6088,8 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
       ],
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
           text: 'Add',
+          cssClass: 'alert-button-confirm',
           handler: async (data) => {
             if (!data.pointName || data.pointName.trim() === '') {
               await this.showToast('Please enter a measurement name', 'warning');
@@ -6172,10 +6179,15 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
             // Dismiss alert immediately after adding point locally
             return true;
           }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ]
     });
-    
+
     await alert.present();
   }
 
@@ -6546,24 +6558,8 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
       ],
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel',
-          handler: () => {
-            // Revert dropdown to previous value if they cancel
-            const serviceFields = ['InAttendance', 'WeatherConditions', 'OutdoorTemperature', 'OccupancyFurnishings',
-                                   'FirstFoundationType', 'SecondFoundationType', 'ThirdFoundationType',
-                                   'SecondFoundationRooms', 'ThirdFoundationRooms', 'OwnerOccupantInterview'];
-            const projectFields = ['TypeOfBuilding', 'Style'];
-
-            if (serviceFields.includes(fieldName)) {
-              this.serviceData[fieldName] = previousValue || '';
-            } else if (projectFields.includes(fieldName)) {
-              this.projectData[fieldName] = previousValue || '';
-            }
-          }
-        },
-        {
           text: 'Save',
+          cssClass: 'alert-button-confirm',
           handler: (data) => {
             const customValue = data.customValue?.trim();
 
@@ -6613,7 +6609,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
 
               // Force change detection to update the UI
               this.changeDetectorRef.detectChanges();
-              
+
               // Additional blur to ensure dropdown closes on mobile
               setTimeout(() => {
                 const selectElements = document.querySelectorAll('select');
@@ -6626,6 +6622,24 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
             }, 200);
 
             return true; // Close alert immediately
+          }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel',
+          handler: () => {
+            // Revert dropdown to previous value if they cancel
+            const serviceFields = ['InAttendance', 'WeatherConditions', 'OutdoorTemperature', 'OccupancyFurnishings',
+                                   'FirstFoundationType', 'SecondFoundationType', 'ThirdFoundationType',
+                                   'SecondFoundationRooms', 'ThirdFoundationRooms', 'OwnerOccupantInterview'];
+            const projectFields = ['TypeOfBuilding', 'Style'];
+
+            if (serviceFields.includes(fieldName)) {
+              this.serviceData[fieldName] = previousValue || '';
+            } else if (projectFields.includes(fieldName)) {
+              this.projectData[fieldName] = previousValue || '';
+            }
           }
         }
       ]
@@ -7205,11 +7219,6 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
         message: 'Are you sure you want to delete this photo?',
         buttons: [
           {
-            text: 'Cancel',
-            role: 'cancel',
-            cssClass: 'alert-button-cancel'
-          },
-          {
             text: 'Delete',
             cssClass: 'alert-button-confirm',
             handler: async () => {
@@ -7235,6 +7244,11 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
                 await this.showToast('Failed to delete photo', 'danger');
               }
             }
+          },
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            cssClass: 'alert-button-cancel'
           }
         ],
         cssClass: 'custom-document-alert'
@@ -7571,7 +7585,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
         header: 'No Changes to Update',
         message: 'There are no changes to update. Make changes to the report to enable the Update button.',
         cssClass: 'custom-document-alert',
-        buttons: ['OK']
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
       });
       await alert.present();
       return;
@@ -7683,7 +7697,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
         header: 'Incomplete Required Fields',
         message: `The following required fields are not complete:\n\n${incompleteAreas.map(area => `• ${area}`).join('\n')}`,
         cssClass: 'custom-document-alert',
-        buttons: ['OK']
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
       });
       await alert.present();
     } else {
@@ -7701,14 +7715,16 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
         cssClass: 'custom-document-alert',
         buttons: [
           {
-            text: 'Cancel',
-            role: 'cancel'
-          },
-          {
             text: buttonText,
+            cssClass: 'alert-button-confirm',
             handler: () => {
               this.markReportAsFinalized();
             }
+          },
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            cssClass: 'alert-button-cancel'
           }
         ]
       });
@@ -8500,10 +8516,12 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
           </p>
         </div>
       `,
+      cssClass: 'custom-document-alert',
       buttons: [
         {
           text: 'Done',
-          role: 'cancel'
+          role: 'cancel',
+          cssClass: 'alert-button-confirm'
         }
       ]
     });
@@ -8537,9 +8555,11 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
     const alert = await this.alertController.create({
       header: title,
       message: message.replace(/\n/g, '<br>'),
+      cssClass: 'custom-document-alert',
       buttons: [
         {
           text: 'Copy Debug Info',
+          cssClass: 'alert-button-confirm',
           handler: () => {
             // Copy to clipboard
             const textToCopy = message.replace(/<br>/g, '\n');
@@ -8551,7 +8571,8 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
         },
         {
           text: 'OK',
-          role: 'cancel'
+          role: 'cancel',
+          cssClass: 'alert-button-confirm'
         }
       ]
     });
@@ -9533,7 +9554,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
             (answersText ? 'ÃƒÂ¢Ã…Â¾Ã¢â‚¬Â¢ CREATE new Services_Visuals record' : 'ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â No action - no selections')}<br>
         </div>
       `,
-      buttons: ['Continue'],
+      buttons: [{ text: 'Continue', role: 'cancel', cssClass: 'alert-button-confirm' }],
       cssClass: 'wide-alert'
     });
     await debugAlert.present();
@@ -9562,7 +9583,8 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
                   Answers: ${answersText}<br>
                 </div>
               `,
-              buttons: ['OK']
+              cssClass: 'custom-document-alert',
+              buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
             });
             await successAlert.present();
           } catch (updateError: any) {
@@ -9574,7 +9596,8 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
                   ${updateError?.message || updateError}<br>
                 </div>
               `,
-              buttons: ['OK']
+              cssClass: 'custom-document-alert',
+              buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
             });
             await errorAlert.present();
             throw updateError;
@@ -9607,7 +9630,8 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
                 Calling saveVisualSelection...
               </div>
             `,
-            buttons: ['Continue']
+            cssClass: 'custom-document-alert',
+            buttons: [{ text: 'Continue', role: 'cancel', cssClass: 'alert-button-confirm' }]
           });
           await createAlert.present();
           await createAlert.onDidDismiss();
@@ -9626,7 +9650,8 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
                   '<strong style="color: red;">ÃƒÂ¢Ã‚ÂÃ…â€™ NO RECORD CREATED</strong><br><br>Check saveVisualSelection method!'}
               </div>
             `,
-            buttons: ['OK']
+            cssClass: 'custom-document-alert',
+            buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
           });
           await resultAlert.present();
         }
@@ -9645,7 +9670,8 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
                 Cleared answers from Visual ID: ${existingVisualId}
               </div>
             `,
-            buttons: ['OK']
+            cssClass: 'custom-document-alert',
+            buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
           });
           await clearAlert.present();
           // Don't remove the record, just clear the answers
@@ -9658,7 +9684,8 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
                 Nothing to save or update.
               </div>
             `,
-            buttons: ['OK']
+            cssClass: 'custom-document-alert',
+            buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
           });
           await noActionAlert.present();
         }
@@ -9684,10 +9711,11 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
             </div>
           </div>
         `,
-        buttons: ['OK']
+        cssClass: 'custom-document-alert',
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
       });
       await errorAlert.present();
-      
+
       await this.showToast('Failed to save selections', 'danger');
     } finally {
       this.savingItems[key] = false;
@@ -9790,11 +9818,8 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
       inputs: inputs,
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
           text: 'Save',
+          cssClass: 'alert-button-confirm',
           handler: (data) => {
             // For AnswerType 1 (Yes/No), only validate title field
             if (item.answerType === 1) {
@@ -9826,12 +9851,17 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
             }
             return true;
           }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ]
     });
     await alert.present();
   }
-  
+
   // EXACT COPY OF uploadDocument from project-detail
   async uploadDocument(category: string, itemId: string, item: any) {
     // Skip custom action sheet and go directly to native file input
@@ -9863,7 +9893,8 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
       const noIdAlert = await this.alertController.create({
         header: 'ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â Visual Not Saved',
         message: 'Please check the box next to this item to save it first, then try the camera again.',
-        buttons: ['OK']
+        cssClass: 'custom-document-alert',
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
       });
       await noIdAlert.present();
       return;
@@ -10324,6 +10355,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
       if (false && !isBatchUpload) {
         const alert = await this.alertController.create({
           header: 'Services_HUD_Attach Upload Debug',
+        cssClass: 'custom-document-alert',
         message: `
           <div style="text-align: left; font-family: monospace; font-size: 12px;">
             <strong style="color: red;">ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â DEBUG INFO:</strong><br>
@@ -10356,15 +10388,17 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
         `,
         buttons: [
           {
-            text: 'Cancel',
-            role: 'cancel'
-          },
-          {
             text: 'Upload',
+            cssClass: 'alert-button-confirm',
             handler: async () => {
               // Proceed with upload
               await this.performVisualPhotoUpload(visualIdNum, uploadFile, key, false, annotationData, originalPhoto, tempId, caption);
             }
+          },
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            cssClass: 'alert-button-cancel'
           }
         ]
       });
@@ -11002,7 +11036,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
             </div>
           `,
           cssClass: 'debug-alert-wide',
-          buttons: ['OK']
+          buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
         });
         await debugAlert.present();
         
@@ -11076,6 +11110,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
         // Show debug popup with detailed error info
         const alert = await this.alertController.create({
           header: 'ÃƒÂ¢Ã‚ÂÃ…â€™ Debug: Invalid AttachID',
+          cssClass: 'custom-document-alert',
           message: `
             <div style="font-family: monospace; font-size: 12px; text-align: left;">
               <strong style="color: red;">FAILED TO UPDATE - Invalid AttachID</strong><br><br>
@@ -11107,6 +11142,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
           buttons: [
             {
               text: 'Copy Debug Info',
+              cssClass: 'alert-button-confirm',
               handler: () => {
                 const debugText = `Invalid AttachID Debug:
 AttachID: "${attachId}"
@@ -11117,7 +11153,7 @@ Has Annotations: ${!!annotations}`;
                 return false;
               }
             },
-            { text: 'OK', role: 'cancel' }
+            { text: 'OK', role: 'cancel', cssClass: 'alert-button-cancel' }
           ]
         });
         await alert.present();
@@ -11300,6 +11336,7 @@ Has Annotations: ${!!annotations}`;
               // Show error to user
               const alert = await this.alertController.create({
                 header: 'ÃƒÂ¢Ã‚ÂÃ…â€™ Annotation Too Complex',
+                cssClass: 'custom-document-alert',
                 message: `
                   <div style="font-family: monospace; font-size: 12px;">
                     <strong>The annotation data is too large to save.</strong><br><br>
@@ -11313,7 +11350,7 @@ Has Annotations: ${!!annotations}`;
                     ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Clear and redraw with fewer strokes<br>
                   </div>
                 `,
-                buttons: ['OK']
+                buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
               });
               await alert.present();
               throw new Error('Annotation data exceeds 64KB limit');
@@ -11632,6 +11669,7 @@ Original File: ${originalFile?.name || 'None'}`;
       // Show detailed error debug popup
       const errorAlert = await this.alertController.create({
         header: 'ÃƒÂ¢Ã‚ÂÃ…â€™ Update Failed - Error Details',
+        cssClass: 'custom-document-alert',
         message: `
           <div style="font-family: monospace; font-size: 11px; text-align: left;">
             <strong style="color: red;">UPDATE FAILED - DETAILED ERROR</strong><br><br>
@@ -11671,6 +11709,7 @@ Original File: ${originalFile?.name || 'None'}`;
         buttons: [
           {
             text: 'Copy Error Details',
+            cssClass: 'alert-button-confirm',
             handler: async () => {
               const errorText = `Update Failed Error:
 Message: ${error?.message}
@@ -11731,7 +11770,7 @@ Stack: ${error?.stack}`;
               return false;
             }
           },
-          { text: 'OK', role: 'cancel' }
+          { text: 'OK', role: 'cancel', cssClass: 'alert-button-cancel' }
         ]
       });
       await errorAlert.present();
@@ -13101,6 +13140,7 @@ Stack: ${error?.stack}`;
     
     const alert = await this.alertController.create({
       header: 'Visual Creation Debug',
+      cssClass: 'custom-document-alert',
       message: `
         <div style="font-family: monospace; font-size: 12px;">
           <strong style="color: red;">ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â VISUAL CREATION RESPONSE:</strong><br><br>
@@ -13133,7 +13173,7 @@ Stack: ${error?.stack}`;
           </div>
         </div>
       `,
-      buttons: ['OK']
+      buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
     });
     
     await alert.present();

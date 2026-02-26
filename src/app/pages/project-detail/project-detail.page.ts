@@ -139,6 +139,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   // Project balance from LPS_Invoices (sum of all Fee: positive = charges, negative = payments)
   projectTotalPaid: number = 0;
   projectInvoiceBalance: number = 0;
+  private projectInvoiceLines: Array<{ name: string; fee: number }> = [];
 
   // WEBAPP: Cache sorted offers to prevent DOM re-creation
   private sortedOffersCache: any[] = [];
@@ -1282,6 +1283,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       this.projectTotalPaid = 0;
       this.projectInvoiceBalance = 0;
+      this.projectInvoiceLines = [];
       if (invoicesData?.Result) {
         invoicesData.Result.forEach((invoice: any) => {
           const fee = parseFloat(invoice.Fee) || 0;
@@ -1296,6 +1298,21 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               svc.invoicePkId = invoice.PK_ID;
               svc.invoiceFee = fee;
             }
+          }
+          // Collect all positive-fee records as invoice lines for payment modal
+          if (fee > 0) {
+            let name = '';
+            if (invoice.AddedInvoice && String(invoice.AddedInvoice).trim()) {
+              name = String(invoice.AddedInvoice).trim();
+            } else if (invoice.ServiceID) {
+              const svc = this.selectedServices.find(s => Number(s.typeId) === Number(invoice.ServiceID));
+              name = svc?.typeName || 'Service';
+            } else if (invoice.InvoiceNotes && String(invoice.InvoiceNotes).trim()) {
+              name = String(invoice.InvoiceNotes).trim();
+            } else {
+              name = 'Service';
+            }
+            this.projectInvoiceLines.push({ name, fee });
           }
         });
         // Round to 2 decimal places to avoid floating point precision issues (e.g. 0.0000000001 instead of 0)
@@ -1540,7 +1557,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       buttons: [
         {
           text: 'REMOVE',
-          cssClass: 'alert-button-save',
+          cssClass: 'alert-button-confirm',
           handler: async () => {
             await this.performRemoveService(service);
           }
@@ -1552,7 +1569,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
       ]
     });
-    
+
     await alert.present();
   }
 
@@ -1679,7 +1696,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       buttons: [
         {
           text: 'REMOVE',
-          cssClass: 'alert-button-save',
+          cssClass: 'alert-button-confirm',
           handler: async () => {
             // Remove all instances in reverse order
             for (let i = services.length - 1; i >= 0; i--) {
@@ -2811,6 +2828,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         buttons: [
           {
             text: 'Replace',
+            cssClass: 'alert-button-confirm',
             handler: () => {
               this.currentUploadContext = { serviceId, typeId, doc, action: 'replace' };
               this.fileInput.nativeElement.click();
@@ -2818,7 +2836,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           },
           {
             text: 'Cancel',
-            role: 'cancel'
+            role: 'cancel',
+            cssClass: 'alert-button-cancel'
           }
         ]
       });
@@ -3151,6 +3170,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           buttons: [
             {
               text: 'Copy URL',
+              cssClass: 'alert-button-confirm',
               handler: () => {
                 navigator.clipboard.writeText(linkToOpen).then(() => {
                   this.showToast('URL copied to clipboard', 'success');
@@ -3162,13 +3182,15 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             },
             {
               text: 'Open',
+              cssClass: 'alert-button-confirm',
               handler: () => {
                 window.open(linkToOpen, '_blank');
               }
             },
             {
               text: 'Close',
-              role: 'cancel'
+              role: 'cancel',
+              cssClass: 'alert-button-cancel'
             }
           ],
           cssClass: 'custom-document-alert'
@@ -3519,7 +3541,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       buttons: [
         {
           text: 'SAVE',
-          cssClass: 'alert-button-save',
+          cssClass: 'alert-button-confirm',
           handler: async (data) => {
             if (data.documentUrl && data.documentUrl.trim()) {
               await this.addDocumentLink(doc, data.documentUrl.trim());
@@ -3597,7 +3619,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         buttons: [
           {
             text: 'REPLACE',
-            cssClass: 'alert-button-save',
+            cssClass: 'alert-button-confirm',
             handler: () => {
               // Show the URL input popup
               this.showLinkInputPopup(serviceId, doc, true);
@@ -3636,7 +3658,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       buttons: [
         {
           text: isReplacing ? 'REPLACE' : (doc.attachId ? 'UPDATE LINK' : 'SAVE'),
-          cssClass: 'alert-button-save',
+          cssClass: 'alert-button-confirm',
           handler: async (data) => {
             if (data.linkUrl && data.linkUrl.trim()) {
               if (doc.attachId) {
@@ -3757,7 +3779,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       buttons: [
         {
           text: 'SAVE',
-          cssClass: 'alert-button-save',
+          cssClass: 'alert-button-confirm',
           handler: (data) => {
             if (data.documentName && data.documentName.trim()) {
               this.addCustomDocument(data.documentName.trim());
@@ -4253,6 +4275,7 @@ Troubleshooting:
         buttons: [
           {
             text: 'Copy Debug Info',
+            cssClass: 'alert-button-confirm',
             handler: () => {
               // Copy to clipboard
               if (navigator.clipboard) {
@@ -4280,6 +4303,7 @@ Troubleshooting:
           },
           {
             text: 'Try Fresh Token',
+            cssClass: 'alert-button-confirm',
             handler: () => {
               this.caspioService.getValidToken().subscribe(async token => {
                 if (token) {
@@ -4296,7 +4320,8 @@ Troubleshooting:
           },
           {
             text: 'OK',
-            role: 'cancel'
+            role: 'cancel',
+            cssClass: 'alert-button-cancel'
           }
         ],
         cssClass: 'custom-document-alert'
@@ -4466,6 +4491,7 @@ Troubleshooting:
       buttons: [
         {
           text: 'Save',
+          cssClass: 'alert-button-confirm',
           handler: () => {
             const addressInput = document.getElementById('edit-address-input') as HTMLInputElement;
             const cityInput = document.getElementById('edit-city-input') as HTMLInputElement;
@@ -4482,7 +4508,8 @@ Troubleshooting:
         },
         {
           text: 'Cancel',
-          role: 'cancel'
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ]
     });
@@ -4776,7 +4803,7 @@ Troubleshooting:
       const alert = await this.alertController.create({
         header: 'Progress Debug Info',
         message: debugInfo.replace(/\n/g, '<br>'),
-        buttons: ['OK'],
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }],
         cssClass: 'custom-document-alert'
       });
       await alert.present();
@@ -4814,7 +4841,7 @@ Troubleshooting:
     const alert = await this.alertController.create({
       header: "Incomplete Template",
       message: "Please complete required fields before generating the report.",
-      buttons: ["OK"],
+      buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }],
       cssClass: 'custom-document-alert'
     });
 
@@ -4966,6 +4993,7 @@ Troubleshooting:
       buttons: [
         {
           text: 'Copy Debug Info',
+          cssClass: 'alert-button-confirm',
           handler: () => {
             if (navigator.clipboard) {
               navigator.clipboard.writeText(message);
@@ -4975,7 +5003,8 @@ Troubleshooting:
         },
         {
           text: 'OK',
-          role: 'cancel'
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ],
       cssClass: 'custom-document-alert'
@@ -5077,7 +5106,8 @@ Troubleshooting:
           `<br><br><strong>Requirements:</strong><br>` +
           `- Service must have a serviceId (saved to cloud)<br>` +
           `- Type must be EFE, HUD, LBW, or DTE`,
-        buttons: ['OK']
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }],
+        cssClass: 'custom-document-alert'
       });
       await alert.present();
       return;
@@ -5129,7 +5159,8 @@ Troubleshooting:
           message: `All ${errorCount} service(s) failed to sync.<br><br>` +
             `<strong>Errors:</strong><br>` +
             errors.join('<br>'),
-          buttons: ['OK']
+          buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }],
+          cssClass: 'custom-document-alert'
         });
         await alert.present();
       }
@@ -5138,7 +5169,8 @@ Troubleshooting:
       const alert = await this.alertController.create({
         header: 'Sync Error',
         message: `Unexpected error: ${error?.message || error?.toString() || 'Unknown'}`,
-        buttons: ['OK']
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }],
+        cssClass: 'custom-document-alert'
       });
       await alert.present();
     } finally {
@@ -5187,7 +5219,7 @@ Troubleshooting:
     const alert = await this.alertController.create({
       header: 'Attachment Upload Failed',
       message: errorDetails,
-      buttons: ['OK'],
+      buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }],
       cssClass: 'custom-document-alert'
     });
 
@@ -5217,7 +5249,7 @@ Troubleshooting:
       const alert = await this.alertController.create({
         header: 'Error',
         message: 'No project ID available. Cannot update photo.',
-        buttons: ['OK'],
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }],
         cssClass: 'custom-document-alert'
       });
       await alert.present();
@@ -5398,6 +5430,7 @@ ${debugInfo.errorResponse || 'No response body'}
         buttons: [
           {
             text: 'Copy Debug Info',
+            cssClass: 'alert-button-confirm',
             handler: () => {
               // Create a simple text version for copying
               const textVersion = `
@@ -5414,7 +5447,7 @@ Full Error: ${debugInfo.fullError}
 Response: ${debugInfo.errorResponse}
 Time: ${debugInfo.timestamp}
               `;
-              
+
               // Try to copy to clipboard (may not work on all devices)
               if (navigator.clipboard) {
                 navigator.clipboard.writeText(textVersion);
@@ -5424,7 +5457,8 @@ Time: ${debugInfo.timestamp}
           },
           {
             text: 'OK',
-            role: 'cancel'
+            role: 'cancel',
+            cssClass: 'alert-button-cancel'
           }
         ]
       });
@@ -5468,6 +5502,7 @@ Time: ${debugInfo.timestamp}
       buttons: [
         {
           text: 'Open PDF',
+          cssClass: 'alert-button-confirm',
           handler: async (selectedIndex) => {
             const index = typeof selectedIndex === 'number' ? selectedIndex : parseInt(String(selectedIndex), 10);
             const selectedService = savedServices[index];
@@ -5483,7 +5518,8 @@ Time: ${debugInfo.timestamp}
         },
         {
           text: 'Cancel',
-          role: 'cancel'
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ],
       cssClass: 'custom-document-alert'
@@ -5593,7 +5629,8 @@ Time: ${debugInfo.timestamp}
       buttons: [
         {
           text: 'OK',
-          cssClass: 'alert-button-save'
+          role: 'cancel',
+          cssClass: 'alert-button-confirm'
         }
       ]
     });
@@ -5618,13 +5655,15 @@ Time: ${debugInfo.timestamp}
       buttons: [
         {
           text: 'Submit',
+          cssClass: 'alert-button-confirm',
           handler: async () => {
             await this.processReportSubmission(service);
           }
         },
         {
           text: 'Cancel',
-          role: 'cancel'
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ]
     });
@@ -5700,10 +5739,10 @@ Time: ${debugInfo.timestamp}
       return;
     }
 
-    // Build services breakdown (for display only — amount charged is the outstanding balance)
-    const servicesBreakdown = this.selectedServices.map(service => ({
-      name: service.typeName,
-      price: this.getServicePrice(service)
+    // Build services breakdown from actual invoice records (not just selected service types)
+    const servicesBreakdown = this.projectInvoiceLines.map(line => ({
+      name: line.name,
+      price: line.fee
     }));
 
     const modal = await this.modalController.create({
@@ -5810,7 +5849,7 @@ Time: ${debugInfo.timestamp}
       const alert = await this.alertController.create({
         header: 'Payment Successful!',
         message: `Your payment of $${paymentData.amount} has been processed successfully.`,
-        buttons: ['OK'],
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }],
         cssClass: 'custom-document-alert'
       });
       await alert.present();
@@ -5825,7 +5864,7 @@ Time: ${debugInfo.timestamp}
       const alert = await this.alertController.create({
         header: 'Payment Error',
         message: 'Failed to process payment. Please contact support.',
-        buttons: ['OK'],
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }],
         cssClass: 'custom-document-alert'
       });
       await alert.present();

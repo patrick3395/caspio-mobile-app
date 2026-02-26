@@ -879,6 +879,16 @@ export class TemplatePdfService {
       } catch (error) {
         console.error('[PDF] Error converting primary photo:', error);
       }
+    } else if (projectInfo.primaryPhoto.startsWith('http')) {
+      try {
+        const response = await fetch(projectInfo.primaryPhoto);
+        if (response.ok) {
+          const blob = await response.blob();
+          convertedPhotoData = await this.blobToBase64(blob);
+        }
+      } catch (error) {
+        console.error('[PDF] Error fetching primary photo URL:', error);
+      }
     }
 
     if (convertedPhotoData) {

@@ -166,7 +166,8 @@ export class MemoryDiagnosticsService {
             </table>
           </div>
         `,
-        buttons: ['OK']
+        cssClass: 'custom-document-alert',
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
       });
 
       await alert.present();
@@ -198,7 +199,8 @@ export class MemoryDiagnosticsService {
             <p style="margin: 4px 0; font-weight: bold;">Total: ${stats.totalMB.toFixed(2)} MB</p>
           </div>
         `,
-        buttons: ['OK']
+        cssClass: 'custom-document-alert',
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
       });
 
       await alert.present();
@@ -394,21 +396,23 @@ export class MemoryDiagnosticsService {
           <p style="color: #666; font-size: 11px;">Note: iOS may show higher storage in Settings due to WebKit caching.</p>
         </div>
       `,
+      cssClass: 'custom-document-alert',
       buttons: [
         {
           text: 'Clear Orphans',
+          cssClass: 'alert-button-confirm',
           handler: () => {
             this.clearOrphanedBlobs();
           }
         },
         {
           text: 'Clear ALL',
-          cssClass: 'danger',
+          cssClass: 'alert-button-confirm',
           handler: () => {
             this.showAggressiveClearConfirmation();
           }
         },
-        { text: 'OK' }
+        { text: 'OK', role: 'cancel', cssClass: 'alert-button-cancel' }
       ]
     });
     await alert.present();
@@ -444,7 +448,8 @@ export class MemoryDiagnosticsService {
       const alert = await this.alertController.create({
         header: '✅ Orphans Cleared',
         message: `Removed ${clearedCount} orphaned blob(s) (${clearedMB.toFixed(1)} MB)`,
-        buttons: ['OK']
+        cssClass: 'custom-document-alert',
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
       });
       await alert.present();
     }
@@ -471,15 +476,16 @@ export class MemoryDiagnosticsService {
           <p style="margin-top: 8px;">You may need to restart the app for iOS to reclaim space.</p>
         </div>
       `,
+      cssClass: 'custom-document-alert',
       buttons: [
-        { text: 'Cancel', role: 'cancel' },
         {
           text: 'Clear Everything',
-          cssClass: 'danger',
+          cssClass: 'alert-button-confirm',
           handler: () => {
             this.clearAllDataAggressive();
           }
-        }
+        },
+        { text: 'Cancel', role: 'cancel', cssClass: 'alert-button-cancel' }
       ]
     });
     await alert.present();
@@ -535,7 +541,8 @@ export class MemoryDiagnosticsService {
             </p>
           </div>
         `,
-        buttons: ['OK']
+        cssClass: 'custom-document-alert',
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
       });
       await alert.present();
     } catch (err) {
@@ -543,7 +550,8 @@ export class MemoryDiagnosticsService {
       const errorAlert = await this.alertController.create({
         header: 'Clear Failed',
         message: 'Unable to clear all data. Try restarting the app.',
-        buttons: ['OK']
+        cssClass: 'custom-document-alert',
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
       });
       await errorAlert.present();
     }
@@ -576,7 +584,8 @@ export class MemoryDiagnosticsService {
             <p style="margin: 4px 0; font-weight: bold;">Total: ${stats.totalMB.toFixed(2)} MB</p>
           </div>
         `,
-        buttons: ['OK']
+        cssClass: 'custom-document-alert',
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
       });
 
       await alert.present();
@@ -594,7 +603,8 @@ export class MemoryDiagnosticsService {
       const alert = await this.alertController.create({
         header: 'Memory Info',
         message: 'Memory API not available on this device',
-        buttons: ['OK']
+        cssClass: 'custom-document-alert',
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
       });
       await alert.present();
       return;
@@ -612,7 +622,8 @@ export class MemoryDiagnosticsService {
           <p><strong>Usage:</strong> ${usedPercent}%</p>
         </div>
       `,
-      buttons: ['OK']
+      cssClass: 'custom-document-alert',
+      buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
     });
 
     await alert.present();
@@ -708,28 +719,29 @@ export class MemoryDiagnosticsService {
     const alert = await this.alertController.create({
       header,
       message,
+      cssClass: 'custom-document-alert',
       backdropDismiss: !isCritical, // Critical requires action
       buttons: [
         {
           text: 'Details',
-          cssClass: 'secondary',
+          cssClass: 'alert-button-confirm',
           handler: () => {
             this.showDetailedStorageAlert();
             return false; // Keep alert open
           }
         },
         {
-          text: 'Later',
-          role: 'cancel',
-          cssClass: 'secondary'
-        },
-        {
           text: 'Clear Synced Data',
-          cssClass: color,
+          cssClass: 'alert-button-confirm',
           handler: async () => {
             await this.clearAllSyncedData();
             return true;
           }
+        },
+        {
+          text: 'Later',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ]
     });
@@ -822,7 +834,8 @@ export class MemoryDiagnosticsService {
             ${servicesMarked > 0 ? `<p style="margin-top: 8px; color: #666;">${servicesMarked} service(s) will restore data from server when opened.</p>` : ''}
           </div>
         `,
-        buttons: ['OK']
+        cssClass: 'custom-document-alert',
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
       });
       await confirmAlert.present();
 
@@ -833,7 +846,8 @@ export class MemoryDiagnosticsService {
       const errorAlert = await this.alertController.create({
         header: 'Clear Failed',
         message: 'Unable to clear storage. Please try again.',
-        buttons: ['OK']
+        cssClass: 'custom-document-alert',
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
       });
       await errorAlert.present();
 

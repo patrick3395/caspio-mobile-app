@@ -649,6 +649,75 @@ ion-content {
 // Client tab content
 .client-tab-content {
   margin-top: 0;
+
+  .services-table {
+    .list-table-header,
+    .list-table-row {
+      display: grid;
+      align-items: center;
+      padding: 10px 0;
+      grid-template-columns: 2fr 80px 80px;
+    }
+
+    .list-table-header {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 2px solid var(--color-border-default);
+      padding-bottom: 8px;
+    }
+
+    .list-table-row {
+      border-bottom: 1px solid var(--color-border-light);
+      font-size: 14px;
+      color: var(--color-text-primary);
+
+      &:last-child { border-bottom: none; }
+    }
+
+    .lt-col-amount {
+      text-align: right;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 2px;
+
+      .currency-sign { color: var(--color-text-muted); font-weight: 400; }
+      .currency-value { min-width: 70px; text-align: right; font-variant-numeric: tabular-nums; }
+
+      .fee-field {
+        display: flex;
+        align-items: center;
+        border: 1px solid var(--color-border-default);
+        border-radius: 6px;
+        max-width: 90px;
+        overflow: hidden;
+
+        .fee-dollar {
+          padding-left: 6px;
+          font-size: 13px;
+          color: #999;
+          flex-shrink: 0;
+        }
+
+        .fee-input {
+          width: 100%;
+          padding: 4px 6px 4px 2px;
+          font-size: 13px;
+          text-align: right;
+          border: none;
+          outline: none;
+          background: transparent;
+        }
+      }
+    }
+
+    @media (max-width: 400px) {
+      .list-table-header, .list-table-row { grid-template-columns: 1.5fr 65px 65px; }
+    }
+  }
 }
 
 // Collapsible Section (matches Deliverables table on project-detail page)

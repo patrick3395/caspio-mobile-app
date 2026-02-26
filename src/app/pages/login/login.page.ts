@@ -236,7 +236,8 @@ export class LoginPage implements OnInit, OnDestroy {
     const alert = await this.alertController.create({
       header,
       message,
-      buttons: ['OK']
+      cssClass: 'custom-document-alert',
+      buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
     });
     await alert.present();
   }
@@ -245,8 +246,8 @@ export class LoginPage implements OnInit, OnDestroy {
     const alert = await this.alertController.create({
       header: 'Reset Password',
       message: 'Please contact the Admin team at 832-210-1319 or engineering@noble-pi.com',
-      buttons: ['OK'],
-      cssClass: 'custom-alert'
+      buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }],
+      cssClass: 'custom-document-alert'
     });
     await alert.present();
   }

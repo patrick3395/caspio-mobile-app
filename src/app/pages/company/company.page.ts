@@ -416,6 +416,7 @@ export class CompanyPage implements OnInit, OnDestroy {
   private servicesLookup = new Map<number, number>(); // ServiceID -> TypeID
   private servicesByProjectLookup = new Map<number, number[]>(); // ProjectID -> ServiceID[]
   private typeIdToNameLookup = new Map<number, string>(); // TypeID -> TypeName (from Type table)
+  private typeIdToShortLookup = new Map<number, string>(); // TypeID -> TypeShort (e.g. EFE, DCR)
   private offersLookup = new Map<number, number>(); // OffersID -> TypeID
   private contactCountByCompany = new Map<number, number>();
   private taskSummaryByCompany = new Map<number, { open: number; overdue: number; nextDue: Date | null }>();
@@ -541,6 +542,8 @@ export class CompanyPage implements OnInit, OnDestroy {
   editingCompanyContractFile: File | null = null;
   newCompanyOffers: any[] = [];
   newCompanyOfferTypeId: number | null = null;
+  newCompanyUsers: any[] = [];
+  isAddingUserForNewCompany = false;
   editOfferTypeId: number | null = null;
 
   // Add meeting modal
@@ -854,7 +857,7 @@ export class CompanyPage implements OnInit, OnDestroy {
         let totalCharges = 0;
         let totalPaid = 0;
         let latestPaymentDate: string | null = null;
-        const services: Array<{ name: string; fee: number }> = [];
+        const services: Array<{ name: string; shortName: string; fee: number }> = [];
 
         response.Result.forEach((invoice: any) => {
           const fee = parseFloat(invoice.Fee) || 0;
@@ -863,7 +866,10 @@ export class CompanyPage implements OnInit, OnDestroy {
             totalCharges += fee;
             const normalized = this.normalizeInvoiceRecord(invoice);
             const label = this.getInvoiceLineLabel(normalized);
-            services.push({ name: label, fee });
+            // Resolve short name: TypeShort from ServiceID, fallback to truncated label
+            const serviceId = invoice.ServiceID != null ? Number(invoice.ServiceID) : null;
+            const shortName = (serviceId != null ? this.typeIdToShortLookup.get(serviceId) : null) || label;
+            services.push({ name: label, shortName, fee });
           } else if (fee < 0) {
             totalPaid += Math.abs(fee);
             if (invoice.Date && (!latestPaymentDate || new Date(invoice.Date) > new Date(latestPaymentDate))) {
@@ -879,7 +885,7 @@ export class CompanyPage implements OnInit, OnDestroy {
 
         // Only include projects with non-zero balance (positive = owed, negative = overpaid)
         if (projectBalance !== 0) {
-          const shortNames = [...new Set(services.map(s => s.name.substring(0, 15)))].join(', ');
+          const shortNames = [...new Set(services.map(s => s.shortName))].join(', ');
           unpaidProjects.push({
             projectId,
             projectAddress: projectInfo?.address || 'Unknown',
@@ -1996,6 +2002,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     this.newCompanyLogoPreview = null;
     this.newCompanyOffers = this.getDefaultServiceOffers();
     this.newCompanyOfferTypeId = null;
+    this.newCompanyUsers = [];
 
     this.isAddCompanyModalOpen = true;
   }
@@ -2189,51 +2196,67 @@ export class CompanyPage implements OnInit, OnDestroy {
         payload.ServiceArea = this.newCompany.ServiceArea.trim();
       }
 
-      if (this.newCompanyContractFile) {
-        // Convert file to base64 for Caspio file field
+      if (this.newCompany.Notes && this.newCompany.Notes.trim() !== '') {
+        payload.Notes = this.newCompany.Notes.trim();
+      }
+
+      // Logo is small enough to include in initial payload (if no contract)
+      // But contract PDFs can exceed API Gateway 10MB limit, so upload files separately
+      let contractBase64: string | null = null;
+      let logoBase64: string | null = null;
+
+      if (this.newCompanyLogoFile) {
         const reader = new FileReader();
-        await new Promise((resolve, reject) => {
-          reader.onload = () => {
-            payload.Contract = reader.result;
-            resolve(true);
-          };
+        logoBase64 = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(this.newCompanyLogoFile!);
+        });
+        // Include logo in initial payload only if no contract (to stay under size limit)
+        if (!this.newCompanyContractFile) {
+          payload.Logo = logoBase64;
+          logoBase64 = null;
+        }
+      }
+
+      if (this.newCompanyContractFile) {
+        const reader = new FileReader();
+        contractBase64 = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
           reader.onerror = reject;
           reader.readAsDataURL(this.newCompanyContractFile!);
         });
       }
 
-      if (this.newCompanyLogoFile) {
-        const reader = new FileReader();
-        await new Promise((resolve, reject) => {
-          reader.onload = () => {
-            payload.Logo = reader.result;
-            resolve(true);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(this.newCompanyLogoFile!);
-        });
-      }
-
-      if (this.newCompany.Notes && this.newCompany.Notes.trim() !== '') {
-        payload.Notes = this.newCompany.Notes.trim();
-      }
-
-
-      // Create the company via Caspio API
+      // Create the company via Caspio API (without large file attachments)
       const response = await firstValueFrom(
         this.caspioService.post('/tables/LPS_Companies/records', payload)
       );
 
-      // Create service offers for the new company
-      if (this.newCompanyOffers.length > 0) {
-        // Find the new company's ID by reloading and matching by name
-        const tempRecords = await this.fetchTableRecords('Companies', {
-          'q.where': `CompanyName='${this.newCompany.CompanyName.trim().replace(/'/g, "''")}'`,
-          'q.limit': '1'
-        });
-        const newCompanyId = tempRecords.length > 0 ? Number(tempRecords[0].CompanyID ?? tempRecords[0].PK_ID) : null;
+      // Find the new company's ID
+      const tempRecords = await this.fetchTableRecords('Companies', {
+        'q.where': `CompanyName='${this.newCompany.CompanyName.trim().replace(/'/g, "''")}'`,
+        'q.limit': '1'
+      });
+      const newCompanyId = tempRecords.length > 0 ? Number(tempRecords[0].CompanyID ?? tempRecords[0].PK_ID) : null;
 
-        if (newCompanyId) {
+      // Upload contract and logo separately via PUT to avoid API Gateway size limit
+      if (newCompanyId && (contractBase64 || logoBase64)) {
+        const filePayload: any = {};
+        if (contractBase64) filePayload.Contract = contractBase64;
+        if (logoBase64) filePayload.Logo = logoBase64;
+        try {
+          await firstValueFrom(
+            this.caspioService.put(`/tables/LPS_Companies/records?q.where=CompanyID=${newCompanyId}`, filePayload)
+          );
+        } catch (fileErr) {
+          console.error('Error uploading contract/logo:', fileErr);
+        }
+      }
+
+      if (newCompanyId) {
+        // Create service offers for the new company
+        if (this.newCompanyOffers.length > 0) {
           const offerPromises = this.newCompanyOffers.map(offer =>
             firstValueFrom(
               this.caspioService.post('/tables/LPS_Offers/records', {
@@ -2245,6 +2268,44 @@ export class CompanyPage implements OnInit, OnDestroy {
             ).catch(err => console.error('Error creating offer:', err))
           );
           await Promise.all(offerPromises);
+        }
+
+        // Create queued users for the new company
+        if (this.newCompanyUsers.length > 0) {
+          for (const pendingUser of this.newCompanyUsers) {
+            try {
+              const userPayload: any = {
+                CompanyID: newCompanyId,
+                Name: pendingUser.Name
+              };
+              if (pendingUser.Email) userPayload.Email = pendingUser.Email;
+              if (pendingUser.Phone) userPayload.Phone = pendingUser.Phone;
+              if (pendingUser.Title) userPayload.Title = pendingUser.Title;
+              if (pendingUser.Headshot) userPayload.Headshot = pendingUser.Headshot;
+
+              const userResponse: any = await firstValueFrom(
+                this.caspioService.post('/tables/LPS_Users/records?response=rows', userPayload)
+              );
+
+              // Set password via separate PUT if provided
+              if (pendingUser.Password) {
+                const newUserRecord = userResponse?.Result?.[0];
+                if (newUserRecord) {
+                  const userId = newUserRecord.UserID || newUserRecord.PK_ID;
+                  await firstValueFrom(
+                    this.caspioService.put(`/tables/LPS_Users/records?q.where=PK_ID=${userId}`, { Password: pendingUser.Password })
+                  );
+                }
+              }
+            } catch (userErr) {
+              console.error('Error creating user for new company:', userErr);
+            }
+          }
+
+          // Reload users so new users appear in UI
+          const userRecords = await this.fetchTableRecords('Users', { 'q.orderBy': 'Name', 'q.limit': '2000' });
+          this.allUsers = userRecords;
+          this.applyUserFilters();
         }
       }
 
@@ -2426,8 +2487,60 @@ export class CompanyPage implements OnInit, OnDestroy {
     return this.allUsers.filter(u => Number(u.CompanyID) === companyId);
   }
 
+  openAddUserForNewCompany() {
+    this.isAddingUserForNewCompany = true;
+    this.newUser = {
+      CompanyID: null,
+      Name: '',
+      Email: '',
+      Phone: '',
+      Password: '',
+      Title: ''
+    };
+    this.newUserHeadshotFile = null;
+    this.newUserHeadshotPreview = null;
+    this.isAddUserModalOpen = true;
+  }
+
+  async saveUserForNewCompany() {
+    if (!this.newUser.Name || this.newUser.Name.trim() === '') {
+      await this.showToast('Please enter a user name', 'warning');
+      return;
+    }
+
+    const pendingUser: any = {
+      Name: this.newUser.Name.trim(),
+      Email: this.newUser.Email ? this.newUser.Email.trim() : '',
+      Phone: this.newUser.Phone ? this.newUser.Phone.trim() : '',
+      Password: this.newUser.Password ? this.newUser.Password.trim() : '',
+      Title: this.newUser.Title ? this.newUser.Title.trim() : ''
+    };
+
+    // Convert headshot to base64 now since File ref won't persist
+    if (this.newUserHeadshotFile) {
+      const reader = new FileReader();
+      await new Promise((resolve, reject) => {
+        reader.onload = () => {
+          pendingUser.Headshot = reader.result;
+          resolve(true);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(this.newUserHeadshotFile!);
+      });
+    }
+
+    this.newCompanyUsers.push(pendingUser);
+    this.closeAddUserModal();
+    await this.showToast('User added', 'success');
+  }
+
+  removeNewCompanyUser(index: number) {
+    this.newCompanyUsers.splice(index, 1);
+  }
+
   closeAddUserModal() {
     this.isAddUserModalOpen = false;
+    this.isAddingUserForNewCompany = false;
     this.newUserHeadshotFile = null;
     this.newUserHeadshotPreview = null;
   }
@@ -2448,6 +2561,12 @@ export class CompanyPage implements OnInit, OnDestroy {
 
   async saveNewUser() {
     if (!this.newUser) {
+      return;
+    }
+
+    // If adding user for a new company, queue instead of saving to API
+    if (this.isAddingUserForNewCompany) {
+      await this.saveUserForNewCompany();
       return;
     }
 
@@ -3732,7 +3851,7 @@ export class CompanyPage implements OnInit, OnDestroy {
         const alert = await this.alertController.create({
           header: 'Autopay Ready',
           message: `${this.autopayDueCompanies.length} company(s) have outstanding balances with autopay enabled: ${companyNames}. Go to each company profile to review and manually run their payment.`,
-          buttons: ['OK'],
+          buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }],
           cssClass: 'custom-document-alert'
         });
         await alert.present();
@@ -4165,10 +4284,11 @@ export class CompanyPage implements OnInit, OnDestroy {
     const alert = await this.alertController.create({
       header: 'Select Project to Pay',
       inputs,
+      cssClass: 'custom-document-alert',
       buttons: [
-        { text: 'Cancel', role: 'cancel' },
         {
           text: 'Continue',
+          cssClass: 'alert-button-confirm',
           handler: async (selectedProjectId: string) => {
             if (!selectedProjectId) return false;
             const project = unpaidProjects.find(p => String(p.projectId) === selectedProjectId);
@@ -4258,9 +4378,9 @@ export class CompanyPage implements OnInit, OnDestroy {
             }
             return true;
           }
-        }
-      ],
-      cssClass: 'custom-document-alert'
+        },
+        { text: 'Cancel', role: 'cancel', cssClass: 'alert-button-cancel' }
+      ]
     });
 
     await alert.present();
@@ -5607,7 +5727,17 @@ export class CompanyPage implements OnInit, OnDestroy {
   }
 
   getDefaultServiceOffers(): any[] {
-    // Collect all unique TypeIDs from existing offers
+    // Use CompanyID 367 offers as the template with pre-filled fees
+    const templateOffers = this.getCompanyOffers(367);
+    if (templateOffers.length > 0) {
+      return templateOffers.map(offer => ({
+        TypeID: Number(offer.TypeID),
+        typeName: offer.typeName || 'Unknown',
+        ServiceFee: Number(offer.ServiceFee) || 0,
+        ClientFee: Number(offer.ClientFee) || 0
+      })).sort((a, b) => a.typeName.localeCompare(b.typeName));
+    }
+    // Fallback: find common types across companies
     const typeIdCounts = new Map<number, number>();
     this.allOffers.forEach(offer => {
       const typeId = Number(offer.TypeID);
@@ -5615,7 +5745,6 @@ export class CompanyPage implements OnInit, OnDestroy {
         typeIdCounts.set(typeId, (typeIdCounts.get(typeId) || 0) + 1);
       }
     });
-    // Use types that appear for at least 2 companies (common services)
     const threshold = Math.min(2, this.companies.length);
     const defaults: any[] = [];
     typeIdCounts.forEach((count, typeId) => {
@@ -5624,7 +5753,6 @@ export class CompanyPage implements OnInit, OnDestroy {
         defaults.push({ TypeID: typeId, typeName, ServiceFee: 0, ClientFee: 0 });
       }
     });
-    // If no common services found, include all types
     if (defaults.length === 0) {
       this.typeIdToNameLookup.forEach((name, id) => {
         defaults.push({ TypeID: id, typeName: name, ServiceFee: 0, ClientFee: 0 });
@@ -7153,13 +7281,18 @@ export class CompanyPage implements OnInit, OnDestroy {
 
   private populateTypeLookup(records: any[]) {
     this.typeIdToNameLookup.clear();
+    this.typeIdToShortLookup.clear();
 
     records.forEach(record => {
       const typeId = record.TypeID !== undefined && record.TypeID !== null ? Number(record.TypeID) : null;
       const typeName = record.TypeName ?? '';
+      const typeShort = record.TypeShort ?? '';
 
       if (typeId !== null && typeName) {
         this.typeIdToNameLookup.set(typeId, typeName);
+      }
+      if (typeId !== null && typeShort) {
+        this.typeIdToShortLookup.set(typeId, typeShort);
       }
     });
   }
@@ -7882,7 +8015,8 @@ export class CompanyPage implements OnInit, OnDestroy {
       const alert = await this.alertController.create({
         header: 'Request Received',
         message: 'The admin team will reach out to you to complete the account deletion process.',
-        buttons: ['OK']
+        cssClass: 'custom-document-alert',
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
       });
       await alert.present();
     }

@@ -1126,14 +1126,20 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
     const alert = await this.alertController.create({
       header: 'Delete Photo',
       message: 'Are you sure you want to delete this photo?',
+      cssClass: 'custom-document-alert',
       buttons: [
-        { text: 'Cancel', role: 'cancel' },
         {
           text: 'Delete',
           role: 'destructive',
+          cssClass: 'alert-button-confirm',
           handler: async () => {
             await this.confirmDeletePhoto(photo);
           }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ]
     });

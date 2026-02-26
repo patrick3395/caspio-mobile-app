@@ -257,16 +257,18 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
       buttons: [
         {
           text: 'Clear',
+          cssClass: 'alert-button-confirm',
           handler: () => {
             this.debugLogs = [];
           }
         },
         {
           text: 'Close',
-          role: 'cancel'
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ],
-      cssClass: 'debug-alert'
+      cssClass: 'custom-document-alert'
     });
     await alert.present();
   }
@@ -7537,12 +7539,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
     const alert = await this.alertController.create({
       header: 'Edit Description' + (item.required ? ' (Required)' : ''),
-      cssClass: 'text-editor-modal',
+      cssClass: 'custom-document-alert text-editor-modal',
       inputs: inputs,
       buttons: [
         {
           text: 'Save',
-          cssClass: 'editor-save-btn',
+          cssClass: 'alert-button-confirm',
           handler: async (data) => {
             // Validate required fields
             if (item.required && !data.description) {
@@ -7600,7 +7602,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         {
           text: 'Cancel',
           role: 'cancel',
-          cssClass: 'editor-cancel-btn'
+          cssClass: 'alert-button-cancel'
         }
       ]
     });

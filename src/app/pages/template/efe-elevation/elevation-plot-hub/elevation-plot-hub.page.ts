@@ -975,7 +975,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
 
     const alert = await this.alertController.create({
       header: 'Rename Room',
-      cssClass: 'custom-other-alert',
+      cssClass: 'custom-document-alert',
       inputs: [
         {
           name: 'newRoomName',
@@ -987,6 +987,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       buttons: [
         {
           text: 'SAVE',
+          cssClass: 'alert-button-confirm',
           handler: (data) => {
             const newRoomName = data.newRoomName?.trim();
 
@@ -1016,7 +1017,8 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         },
         {
           text: 'CANCEL',
-          role: 'cancel'
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ]
     });
@@ -1517,7 +1519,8 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         },
         {
           text: 'Cancel',
-          role: 'cancel'
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ]
     });

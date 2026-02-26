@@ -246,7 +246,7 @@ export class GenericMainPage implements OnInit, OnDestroy {
           header: 'Incomplete Required Fields',
           message: `Please complete the following required fields:\n\n${fieldsList}`,
           cssClass: 'custom-document-alert incomplete-fields-alert',
-          buttons: ['OK']
+          buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
         });
         await alert.present();
       } else {
@@ -258,9 +258,10 @@ export class GenericMainPage implements OnInit, OnDestroy {
           buttons: [
             {
               text: 'Finalize',
+              cssClass: 'alert-button-confirm',
               handler: () => this.markReportAsFinalized()
             },
-            { text: 'Cancel', role: 'cancel' }
+            { text: 'Cancel', role: 'cancel', cssClass: 'alert-button-cancel' }
           ]
         });
         await alert.present();
@@ -271,7 +272,8 @@ export class GenericMainPage implements OnInit, OnDestroy {
       const alert = await this.alertController.create({
         header: 'Validation Error',
         message: 'An error occurred while validating the report. Please try again.',
-        buttons: ['OK']
+        cssClass: 'custom-document-alert',
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
       });
       await alert.present();
     }
@@ -318,6 +320,7 @@ export class GenericMainPage implements OnInit, OnDestroy {
         cssClass: 'custom-document-alert',
         buttons: [{
           text: 'OK',
+          cssClass: 'alert-button-confirm',
           handler: () => {
             this.router.navigate(['/project', this.projectId]);
           }
@@ -333,7 +336,7 @@ export class GenericMainPage implements OnInit, OnDestroy {
         header: 'Error',
         message: 'An error occurred while finalizing the report. Please try again.',
         cssClass: 'custom-document-alert',
-        buttons: ['OK']
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
       });
       await errorAlert.present();
     } finally {

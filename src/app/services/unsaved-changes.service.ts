@@ -123,25 +123,26 @@ export class UnsavedChangesService {
       const alert = await this.alertController.create({
         header: 'Unsaved Changes',
         message: 'You have unsaved changes. Are you sure you want to leave this page? Your changes will be lost.',
+        cssClass: 'custom-document-alert',
         backdropDismiss: false,
         buttons: [
           {
-            text: 'Stay',
-            role: 'cancel',
-            cssClass: 'secondary',
-            handler: () => {
-              this.isShowingDialog = false;
-              resolve(false);
-            }
-          },
-          {
             text: 'Leave',
             role: 'destructive',
-            cssClass: 'danger',
+            cssClass: 'alert-button-confirm',
             handler: () => {
               this.isShowingDialog = false;
               this.markClean(); // Clear dirty state since user is leaving
               resolve(true);
+            }
+          },
+          {
+            text: 'Stay',
+            role: 'cancel',
+            cssClass: 'alert-button-cancel',
+            handler: () => {
+              this.isShowingDialog = false;
+              resolve(false);
             }
           }
         ]

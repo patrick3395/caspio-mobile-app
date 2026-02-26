@@ -666,7 +666,8 @@ export class AllProjectsPage implements OnInit, OnDestroy {
     const alert = await this.alertController.create({
       header: 'Error',
       message: message,
-      buttons: ['OK']
+      buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }],
+      cssClass: 'custom-document-alert'
     });
     await alert.present();
   }
@@ -812,11 +813,8 @@ export class AllProjectsPage implements OnInit, OnDestroy {
       message: 'Are you sure you want to logout?',
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
           text: 'Logout',
+          cssClass: 'alert-button-confirm',
           handler: () => {
             // G2-SEC-002: Clear all auth data on logout (web only)
             if (environment.isWeb) {
@@ -832,8 +830,14 @@ export class AllProjectsPage implements OnInit, OnDestroy {
             // Navigate to login
             this.router.navigate(['/login']);
           }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
-      ]
+      ],
+      cssClass: 'custom-document-alert'
     });
 
     await alert.present();

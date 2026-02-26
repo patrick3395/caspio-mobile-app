@@ -393,7 +393,10 @@ export class HelpModalComponent implements OnInit {
         this.title = helpData.Title;
       }
 
-      // Fetch actual image data for each help image
+      // Fetch actual image data for each help image (skip HelpID 3 — image path 404s)
+      if (this.helpId === 3) {
+        this.helpImages = [];
+      }
       if (this.helpImages && this.helpImages.length > 0) {
 
         // Fetch each image as base64
@@ -470,9 +473,11 @@ export class HelpModalComponent implements OnInit {
     const alert = await this.alertController.create({
       header: title,
       message: message.replace(/\n/g, '<br>'),
+      cssClass: 'custom-document-alert',
       buttons: [
         {
           text: 'Copy Debug Info',
+          cssClass: 'alert-button-confirm',
           handler: () => {
             const textToCopy = message.replace(/<br>/g, '\n').replace(/<[^>]*>/g, '');
             if (navigator.clipboard) {
@@ -483,7 +488,8 @@ export class HelpModalComponent implements OnInit {
         },
         {
           text: 'OK',
-          role: 'cancel'
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ]
     });

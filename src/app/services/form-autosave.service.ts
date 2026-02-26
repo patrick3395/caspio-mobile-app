@@ -254,16 +254,17 @@ export class FormAutosaveService {
     const alert = await this.alertController.create({
       header: 'Restore Form Data?',
       message: `You have unsaved form data from ${timeAgo}. Would you like to restore it?`,
+      cssClass: 'custom-document-alert',
       buttons: [
-        {
-          text: 'Discard',
-          role: 'cancel',
-          cssClass: 'secondary'
-        },
         {
           text: 'Restore',
           role: 'confirm',
-          cssClass: 'primary'
+          cssClass: 'alert-button-confirm'
+        },
+        {
+          text: 'Discard',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ]
     });

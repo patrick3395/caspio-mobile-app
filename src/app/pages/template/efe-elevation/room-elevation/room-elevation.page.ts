@@ -4747,6 +4747,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       buttons: [
         {
           text: 'Delete',
+          cssClass: 'alert-button-confirm',
           handler: async () => {
             // DEXIE-FIRST: Delete from Dexie tables first, then queue backend sync
             const photoKey = photoType.toLowerCase();
@@ -4890,7 +4891,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         },
         {
           text: 'Cancel',
-          role: 'cancel'
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ],
       cssClass: 'custom-document-alert'
@@ -5001,6 +5003,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         buttons: [
           {
             text: 'Add',
+            cssClass: 'alert-button-confirm',
             handler: (data) => {
               if (!data.pointName || !data.pointName.trim()) {
                 // Show error message by recreating the alert
@@ -5016,7 +5019,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           },
           {
             text: 'Cancel',
-            role: 'cancel'
+            role: 'cancel',
+            cssClass: 'alert-button-cancel'
           }
         ],
         cssClass: showError ? 'custom-document-alert add-point-error' : 'custom-document-alert'
@@ -5090,6 +5094,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       buttons: [
         {
           text: 'Save',
+          cssClass: 'alert-button-confirm',
           handler: (data) => {
             const newName = data.pointName?.trim();
 
@@ -5107,16 +5112,17 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         },
         {
           text: 'Cancel',
-          role: 'cancel'
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ],
       cssClass: 'custom-document-alert'
     });
 
     await alert.present();
-    
+
     const result = await alert.onDidDismiss();
-    
+
     // Process save after alert is dismissed
     if (result.role !== 'cancel' && result.data?.values?.newName) {
       const newName = result.data.values.newName;
@@ -5197,20 +5203,22 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       buttons: [
         {
           text: 'Delete',
-          role: 'destructive'
+          role: 'destructive',
+          cssClass: 'alert-button-confirm'
         },
         {
           text: 'Cancel',
-          role: 'cancel'
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ],
       cssClass: 'custom-document-alert'
     });
 
     await alert.present();
-    
+
     const result = await alert.onDidDismiss();
-    
+
     // Only process if user clicked Delete
     if (result.role === 'destructive') {
       try {
@@ -5778,11 +5786,13 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         buttons: [
           {
             text: 'Replace',
+            cssClass: 'alert-button-confirm',
             handler: () => resolve(true)
           },
           {
             text: 'Cancel',
             role: 'cancel',
+            cssClass: 'alert-button-cancel',
             handler: () => resolve(false)
           }
         ],
@@ -5879,6 +5889,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       buttons: [
         {
           text: 'Delete',
+          cssClass: 'alert-button-confirm',
           handler: async () => {
             try {
               // 1. Remove from local array IMMEDIATELY (optimistic UI update)
@@ -5964,7 +5975,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         },
         {
           text: 'Cancel',
-          role: 'cancel'
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ],
       cssClass: 'custom-document-alert'

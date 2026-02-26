@@ -492,8 +492,8 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
             const serviceObjects = projectServices.map((service: any) => {
               const serviceType = this.serviceTypes.find(t => t.TypeID === service.TypeID);
               const shortCode = serviceType?.TypeShort || serviceType?.TypeName || 'Unknown';
-              // Use StatusID to look up Status_Client for client-facing display
-              const status = this.getStatusClientById(service.StatusID) || service.Status || 'Not Started';
+              // Use StatusID to look up status — Status_Admin for admin, Status_Client for clients
+              const status = this.getStatusById(service.StatusID) || service.Status || 'Not Started';
               return { shortCode, status };
             }).filter(obj => obj.shortCode && obj.shortCode !== 'Unknown');
 
@@ -556,17 +556,22 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
   }
 
   /**
-   * Get Status_Client value by StatusID lookup (for client-facing display)
+   * Get status value by StatusID lookup — Status_Admin for admin (CompanyID=1), Status_Client for clients
    */
-  private getStatusClientById(statusId: number | undefined): string {
+  private getStatusById(statusId: number | undefined): string {
     if (!statusId && statusId !== 0) {
       return '';
     }
     // Use string comparison to handle potential type mismatches from Caspio API
     const statusIdStr = String(statusId);
     const statusRecord = this.statusOptions.find(s => String(s.StatusID) === statusIdStr);
-    if (statusRecord && statusRecord.Status_Client) {
-      return statusRecord.Status_Client;
+    if (statusRecord) {
+      if (this.isAdminView && statusRecord.Status_Admin) {
+        return statusRecord.Status_Admin;
+      }
+      if (statusRecord.Status_Client) {
+        return statusRecord.Status_Client;
+      }
     }
     return '';
   }
@@ -800,16 +805,16 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
       message: `Are you sure you want to archive the project at ${project.Address}?`,
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel',
-          cssClass: 'alert-button-cancel'
-        },
-        {
           text: 'Archive',
           cssClass: 'alert-button-confirm',
           handler: async () => {
             await this.performProjectDeletion(project);
           }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ],
       cssClass: 'custom-document-alert'
@@ -820,7 +825,8 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
 
   async performProjectDeletion(project: Project) {
     const loading = await this.alertController.create({
-      message: 'Archiving project...'
+      message: 'Archiving project...',
+      cssClass: 'custom-document-alert'
     });
     await loading.present();
 
@@ -840,7 +846,8 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
 
       const toast = await this.alertController.create({
         message: 'Project archived successfully',
-        buttons: ['OK']
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }],
+        cssClass: 'custom-document-alert'
       });
       await toast.present();
       setTimeout(() => toast.dismiss(), 2000);
@@ -851,7 +858,8 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
       const errorAlert = await this.alertController.create({
         header: 'Error',
         message: 'Failed to archive project. Please try again.',
-        buttons: ['OK']
+        buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }],
+        cssClass: 'custom-document-alert'
       });
       await errorAlert.present();
     }
@@ -1112,11 +1120,8 @@ URL Attempted: ${imgUrl}`;
       message: 'Are you sure you want to logout?',
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
           text: 'Logout',
+          cssClass: 'alert-button-confirm',
           handler: () => {
             // G2-SEC-002: Clear all auth data on logout (web only)
             if (environment.isWeb) {
@@ -1132,8 +1137,14 @@ URL Attempted: ${imgUrl}`;
             // Navigate to login
             this.router.navigate(['/login']);
           }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
-      ]
+      ],
+      cssClass: 'custom-document-alert'
     });
 
     await alert.present();

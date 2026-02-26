@@ -380,7 +380,7 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit, OnDes
       header: 'Payment Successful',
       message: message,
       cssClass: 'custom-document-alert',
-      buttons: ['OK']
+      buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
     });
     await alert.present();
   }
@@ -390,7 +390,7 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit, OnDes
       header: 'Payment Method Saved',
       message: `Your PayPal account (${payerEmail}) has been saved for autopay. Future invoices will be automatically charged to this account.`,
       cssClass: 'custom-document-alert',
-      buttons: ['OK']
+      buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
     });
     await alert.present();
   }
@@ -400,7 +400,7 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit, OnDes
       header: 'Payment Cancelled',
       message: 'You have cancelled the payment process.',
       cssClass: 'custom-document-alert',
-      buttons: ['OK']
+      buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
     });
     await alert.present();
   }
@@ -410,7 +410,7 @@ export class PaypalPaymentModalComponent implements OnInit, AfterViewInit, OnDes
       header: 'Payment Error',
       message: message,
       cssClass: 'custom-document-alert',
-      buttons: ['OK']
+      buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }]
     });
     await alert.present();
   }
