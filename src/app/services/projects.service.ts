@@ -123,12 +123,11 @@ export class ProjectsService {
   }
 
   getActiveProjectsByInspector(userId: number, companyId: number): Observable<Project[]> {
-    // Fetch all active company projects, then filter to:
-    // - projects assigned to this inspector (AssignTo matches userId)
-    // - unassigned projects (AssignTo is null/undefined/0)
+    // Fetch all active company projects, then filter to only
+    // projects specifically assigned to this inspector
     return this.getActiveProjects(companyId).pipe(
       map(projects => projects.filter(p =>
-        !p.AssignTo || p.AssignTo === userId
+        p.AssignTo && Number(p.AssignTo) === userId
       ))
     );
   }
