@@ -28,6 +28,7 @@ export interface Project {
   Notes?: string;
   OffersID?: number;
   Status?: string;
+  AssignTo?: number;
   [key: string]: any;
 }
 
@@ -114,6 +115,28 @@ export class ProjectsService {
       map(response => response.Result || []),
       tap(projects => {
         // Cache the results (only useful for mobile; web always fetches fresh)
+        if (!environment.isWeb) {
+          this.cache.set(cacheKey, projects, this.cache.CACHE_TIMES.MEDIUM, true);
+        }
+      })
+    );
+  }
+
+  getActiveProjectsByInspector(userId: number, companyId: number): Observable<Project[]> {
+    const cacheKey = this.cache.getApiCacheKey('projects_active_inspector', { userId, companyId });
+
+    if (!environment.isWeb) {
+      const cached = this.cache.get(cacheKey);
+      if (cached) {
+        return of(cached);
+      }
+    }
+
+    const whereClause = `StatusID%3D7%20AND%20CompanyID%3D${companyId}%20AND%20AssignTo%3D${userId}`;
+
+    return this.caspioService.get<any>(`/tables/LPS_Projects/records?q.where=${whereClause}`).pipe(
+      map(response => response.Result || []),
+      tap(projects => {
         if (!environment.isWeb) {
           this.cache.set(cacheKey, projects, this.cache.CACHE_TIMES.MEDIUM, true);
         }

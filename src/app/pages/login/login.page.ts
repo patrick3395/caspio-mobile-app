@@ -193,9 +193,11 @@ export class LoginPage implements OnInit, OnDestroy {
     // Store user info and auth status
     localStorage.setItem('currentUser', JSON.stringify({
       id: user.PK_ID || user.UserID,
+      userId: user.UserID,
       name: user.Name,
       email: user.Email,
-      companyId: user.CompanyID
+      companyId: user.CompanyID,
+      title: user.Title || ''
     }));
     
     // Store auth token (use Caspio token if available)

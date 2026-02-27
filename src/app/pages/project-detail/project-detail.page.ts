@@ -162,8 +162,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   currentDeliverableUpload: any = null;
   statusOptions: any[] = [];
   isCompanyOne = false; // Track if logged-in user is CompanyID = 1
+  isInspector = false; // Track if logged-in user has Title = 'Inspector'
   projectCompanyId: string = '1'; // Store the project's CompanyID for API calls
   projectCompanyName: string = ''; // Store the project's company name (for admin view)
+  inspectorUsers: any[] = []; // Inspector users for this company (for assignment dropdown)
+  assignedInspectorId: number | null = null; // Current AssignTo value (a UserID)
   expandedDeliverables: Set<string> = new Set(); // Track which deliverables are expanded (by unique key)
   
   // Track changes since last submission (by serviceId)
@@ -228,6 +231,19 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.projectTotalPaid = cached.projectTotalPaid || 0;
       this.projectInvoiceBalance = cached.projectInvoiceBalance || 0;
       this.statusOptions = ProjectDetailPage.deepClone(cached.statusOptions || []);
+
+      // Derive inspector state from localStorage and project data
+      const userStr = localStorage.getItem('currentUser');
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          this.isInspector = (user.title || '').toLowerCase() === 'inspector';
+        } catch (e) { /* silent */ }
+      }
+      this.assignedInspectorId = this.project?.AssignTo || null;
+      if (!this.isInspector) {
+        this.loadCompanyInspectors();
+      }
 
       // Apply pending finalized service flag if present (from cache restoration)
       if (this.pendingFinalizedServiceId) {
@@ -635,11 +651,15 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         try {
           const user = JSON.parse(userStr);
           userCompanyId = user.companyId || user.CompanyID || 0;
+          this.isInspector = (user.title || '').toLowerCase() === 'inspector';
         } catch (e) {
           console.error('Error parsing user data:', e);
         }
       }
       this.isCompanyOne = userCompanyId === 1;
+
+      // Set current AssignTo value from project data
+      this.assignedInspectorId = projectData?.AssignTo || null;
 
       // Admin (CompanyID=1) can always edit completed projects
       if (this.isCompanyOne && this.isReadOnly) {
@@ -673,6 +693,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Load company name for admin view
       if (this.isCompanyOne && projectCompanyId) {
         promises.push(this.caspioService.get<any>(`/tables/LPS_Companies/records?q.where=CompanyID=${projectCompanyId}`).toPromise());
+      }
+
+      // Load inspector users for assignment dropdown (non-inspector, non-admin users)
+      if (!this.isInspector) {
+        this.loadCompanyInspectors();
       }
 
       const results = await Promise.allSettled(promises);
@@ -906,11 +931,15 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           try {
             const user = JSON.parse(userStr);
             userCompanyId = user.companyId || user.CompanyID || 0;
+            this.isInspector = (user.title || '').toLowerCase() === 'inspector';
           } catch (e) {
             console.error('Error parsing user data:', e);
           }
         }
         this.isCompanyOne = userCompanyId === 1;
+
+        // Set current AssignTo value from project data
+        this.assignedInspectorId = project.AssignTo || null;
 
         // Admin (CompanyID=1) can always edit completed projects
         if (this.isCompanyOne && this.isReadOnly) {
@@ -932,6 +961,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
 
         if (this.isReadOnly) {
+        }
+
+        // Load inspector users for assignment dropdown (non-inspector users)
+        if (!this.isInspector) {
+          this.loadCompanyInspectors();
         }
 
         // Load offers first, then services (services need offers to match properly)
@@ -4469,6 +4503,39 @@ Troubleshooting:
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  /**
+   * Load inspector users for this project's company (for assignment dropdown)
+   */
+  async loadCompanyInspectors() {
+    if (!this.projectCompanyId || this.projectCompanyId === '1') return;
+    try {
+      const whereClause = `CompanyID=${this.projectCompanyId} AND Title='Inspector'`;
+      const result: any = await this.caspioService.get<any>(
+        `/tables/LPS_Users/records?q.where=${encodeURIComponent(whereClause)}`
+      ).toPromise();
+      this.inspectorUsers = result?.Result || [];
+    } catch (e) {
+      console.error('Error loading company inspectors:', e);
+      this.inspectorUsers = [];
+    }
+  }
+
+  /**
+   * Assign an inspector to this project (sets AssignTo = inspector's UserID)
+   */
+  async assignInspector(userId: number | null) {
+    if (!this.project?.PK_ID) return;
+    this.assignedInspectorId = userId;
+    try {
+      await this.caspioService.put<any>(
+        `/tables/LPS_Projects/records?q.where=PK_ID=${this.project.PK_ID}`,
+        { AssignTo: userId }
+      ).toPromise();
+    } catch (e) {
+      console.error('Error assigning inspector:', e);
+    }
   }
 
   /**

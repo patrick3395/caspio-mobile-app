@@ -455,6 +455,22 @@ h3 {
   }
 }
 
+.inspector-select {
+  padding: 6px 10px;
+  border: 1px solid $border;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  background: $white;
+  color: $dark;
+  cursor: pointer;
+
+  &:focus {
+    outline: none;
+    border-color: $orange;
+  }
+}
+
 // Services tab toggle (matches Company main-tab-bar style)
 .services-segment {
   display: flex;

@@ -79,6 +79,17 @@
             <ion-icon name="create-outline"></ion-icon>
           </button>
         </div>
+        <div class="info-row" *ngIf="!isInspector && inspectorUsers.length > 0">
+          <span class="info-label">Inspector:</span>
+          <select class="inspector-select"
+                  [ngModel]="assignedInspectorId"
+                  (ngModelChange)="assignInspector($event)">
+            <option [ngValue]="null">Unassigned</option>
+            <option *ngFor="let inspector of inspectorUsers" [ngValue]="inspector.UserID">
+              {{ inspector.Name }}
+            </option>
+          </select>
+        </div>
       </div>
 
       <!-- Web layout -->
@@ -94,6 +105,17 @@
           <button class="edit-address-btn-inline" (click)="openEditAddressModal()" title="Edit Address">
             <ion-icon name="create-outline"></ion-icon>
           </button>
+        </div>
+        <div class="info-row-single" *ngIf="!isInspector && inspectorUsers.length > 0">
+          <span class="info-label">Inspector:</span>
+          <select class="inspector-select"
+                  [ngModel]="assignedInspectorId"
+                  (ngModelChange)="assignInspector($event)">
+            <option [ngValue]="null">Unassigned</option>
+            <option *ngFor="let inspector of inspectorUsers" [ngValue]="inspector.UserID">
+              {{ inspector.Name }}
+            </option>
+          </select>
         </div>
       </div>
     </div>
@@ -281,7 +303,7 @@
             +${{ (calculateProjectBalance() * -1) | number:'1.2-2' }}
           </div>
 
-          <button class="pay-now-btn" (click)="openPaymentModal()" *ngIf="calculateProjectBalance() > 0">
+          <button class="pay-now-btn" (click)="openPaymentModal()" *ngIf="calculateProjectBalance() > 0 && !isInspector">
             <ion-icon name="card-outline"></ion-icon>
             PAY
           </button>

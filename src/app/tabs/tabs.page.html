@@ -15,7 +15,7 @@
       <ion-label class="tab-label">Help</ion-label>
     </ion-tab-button>
 
-    <ion-tab-button tab="company" class="tab-button" aria-label="Company">
+    <ion-tab-button tab="company" class="tab-button" aria-label="Company" *ngIf="!isInspector">
       <ion-icon name="people-outline" class="tab-icon" aria-hidden="true"></ion-icon>
       <ion-label class="tab-label">Company</ion-label>
     </ion-tab-button>

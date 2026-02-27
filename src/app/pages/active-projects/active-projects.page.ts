@@ -344,14 +344,18 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     this.error = '';
     this.servicesCache = {}; // Clear stale services data before reload
 
-    // Get the current user's CompanyID from localStorage
+    // Get the current user's CompanyID and role from localStorage
     const userStr = localStorage.getItem('currentUser');
     let companyId: number | undefined;
+    let userId: number | undefined;
+    let isInspector = false;
 
     if (userStr) {
       try {
         const user = JSON.parse(userStr);
         companyId = user.companyId || user.CompanyID;
+        userId = user.userId || user.id;
+        isInspector = (user.title || '').toLowerCase() === 'inspector';
         // Check if admin view (CompanyID = 1)
         this.isAdminView = companyId === 1;
       } catch (e) {
@@ -363,7 +367,12 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     // Load projects and service types in parallel
     // Simple approach: Load projects first, then load services for each
     // Admin view (CompanyID = 1) sees all projects; others see only their company's projects
-    this.projectsService.getActiveProjects(this.isAdminView ? undefined : companyId).subscribe({
+    // Inspector view: only see projects assigned to them via AssignTo field
+    const projectsObservable = isInspector && userId && companyId
+      ? this.projectsService.getActiveProjectsByInspector(userId, companyId)
+      : this.projectsService.getActiveProjects(this.isAdminView ? undefined : companyId);
+
+    projectsObservable.subscribe({
       next: (projects) => {
         // Sort by DateOfRequest, newest to oldest
         this.projects = (projects || []).sort((a, b) => {
