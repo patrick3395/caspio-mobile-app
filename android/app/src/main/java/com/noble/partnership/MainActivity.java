@@ -1,4 +1,4 @@
-package com.nes.dcp;
+package com.noble.partnership;
 
 import com.getcapacitor.BridgeActivity;
 

@@ -668,11 +668,34 @@ export class CompanyPage implements OnInit, OnDestroy {
       this.loadOrganizationUsers();
     }
 
-    // Refresh outstanding balance data when returning to this tab from other pages
+    // Refresh data when returning to this tab — also detect user change (logout/login)
     this.routerSubscription = this.router.events.pipe(
       filter((event): event is NavigationEnd => event instanceof NavigationEnd),
       filter(event => event.urlAfterRedirects?.includes('/tabs/company'))
     ).subscribe(() => {
+      // Re-read user identity to detect login as a different user
+      const freshUserStr = localStorage.getItem('currentUser');
+      let freshCompanyId: number | null = null;
+      if (freshUserStr) {
+        try { freshCompanyId = JSON.parse(freshUserStr).companyId || null; } catch {}
+      }
+
+      if (freshCompanyId !== this.currentUserCompanyId) {
+        // User changed — reset state and reload
+        this.currentUserCompanyId = freshCompanyId;
+        this.isCompanyOne = freshCompanyId === 1;
+        this.companies = [];
+        this.currentCompany = null;
+        this.adminLogoFailed = false;
+        this.clientLogoFailed = false;
+        if (this.isCompanyOne) {
+          this.loadCompanyData();
+        } else {
+          this.loadOrganizationUsers();
+        }
+        return;
+      }
+
       if (this.isCompanyOne) {
         // CRM view: reload balances for any previously loaded companies
         this.refreshExpandedCompanyBalances();
@@ -6366,6 +6389,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       CC_Email: company.CC_Email,
       SoftwareID: company.SoftwareID,
       'Onboarding Stage': company['Onboarding Stage'],
+      Logo: company.Logo,
       Contract: company.Contract,
       // Autopay fields
       AutopayEnabled: company.AutopayEnabled || false,

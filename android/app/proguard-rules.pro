@@ -27,7 +27,7 @@
 }
 
 # Keep the app's main activity
--keep class com.nes.dcp.** { *; }
+-keep class com.noble.partnership.** { *; }
 
 # Preserve line numbers for debugging stack traces
 -keepattributes SourceFile,LineNumberTable

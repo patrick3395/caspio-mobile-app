@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "com.nes.dcp"
+    namespace "com.noble.partnership"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.nes.dcp"
+        applicationId "com.noble.partnership"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 99

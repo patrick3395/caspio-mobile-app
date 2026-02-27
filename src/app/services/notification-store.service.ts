@@ -41,6 +41,13 @@ export class NotificationStoreService {
     await db.notifications.clear();
   }
 
+  async exists(title: string, body: string): Promise<boolean> {
+    const match = await db.notifications
+      .filter(n => n.title === title && n.body === body)
+      .first();
+    return !!match;
+  }
+
   private generateId(): string {
     return Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
   }

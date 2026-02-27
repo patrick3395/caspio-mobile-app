@@ -26,7 +26,6 @@ const config: CapacitorConfig = {
   android: {
     // Performance optimizations
     allowMixedContent: false,
-    captureInput: true,
     webContentsDebuggingEnabled: false,
     // Memory management
     initialFocus: false,

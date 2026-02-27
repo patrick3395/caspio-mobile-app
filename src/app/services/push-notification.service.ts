@@ -105,6 +105,17 @@ export class PushNotificationService {
 
     // Register for push notifications (listeners already set up above)
     await PushNotifications.register();
+
+    // When the app resumes from background, sync any delivered notifications
+    // that the user didn't tap (those never trigger pushNotificationActionPerformed)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        this.syncDeliveredNotifications();
+      }
+    });
+
+    // Also sync on initial launch in case notifications arrived while app was killed
+    this.syncDeliveredNotifications();
   }
 
   /**
@@ -211,6 +222,27 @@ export class PushNotificationService {
       data.type,
       data
     ).catch(err => console.error('[PushNotification] Failed to persist notification:', err));
+  }
+
+  private async syncDeliveredNotifications(): Promise<void> {
+    try {
+      const { notifications } = await PushNotifications.getDeliveredNotifications();
+      if (!notifications.length) return;
+
+      console.log(`[PushNotification] Syncing ${notifications.length} delivered notification(s)`);
+      for (const notification of notifications) {
+        const title = notification.title || 'Notification';
+        const body = notification.body || '';
+        const alreadyStored = await this.notificationStore.exists(title, body);
+        if (!alreadyStored) {
+          const data = (notification.data || {}) as PushNotificationData;
+          await this.notificationStore.addNotification(title, body, data.type, data);
+          console.log('[PushNotification] Synced delivered notification:', title);
+        }
+      }
+    } catch (err) {
+      console.warn('[PushNotification] Failed to sync delivered notifications:', err);
+    }
   }
 
   private handleNotificationTap(data: PushNotificationData): void {
