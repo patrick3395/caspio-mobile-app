@@ -3185,7 +3185,7 @@
           <div class="form-row">
             <div class="form-field full-width">
               <label>Company</label>
-              <input type="text" class="form-input" [value]="isAddingUserForNewCompany ? (newCompany?.CompanyName || 'New Company') : (getCompanyName(newUser.CompanyID) || currentUserCompanyName || getCompanyName(currentUserCompanyId))" disabled readonly>
+              <input type="text" class="form-input" [value]="isAddingUserForNewCompany ? (newCompany?.CompanyName || 'New Company') : (currentUserCompanyName || getCompanyName(newUser.CompanyID))" disabled readonly>
             </div>
           </div>
           <div class="form-row">
