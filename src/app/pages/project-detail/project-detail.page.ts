@@ -240,7 +240,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           this.isInspector = (user.title || '').toLowerCase() === 'inspector';
         } catch (e) { /* silent */ }
       }
-      this.assignedInspectorId = this.project?.AssignTo || null;
+      this.assignedInspectorId = this.project?.AssignTo ? Number(this.project.AssignTo) : null;
       if (!this.isInspector) {
         this.loadCompanyInspectors();
       }
@@ -659,7 +659,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.isCompanyOne = userCompanyId === 1;
 
       // Set current AssignTo value from project data
-      this.assignedInspectorId = projectData?.AssignTo || null;
+      this.assignedInspectorId = projectData?.AssignTo ? Number(projectData.AssignTo) : null;
 
       // Admin (CompanyID=1) can always edit completed projects
       if (this.isCompanyOne && this.isReadOnly) {
@@ -939,7 +939,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.isCompanyOne = userCompanyId === 1;
 
         // Set current AssignTo value from project data
-        this.assignedInspectorId = project.AssignTo || null;
+        this.assignedInspectorId = project.AssignTo ? Number(project.AssignTo) : null;
 
         // Admin (CompanyID=1) can always edit completed projects
         if (this.isCompanyOne && this.isReadOnly) {
@@ -4515,7 +4515,10 @@ Troubleshooting:
       const result: any = await this.caspioService.get<any>(
         `/tables/LPS_Users/records?q.where=${encodeURIComponent(whereClause)}`
       ).toPromise();
-      this.inspectorUsers = result?.Result || [];
+      this.inspectorUsers = (result?.Result || []).map((u: any) => ({
+        ...u,
+        UserID: Number(u.UserID)
+      }));
     } catch (e) {
       console.error('Error loading company inspectors:', e);
       this.inspectorUsers = [];
