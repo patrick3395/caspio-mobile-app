@@ -291,14 +291,14 @@
       <div class="section-header-with-total">
         <h2 class="section-title">Services</h2>
         <div *ngIf="selectedServices.length > 0" class="header-total-with-button">
-          <div class="header-total" *ngIf="calculateProjectBalance() > 0">
+          <div class="header-total" *ngIf="calculateProjectBalance() > 0 && !isInspector">
             ${{ calculateProjectBalance() | number:'1.2-2' }}
           </div>
-          <div class="paid-badge" *ngIf="calculateProjectBalance() === 0 && calculateServicesTotal() > 0">
+          <div class="paid-badge" *ngIf="calculateProjectBalance() === 0 && calculateServicesTotal() > 0 && !isInspector">
             <ion-icon name="checkmark-circle-outline"></ion-icon>
             PAID
           </div>
-          <div class="paid-badge overpaid" *ngIf="calculateProjectBalance() < 0 && calculateServicesTotal() > 0">
+          <div class="paid-badge overpaid" *ngIf="calculateProjectBalance() < 0 && calculateServicesTotal() > 0 && !isInspector">
             <ion-icon name="checkmark-circle-outline"></ion-icon>
             +${{ (calculateProjectBalance() * -1) | number:'1.2-2' }}
           </div>
@@ -383,7 +383,7 @@
                     </span>
                   </div>
 
-                  <div class="field-group">
+                  <div class="field-group" *ngIf="!isInspector">
                     <label>Price</label>
                     <div *ngIf="isCompanyOne && !isReadOnly" class="price-input-wrapper">
                       <span class="price-prefix">$</span>
