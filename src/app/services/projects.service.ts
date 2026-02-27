@@ -123,24 +123,13 @@ export class ProjectsService {
   }
 
   getActiveProjectsByInspector(userId: number, companyId: number): Observable<Project[]> {
-    const cacheKey = this.cache.getApiCacheKey('projects_active_inspector', { userId, companyId });
-
-    if (!environment.isWeb) {
-      const cached = this.cache.get(cacheKey);
-      if (cached) {
-        return of(cached);
-      }
-    }
-
-    const whereClause = `StatusID%3D7%20AND%20CompanyID%3D${companyId}%20AND%20AssignTo%3D${userId}`;
-
-    return this.caspioService.get<any>(`/tables/LPS_Projects/records?q.where=${whereClause}`).pipe(
-      map(response => response.Result || []),
-      tap(projects => {
-        if (!environment.isWeb) {
-          this.cache.set(cacheKey, projects, this.cache.CACHE_TIMES.MEDIUM, true);
-        }
-      })
+    // Fetch all active company projects, then filter to:
+    // - projects assigned to this inspector (AssignTo matches userId)
+    // - unassigned projects (AssignTo is null/undefined/0)
+    return this.getActiveProjects(companyId).pipe(
+      map(projects => projects.filter(p =>
+        !p.AssignTo || p.AssignTo === userId
+      ))
     );
   }
 
