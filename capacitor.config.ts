@@ -1,7 +1,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.nes.dcp',
+  appId: 'com.nes.noblepartner',
   appName: 'Partnership',
   webDir: 'www',
   server: {

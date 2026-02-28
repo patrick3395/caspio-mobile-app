@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.nes.dcp</string>
+	<string>com.nes.noblepartner</string>
 	<key>PROJECT_ID</key>
 	<string>partnership-bcd4f</string>
 	<key>STORAGE_BUCKET</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:323615927295:ios:a8f92e0da18f48f45055ca</string>
+	<string>1:323615927295:ios:a2e228d220324de25055ca</string>
 </dict>
 </plist>
