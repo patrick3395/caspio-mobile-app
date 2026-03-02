@@ -736,13 +736,25 @@ export class CompanyPage implements OnInit, OnDestroy {
       this.loadCurrentUserCompanyName();
       this.loadClientOffers();
     } catch (error) {
-      console.error('Error loading organization users:', error);
-      const toast = await this.toastController.create({
-        message: 'Failed to load organization users',
-        duration: 3000,
-        color: 'danger'
-      });
-      await toast.present();
+      // Silently retry once before showing error (API may not be ready on first load)
+      try {
+        const retryResponse = await firstValueFrom(
+          this.caspioService.get<any>(`/tables/LPS_Users/records?q.where=CompanyID=${this.currentUserCompanyId}`)
+        );
+        if (retryResponse && retryResponse.Result) {
+          this.organizationUsers = retryResponse.Result;
+        }
+        this.loadCurrentUserCompanyName();
+        this.loadClientOffers();
+      } catch (retryError) {
+        console.error('Error loading organization users:', retryError);
+        const toast = await this.toastController.create({
+          message: 'Failed to load organization users',
+          duration: 3000,
+          color: 'danger'
+        });
+        await toast.present();
+      }
     } finally {
       this.isLoading = false;
     }
@@ -1188,7 +1200,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     }
   }
 
-  async loadCompanyData(showSpinner: boolean = true) {
+  async loadCompanyData(showSpinner: boolean = true, isRetry: boolean = false) {
     // Use skeleton loaders for both web and mobile for consistent UX
     this.isLoading = true;
 
@@ -1422,6 +1434,10 @@ export class CompanyPage implements OnInit, OnDestroy {
       // Check for companies with autopay ready and load global toggle
       this.checkAutopayDue();
     } catch (error: any) {
+      // Silently retry once before showing error (API may not be ready on first load)
+      if (!isRetry) {
+        return this.loadCompanyData(showSpinner, true);
+      }
       console.error('Error loading company data:', error);
       await this.showToast(error?.message ?? 'Unable to load company data', 'danger');
     } finally {
