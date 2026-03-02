@@ -1200,7 +1200,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     }
   }
 
-  async loadCompanyData(showSpinner: boolean = true, isRetry: boolean = false) {
+  async loadCompanyData(showSpinner: boolean = true, isRetry: boolean = false): Promise<void> {
     // Use skeleton loaders for both web and mobile for consistent UX
     this.isLoading = true;
 

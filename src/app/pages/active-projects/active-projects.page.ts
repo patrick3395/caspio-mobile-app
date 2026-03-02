@@ -11,7 +11,6 @@ import { PageTitleService } from '../../services/page-title.service';
 import { ThemeService } from '../../services/theme.service';
 import { NotificationStoreService } from '../../services/notification-store.service';
 import { StoredNotification } from '../../services/caspio-db';
-import { ConfirmationDialogService } from '../../services/confirmation-dialog.service';
 import { forkJoin, Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
 
@@ -100,8 +99,7 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     private pageTitleService: PageTitleService,
     private themeService: ThemeService,
     private notificationStore: NotificationStoreService,
-    private toastController: ToastController,
-    private confirmationDialog: ConfirmationDialogService
+    private toastController: ToastController
   ) {}
 
   ngOnInit() {
@@ -1285,25 +1283,5 @@ URL Attempted: ${imgUrl}`;
   isSelectingProject(project: Project): boolean {
     // Disabled on webapp - no loading indicator needed
     return false;
-  }
-
-  async logout() {
-    const result = await this.confirmationDialog.confirm({
-      header: 'Confirm Logout',
-      message: 'Are you sure you want to logout?',
-      confirmText: 'Logout',
-      cancelText: 'Cancel'
-    });
-
-    if (result.confirmed) {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('currentUser');
-      localStorage.removeItem('caspio_token');
-      localStorage.removeItem('caspio_token_expiry');
-      localStorage.removeItem('cognito_access_token');
-      localStorage.removeItem('cognito_id_token');
-
-      this.router.navigate(['/login']);
-    }
   }
 }
