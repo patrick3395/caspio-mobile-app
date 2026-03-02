@@ -262,7 +262,8 @@
             <ion-item-sliding>
               <ion-item-options side="end">
                 <ion-item-option color="warning" (click)="archiveProject(project)">
-                  <ion-icon slot="icon-only" name="archive"></ion-icon>
+                  <ion-icon slot="top" name="trash-outline"></ion-icon>
+                  Delete (Recoverable)
                 </ion-item-option>
               </ion-item-options>
 
@@ -310,7 +311,8 @@
         <ion-item-sliding *ngFor="let project of displayedProjects; trackBy: trackByProjectId">
           <ion-item-options side="end">
             <ion-item-option color="warning" (click)="archiveProject(project)">
-              <ion-icon slot="icon-only" name="archive"></ion-icon>
+              <ion-icon slot="top" name="trash-outline"></ion-icon>
+              Delete (Recoverable)
             </ion-item-option>
           </ion-item-options>
 

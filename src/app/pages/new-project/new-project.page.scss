@@ -6,7 +6,7 @@ ion-content {
     --padding-start: 16px;
     --padding-end: 16px;
     --padding-top: 16px;
-    --padding-bottom: 16px;
+    --padding-bottom: 80px;
   }
 }
 
@@ -343,11 +343,6 @@ input[type="date"] {
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-// Add bottom padding for fixed tab bar
-ion-content {
-  --padding-bottom: 80px;
 }
 
 :host-context(body.dark-theme) {

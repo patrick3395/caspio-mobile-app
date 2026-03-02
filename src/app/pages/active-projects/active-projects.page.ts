@@ -810,11 +810,11 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
 
   async archiveProject(project: Project) {
     const alert = await this.alertController.create({
-      header: 'Archive Project',
-      message: `Are you sure you want to archive the project at ${project.Address}?`,
+      header: 'Delete Project',
+      message: `Are you sure you want to delete the project at ${project.Address}? This is recoverable.`,
       buttons: [
         {
-          text: 'Archive',
+          text: 'Delete',
           cssClass: 'alert-button-confirm',
           handler: async () => {
             await this.performProjectDeletion(project);
@@ -834,14 +834,14 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
 
   async performProjectDeletion(project: Project) {
     const loading = await this.alertController.create({
-      message: 'Archiving project...',
+      message: 'Deleting project...',
       cssClass: 'custom-document-alert'
     });
     await loading.present();
 
     try {
-      // Archive by setting StatusID to 5
-      await this.projectsService.updateProjectStatus(project.PK_ID, 5).toPromise();
+      // Delete (recoverable) by setting StatusID to 6
+      await this.projectsService.updateProjectStatus(project.PK_ID, 6).toPromise();
 
       // Remove from displayed list
       this.projects = this.projects.filter(p => p.PK_ID !== project.PK_ID);
@@ -854,19 +854,19 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
       await loading.dismiss();
 
       const toast = await this.alertController.create({
-        message: 'Project archived successfully',
+        message: 'Project deleted successfully',
         buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }],
         cssClass: 'custom-document-alert'
       });
       await toast.present();
       setTimeout(() => toast.dismiss(), 2000);
     } catch (error) {
-      console.error('Error archiving project:', error);
+      console.error('Error deleting project:', error);
       await loading.dismiss();
 
       const errorAlert = await this.alertController.create({
         header: 'Error',
-        message: 'Failed to archive project. Please try again.',
+        message: 'Failed to delete project. Please try again.',
         buttons: [{ text: 'OK', role: 'cancel', cssClass: 'alert-button-confirm' }],
         cssClass: 'custom-document-alert'
       });
