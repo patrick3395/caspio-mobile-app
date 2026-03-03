@@ -88,9 +88,6 @@
                 "html2canvas",
                 "raf",
                 "rgbcolor",
-                "react",
-                "react-dom",
-                "agentation"
               ],
               "commonChunk": true
             },
@@ -127,9 +124,6 @@
                 "html2canvas",
                 "raf",
                 "rgbcolor",
-                "react",
-                "react-dom",
-                "agentation"
               ]
             },
             "development": {

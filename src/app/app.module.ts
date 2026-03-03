@@ -14,12 +14,11 @@ import { UploadProgressComponent } from './components/upload-progress/upload-pro
 import { ErrorBoundaryComponent } from './components/error-boundary/error-boundary.component';
 import { SkipLinkComponent } from './components/skip-link/skip-link.component';
 import { GlobalErrorHandlerService } from './services/global-error-handler.service';
-import { AgentationComponent } from './components/agentation/agentation.component';
 import { TEMPLATE_DATA_PROVIDERS } from './services/template/template-data-provider.factory';
 
 @NgModule({
   declarations: [AppComponent],
-  imports: [BrowserModule, HttpClientModule, IonicModule.forRoot(), AppRoutingModule, ThemeToggleComponent, SyncToggleComponent, UploadProgressComponent, ErrorBoundaryComponent, SkipLinkComponent, AgentationComponent],
+  imports: [BrowserModule, HttpClientModule, IonicModule.forRoot(), AppRoutingModule, ThemeToggleComponent, SyncToggleComponent, UploadProgressComponent, ErrorBoundaryComponent, SkipLinkComponent],
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
     { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
