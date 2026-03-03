@@ -1858,6 +1858,25 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           }
         }
 
+        // Remove autoTemplate entries that were renamed to numbered variants
+        // e.g., if "Base Station #1" exists but un-numbered "Base Station" has no matching existingRoom, remove it
+        if (existingRooms && existingRooms.length > 0) {
+          const existingRoomNames = new Set(existingRooms.map((r: any) => r.RoomName));
+          for (let i = roomsToDisplay.length - 1; i >= 0; i--) {
+            const displayName = roomsToDisplay[i].RoomName;
+            // If this room is from autoTemplates (un-numbered) and doesn't exist in DB...
+            if (!existingRoomNames.has(displayName)) {
+              // ...but a numbered variant like "DisplayName #1" DOES exist in DB
+              const hasNumberedVariant = existingRooms.some((r: any) =>
+                r.RoomName.startsWith(displayName + ' #') && /\s+#\d+$/.test(r.RoomName)
+              );
+              if (hasNumberedVariant) {
+                roomsToDisplay.splice(i, 1);
+              }
+            }
+          }
+        }
+
         // Convert to display format
         // Use roomElevationData.pointCount as fallback since template.PointCount may be 0/undefined
         this.roomTemplates = roomsToDisplay.map(template => ({
