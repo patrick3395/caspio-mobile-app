@@ -293,10 +293,11 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       }
 
       // Build a map of existing rooms by TemplateID for detecting renamed rooms
-      const existingRoomsByTemplateId = new Map<string | number, any[]>();
+      // CRITICAL: Normalize TemplateID to String to avoid type mismatch (API returns string, templates have number)
+      const existingRoomsByTemplateId = new Map<string, any[]>();
       for (const room of existingRooms || []) {
         if (room.TemplateID) {
-          const tid = room.TemplateID;
+          const tid = String(room.TemplateID);
           if (!existingRoomsByTemplateId.has(tid)) {
             existingRoomsByTemplateId.set(tid, []);
           }
@@ -313,12 +314,13 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         if (!isAutoInclude) continue;
 
         const templateId = template.TemplateID || template.PK_ID;
+        const templateIdStr = String(templateId);
         let existingRoom = existingRoomsByName.get(roomName);
 
         // Check for renamed rooms: if no exact name match, find an existing room
         // with the same TemplateID that was renamed (different name, not a duplicate #N)
         if (!existingRoom && templateId) {
-          const roomsWithTemplateId = existingRoomsByTemplateId.get(templateId) || [];
+          const roomsWithTemplateId = existingRoomsByTemplateId.get(templateIdStr) || [];
           // Find a renamed room (same TemplateID, different name, that IS the original - not a #N duplicate)
           const renamedRoom = roomsWithTemplateId.find(r =>
             r.RoomName !== roomName && existingRoomsByName.has(r.RoomName)
