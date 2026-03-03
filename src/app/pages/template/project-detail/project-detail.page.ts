@@ -403,8 +403,9 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
         if (optionsByService['InAttendance'] && optionsByService['InAttendance'].length > 0) {
           this.inAttendanceOptions = optionsByService['InAttendance'];
           if (this.inAttendanceSelections && this.inAttendanceSelections.length > 0) {
+            this.inAttendanceSelections = this.inAttendanceSelections.filter(s => s !== 'Other');
             this.inAttendanceSelections = this.inAttendanceSelections.map(selection => {
-              if (!selection || selection === 'Other' || selection === 'None') return selection;
+              if (!selection || selection === 'None') return selection;
               const normalizedSelection = this.normalizeForComparison(selection);
               const matchingOption = this.inAttendanceOptions.find(opt =>
                 this.normalizeForComparison(opt) === normalizedSelection
@@ -421,7 +422,6 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
             .filter(opt => opt !== 'Other' && opt !== 'None')
             .sort((a, b) => a.localeCompare(b));
           this.inAttendanceOptions.push('None');
-          this.inAttendanceOptions.push('Other');
         }
 
         // Set FirstFoundationType options
@@ -494,8 +494,9 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
         if (secondFoundationRoomsSource && secondFoundationRoomsSource.length > 0) {
           this.secondFoundationRoomsOptions = [...secondFoundationRoomsSource];
           if (this.secondFoundationRoomsSelections && this.secondFoundationRoomsSelections.length > 0) {
+            this.secondFoundationRoomsSelections = this.secondFoundationRoomsSelections.filter(s => s !== 'Other');
             this.secondFoundationRoomsSelections = this.secondFoundationRoomsSelections.map(selection => {
-              if (!selection || selection === 'Other' || selection === 'None') return selection;
+              if (!selection || selection === 'None') return selection;
               const normalizedSelection = this.normalizeForComparison(selection);
               const matchingOption = this.secondFoundationRoomsOptions.find(opt =>
                 this.normalizeForComparison(opt) === normalizedSelection
@@ -512,7 +513,6 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
             .filter(opt => opt !== 'Other' && opt !== 'None')
             .sort((a, b) => a.localeCompare(b));
           this.secondFoundationRoomsOptions.push('None');
-          this.secondFoundationRoomsOptions.push('Other');
         }
 
         // Set ThirdFoundationRooms options (multi-select)
@@ -520,8 +520,9 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
         if (thirdFoundationRoomsSource && thirdFoundationRoomsSource.length > 0) {
           this.thirdFoundationRoomsOptions = [...thirdFoundationRoomsSource];
           if (this.thirdFoundationRoomsSelections && this.thirdFoundationRoomsSelections.length > 0) {
+            this.thirdFoundationRoomsSelections = this.thirdFoundationRoomsSelections.filter(s => s !== 'Other');
             this.thirdFoundationRoomsSelections = this.thirdFoundationRoomsSelections.map(selection => {
-              if (!selection || selection === 'Other' || selection === 'None') return selection;
+              if (!selection || selection === 'None') return selection;
               const normalizedSelection = this.normalizeForComparison(selection);
               const matchingOption = this.thirdFoundationRoomsOptions.find(opt =>
                 this.normalizeForComparison(opt) === normalizedSelection
@@ -538,7 +539,6 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
             .filter(opt => opt !== 'Other' && opt !== 'None')
             .sort((a, b) => a.localeCompare(b));
           this.thirdFoundationRoomsOptions.push('None');
-          this.thirdFoundationRoomsOptions.push('Other');
         }
 
         // Set OwnerOccupantInterview options
@@ -708,9 +708,6 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
       if (index > -1) {
         this.inAttendanceSelections.splice(index, 1);
       }
-      if (option === 'Other') {
-        this.inAttendanceOtherValue = '';
-      }
     }
 
     await this.saveInAttendance();
@@ -798,9 +795,6 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
       if (index > -1) {
         this.secondFoundationRoomsSelections.splice(index, 1);
       }
-      if (option === 'Other') {
-        this.secondFoundationRoomsOtherValue = '';
-      }
     }
 
     await this.saveSecondFoundationRooms();
@@ -887,9 +881,6 @@ export class GenericProjectDetailPage implements OnInit, OnDestroy, ViewWillEnte
       const index = this.thirdFoundationRoomsSelections.indexOf(option);
       if (index > -1) {
         this.thirdFoundationRoomsSelections.splice(index, 1);
-      }
-      if (option === 'Other') {
-        this.thirdFoundationRoomsOtherValue = '';
       }
     }
 
