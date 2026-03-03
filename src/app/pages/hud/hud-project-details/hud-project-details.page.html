@@ -59,8 +59,7 @@
                 <ion-label>{{ option }}</ion-label>
               </div>
             </div>
-            <!-- Custom input for "Other" option - allows adding multiple custom values -->
-            <div class="other-input-container other-input-inline" *ngIf="isInAttendanceSelected('Other')">
+            <div class="other-input-container other-input-inline">
               <input type="text"
                      [(ngModel)]="inAttendanceOtherValue"
                      (keyup.enter)="addInAttendanceOther()"
@@ -329,8 +328,7 @@
                 <ion-label>{{ option }}</ion-label>
               </div>
             </div>
-            <!-- Custom input for "Other" option - allows adding multiple custom values -->
-            <div class="other-input-container other-input-inline" *ngIf="isSecondFoundationRoomsSelected('Other')">
+            <div class="other-input-container other-input-inline">
               <input type="text"
                      [(ngModel)]="secondFoundationRoomsOtherValue"
                      (keyup.enter)="addSecondFoundationRoomsOther()"
@@ -385,8 +383,7 @@
                 <ion-label>{{ option }}</ion-label>
               </div>
             </div>
-            <!-- Custom input for "Other" option - allows adding multiple custom values -->
-            <div class="other-input-container other-input-inline" *ngIf="isThirdFoundationRoomsSelected('Other')">
+            <div class="other-input-container other-input-inline">
               <input type="text"
                      [(ngModel)]="thirdFoundationRoomsOtherValue"
                      (keyup.enter)="addThirdFoundationRoomsOther()"

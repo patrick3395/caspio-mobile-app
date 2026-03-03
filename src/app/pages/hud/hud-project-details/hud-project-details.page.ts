@@ -440,8 +440,10 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
           this.inAttendanceOptions = optionsByService['InAttendance'];
           // Normalize selections to match API options, or add if truly missing
           if (this.inAttendanceSelections && this.inAttendanceSelections.length > 0) {
+            // Filter out legacy "Other" selections
+            this.inAttendanceSelections = this.inAttendanceSelections.filter(s => s !== 'Other');
             this.inAttendanceSelections = this.inAttendanceSelections.map(selection => {
-              if (!selection || selection === 'Other' || selection === 'None') return selection;
+              if (!selection || selection === 'None') return selection;
               const normalizedSelection = this.normalizeForComparison(selection);
               const matchingOption = this.inAttendanceOptions.find(opt =>
                 this.normalizeForComparison(opt) === normalizedSelection
@@ -457,13 +459,11 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
               }
             });
           }
-          // Sort options alphabetically, keeping "None" and "Other" at the end
+          // Sort options alphabetically, keeping "None" at the end
           this.inAttendanceOptions = this.inAttendanceOptions
             .filter(opt => opt !== 'Other' && opt !== 'None')
             .sort((a, b) => a.localeCompare(b));
-          // Add "None" and "Other" at the end (in that order)
           this.inAttendanceOptions.push('None');
-          this.inAttendanceOptions.push('Other');
         }
 
         // Set FirstFoundationType options
@@ -543,8 +543,9 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
           this.secondFoundationRoomsOptions = [...secondFoundationRoomsSource]; // Clone
           // Normalize selections to match API options, or add if truly missing
           if (this.secondFoundationRoomsSelections && this.secondFoundationRoomsSelections.length > 0) {
+            this.secondFoundationRoomsSelections = this.secondFoundationRoomsSelections.filter(s => s !== 'Other');
             this.secondFoundationRoomsSelections = this.secondFoundationRoomsSelections.map(selection => {
-              if (!selection || selection === 'Other' || selection === 'None') return selection;
+              if (!selection || selection === 'None') return selection;
               const normalizedSelection = this.normalizeForComparison(selection);
               const matchingOption = this.secondFoundationRoomsOptions.find(opt =>
                 this.normalizeForComparison(opt) === normalizedSelection
@@ -560,13 +561,11 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
               }
             });
           }
-          // Sort options alphabetically, keeping "None" and "Other" at the end
+          // Sort options alphabetically, keeping "None" at the end
           this.secondFoundationRoomsOptions = this.secondFoundationRoomsOptions
             .filter(opt => opt !== 'Other' && opt !== 'None')
             .sort((a, b) => a.localeCompare(b));
-          // Add "None" and "Other" at the end (in that order)
           this.secondFoundationRoomsOptions.push('None');
-          this.secondFoundationRoomsOptions.push('Other');
         }
 
         // Set ThirdFoundationRooms options (multi-select - fall back to room options if not available)
@@ -575,8 +574,9 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
           this.thirdFoundationRoomsOptions = [...thirdFoundationRoomsSource]; // Clone
           // Normalize selections to match API options, or add if truly missing
           if (this.thirdFoundationRoomsSelections && this.thirdFoundationRoomsSelections.length > 0) {
+            this.thirdFoundationRoomsSelections = this.thirdFoundationRoomsSelections.filter(s => s !== 'Other');
             this.thirdFoundationRoomsSelections = this.thirdFoundationRoomsSelections.map(selection => {
-              if (!selection || selection === 'Other' || selection === 'None') return selection;
+              if (!selection || selection === 'None') return selection;
               const normalizedSelection = this.normalizeForComparison(selection);
               const matchingOption = this.thirdFoundationRoomsOptions.find(opt =>
                 this.normalizeForComparison(opt) === normalizedSelection
@@ -592,13 +592,11 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
               }
             });
           }
-          // Sort options alphabetically, keeping "None" and "Other" at the end
+          // Sort options alphabetically, keeping "None" at the end
           this.thirdFoundationRoomsOptions = this.thirdFoundationRoomsOptions
             .filter(opt => opt !== 'Other' && opt !== 'None')
             .sort((a, b) => a.localeCompare(b));
-          // Add "None" and "Other" at the end (in that order)
           this.thirdFoundationRoomsOptions.push('None');
-          this.thirdFoundationRoomsOptions.push('Other');
         }
 
         // Set OwnerOccupantInterview options
@@ -791,9 +789,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
       if (index > -1) {
         this.inAttendanceSelections.splice(index, 1);
       }
-      if (option === 'Other') {
-        this.inAttendanceOtherValue = '';
-      }
     }
 
     await this.saveInAttendance();
@@ -895,9 +890,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
       if (index > -1) {
         this.secondFoundationRoomsSelections.splice(index, 1);
       }
-      if (option === 'Other') {
-        this.secondFoundationRoomsOtherValue = '';
-      }
     }
 
     await this.saveSecondFoundationRooms();
@@ -996,9 +988,6 @@ export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
       const index = this.thirdFoundationRoomsSelections.indexOf(option);
       if (index > -1) {
         this.thirdFoundationRoomsSelections.splice(index, 1);
-      }
-      if (option === 'Other') {
-        this.thirdFoundationRoomsOtherValue = '';
       }
     }
 

@@ -2073,6 +2073,13 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
             }
           }
           
+          // Rename in Dexie so liveQuery picks up the new name
+          try {
+            await this.efeFieldRepo.renameRoom(this.serviceId, oldName, newName);
+          } catch (error) {
+            console.error('[Add Room] Failed to rename room in Dexie:', error);
+          }
+
           // Update the room object
           existingRoom.RoomName = newName;
 

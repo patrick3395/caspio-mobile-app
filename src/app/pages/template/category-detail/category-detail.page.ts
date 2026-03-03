@@ -2423,13 +2423,10 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       const optionsMap = await this.dataProvider.getDropdownOptions(this.config);
 
       optionsMap.forEach((options, templateId) => {
-        // Add "None" and "Other" options if not already present
-        const finalOptions = [...options];
+        // Add "None" option if not already present
+        const finalOptions = options.filter(o => o !== 'Other');
         if (!finalOptions.includes('None')) {
           finalOptions.push('None');
-        }
-        if (!finalOptions.includes('Other')) {
-          finalOptions.push('Other');
         }
         this.visualDropdownOptions[templateId] = finalOptions;
       });
@@ -2611,10 +2608,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       const customOptions = savedAnswers.filter(a => !optionsSet.has(a));
 
       if (customOptions.length > 0) {
-        // Find insertion point: before "None", then "Other", then end
+        // Find insertion point: before "None", then end
         const noneIndex = options.indexOf('None');
-        const otherIndex = options.indexOf('Other');
-        const insertIndex = noneIndex > -1 ? noneIndex : (otherIndex > -1 ? otherIndex : options.length);
+        const insertIndex = noneIndex > -1 ? noneIndex : options.length;
 
         // Insert all custom options at once
         options.splice(insertIndex, 0, ...customOptions);
@@ -2917,11 +2913,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       this.selectedItems[key] = true;
     } else {
       selectedOptions = selectedOptions.filter(o => o !== option);
-      if (option === 'Other') {
-        item.otherValue = '';
-      }
-      // If no options remain selected and no "Other" value, deselect the item
-      if (selectedOptions.length === 0 && (!item.otherValue || item.otherValue === '')) {
+      // If no options remain selected, deselect the item
+      if (selectedOptions.length === 0) {
         this.selectedItems[key] = false;
       }
     }
@@ -2977,12 +2970,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       if (noneIndex > -1) {
         options.splice(noneIndex, 0, customValue);
       } else {
-        const otherIndex = options.indexOf('Other');
-        if (otherIndex > -1) {
-          options.splice(otherIndex, 0, customValue);
-        } else {
-          options.push(customValue);
-        }
+        options.push(customValue);
       }
 
       // Select the new custom value

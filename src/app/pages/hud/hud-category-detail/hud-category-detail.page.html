@@ -139,8 +139,7 @@
                   <ion-label>{{ option }}</ion-label>
                 </ion-item>
               </div>
-              <!-- Custom input for "Other" option - allows adding multiple custom values -->
-              <div class="other-input-container other-input-inline" *ngIf="isOptionSelectedV1(item, 'Other')">
+              <div class="other-input-container other-input-inline">
                 <input type="text"
                        [(ngModel)]="item.otherValue"
                        (keyup.enter)="addMultiSelectOther(categoryName, item)"
@@ -427,8 +426,7 @@
                   <ion-label>{{ option }}</ion-label>
                 </ion-item>
               </div>
-              <!-- Custom input for "Other" option - allows adding multiple custom values -->
-              <div class="other-input-container other-input-inline" *ngIf="isOptionSelectedV1(item, 'Other')">
+              <div class="other-input-container other-input-inline">
                 <input type="text"
                        [(ngModel)]="item.otherValue"
                        (keyup.enter)="addMultiSelectOther(categoryName, item)"
@@ -709,8 +707,7 @@
                   <ion-label>{{ option }}</ion-label>
                 </ion-item>
               </div>
-              <!-- Custom input for "Other" option - allows adding multiple custom values -->
-              <div class="other-input-container other-input-inline" *ngIf="isOptionSelectedV1(item, 'Other')">
+              <div class="other-input-container other-input-inline">
                 <input type="text"
                        [(ngModel)]="item.otherValue"
                        (keyup.enter)="addMultiSelectOther(categoryName, item)"

@@ -1980,14 +1980,12 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
 
         // Set InAttendance options
         if (optionsByService['InAttendance'] && optionsByService['InAttendance'].length > 0) {
-          this.inAttendanceOptions = optionsByService['InAttendance'];
-          if (!this.inAttendanceOptions.includes('Other')) {
-            this.inAttendanceOptions.push('Other');
-          }
+          this.inAttendanceOptions = optionsByService['InAttendance'].filter((opt: string) => opt !== 'Other');
           // Normalize selections to match API options
           if (this.inAttendanceSelections && this.inAttendanceSelections.length > 0) {
+            this.inAttendanceSelections = this.inAttendanceSelections.filter(s => s !== 'Other');
             this.inAttendanceSelections = this.inAttendanceSelections.map(selection => {
-              if (!selection || selection === 'Other') return selection;
+              if (!selection) return selection;
               const normalizedSelection = this.normalizeForComparison(selection);
               const matchingOption = this.inAttendanceOptions.find(opt =>
                 this.normalizeForComparison(opt) === normalizedSelection
@@ -1995,21 +1993,13 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
               if (matchingOption) {
                 return matchingOption;
               } else {
-                // Add missing selection to options
-                const otherIndex = this.inAttendanceOptions.indexOf('Other');
-                if (otherIndex > 0) {
-                  this.inAttendanceOptions.splice(otherIndex, 0, selection);
-                } else {
-                  this.inAttendanceOptions.push(selection);
-                }
+                this.inAttendanceOptions.push(selection);
                 return selection;
               }
             });
           }
-          // Sort options alphabetically, keeping "Other" at the end
-          const otherOpt = this.inAttendanceOptions.includes('Other') ? 'Other' : null;
+          // Sort options alphabetically, remove "Other"
           this.inAttendanceOptions = this.inAttendanceOptions.filter(opt => opt !== 'Other').sort((a, b) => a.localeCompare(b));
-          if (otherOpt) this.inAttendanceOptions.push(otherOpt);
         }
 
         // Set FirstFoundationType options
@@ -2041,14 +2031,12 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
         // Set SecondFoundationRooms options (fall back to FoundationRooms if not available)
         const secondFoundationRoomsSource = optionsByService['SecondFoundationRooms'] || optionsByService['FoundationRooms'];
         if (secondFoundationRoomsSource && secondFoundationRoomsSource.length > 0) {
-          this.secondFoundationRoomsOptions = [...secondFoundationRoomsSource];
-          if (!this.secondFoundationRoomsOptions.includes('Other')) {
-            this.secondFoundationRoomsOptions.push('Other');
-          }
+          this.secondFoundationRoomsOptions = [...secondFoundationRoomsSource].filter(opt => opt !== 'Other');
           // Normalize selections to match API options
           if (this.secondFoundationRoomsSelections && this.secondFoundationRoomsSelections.length > 0) {
+            this.secondFoundationRoomsSelections = this.secondFoundationRoomsSelections.filter(s => s !== 'Other');
             this.secondFoundationRoomsSelections = this.secondFoundationRoomsSelections.map(selection => {
-              if (!selection || selection === 'Other') return selection;
+              if (!selection) return selection;
               const normalizedSelection = this.normalizeForComparison(selection);
               const matchingOption = this.secondFoundationRoomsOptions.find(opt =>
                 this.normalizeForComparison(opt) === normalizedSelection
@@ -2056,33 +2044,24 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
               if (matchingOption) {
                 return matchingOption;
               } else {
-                const otherIndex = this.secondFoundationRoomsOptions.indexOf('Other');
-                if (otherIndex > 0) {
-                  this.secondFoundationRoomsOptions.splice(otherIndex, 0, selection);
-                } else {
-                  this.secondFoundationRoomsOptions.push(selection);
-                }
+                this.secondFoundationRoomsOptions.push(selection);
                 return selection;
               }
             });
           }
-          // Sort options alphabetically, keeping "Other" at the end
-          const otherOpt2 = this.secondFoundationRoomsOptions.includes('Other') ? 'Other' : null;
+          // Sort options alphabetically, remove "Other"
           this.secondFoundationRoomsOptions = this.secondFoundationRoomsOptions.filter(opt => opt !== 'Other').sort((a, b) => a.localeCompare(b));
-          if (otherOpt2) this.secondFoundationRoomsOptions.push(otherOpt2);
         }
 
         // Set ThirdFoundationRooms options (fall back to FoundationRooms if not available)
         const thirdFoundationRoomsSource = optionsByService['ThirdFoundationRooms'] || optionsByService['FoundationRooms'];
         if (thirdFoundationRoomsSource && thirdFoundationRoomsSource.length > 0) {
-          this.thirdFoundationRoomsOptions = [...thirdFoundationRoomsSource];
-          if (!this.thirdFoundationRoomsOptions.includes('Other')) {
-            this.thirdFoundationRoomsOptions.push('Other');
-          }
+          this.thirdFoundationRoomsOptions = [...thirdFoundationRoomsSource].filter(opt => opt !== 'Other');
           // Normalize selections to match API options
           if (this.thirdFoundationRoomsSelections && this.thirdFoundationRoomsSelections.length > 0) {
+            this.thirdFoundationRoomsSelections = this.thirdFoundationRoomsSelections.filter(s => s !== 'Other');
             this.thirdFoundationRoomsSelections = this.thirdFoundationRoomsSelections.map(selection => {
-              if (!selection || selection === 'Other') return selection;
+              if (!selection) return selection;
               const normalizedSelection = this.normalizeForComparison(selection);
               const matchingOption = this.thirdFoundationRoomsOptions.find(opt =>
                 this.normalizeForComparison(opt) === normalizedSelection
@@ -2090,20 +2069,13 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
               if (matchingOption) {
                 return matchingOption;
               } else {
-                const otherIndex = this.thirdFoundationRoomsOptions.indexOf('Other');
-                if (otherIndex > 0) {
-                  this.thirdFoundationRoomsOptions.splice(otherIndex, 0, selection);
-                } else {
-                  this.thirdFoundationRoomsOptions.push(selection);
-                }
+                this.thirdFoundationRoomsOptions.push(selection);
                 return selection;
               }
             });
           }
-          // Sort options alphabetically, keeping "Other" at the end
-          const otherOpt3 = this.thirdFoundationRoomsOptions.includes('Other') ? 'Other' : null;
-          this.thirdFoundationRoomsOptions = this.thirdFoundationRoomsOptions.filter(opt => opt !== 'Other').sort((a, b) => a.localeCompare(b));
-          if (otherOpt3) this.thirdFoundationRoomsOptions.push(otherOpt3);
+          // Sort options alphabetically
+          this.thirdFoundationRoomsOptions = this.thirdFoundationRoomsOptions.sort((a, b) => a.localeCompare(b));
         }
 
         // Set OwnerOccupantInterview options
@@ -2304,11 +2276,12 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
         
         
         // Log details about what dropdown options are available for each TemplateID
+        // Remove "Other" from all visual multi-select dropdown options
         Object.entries(this.visualDropdownOptions).forEach(([templateId, options]) => {
-          // Add "Other" option to all multi-select dropdowns if not already present
           const optionsArray = options as string[];
-          if (!optionsArray.includes('Other')) {
-            optionsArray.push('Other');
+          const otherIdx = optionsArray.indexOf('Other');
+          if (otherIdx > -1) {
+            optionsArray.splice(otherIdx, 1);
           }
         });
       } else {
@@ -8832,13 +8805,6 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
     if (!item.selectedOptions || !Array.isArray(item.selectedOptions)) {
       return false;
     }
-    
-    // CRITICAL FIX: Check for "Other" - either explicit or via otherValue
-    if (option === 'Other') {
-      // Check if "Other" is in the array OR if there's a custom otherValue
-      return item.selectedOptions.includes('Other') || (item.otherValue && item.otherValue.trim().length > 0);
-    }
-    
     return item.selectedOptions.includes(option);
   }
   
@@ -8855,13 +8821,6 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
     if (!this.inAttendanceSelections || !Array.isArray(this.inAttendanceSelections)) {
       return false;
     }
-    
-    // Check for "Other" - either explicit or via otherValue
-    if (option === 'Other') {
-      return this.inAttendanceSelections.includes('Other') || 
-             !!(this.inAttendanceOtherValue && this.inAttendanceOtherValue.trim().length > 0);
-    }
-    
     return this.inAttendanceSelections.includes(option);
   }
   
@@ -8883,12 +8842,8 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
       if (index > -1) {
         this.inAttendanceSelections.splice(index, 1);
       }
-      // If unchecking "Other", clear the custom value
-      if (option === 'Other') {
-        this.inAttendanceOtherValue = '';
-      }
     }
-    
+
     // Convert to comma-delimited string and save
     await this.saveInAttendanceSelections();
   }
@@ -9064,10 +9019,6 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
     if (!this.secondFoundationRoomsSelections || !Array.isArray(this.secondFoundationRoomsSelections)) {
       return false;
     }
-    if (option === 'Other') {
-      return this.secondFoundationRoomsSelections.includes('Other') || 
-             !!(this.secondFoundationRoomsOtherValue && this.secondFoundationRoomsOtherValue.trim().length > 0);
-    }
     return this.secondFoundationRoomsSelections.includes(option);
   }
   
@@ -9085,11 +9036,8 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
       if (index > -1) {
         this.secondFoundationRoomsSelections.splice(index, 1);
       }
-      if (option === 'Other') {
-        this.secondFoundationRoomsOtherValue = '';
-      }
     }
-    
+
     await this.saveSecondFoundationRoomsSelections();
   }
   
@@ -9165,10 +9113,6 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
     if (!this.thirdFoundationRoomsSelections || !Array.isArray(this.thirdFoundationRoomsSelections)) {
       return false;
     }
-    if (option === 'Other') {
-      return this.thirdFoundationRoomsSelections.includes('Other') || 
-             !!(this.thirdFoundationRoomsOtherValue && this.thirdFoundationRoomsOtherValue.trim().length > 0);
-    }
     return this.thirdFoundationRoomsSelections.includes(option);
   }
   
@@ -9186,11 +9130,8 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
       if (index > -1) {
         this.thirdFoundationRoomsSelections.splice(index, 1);
       }
-      if (option === 'Other') {
-        this.thirdFoundationRoomsOtherValue = '';
-      }
     }
-    
+
     await this.saveThirdFoundationRoomsSelections();
   }
   

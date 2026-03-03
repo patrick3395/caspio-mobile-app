@@ -894,10 +894,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                 }
               });
 
-              // Convert to sorted array and add None/Other at end
-              const sortedOptions = Array.from(mergedOptions).sort((a, b) => a.localeCompare(b));
+              // Convert to sorted array and add None at end
+              const sortedOptions = Array.from(mergedOptions).filter(o => o !== 'Other').sort((a, b) => a.localeCompare(b));
               sortedOptions.push('None');
-              sortedOptions.push('Other');
 
               // Store with number key (matching type definition)
               this.visualDropdownOptions[templateIdNum] = sortedOptions;
@@ -1499,9 +1498,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         if (!options.includes('None')) {
           options.push('None');
         }
-        if (!options.includes('Other')) {
-          options.push('Other');
-        }
+        // Remove "Other" - add bar is always visible
+        const otherIdx = options.indexOf('Other');
+        if (otherIdx > -1) options.splice(otherIdx, 1);
       }
     });
 
@@ -1586,9 +1585,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             if (!options.includes('None')) {
               options.push('None');
             }
-            if (!options.includes('Other')) {
-              options.push('Other');
-            }
+            // Remove "Other" - add bar is always visible
+            const otherIdx2 = options.indexOf('Other');
+            if (otherIdx2 > -1) options.splice(otherIdx2, 1);
           }
         });
 
@@ -1697,10 +1696,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           });
         }
 
-        // Convert to sorted array and add None/Other at end
-        const sortedOptions = Array.from(mergedOptions).sort((a, b) => a.localeCompare(b));
+        // Convert to sorted array and add None at end
+        const sortedOptions = Array.from(mergedOptions).filter(o => o !== 'Other').sort((a, b) => a.localeCompare(b));
         sortedOptions.push('None');
-        sortedOptions.push('Other');
 
         this.visualDropdownOptions[field.templateId] = sortedOptions;
       }
@@ -3452,10 +3450,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                   }
                 });
 
-                // Convert to sorted array and add None/Other at end
-                const sortedOptions = Array.from(mergedOptions).sort((a, b) => a.localeCompare(b));
+                // Convert to sorted array and add None at end
+                const sortedOptions = Array.from(mergedOptions).filter(o => o !== 'Other').sort((a, b) => a.localeCompare(b));
                 sortedOptions.push('None');
-                sortedOptions.push('Other');
 
                 // Store with number key (matching type definition)
                 this.visualDropdownOptions[templateIdNum] = sortedOptions;
@@ -5715,11 +5712,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       this.selectedItems[key] = true;
     } else {
       selectedOptions = selectedOptions.filter(o => o !== option);
-      if (option === 'Other') {
-        item.otherValue = '';
-      }
-      // If no options remain selected and no "Other" value, deselect the item
-      if (selectedOptions.length === 0 && (!item.otherValue || item.otherValue === '')) {
+      // If no options remain selected, deselect the item
+      if (selectedOptions.length === 0) {
         this.selectedItems[key] = false;
       }
     }
@@ -5936,12 +5930,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       if (noneIndex > -1) {
         options.splice(noneIndex, 0, customValue);
       } else {
-        const otherIndex = options.indexOf('Other');
-        if (otherIndex > -1) {
-          options.splice(otherIndex, 0, customValue);
-        } else {
-          options.push(customValue);
-        }
+        options.push(customValue);
       }
 
       // Select the new custom value
