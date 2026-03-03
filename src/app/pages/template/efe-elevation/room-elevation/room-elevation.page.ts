@@ -1982,6 +1982,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             notes: '',
             fdf: '',
             location: '',
+            rooms: '',
             elevationPoints: this.generatePointsFromTemplate(template),
             fdfPhotos: {
               top: null, bottom: null, topDetails: null, bottomDetails: null, threshold: null,
@@ -2022,6 +2023,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           notes: room.Notes || '',
           fdf: room.FDF || '',
           location: room.Location || '',
+          rooms: room.Rooms || '',
           elevationPoints: points.map((p: any) => {
             const pointId = String(p.PointID || p.PK_ID);
             const pointPhotos = attachments
@@ -2056,6 +2058,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             topImageId: null, bottomImageId: null, thresholdImageId: null
           }
         };
+
+        // 5b. Restore any custom rooms from saved data
+        this.restoreCustomRoomOptions();
 
         // 6. Load FDF photos from room data
         await this.loadFDFPhotos(room);
@@ -2137,6 +2142,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       notes: field.notes || '',
       fdf: field.fdf || '',
       location: field.location || '',
+      rooms: field.rooms || '',
       elevationPoints: field.elevationPoints.map(ep => ({
         name: ep.name,
         pointId: ep.pointId || ep.tempPointId,  // Use real or temp ID
@@ -2161,6 +2167,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         thresholdImageId: field.fdfPhotos?.['threshold']?.imageId || null
       }
     };
+
+    // 3b. Restore any custom rooms from saved data
+    this.restoreCustomRoomOptions();
 
     // 4. All points have IDs (temp or real) - buttons should be enabled
     this.isLoadingPoints = false;
@@ -2522,6 +2531,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         notes: room.Notes || '',
         fdf: room.FDF || '',
         location: room.Location || '',
+        rooms: room.Rooms || '',
         elevationPoints: [],
         fdfPhotos: {
           top: null,
@@ -2550,6 +2560,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           thresholdPath: null
         }
       };
+
+      // Restore any custom rooms from saved data
+      this.restoreCustomRoomOptions();
 
       // PERFORMANCE: Load FDF photos and elevation points IN PARALLEL
       // This eliminates the 3-second lag by not waiting for FDF photos before loading points
@@ -4316,6 +4329,125 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       parts.pop();
       this.roomData.location = parts.join(', ');
       this.saveLocation();
+    }
+  }
+
+  // Rooms Multi-Select Methods (2nd+ Base Station)
+
+  baseStationRoomOptions: string[] = [
+    'Entry', 'Living', 'Dining', 'Kitchen', 'Primary Bedroom', 'Primary Bathroom',
+    'Primary Closet', 'Bedroom', 'Bathroom', 'Laundry', 'Garage', 'Office',
+    'Hallway', 'Theater Room'
+  ];
+
+  customRoomInput = '';
+
+  restoreCustomRoomOptions() {
+    if (!this.roomData?.rooms) return;
+    const saved = this.roomData.rooms.split(',').map((r: string) => r.trim()).filter((r: string) => r);
+    for (const room of saved) {
+      if (!this.baseStationRoomOptions.includes(room)) {
+        this.baseStationRoomOptions.push(room);
+      }
+    }
+  }
+
+  isSecondaryBaseStation(): boolean {
+    return this.roomName.toLowerCase().startsWith('base station') &&
+           this.roomName.includes('#');
+  }
+
+  getSelectedRooms(): string[] {
+    if (!this.roomData?.rooms) return [];
+    return this.roomData.rooms.split(',').map((r: string) => r.trim()).filter((r: string) => r);
+  }
+
+  isRoomSelected(option: string): boolean {
+    return this.getSelectedRooms().includes(option);
+  }
+
+  onRoomToggle(option: string, event: any) {
+    let selected = this.getSelectedRooms();
+    if (event.detail.checked) {
+      if (!selected.includes(option)) {
+        selected.push(option);
+      }
+    } else {
+      selected = selected.filter(r => r !== option);
+    }
+    this.roomData.rooms = selected.join(', ');
+    this.saveRooms();
+  }
+
+  addCustomRoom() {
+    const value = this.customRoomInput.trim();
+    if (!value) return;
+    if (!this.baseStationRoomOptions.includes(value)) {
+      this.baseStationRoomOptions.push(value);
+    }
+    let selected = this.getSelectedRooms();
+    if (!selected.includes(value)) {
+      selected.push(value);
+    }
+    this.roomData.rooms = selected.join(', ');
+    this.customRoomInput = '';
+    this.saveRooms();
+  }
+
+  async saveRooms() {
+    if (!this.roomId) return;
+
+    try {
+      const { id, isTempId } = await this.resolveRoomId();
+
+      await this.efeFieldRepo.setRoomRooms(this.serviceId, this.roomName, this.roomData.rooms);
+      await this.updateLocalEFECache({ Rooms: this.roomData.rooms });
+
+      if (environment.isWeb && !isTempId) {
+        try {
+          const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ Rooms: this.roomData.rooms })
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to update Rooms: ${errorText}`);
+          }
+        } catch (apiError: any) {
+          console.error('[RoomElevation] WEBAPP: Rooms API update failed:', apiError?.message || apiError);
+          throw apiError;
+        }
+      } else {
+        if (isTempId) {
+          await this.indexedDb.addPendingRequest({
+            type: 'UPDATE',
+            endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=DEFERRED`,
+            method: 'PUT',
+            data: { Rooms: this.roomData.rooms, _tempEfeId: this.roomId, RoomName: this.roomName },
+            dependencies: [this.roomId],
+            status: 'pending',
+            priority: 'normal',
+            serviceId: this.serviceId
+          });
+        } else {
+          await this.indexedDb.addPendingRequest({
+            type: 'UPDATE',
+            endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`,
+            method: 'PUT',
+            data: { Rooms: this.roomData.rooms, RoomName: this.roomName },
+            dependencies: [],
+            status: 'pending',
+            priority: 'normal',
+            serviceId: this.serviceId
+          });
+        }
+
+        await this.backgroundSync.refreshSyncStatus();
+      }
+    } catch (error) {
+      console.error('Error saving rooms:', error);
     }
   }
 

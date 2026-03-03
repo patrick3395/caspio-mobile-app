@@ -1935,18 +1935,34 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
    */
   async addBaseStation() {
     try {
-      const baseStationTemplate = this.allRoomTemplates.find(room =>
-        room.RoomName === 'Base Station'
-      );
-      if (!baseStationTemplate) {
+      const baseStations = this.roomTemplates.filter(r => this.isBaseStation(r.RoomName));
+
+      // 2nd+ base stations use "2nd Base Station" template (TemplateID 20) for points,
+      // but keep "Base Station" as the room name for proper numbering (Base Station #2, #3, etc.)
+      let templateToUse;
+      if (baseStations.length > 0) {
+        const secondTemplate = this.allRoomTemplates.find(room =>
+          room.RoomName === '2nd Base Station'
+        );
+        if (secondTemplate) {
+          templateToUse = { ...secondTemplate, RoomName: 'Base Station' };
+        }
+      }
+      // Fallback to original Base Station template
+      if (!templateToUse) {
+        templateToUse = this.allRoomTemplates.find(room =>
+          room.RoomName === 'Base Station'
+        );
+      }
+
+      if (!templateToUse) {
         return;
       }
       // Set lastNavigatedRoom to the last base station so the new one inserts after it
-      const baseStations = this.roomTemplates.filter(r => this.isBaseStation(r.RoomName));
       if (baseStations.length > 0) {
         this.lastNavigatedRoom = baseStations[baseStations.length - 1].RoomName;
       }
-      await this.addRoomTemplate(baseStationTemplate);
+      await this.addRoomTemplate(templateToUse);
     } catch (error) {
       console.error('[Add Base Station] Error adding base station:', error);
     }

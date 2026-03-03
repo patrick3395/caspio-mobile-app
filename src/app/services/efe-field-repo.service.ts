@@ -104,6 +104,7 @@ export class EfeFieldRepoService {
         notes: '',
         fdf: '',
         location: '',
+        rooms: '',
         elevationPoints,
         fdfPhotos: {},
         rev: 0,
@@ -159,6 +160,7 @@ export class EfeFieldRepoService {
             notes: room.Notes || existing.notes,
             fdf: room.FDF || existing.fdf,
             location: room.Location || existing.location,
+            rooms: room.Rooms || existing.rooms || '',
             updatedAt: now,
             dirty: false  // Existing data from server is not dirty
           });
@@ -178,6 +180,7 @@ export class EfeFieldRepoService {
             notes: room.Notes || '',
             fdf: room.FDF || '',
             location: room.Location || '',
+            rooms: room.Rooms || '',
             elevationPoints: [],  // Will be loaded when entering room
             fdfPhotos: {},
             rev: 0,
@@ -387,6 +390,7 @@ export class EfeFieldRepoService {
           notes: '',
           fdf: '',
           location: '',
+          rooms: '',
           elevationPoints,
           fdfPhotos: {},
           rev: 0,
@@ -577,6 +581,25 @@ export class EfeFieldRepoService {
     });
 
     // Track service revision for storage bloat prevention (Phase 3)
+    this.serviceMetadata.incrementLocalRevision(serviceId).catch(() => {});
+  }
+
+  async setRoomRooms(serviceId: string, roomName: string, rooms: string): Promise<void> {
+    const key = `${serviceId}:${roomName}`;
+
+    await db.transaction('rw', db.efeFields, async () => {
+      const existing = await db.efeFields.where('key').equals(key).first();
+
+      if (existing) {
+        await db.efeFields.update(existing.id!, {
+          rooms,
+          rev: existing.rev + 1,
+          updatedAt: Date.now(),
+          dirty: true
+        });
+      }
+    });
+
     this.serviceMetadata.incrementLocalRevision(serviceId).catch(() => {});
   }
 
@@ -984,6 +1007,7 @@ export class EfeFieldRepoService {
           notes: '',
           fdf: '',
           location: '',
+          rooms: '',
           fdfPhotos: {},
           // Reset elevation point values but keep structure
           elevationPoints: existing.elevationPoints.map(p => ({

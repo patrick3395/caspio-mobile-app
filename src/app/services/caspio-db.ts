@@ -130,6 +130,7 @@ export interface EfeField {
   notes: string;                  // Room notes
   fdf: string;                    // FDF value
   location: string;               // Location value
+  rooms: string;                  // Rooms for 2nd+ base station (comma-separated)
   elevationPoints: EfePoint[];    // Elevation points with values/photos
   fdfPhotos: { [key: string]: EfeFdfPhoto }; // FDF photos (top, bottom, etc.)
   rev: number;                    // Increment on every local write
