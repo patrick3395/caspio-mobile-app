@@ -8895,37 +8895,36 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
   
   // Handle custom "Other" input for In Attendance
   async onInAttendanceOtherChange() {
-    // Ensure "Other" is in selections when there's a custom value
     if (this.inAttendanceOtherValue && this.inAttendanceOtherValue.trim()) {
+      const customValue = this.inAttendanceOtherValue.trim();
+
       if (!this.inAttendanceSelections) {
         this.inAttendanceSelections = [];
       }
-      const otherIndex = this.inAttendanceSelections.indexOf('Other');
-      if (otherIndex > -1) {
-        // Replace "Other" with the actual custom value
-        this.inAttendanceSelections[otherIndex] = this.inAttendanceOtherValue.trim();
-      } else {
-        // Check if there's already a custom value and replace it
-        const customIndex = this.inAttendanceSelections.findIndex((opt: string) => 
-          opt !== 'Other' && !this.inAttendanceOptions.includes(opt)
-        );
-        if (customIndex > -1) {
-          this.inAttendanceSelections[customIndex] = this.inAttendanceOtherValue.trim();
+
+      // Add custom value as a new option if not already present
+      if (!this.inAttendanceOptions.includes(customValue)) {
+        const otherOptIndex = this.inAttendanceOptions.indexOf('Other');
+        if (otherOptIndex > -1) {
+          this.inAttendanceOptions.splice(otherOptIndex, 0, customValue);
         } else {
-          // Add the custom value
-          this.inAttendanceSelections.push(this.inAttendanceOtherValue.trim());
+          this.inAttendanceOptions.push(customValue);
         }
       }
-    } else {
-      // If custom value is cleared, revert to just "Other"
-      const customIndex = this.inAttendanceSelections.findIndex((opt: string) => 
-        opt !== 'Other' && !this.inAttendanceOptions.includes(opt)
-      );
-      if (customIndex > -1) {
-        this.inAttendanceSelections[customIndex] = 'Other';
+
+      // Remove "Other" from selections and add the custom value
+      this.inAttendanceSelections = this.inAttendanceSelections.filter((opt: string) => opt !== 'Other');
+      if (!this.inAttendanceSelections.includes(customValue)) {
+        this.inAttendanceSelections.push(customValue);
       }
+
+      // Clear the input field so "Other" checkbox unchecks
+      this.inAttendanceOtherValue = '';
+    } else {
+      // If custom value is cleared, just remove "Other" from selections
+      this.inAttendanceSelections = this.inAttendanceSelections.filter((opt: string) => opt !== 'Other');
     }
-    
+
     // Save the updated selections
     await this.saveInAttendanceSelections();
   }
@@ -9096,31 +9095,35 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
   
   async onSecondFoundationRoomsOtherChange() {
     if (this.secondFoundationRoomsOtherValue && this.secondFoundationRoomsOtherValue.trim()) {
+      const customValue = this.secondFoundationRoomsOtherValue.trim();
+
       if (!this.secondFoundationRoomsSelections) {
         this.secondFoundationRoomsSelections = [];
       }
-      const otherIndex = this.secondFoundationRoomsSelections.indexOf('Other');
-      if (otherIndex > -1) {
-        this.secondFoundationRoomsSelections[otherIndex] = this.secondFoundationRoomsOtherValue.trim();
-      } else {
-        const customIndex = this.secondFoundationRoomsSelections.findIndex((opt: string) => 
-          opt !== 'Other' && !this.secondFoundationRoomsOptions.includes(opt)
-        );
-        if (customIndex > -1) {
-          this.secondFoundationRoomsSelections[customIndex] = this.secondFoundationRoomsOtherValue.trim();
+
+      // Add custom value as a new option if not already present
+      if (!this.secondFoundationRoomsOptions.includes(customValue)) {
+        const otherOptIndex = this.secondFoundationRoomsOptions.indexOf('Other');
+        if (otherOptIndex > -1) {
+          this.secondFoundationRoomsOptions.splice(otherOptIndex, 0, customValue);
         } else {
-          this.secondFoundationRoomsSelections.push(this.secondFoundationRoomsOtherValue.trim());
+          this.secondFoundationRoomsOptions.push(customValue);
         }
       }
-    } else {
-      const customIndex = this.secondFoundationRoomsSelections.findIndex((opt: string) => 
-        opt !== 'Other' && !this.secondFoundationRoomsOptions.includes(opt)
-      );
-      if (customIndex > -1) {
-        this.secondFoundationRoomsSelections[customIndex] = 'Other';
+
+      // Remove "Other" from selections and add the custom value
+      this.secondFoundationRoomsSelections = this.secondFoundationRoomsSelections.filter((opt: string) => opt !== 'Other');
+      if (!this.secondFoundationRoomsSelections.includes(customValue)) {
+        this.secondFoundationRoomsSelections.push(customValue);
       }
+
+      // Clear the input field so "Other" checkbox unchecks
+      this.secondFoundationRoomsOtherValue = '';
+    } else {
+      // If custom value is cleared, just remove "Other" from selections
+      this.secondFoundationRoomsSelections = this.secondFoundationRoomsSelections.filter((opt: string) => opt !== 'Other');
     }
-    
+
     await this.saveSecondFoundationRoomsSelections();
   }
   
@@ -9193,31 +9196,35 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
   
   async onThirdFoundationRoomsOtherChange() {
     if (this.thirdFoundationRoomsOtherValue && this.thirdFoundationRoomsOtherValue.trim()) {
+      const customValue = this.thirdFoundationRoomsOtherValue.trim();
+
       if (!this.thirdFoundationRoomsSelections) {
         this.thirdFoundationRoomsSelections = [];
       }
-      const otherIndex = this.thirdFoundationRoomsSelections.indexOf('Other');
-      if (otherIndex > -1) {
-        this.thirdFoundationRoomsSelections[otherIndex] = this.thirdFoundationRoomsOtherValue.trim();
-      } else {
-        const customIndex = this.thirdFoundationRoomsSelections.findIndex((opt: string) => 
-          opt !== 'Other' && !this.thirdFoundationRoomsOptions.includes(opt)
-        );
-        if (customIndex > -1) {
-          this.thirdFoundationRoomsSelections[customIndex] = this.thirdFoundationRoomsOtherValue.trim();
+
+      // Add custom value as a new option if not already present
+      if (!this.thirdFoundationRoomsOptions.includes(customValue)) {
+        const otherOptIndex = this.thirdFoundationRoomsOptions.indexOf('Other');
+        if (otherOptIndex > -1) {
+          this.thirdFoundationRoomsOptions.splice(otherOptIndex, 0, customValue);
         } else {
-          this.thirdFoundationRoomsSelections.push(this.thirdFoundationRoomsOtherValue.trim());
+          this.thirdFoundationRoomsOptions.push(customValue);
         }
       }
-    } else {
-      const customIndex = this.thirdFoundationRoomsSelections.findIndex((opt: string) => 
-        opt !== 'Other' && !this.thirdFoundationRoomsOptions.includes(opt)
-      );
-      if (customIndex > -1) {
-        this.thirdFoundationRoomsSelections[customIndex] = 'Other';
+
+      // Remove "Other" from selections and add the custom value
+      this.thirdFoundationRoomsSelections = this.thirdFoundationRoomsSelections.filter((opt: string) => opt !== 'Other');
+      if (!this.thirdFoundationRoomsSelections.includes(customValue)) {
+        this.thirdFoundationRoomsSelections.push(customValue);
       }
+
+      // Clear the input field so "Other" checkbox unchecks
+      this.thirdFoundationRoomsOtherValue = '';
+    } else {
+      // If custom value is cleared, just remove "Other" from selections
+      this.thirdFoundationRoomsSelections = this.thirdFoundationRoomsSelections.filter((opt: string) => opt !== 'Other');
     }
-    
+
     await this.saveThirdFoundationRoomsSelections();
   }
   
@@ -9281,30 +9288,31 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
   async onMultiSelectOtherChange(category: string, item: any) {
     // CRITICAL FIX: Save just the custom value, not "Other: value"
     if (item.otherValue && item.otherValue.trim()) {
-      const otherIndex = item.selectedOptions.indexOf('Other');
-      if (otherIndex > -1) {
-        // Replace "Other" with the actual custom value
-        item.selectedOptions[otherIndex] = item.otherValue.trim();
-      } else {
-        // Check if there's already a custom value and replace it
-        const customOtherIndex = item.selectedOptions.findIndex((opt: string) => 
-          opt !== 'Other' && !this.visualDropdownOptions[item.templateId]?.includes(opt)
-        );
-        if (customOtherIndex > -1) {
-          item.selectedOptions[customOtherIndex] = item.otherValue.trim();
+      const customValue = item.otherValue.trim();
+
+      // Add custom value as a new dropdown option if not already present
+      let options = this.visualDropdownOptions[item.templateId];
+      if (options && !options.includes(customValue)) {
+        const otherOptIndex = options.indexOf('Other');
+        if (otherOptIndex > -1) {
+          options.splice(otherOptIndex, 0, customValue);
         } else {
-          // Add the custom value if not present
-          item.selectedOptions.push(item.otherValue.trim());
+          options.push(customValue);
         }
+        this.visualDropdownOptions[item.templateId] = [...options];
       }
+
+      // Remove "Other" from selections and add the custom value
+      item.selectedOptions = item.selectedOptions.filter((opt: string) => opt !== 'Other');
+      if (!item.selectedOptions.includes(customValue)) {
+        item.selectedOptions.push(customValue);
+      }
+
+      // Clear the input field so "Other" checkbox unchecks
+      item.otherValue = '';
     } else {
-      // If custom value is cleared, revert to just "Other"
-      const customOtherIndex = item.selectedOptions.findIndex((opt: string) => 
-        opt !== 'Other' && !this.visualDropdownOptions[item.templateId]?.includes(opt)
-      );
-      if (customOtherIndex > -1) {
-        item.selectedOptions[customOtherIndex] = 'Other';
-      }
+      // If custom value is cleared, just remove "Other" from selections
+      item.selectedOptions = item.selectedOptions.filter((opt: string) => opt !== 'Other');
     }
 
     // Save the updated selections

@@ -212,7 +212,7 @@
       <!-- Location Field for Base Station (above Measurements) -->
       <div class="location-field-container" *ngIf="isBaseStation()" style="margin-top: 15px;">
         <label style="font-size: 14px; font-weight: 600; display: block; margin-bottom: 8px;">
-          Location
+          Location: Zeroed Puck (Not Reel)
         </label>
         <input type="text"
                [(ngModel)]="roomData.location"
@@ -221,8 +221,8 @@
                placeholder="Enter or select location"
                style="max-width: 100%; margin-bottom: 8px;">
         <div class="location-buttons">
-          <button type="button" class="location-btn" (click)="addLocationText('Entry')">Entry</button>
-          <button type="button" class="location-btn" (click)="addLocationText('Middle of Home')">Middle of Home</button>
+          <button type="button" class="location-btn" (click)="addLocationText('Middle of Entry Door')">Middle of Entry Door</button>
+          <button type="button" class="location-btn" (click)="addLocationText('Middle of Back Door')">Middle of Back Door</button>
           <button type="button" class="location-btn location-delete-btn" (click)="deleteLastLocationWord()">Delete</button>
         </div>
       </div>
@@ -244,32 +244,31 @@
       </div>
 
       <!-- Rooms Multi-Select (2nd+ Base Station only) -->
-      <div class="rooms-multiselect-container" *ngIf="isSecondaryBaseStation()" style="margin-top: 15px;">
-        <label style="font-size: 14px; font-weight: 600; display: block; margin-bottom: 8px;">
-          Rooms for Second Base Station
-        </label>
-        <div style="display: flex; flex-wrap: wrap; gap: 4px 0;">
-          <ion-item lines="none" *ngFor="let option of baseStationRoomOptions"
-                    style="--padding-start: 0; --inner-padding-end: 8px; --min-height: 36px; flex: 0 0 33.33%; max-width: 33.33%;">
-            <ion-checkbox slot="start"
-                          [checked]="isRoomSelected(option)"
-                          (ionChange)="onRoomToggle(option, $event)"
-                          style="--size: 18px; margin-right: 8px;">
+      <div class="multi-select-container rooms-multiselect" *ngIf="isSecondaryBaseStation()">
+        <div class="multi-select-header">
+          <div class="multi-select-title">
+            <h3>Rooms for Second Base Station</h3>
+          </div>
+        </div>
+        <div class="multi-select-options">
+          <ion-item lines="none" *ngFor="let option of baseStationRoomOptions" class="option-item">
+            <ion-checkbox
+              slot="start"
+              [checked]="isRoomSelected(option)"
+              (ionChange)="onRoomToggle(option, $event); $event.stopPropagation()">
             </ion-checkbox>
-            <ion-label style="font-size: 14px;">{{ option }}</ion-label>
+            <ion-label>{{ option }}</ion-label>
           </ion-item>
         </div>
-        <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+        <div class="other-input-container other-input-inline">
           <input type="text"
                  [(ngModel)]="customRoomInput"
                  (keyup.enter)="addCustomRoom()"
-                 placeholder="Add custom room..."
-                 class="styled-input"
-                 style="flex: 1; max-width: 250px; padding: 6px 10px; font-size: 14px;">
-          <button (click)="addCustomRoom()"
-                  style="background: transparent; border: none; cursor: pointer; display: flex; align-items: center; gap: 4px; color: #666; font-size: 13px; font-weight: 600;">
-            <ion-icon name="add-circle" style="font-size: 22px; color: #666;"></ion-icon>
-            ADD CHOICE
+                 (click)="$event.stopPropagation()"
+                 placeholder="Type and press Enter..."
+                 class="styled-input other-input">
+          <button class="add-btn-inline" (click)="addCustomRoom()" title="Add">
+            <ion-icon name="add"></ion-icon>
           </button>
         </div>
       </div>

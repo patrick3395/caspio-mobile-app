@@ -2992,6 +2992,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       this.visualDropdownOptions[item.templateId] = [...options];
     }
 
+    // Remove "Other" from selections now that custom value is added
+    selectedOptions = selectedOptions.filter(o => o !== 'Other');
+
     // Update the answer
     item.answer = selectedOptions.join(', ');
 
