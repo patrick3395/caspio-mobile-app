@@ -4351,6 +4351,17 @@ export class CaspioService {
     );
   }
 
+  // LPS_Onboarding_Videos table methods
+  getOnboardingVideos(): Observable<any[]> {
+    return this.get<any>('/tables/LPS_Onboarding_Videos/records').pipe(
+      map(response => response.Result || []),
+      catchError(error => {
+        console.error('Failed to get onboarding videos:', error);
+        return of([]);
+      })
+    );
+  }
+
   // LPS_Type table methods
   getTypes(): Observable<any[]> {
     return this.get<any>('/tables/LPS_Type/records').pipe(

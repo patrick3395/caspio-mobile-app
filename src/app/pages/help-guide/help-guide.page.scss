@@ -409,6 +409,70 @@ ion-content {
   }
 }
 
+// Collapsible Section Styles (matching Company page)
+.collapsible-section {
+  background: var(--color-bg-card);
+  border-radius: 8px;
+  border: 1px solid var(--ion-border-color, #E0E0E0);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.collapsible-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 12px;
+  min-height: 60px;
+  box-sizing: border-box;
+  cursor: pointer;
+  background: var(--ion-surface-muted-background, #F5F5F5);
+  transition: background 0.2s ease;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.03);
+  }
+
+  .collapsible-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    ion-icon {
+      font-size: 18px;
+      color: var(--noble-orange, #F15A27);
+      flex-shrink: 0;
+      transition: transform 0.2s ease;
+    }
+
+    h3 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+    }
+
+    .collapsible-count {
+      font-size: 13px;
+      color: var(--color-text-secondary);
+      font-weight: 400;
+    }
+  }
+}
+
+.collapsible-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out;
+  padding: 0 24px;
+
+  &.expanded {
+    max-height: 5000px;
+    padding: 24px 24px 24px;
+    transition: max-height 0.4s ease-in;
+  }
+}
+
 // Sample Reports Tab Styles
 .reports-container {
   padding: 20px;

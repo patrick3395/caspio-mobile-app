@@ -95,40 +95,46 @@
 
   <!-- Onboarding Tab Content -->
   <div *ngIf="selectedTab === 'onboarding'" class="onboarding-container">
-    <!-- First Video -->
-    <div class="video-section">
-      <h2 class="onboarding-title">1. Introduction to Noble Partnership</h2>
-      <div class="video-wrapper">
-        <div class="video-thumbnail" (click)="openYouTubeVideo('QshYGopHdqc')">
-          <img src="https://img.youtube.com/vi/QshYGopHdqc/maxresdefault.jpg" 
-               alt="Introduction to Noble Partnership"
-               (error)="handleThumbnailError($event)">
-          <div class="play-button">
-            <ion-icon name="play-circle"></ion-icon>
-          </div>
-        </div>
-      </div>
-      <div class="video-description">
-        <p>Watch this video to learn about the Noble Partnership and how to use the inspection app effectively.</p>
+    <!-- Loading State -->
+    <div *ngIf="loadingVideos" class="skeleton-sections-container">
+      <div class="skeleton-file-section" *ngFor="let i of [1,2]">
+        <div class="skeleton-section-title"></div>
+        <div class="skeleton-preview" style="height: 200px;"></div>
       </div>
     </div>
 
-    <!-- Second Video -->
-    <div class="video-section">
-      <h2 class="onboarding-title">2. High Level Onboarding Process</h2>
-      <div class="video-wrapper">
-        <div class="video-thumbnail" (click)="openYouTubeVideo('0IW44h_8m2I')">
-          <img src="https://img.youtube.com/vi/0IW44h_8m2I/maxresdefault.jpg" 
-               alt="High Level Onboarding Process"
-               (error)="handleThumbnailError($event)">
-          <div class="play-button">
-            <ion-icon name="play-circle"></ion-icon>
+    <!-- Video Sections grouped by Category -->
+    <div *ngFor="let section of videoSections" class="collapsible-section">
+      <div class="collapsible-header" (click)="toggleSection(section)">
+        <div class="collapsible-title">
+          <ion-icon [name]="section.expanded ? 'chevron-down' : 'chevron-forward'"></ion-icon>
+          <h3>{{ section.category }}</h3>
+          <span class="collapsible-count">({{ section.videos.length }})</span>
+        </div>
+      </div>
+
+      <div class="collapsible-content" [class.expanded]="section.expanded">
+        <div *ngFor="let video of section.videos; let i = index" class="video-section">
+          <h2 class="onboarding-title">{{ i + 1 }}. {{ video.Title }}</h2>
+          <div class="video-wrapper">
+            <div class="video-thumbnail" (click)="openVideo(video.Url)">
+              <img [src]="getYouTubeThumbnail(video.Url)"
+                   [alt]="video.Title"
+                   (error)="handleThumbnailError($event)">
+              <div class="play-button">
+                <ion-icon name="play-circle"></ion-icon>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-      <div class="video-description">
-        <p>Learn about the high-level onboarding process and best practices for getting started.</p>
-      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="!loadingVideos && videoSections.length === 0" class="empty-state">
+      <ion-icon name="videocam-outline" class="empty-icon"></ion-icon>
+      <h3>No Onboarding Videos Available</h3>
+      <p>Onboarding videos will appear here once they are added.</p>
     </div>
   </div>
 

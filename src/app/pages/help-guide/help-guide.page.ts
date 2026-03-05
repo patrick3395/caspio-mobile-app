@@ -24,6 +24,18 @@ interface FileSection {
   files: FileItem[];
 }
 
+interface OnboardingVideo {
+  Title: string;
+  Url: string;
+  Category: string;
+}
+
+interface VideoSection {
+  category: string;
+  videos: OnboardingVideo[];
+  expanded: boolean;
+}
+
 @Component({
   selector: 'app-help-guide',
   templateUrl: './help-guide.page.html',
@@ -33,6 +45,8 @@ interface FileSection {
 })
 export class HelpGuidePage implements OnInit {
   fileSections: FileSection[] = [];
+  videoSections: VideoSection[] = [];
+  loadingVideos = false;
   loading = false;
   error = '';
   fileUrls: Map<string, string> = new Map(); // Cache for converted file URLs
@@ -61,6 +75,7 @@ export class HelpGuidePage implements OnInit {
 
   ngOnInit() {
     this.loadFiles();
+    this.loadOnboardingVideos();
   }
 
   async loadFiles() {
@@ -324,19 +339,57 @@ export class HelpGuidePage implements OnInit {
     this.typesCache = null;
     this.cacheTimestamp = 0;
 
-    await this.loadFiles();
+    await Promise.all([this.loadFiles(), this.loadOnboardingVideos()]);
     event.target.complete();
   }
 
-  openYouTubeVideo(videoId: string) {
-    // Open YouTube video in browser or YouTube app
-    const videoUrls: { [key: string]: string } = {
-      'QshYGopHdqc': 'https://youtu.be/QshYGopHdqc?si=fT6qjRzaS4uTa7ur',
-      '0IW44h_8m2I': 'https://youtu.be/0IW44h_8m2I?si=Hhj8zXqItjogkQkq'
-    };
-    
-    const url = videoUrls[videoId] || `https://youtu.be/${videoId}`;
-    window.open(url, '_system');
+  async loadOnboardingVideos() {
+    this.loadingVideos = true;
+    try {
+      const videos: OnboardingVideo[] = await this.caspioService.getOnboardingVideos().toPromise() || [];
+
+      // Group by Category, preserving order of first appearance
+      const categoryMap = new Map<string, OnboardingVideo[]>();
+      for (const video of videos) {
+        const cat = video.Category || 'General';
+        if (!categoryMap.has(cat)) {
+          categoryMap.set(cat, []);
+        }
+        categoryMap.get(cat)!.push(video);
+      }
+
+      this.videoSections = Array.from(categoryMap.entries()).map(([category, vids]) => ({
+        category,
+        videos: vids,
+        expanded: false
+      }));
+    } catch (error) {
+      console.error('Error loading onboarding videos:', error);
+    } finally {
+      this.loadingVideos = false;
+    }
+  }
+
+  toggleSection(section: VideoSection) {
+    section.expanded = !section.expanded;
+  }
+
+  getYouTubeVideoId(url: string): string {
+    if (!url) return '';
+    // Match youtu.be/ID, youtube.com/watch?v=ID, youtube.com/embed/ID
+    const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([a-zA-Z0-9_-]{11})/);
+    return match ? match[1] : '';
+  }
+
+  getYouTubeThumbnail(url: string): string {
+    const videoId = this.getYouTubeVideoId(url);
+    return videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : 'assets/img/video-placeholder.png';
+  }
+
+  openVideo(url: string) {
+    if (url) {
+      window.open(url, '_system');
+    }
   }
 
   handleThumbnailError(event: any) {
